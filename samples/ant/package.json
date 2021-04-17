@@ -1,0 +1,22 @@
+{
+    "name": "incyclist-ant-sample",
+    "version": "1.0.0",
+    "private": true,
+    "homepage": "./",
+    "dependencies": {
+        "gd-ant-plus": "^0.0.29",
+        "gd-eventlog": "^0.1.21",
+        "incyclist-devices": "^1.2.0"
+    },
+    "scripts": {
+        "start": "node index.js"
+    },
+    "eslintConfig": {
+        "extends": "react-app",
+        "rules": {
+            "jsx-a11y/anchor-is-valid": [
+                "off"
+            ]
+        }
+    }
+}

@@ -1,0 +1,413 @@
+import { EventLogger } from 'gd-eventlog';
+import {Daum8iSerial} from './bike'
+import {ACTUAL_BIKE_TYPE} from '../bike'
+import {asciiArrayToString, buildMessage,getAsciiArrayFromStr,ascii,hexstr,append} from './utils'
+
+if ( process.env.DEBUG===undefined)
+    console.log = jest.fn();
+
+var __reponses = [];
+
+class MockSerialPort {
+
+    
+    constructor() {
+        this.callbacks= {}
+        this.isOpen = false;
+        this.path = undefined;
+
+        this.outputQueue =  [];
+        this.flush =  jest.fn();
+        this.iv = undefined;
+
+    }
+
+    flush() {
+        this.outputQueue=[];
+    }
+    
+    open() {
+        this.isOpen = true;
+        this.iv = setInterval( ()=> {this.sendNext()},10 )
+        this.emit('open')
+    }
+
+    close() {
+        
+        this.isOpen = false;
+        this.outputQueue=[];
+        if ( this.iv) {
+            clearInterval(this.iv)
+            this.iv = undefined;
+        }
+        this.emit('close')
+    }
+
+
+    on(event,callback) {
+        this.callbacks[event]=callback;
+    }
+
+    emit(event, ...args) {
+        if ( this.callbacks[event])
+            this.callbacks[event](...args)
+    }
+
+    write( message) {
+
+        if ( message[0]===1) {
+            const cmdArr = [message[1],message[2],message[3]]
+            const cmd = asciiArrayToString(cmdArr);
+            const handler = MockSerialPort.getReponseHandler(cmd);
+            if (handler)
+                handler( message, (data)=> {
+                    this.outputQueue.push(data);
+                });
+            else {
+                console.log( 'server:no handler')
+            }
+
+        }
+    }
+
+    sendNext() {
+        
+        const onData = this.callbacks['data'];
+
+        if ( onData && this.outputQueue && this.outputQueue.length>0) {
+            const message = this.outputQueue.shift();
+
+            console.log( 'server:sending',hexstr(message))
+            onData(message);
+        }
+        else {
+            if ( onData ===  undefined)
+                console.log( 'server:onData not defined')
+
+        }
+
+    }
+
+    unpipe() {
+        delete this.callbacks['data'];
+    }
+
+    
+    pipe( transformer) {
+
+        return this;
+    }
+
+    static setResponse( command, fn ) {
+        if (!global.responses) 
+            this.reset();
+        global.responses[command] = fn;
+    }
+
+    static getReponseHandler(command) {
+        return global.responses[command];
+    }
+
+    static reset() {
+        global.responses = {};
+    }
+
+}
+
+
+
+describe( 'Daum8i', ()=> {
+    let Daum8i = Daum8iSerial;
+
+    beforeAll( ()=> {
+        if (process.env.DEBUG!==undefined && process.env.DEBUG!=='' && process.env.DEBUG!==false)
+            EventLogger.useExternalLogger ( { log: (str)=>console.log(str), logEvent:(event)=>console.log(event) } )
+    })
+
+    afterAll( ()=> {
+        EventLogger.useExternalLogger ( undefined)
+
+    })
+
+    beforeEach( ()=> {
+        MockSerialPort.reset();
+        MockSerialPort.list = ()=> { return new Promise( resolve=> resolve([ {path:'COM1'}])) }
+        Daum8i.setSerialPort( MockSerialPort);
+    })
+
+    
+
+    describe( 'functions', ()=> {
+
+        let bike;
+
+        beforeEach( async ()=>{
+            bike = new Daum8i( {port:'COM1'})
+            try {
+                await bike.saveConnect();
+            }
+            catch (err) {
+                if (process.env.DEBUG)
+                    console.log(err.message, err.stack)
+            }
+        })
+
+        afterEach( async ()=> {
+            await bike.saveClose();
+        })
+
+        test('getProtocolVersion',async ()=> {
+        
+            MockSerialPort.setResponse( 'V00' , ( command, sendData) => { sendData( [0x06]); sendData( buildMessage( 'V00', getAsciiArrayFromStr('201') ) ) } )            
+
+        
+            const version1 = await bike.getProtocolVersion();
+            const version2 = await bike.getProtocolVersion();
+            
+            expect(version1).toBe('2.01');
+            expect(version2).toBe('2.01');
+        })
+    
+        test('getDashboardVersion',async ()=> {
+            
+            MockSerialPort.setResponse( 'V70' , ( command, sendData) => { sendData( [0x06]); sendData( buildMessage( 'V70', getAsciiArrayFromStr('Version 1.380') ) ) } )
+            let version;
+
+            await bike.getDashboardVersion();
+            version = await bike.getDashboardVersion();
+            expect(version).toBe('Version 1.380');
+        })
+    
+        describe('getDeviceType',()=> {
+    
+            test('run',async ()=> {
+                MockSerialPort.setResponse( 'Y00' , ( command, sendData) => { sendData( [0x06]); sendData( buildMessage( 'Y00', getAsciiArrayFromStr('0') ))})
+                const deviceType = await bike.getDeviceType()
+                expect(deviceType).toBe('run');    
+            })
+    
+            test('bike',async ()=> {
+                MockSerialPort.setResponse( 'Y00' , ( command, sendData) => { sendData( [0x06]); sendData( buildMessage( 'Y00', getAsciiArrayFromStr('2') ))})
+                const deviceType = await bike.getDeviceType()
+                expect(deviceType).toBe('bike');
+            })
+    
+            test('lyps',async ()=> {
+                MockSerialPort.setResponse( 'Y00' , ( command, sendData) => { sendData( [0x06]); sendData( buildMessage( 'Y00', getAsciiArrayFromStr('7') ))})
+                const deviceType = await bike.getDeviceType()
+                expect(deviceType).toBe('lyps');
+            })
+    
+    
+            test('unknown value',async ()=> {
+                MockSerialPort.setResponse( 'Y00' , ( command, sendData) => { sendData( [0x06]); sendData( buildMessage( 'Y00', [5] ))})
+                let error;
+                try {
+                    await bike.getDeviceType()
+                }
+                catch(err) { error=err}
+                expect(error.message).toBe('unknown device type 5');
+            })
+    
+    
+        })
+    
+    
+        describe('getActualDeviceType',()=> {
+                
+            test('allround',async ()=> {
+                MockSerialPort.setResponse( 'M72' , ( command, sendData) => { sendData( [0x06]); sendData( buildMessage( 'M72', '0' ))})
+                const deviceType = await bike.getActualBikeType()
+                expect(deviceType).toBe(ACTUAL_BIKE_TYPE.ALLROUND);    
+            })
+    
+            test('bike',async ()=> {
+                MockSerialPort.setResponse( 'M72' , ( command, sendData) => { sendData( [0x06]); sendData( buildMessage( 'M72', '1' ))})
+                const deviceType = await bike.getActualBikeType()
+                expect(deviceType).toBe(ACTUAL_BIKE_TYPE.RACE);
+            })
+    
+            test('lyps',async ()=> {
+                MockSerialPort.setResponse( 'M72' , ( command, sendData) => { sendData( [0x06]); sendData( buildMessage( 'Y00', '2' ))})
+                const deviceType = await bike.getActualBikeType()
+                expect(deviceType).toBe(ACTUAL_BIKE_TYPE.MOUNTAIN);
+            })
+    
+    
+            test('unknown numeric value',async ()=> {
+                MockSerialPort.setResponse( 'M72' , ( command, sendData) => { sendData( [0x06]); sendData( buildMessage( 'Y00', 5 ))})
+                let error;
+                try {
+                    await bike.getActualBikeType()
+                }
+                catch(err) { error=err}
+                expect(error.message).toBe('unknown actual device type 5');
+            })
+    
+            test('unknown string value',async ()=> {
+                MockSerialPort.setResponse( 'M72' , ( command, sendData) => { sendData( [0x06]); sendData( buildMessage( 'Y00', '5' ))})
+                let error;
+                try {
+                    await bike.getActualBikeType()
+                }
+                catch(err) { error=err}
+                expect(error.message).toBe(`unknown actual device type 53`);
+            })
+    
+            test('ACK timeout',async ()=> {
+                bike.settings.serial = {timeout:200};
+                MockSerialPort.setResponse( 'M72' , ( command, sendData) => { })
+
+                const call = () => {                    
+                    const res = bike.getActualBikeType();
+                    return res;
+
+                }
+    
+                let error;
+                try {
+                    await call();
+                }
+                catch(err) { error=err}
+                expect(error.message).toBe('ACK timeout');
+            },10000)
+
+            test('response timeout',async ()=> {
+                bike.settings.serial = {timeout:200};
+                bike.sendRetryDelay = 100;
+                MockSerialPort.setResponse( 'M72' , ( command, sendData) => { sendData( [0x06]); })
+
+                const call = () => {                    
+                    const res = bike.getActualBikeType();
+                    return res;
+
+                }
+    
+                let error;
+                try {
+                    await call();
+                }
+                catch(err) { error=err}
+
+                // TODO: verify that command was retried 3 times
+                expect(error.message).toBe('timeout');
+            },1000)
+
+
+            test('response timeout - no ACK',async ()=> {
+                bike.settings.serial = {timeout:200};
+                bike.sendRetryDelay = 100;
+
+                const call = () => {                    
+                    const res = bike.getActualBikeType();
+                    return res;
+
+                }
+    
+                let error;
+                try {
+                    await call();
+                }
+                catch(err) { error=err}
+
+                // TODO: verify that command was retried 3 times
+                expect(error.message).toBe('ACK timeout');
+            },1000)
+
+
+        })
+
+        test('setGear',async ()=> {
+            MockSerialPort.setResponse( 'M71' , ( command, sendData) => { sendData( [0x06]); sendData( buildMessage('M71','12') ) } )
+            const gear = await bike.setGear(11)
+            expect(gear).toBe(11);    
+        })
+
+        test('getGear',async ()=> {
+            
+            // mock always return 10, regardless which gear was sent
+            MockSerialPort.setResponse( 'M71' , ( command, sendData) => { sendData( [0x06]); sendData(  buildMessage( 'M71','10') ) } )
+
+            const gear = await bike.getGear()
+            expect(gear).toBe(10);
+        })
+
+        test('setPower',async ()=> {
+            MockSerialPort.setResponse( 'S23' , ( command, sendData) => { sendData( [0x06]); sendData( buildMessage('S23','120') ) } )
+            const power = await bike.setPower(120)
+            expect(power).toBe(120);    
+        })
+
+    
+    })
+
+
+    describe( 'concurrency', ()=> {
+        let bike;
+
+        beforeEach( async ()=>{
+            bike = new Daum8i( {port:'COM1'})
+            try {
+                await bike.saveConnect();
+            }
+            catch (err) {
+                //
+            }
+        })
+
+        afterEach( async ()=> {
+            await bike.saveClose();
+        })
+
+        test('getPower & GetTraings',async ()=> {
+            
+            function trainingData() {
+
+                const GS = 0x1D
+                let payload = [];
+                append(payload, getAsciiArrayFromStr('10'));payload.push(GS); // time
+                append(payload, getAsciiArrayFromStr('99'));payload.push(GS); // heartrate
+                append(payload, getAsciiArrayFromStr('30.0'));payload.push(GS); // speed
+                append(payload, getAsciiArrayFromStr('0'));payload.push(GS); // slope        
+                append(payload, getAsciiArrayFromStr('100'));payload.push(GS); // distance
+                append(payload, getAsciiArrayFromStr('90.1'));payload.push(GS); // cadence
+                append(payload, getAsciiArrayFromStr('30'));payload.push(GS); // power
+                append(payload, getAsciiArrayFromStr('130.2'));payload.push(GS); // physEnergy
+                append(payload, getAsciiArrayFromStr('130.3'));payload.push(GS); // realEnergy
+                append(payload, getAsciiArrayFromStr('13.1'));payload.push(GS); // torque
+                append(payload, getAsciiArrayFromStr('11'));payload.push(GS); // gear
+                append(payload, getAsciiArrayFromStr('1'));payload.push(GS); // deviceState
+                append(payload, getAsciiArrayFromStr('0')) // speedStatus
+                return payload;    
+            }
+            
+
+
+            // mock always return 10, regardless which gear was sent
+            MockSerialPort.setResponse( 'S23' , ( command, sendData) => { sendData( [0x06]); sendData(  buildMessage( 'S23','50.0') ) } )
+            MockSerialPort.setResponse( 'X70' , ( command, sendData) => { sendData( [0x06]); sendData( buildMessage( 'X70', trainingData() ))} )
+
+            let error = undefined;
+            const run = ( ()  => {
+                return new Promise( (resolve,reject) =>  {
+    
+                    Promise.all ( [
+                        bike.setPower(50),                        
+                        bike.getTrainingData( )
+                    ])
+                    .then( values => resolve(values))
+                    .catch (err => {  error = err; resolve({})})
+                })
+    
+                
+            });
+        
+            await run();
+            expect(error).toBeUndefined();
+        },5000)
+
+    
+    })
+
+
+})
