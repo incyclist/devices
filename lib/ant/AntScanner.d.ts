@@ -1,0 +1,51 @@
+import { EventLogger } from "gd-eventlog";
+import DeviceProtocol from "../DeviceProtocol";
+import AntAdapter from "./AntAdapter";
+declare type ScanState = {
+    isScanning: boolean;
+    timeout?: number;
+    iv?: any;
+    stick: any;
+};
+declare type AntAdapterInfo = {
+    name: string;
+    Adapter: any;
+};
+export declare class AntProtocol extends DeviceProtocol {
+    logger: EventLogger;
+    ant: any;
+    activeScans: Record<string, ScanState>;
+    profiles: Array<AntAdapterInfo>;
+    sensors: any;
+    sticks: Array<any>;
+    constructor(antClass: any);
+    getAnt(): any;
+    getName(): string;
+    getInterfaces(): string;
+    isBike(): boolean;
+    isHrm(): boolean;
+    isPower(): boolean;
+    isScanning(): boolean;
+    getSupportedProfiles(): string[];
+    getUSBDeviceInfo(d: any): {
+        port: string;
+        vendor: any;
+        product: any;
+        inUse: any;
+    };
+    getStickInfo(sticks: any): any;
+    findStickByPort(port: any): any;
+    logStickInfo(): void;
+    getStick(): any;
+    getSticks(): Promise<Array<any>>;
+    closeStick(stick: any): Promise<unknown>;
+    stopScanOnStick(stickInfo: any): Promise<boolean>;
+    scanOnStick(stickInfo: any, props?: any): Promise<unknown>;
+    scan(props: any): Promise<void>;
+    stopScan(): Promise<boolean>;
+    attachSensors(d: AntAdapter | Array<AntAdapter>, SensorClass: any, message: any): Promise<unknown>;
+    detachSensor(adapter: AntAdapter): Promise<unknown>;
+    closeSensor(device: any): Promise<void>;
+}
+export declare function AntScanner(antClass: any): any;
+export {};

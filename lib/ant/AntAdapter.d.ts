@@ -1,0 +1,38 @@
+import Device from "../Device";
+import { EventLogger } from 'gd-eventlog';
+export declare const DEFAULT_UPDATE_FREQUENCY = 1000;
+export default class AntAdapter extends Device {
+    paused: boolean;
+    ignoreHrm: boolean;
+    ignoreBike: boolean;
+    ignorePower: boolean;
+    deviceID: string;
+    port: string;
+    stick: any;
+    channel: number;
+    sensor: any;
+    deviceData: any;
+    data: any;
+    logger: EventLogger;
+    lastUpdate?: number;
+    updateFrequency: number;
+    constructor(protocol: any);
+    setSensor(sensor: any): void;
+    getID(): string;
+    setIgnoreHrm(ignore: any): void;
+    setIgnoreBike(ignore: any): void;
+    setIgnorePower(ignore: any): void;
+    getProfile(): void;
+    getPort(): string;
+    setChannel(channel: any): void;
+    setStick(stick: any): void;
+    onDeviceData(data: any): void;
+    onDeviceEvent(data: any): void;
+    onAttached(): void;
+    update(): void;
+    check(): void;
+    connect(): void;
+    close(): void;
+    pause(): Promise<boolean>;
+    resume(): Promise<boolean>;
+}

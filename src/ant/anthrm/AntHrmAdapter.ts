@@ -43,7 +43,7 @@ export default class AntHrmAdapter extends AntAdapter {
         try {
             if ( this.onDataFn && !this.ignoreHrm && !this.paused) {
                 if (!this.lastUpdate || (Date.now()-this.lastUpdate)>this.updateFrequency) {
-                    console.log( '~~deviceData',deviceData)
+                    this.logger.logEvent( {message:'onDeviceData',data:deviceData})
 
                     const data = this.updateData(this.data,deviceData)
                     this.onDataFn(data)

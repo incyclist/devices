@@ -2,13 +2,15 @@ import { EventLogger } from 'gd-eventlog';
 import AntAdapter from '../AntAdapter';
 import { AntProtocol } from '../AntScanner';
 import {getBrand} from '../utils'
-import {Queue,hexstr} from '../../utils'
+import {Queue,hexstr, runWithRetries} from '../../utils'
 
 const floatVal = (d) => d ? parseFloat(d) :d
 const intVal = (d) => d ? parseInt(d) :d
 
 const TIMEOUT_ACK = 5000;
 const TIMEOUT_START = 10000;
+const DEFAULT_USER_WEIGHT = 75;
+const DEFAULT_BIKE_WEIGHT = 12.75;
 
 export default class AntFEAdapter extends AntAdapter {
 
@@ -69,6 +71,8 @@ export default class AntFEAdapter extends AntAdapter {
         try {
             if ( this.onDataFn && !(this.ignoreHrm && this.ignoreBike && this.ignorePower) && !this.paused) {
                 if (!this.lastUpdate || (Date.now()-this.lastUpdate)>this.updateFrequency) {
+                    this.logger.logEvent( {message:'onDeviceData',data:deviceData})
+
                     this.data = this.updateData(this.data,deviceData)
                     const data = this.transformData(this.data);                    
                     this.onDataFn(data)
@@ -82,38 +86,43 @@ export default class AntFEAdapter extends AntAdapter {
 
     onDeviceEvent(data) {
         try {
-            let stick = this.stick;
-            const msg = this.currentCmd && this.currentCmd.msg ? this.currentCmd.msg.readUInt8(2): '';
 
-            const cmdInfo = this.currentCmd || {};
+            const cmdInfo = this.currentCmd;
+            if (!cmdInfo)
+                return;
+
+            const msg = cmdInfo.msg.readUInt8(2);
             const Constants = this.getProtocol().getAnt().Constants;
             const {expectedResponse} = cmdInfo;
 
-            if ( this.currentCmd!==undefined && data.message===msg && expectedResponse===undefined && data.code===0 /*Constants.EVENT_TRANSFER_TX_COMPLETED*/) {
-                this.currentCmd.response = { success:true }
-                return;
+            if ( data.message===msg) {
+                if ( expectedResponse===undefined && data.code===Constants.EVENT_TRANSFER_TX_COMPLETED) {
+                    this.currentCmd.response = { success:true }
+                    return;
+                }
+    
+                if ( expectedResponse===undefined && data.code!==Constants.EVENT_TRANSFER_TX_COMPLETED) {
+                    this.currentCmd.response = { success:false}
+                    return;
+                }
             }
 
-            if ( this.currentCmd!==undefined && data.message===msg && data.code!==0 /*Constants.EVENT_TRANSFER_TX_COMPLETED*/) {
-                this.currentCmd.response = { success:false}
-                return;
+            if ( data.message===1) {
+                if ( expectedResponse!==undefined && data.code===expectedResponse) {
+                    this.currentCmd.response = { success:true }
+                    return;
+                }
+                if ( expectedResponse===undefined && (data.code===Constants.EVENT_TRANSFER_TX_COMPLETED || data.code===3) ) {
+                    this.currentCmd.response = { success:true }
+                    return;
+                }    
+                if ( data.code===Constants.EVENT_TRANSFER_TX_FAILED)  { 
+                    this.stick.write(this.currentCmd.msg);
+                    this.currentCmd.response = { success:false }
+                    return;
+                }
             }
 
-            if ( this.currentCmd!==undefined && data.message===1 && expectedResponse===undefined && (data.code===5 || data.code===3) /*Constants.EVENT_TRANSFER_TX_COMPLETED*/) {
-                this.currentCmd.response = { success:true }
-                return;
-            }
-            if ( this.currentCmd!==undefined && data.message===1 && expectedResponse!==undefined && data.code===expectedResponse) {
-                this.currentCmd.response = { success:true }
-                return;
-            }
-
-
-            if ( this.currentCmd!==undefined && data.message===1 && data.code===6 /*Constants.EVENT_TRANSFER_TX_FAILED*/)  { 
-                this.stick.write(this.currentCmd.msg);
-                this.currentCmd.response = { success:false }
-                return;
-            }
             if ( this.currentCmd!==undefined && data.message===Constants.MESSAGE_CHANNEL_ACKNOWLEDGED_DATA && data.code===31) {
                 this.logger.log("could not send (TRANSFER_IN_PROGRESS)");
                 return;
@@ -211,24 +220,31 @@ export default class AntFEAdapter extends AntAdapter {
                     const iv = setInterval( async ()=>{
                         if ( this.connected) {
                             clearInterval(iv);
-                            try {
-                                await this.sendTrackResistance(0.0);
-                                await this.sendUserConfiguration( opts.userWeight||72, opts.bikeWeight||12.75, opts.wheelDiameter, opts.gearRatio);
-                            }
-                            catch(err) {
-                                console.log('~~~err:',err)
-                            }
-                            this.started = true;
-                            this.starting = false;
-                            resolve(true)
+    
+                            return runWithRetries( async ()=>{
+                                try {
+                                    await this.sendTrackResistance(0.0);
+                                    await this.sendUserConfiguration( opts.userWeight||DEFAULT_USER_WEIGHT, opts.bikeWeight||DEFAULT_BIKE_WEIGHT, opts.wheelDiameter, opts.gearRatio);
+
+                                    this.started = true;
+                                    this.starting = false;
+                                    resolve(true)
+        
+                                    }
+                                catch(err) {
+                                    throw err
+                                }
+                    
+                            }, 3, 1000 )
+                    
                         }
                         else if ( (Date.now()-tsStart)>TIMEOUT_START) {
                             clearInterval(iv);
-                            this.started = true;
                             try {
                                 await protocol.detachSensor(this);
                             }
                             catch(err){}
+                            this.started = false;
                             this.starting = false;
                             reject( new Error('timeout'))
 

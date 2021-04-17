@@ -64,7 +64,6 @@ export default class AntAdapter extends Device {
     }
 
     setChannel(channel) {
-        console.log('~~setChannel',this.getName(),channel)
         this.channel = channel;
     }
 

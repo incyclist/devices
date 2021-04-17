@@ -1,0 +1,36 @@
+import AntAdapter from '../AntAdapter';
+import { Queue } from '../../utils';
+export default class AntFEAdapter extends AntAdapter {
+    started: boolean;
+    starting: boolean;
+    connected: boolean;
+    distanceInternal?: number;
+    queue?: Queue<any>;
+    workerId?: any;
+    currentCmd?: any;
+    constructor(DeviceID: any, port: any, stick: any, protocol: any);
+    isBike(): boolean;
+    isHrm(): boolean;
+    isPower(): boolean;
+    getProfile(): string;
+    getName(): string;
+    getDisplayName(): string;
+    onAttached(): void;
+    onDeviceData(deviceData: any): void;
+    onDeviceEvent(data: any): void;
+    updateData(data: any, deviceData: any): any;
+    transformData(bikeData: any): any;
+    start(props?: any): Promise<unknown>;
+    stop(): Promise<boolean>;
+    sendUpdate(request: any): Promise<void>;
+    send(msg: any, logStr: any, callback?: any, expectedResponse?: any): void;
+    sendAsync(msg: any, logStr: any, expectedResponse: any): Promise<unknown>;
+    startWorker(): void;
+    stopWorker(): void;
+    sendFromQueue(): void;
+    sendUserConfiguration(userWeight: any, bikeWeight: any, wheelDiameter: any, gearRatio: any): Promise<unknown>;
+    sendBasicResistance(resistance: any): Promise<unknown>;
+    sendTargetPower(power: any): Promise<unknown>;
+    sendWindResistance(windCoeff: any, windSpeed: any, draftFactor: any): Promise<unknown>;
+    sendTrackResistance(slope: any, rrCoeff?: any): Promise<unknown>;
+}
