@@ -5,6 +5,9 @@ export default class Device {
     selected: boolean;
     onDataFn: any;
     constructor(proto: any);
+    isBike(): void;
+    isPower(): void;
+    isHrm(): void;
     getID(): void;
     getDisplayName(): void;
     getName(): void;

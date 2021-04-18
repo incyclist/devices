@@ -67,29 +67,33 @@ export function getGender(sex) {
 }
 
 export function getLength( length) {
-    if (length===undefined)
+    if (length===undefined || length===null)
         return 180; // average european
-    length = Number.parseInt(length);
 
-    if (length<100)
+    let l = Math.round(length);
+
+    if (l<100)
         return 100;
-    if (length>220)
+    if (l>220)
         return 220;
 
-    return length;
+    return l;
 }
 
-export function getWeight( weight) {
-    if (weight===undefined)
+export function getWeight(weight?) {
+    if (weight===undefined || weight===null)
         return 80; // average european
 
-    weight = Number.parseInt(weight);
-    if (weight<10)
+    let m = Math.round(weight);
+    if (isNaN(m))
+        return 80;
+
+    if (m<10)
         return 10;
-    if (weight>250)
+    if (m>250)
         return 250;
 
-    return weight;
+    return m;
 }
 
 export function parseRunData( data) {

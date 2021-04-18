@@ -240,7 +240,6 @@ export default class DaumAdapterBase extends Device implements DaumAdapter  {
             this.data = this.transformData(data);
 
             if ( this.onDataFn) {
-                console.log( '~~~updateBike:',this.ignoreHrm, this.data)
                 this.onDataFn(this.data)
             }
         })

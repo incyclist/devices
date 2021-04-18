@@ -2,8 +2,8 @@ export declare function getCockpit(c: any): "Cardio" | "Fitness" | "Vita De Luxe
 export declare function getBikeType(type: any): 1 | 0;
 export declare function getAge(birthday: any): number;
 export declare function getGender(sex: any): 1 | 2;
-export declare function getLength(length: any): any;
-export declare function getWeight(weight: any): any;
+export declare function getLength(length: any): number;
+export declare function getWeight(weight?: any): number;
 export declare function parseRunData(data: any): any;
 export declare function buildError(status: any, err: any): any;
 export declare function hexstr(arr: any, start?: any, len?: any): string;

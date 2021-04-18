@@ -1,4 +1,4 @@
-import IndoorBikeProcessor from '../indoorbike.js'
+import IndoorBikeProcessor from '../indoorbike'
 import {EventLogger} from 'gd-eventlog'
 import {hexstr, getCockpit,getBikeType,getAge,getGender,getLength,getWeight,buildError,Float32ToIntArray, parseRunData} from './utils'
 import {Queue} from '../../utils'
@@ -12,7 +12,7 @@ const TIMEOUT_CLOSE = 5000;    // 5s
 const TIMEOUT_SEND  = 2000;    // 2s
 var SerialPort = undefined;
 
-/*
+
 type SuccessCallbackFn = (data: any) => void
 type ErrorCallbackFn = (status:number,error: any) => void
 
@@ -25,11 +25,11 @@ interface CommandInstructions {
     callbackErr: ErrorCallbackFn,
     options?: any
 }
-*/
+
 
 export default class Daum8008  {
 
-    /*
+    
     logger: EventLogger;
 
     portName: string;
@@ -48,8 +48,8 @@ export default class Daum8008  {
     bikeCmdWorker: any;
     cmdStart: number;
     cmdCurrent: any;
-*/
-    constructor( opts={} ) {
+
+    constructor( opts={} as any ) {
         
         this.logger = new EventLogger('DaumClassic');
 
@@ -369,7 +369,7 @@ export default class Daum8008  {
         this.send(cmd);
     }
 
-    sendDaum8008Command( logStr, payload, expected, callback,callbackErr, options) {        
+    sendDaum8008Command( logStr, payload, expected, callback?,callbackErr?, options?) {        
         let cmdInfo = {
             logStr,
             payload,
@@ -521,12 +521,14 @@ export default class Daum8008  {
     }
 
 
-    setPerson(user={} ,bikeNo=0) {
+    setPerson(user={} as any,bikeNo=0) {
         const age = user.age!==undefined ? user.age : getAge(user.birthday) ;
         const gender = getGender( user.sex) ;    
         const length = getLength( user.length) ;  
-        const weight = getWeight( user.weight) +10; // adding weight of bike    
 
+        const mUser = user.weight || 80;
+        const weight = getWeight( mUser)+10; // adding weight of bike    
+        
         var cmd = [0x24,bikeNo,0];
         cmd.push( age );
         cmd.push( gender );    

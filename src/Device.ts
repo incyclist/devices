@@ -16,6 +16,10 @@ export default class Device {
         this.onDataFn = undefined;
     }
 
+    isBike() {}
+    isPower() {}
+    isHrm() {}
+    
     getID() {}
     getDisplayName() { return this.getName() }
     getName() {}

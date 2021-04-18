@@ -68,7 +68,6 @@ export default class DaumClassicAdapter extends DaumAdapter{
                 this.setName('Daum '+info.cockpit);
                 this.setID(info.serialNo);
 
-                console.log( 'found', info)
                 resolve(info)               
             }
             catch (err) {

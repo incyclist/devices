@@ -5,9 +5,11 @@ const {DeviceRegistry,INTERFACE} = require('../../lib/DeviceSupport');
 const logger = new EventLogger('DaumClassicSample')
 const DEFAULT_SCAN_TIMEOUT = 10000; 
 
+const _devices = [];
 
 const onDeviceFound = (device,protocol) => {
     console.log(device.getName())
+    _devices.push(device);
     logger.logEvent( {message: 'device found',name:device.getName(),port:device.getPort(), protocol:protocol.getName()})
 }
 
@@ -40,7 +42,7 @@ function scan(timeout=DEFAULT_SCAN_TIMEOUT) {
                 const iv= setInterval( ()=>{ 
                     if( !scanner.isScanning()) {
                         clearInterval(iv)
-                        resolve(true)
+                        resolve(_devices)
                     }
                 },100)
             }, timeout)

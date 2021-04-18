@@ -20,7 +20,7 @@ export class Simulator extends Device {
     limit: any
     startProps?: any;
 
-    constructor (protocol) {
+    constructor (protocol?) {
         const proto = protocol || DeviceRegistry.findByName('Simulator');
         super(proto);
 
@@ -36,13 +36,13 @@ export class Simulator extends Device {
         this.limit = {};
     }
 
-    getName() {
-        return Simulator.NAME
-    }
+    isBike() { return true;}
+    isHrm() { return false;}
+    isPower() { return true;}
 
-    getPort() {
-        return 'local'
-    }
+    getID() { return Simulator.NAME }
+    getName() { return Simulator.NAME }
+    getPort() { return 'local'}
 
     start(props?: any)  {
         this.startProps = props;
@@ -71,13 +71,8 @@ export class Simulator extends Device {
 
             this.logger.logEvent({message:'stop',iv:this.iv});      
             this.started = false;
-            try {
-                clearInterval(this.iv);
-                this.iv=undefined
-            }
-            catch (err) {
-                this.logger.logEvent({message:'stop Error',error:err.message});      
-            }
+            clearInterval(this.iv);
+            this.iv=undefined
             this.paused=undefined;
             resolve(true)
         })
@@ -87,12 +82,25 @@ export class Simulator extends Device {
     pause(): Promise<boolean> {
         return new Promise( (resolve, reject) => {
             //const error = (data,err) => callback ? callback(data,err ) : reject(err) 
+            if (!this.started)
+                return reject( new Error('illegal state - pause() has been called before start()'));
 
             this.logger.logEvent({message:'pause',iv:this.iv});      
             this.paused = true;
             resolve(true)
         })
+    }
 
+    resume(): Promise<boolean> {
+        return new Promise( (resolve, reject) => {
+            //const error = (data,err) => callback ? callback(data,err ) : reject(err) 
+            if (!this.started)
+                reject( new Error('illegal state - resume() has been called before start()'));
+
+            this.logger.logEvent({message:'resume',iv:this.iv});      
+            this.paused = false;
+            resolve(true)
+        })
     }
 
     toggle() : Promise<boolean> {
@@ -138,29 +146,32 @@ export class Simulator extends Device {
         let timespan = this.time-prevTime; 
 
         if ( this.limit.slope) {
-            this.slope = this.limit.slope;
+            this.slope = this.limit.slope
         }
         
         if ( this.speed===undefined )                 
             this.speed = 30;
         this.power = Calculations.calculatePower(75,this.speed/3.6,this.slope);    
 
+        if ( this.limit.targetPower) {
+            this.power = this.limit.targetPower;
+            this.speed = Calculations.calculateSpeed(75, this.power, this.slope)
+        }
+        
         if ( this.limit.maxPower && this.power>this.limit.maxPower) {
             this.power = this.limit.maxPower;
             this.speed = Calculations.calculateSpeed(75, this.power, this.slope)
         }
-        if ( this.limit.minPower && this.power<this.limit.minPower) {
+        else if ( this.limit.minPower && this.power<this.limit.minPower) {
             this.power = this.limit.minPower;
             this.speed = Calculations.calculateSpeed(75, this.power, this.slope)
         }
 
-
-
         let distance = this.calculateDistance(this.speed, timespan/1000)
 
         let data = { speed:this.speed, cadence:Math.round(this.cadence), power:Math.round(this.power),  timespan, distance  }
-        if( this.onData) {
-            this.onData(data )
+        if( this.onDataFn) {
+            this.onDataFn(data )
         }
         
     }
@@ -170,12 +181,18 @@ export class Simulator extends Device {
     }
 
 
-    sendUpdate(request) {
+    sendUpdate( request ) {
         this.logger.logEvent({message:'bike update request',request})
 
-        this.limit = request;
-        
+        const r = request || { refresh:true} as any
+        if ( r.refresh) {
+            if (Object.keys(r).length===1)
+                return this.limit;
+            delete r.refresh;
+        }
 
+        this.limit = r;
+        return this.limit;
     }
 
 
