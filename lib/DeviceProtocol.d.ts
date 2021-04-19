@@ -6,25 +6,49 @@ export declare const INTERFACE: {
     TCPIP: string;
     SIMULATOR: string;
 };
-declare type DeviceFoundCallback = (device: any, protocol: DeviceProtocol) => void;
-declare type ScanFinishedCallback = (id: number) => void;
+export declare type Device = {
+    getID(): string;
+    getName(): string;
+    getPort(): string;
+    getProtocol(): DeviceProtocol;
+    getProtocolName(): string;
+};
+export declare type DeviceFoundCallback = (device: Device, protocol: DeviceProtocolBase) => void;
+export declare type ScanFinishedCallback = (id: number) => void;
 export declare type ScanProps = {
     id: number;
     onDeviceFound?: DeviceFoundCallback;
     onScanFinished?: ScanFinishedCallback;
 };
-export default class DeviceProtocol {
-    devices: Array<any>;
-    constructor();
-    getName(): void;
-    getInterfaces(): void;
-    isBike(): void;
-    isHrm(): void;
-    isPower(): void;
+export interface DeviceProtocol {
+    getName(): string;
+    getInterfaces(): Array<string>;
+    isBike(): boolean;
+    isHrm(): boolean;
+    isPower(): boolean;
     scan(props: ScanProps): void;
     stopScan(): void;
-    isScanning(): void;
-    getDevices(): any[];
+    isScanning(): boolean;
+    getDevices(): Array<any>;
+    setAnt(antClass: any): void;
+    getAnt(): any;
+    setSerialPort(serialClass: any): void;
+    getSerialPort(): any;
+    setNetImpl(netClass: any): void;
+    getNetImpl(): any;
+}
+export default class DeviceProtocolBase {
+    devices: Array<Device>;
+    constructor();
+    getName(): string;
+    getInterfaces(): Array<string>;
+    isBike(): boolean;
+    isHrm(): boolean;
+    isPower(): boolean;
+    scan(props: ScanProps): void;
+    stopScan(): void;
+    isScanning(): boolean;
+    getDevices(): Array<Device>;
     setAnt(antClass: any): void;
     getAnt(): any;
     setSerialPort(serialClass: any): void;
@@ -38,4 +62,3 @@ export default class DeviceProtocol {
     static setNetImpl(netClass: any): void;
     static getNetImpl(): any;
 }
-export {};

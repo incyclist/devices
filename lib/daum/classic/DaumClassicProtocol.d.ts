@@ -1,4 +1,4 @@
-import DeviceProtocol, { ScanProps } from '../../DeviceProtocol';
+import DeviceProtocolBase, { ScanProps, DeviceProtocol } from '../../DeviceProtocol';
 import { EventLogger } from 'gd-eventlog';
 export interface DaumClassicProtocolState {
     activeScans: Array<any>;
@@ -8,12 +8,12 @@ export interface DaumClassicProtocolState {
 export interface DaumClassicScanProps extends ScanProps {
     port: string;
 }
-export default class DaumClassicProtocol extends DeviceProtocol {
+export default class DaumClassicProtocol extends DeviceProtocolBase implements DeviceProtocol {
     logger: EventLogger;
     state: DaumClassicProtocolState;
     constructor();
     getName(): string;
-    getInterfaces(): string[];
+    getInterfaces(): Array<string>;
     isBike(): boolean;
     isHrm(): boolean;
     isPower(): boolean;

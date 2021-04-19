@@ -1,7 +1,7 @@
-import DeviceProtocol from '../DeviceProtocol';
-import Device from '../Device';
+import DeviceProtocolBase from '../DeviceProtocol';
+import DeviceAdapter from '../Device';
 import { EventLogger } from 'gd-eventlog';
-export declare class Simulator extends Device {
+export declare class Simulator extends DeviceAdapter {
     static NAME: string;
     logger: EventLogger;
     speed: number;
@@ -32,7 +32,7 @@ export declare class Simulator extends Device {
     calculateDistance(speedKps: any, timeS: any): number;
     sendUpdate(request: any): any;
 }
-export default class SimulatorProtocol extends DeviceProtocol {
+export default class SimulatorProtocol extends DeviceProtocolBase {
     static NAME: string;
     constructor();
     getName(): string;
@@ -40,5 +40,5 @@ export default class SimulatorProtocol extends DeviceProtocol {
     isBike(): boolean;
     isHrm(): boolean;
     isPower(): boolean;
-    getDevices(): any[];
+    getDevices(): import("../DeviceProtocol").Device[];
 }

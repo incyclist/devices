@@ -1,23 +1,20 @@
 export default class TcpSocketPort {
-    static setResponse(command: any, fn: any): void;
-    static getReponseHandler(command: any): any;
-    static reset(): void;
-    constructor(props: any);
-    callbacks: {};
-    isOpen: boolean;
-    props: any;
-    enabled: any;
-    host: any;
-    port: any;
+    callbacks: any;
+    enabled: boolean;
+    host: string;
+    port: number;
     net: any;
-    path: string;
+    props: any;
     socket: any;
-    outputQueue: any[];
+    isOpen: boolean;
+    isClosed: boolean;
+    path: string;
+    outputQueue: Array<any>;
     iv: any;
+    constructor(props: any);
     flush(): void;
     open(): void;
     close(): void;
-    isClosed: boolean;
     onTimeout(): void;
     onConnect(): void;
     onError(err: any): void;
@@ -26,4 +23,7 @@ export default class TcpSocketPort {
     write(message: any): void;
     unpipe(): void;
     pipe(transformer: any): any;
+    static setResponse(command: any, fn: any): void;
+    static getReponseHandler(command: any): any;
+    static reset(): void;
 }

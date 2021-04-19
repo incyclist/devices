@@ -1,77 +1,63 @@
-export class Daum8iTcp extends Daum8i {
-    constructor(props: any);
-}
-export class Daum8iSerial extends Daum8i {
-    constructor(props: any);
-}
+/// <reference types="node" />
+import { Queue } from '../../utils';
+import { EventLogger } from 'gd-eventlog';
 declare class Daum8i {
-    static getClassName(): string;
-    static setSerialPort(spClass: any): void;
-    static setNetImpl(netClass: any): void;
-    static getSupportedInterfaces(): string[];
-    constructor(props: any);
-    LOG: EventLogger;
-    portName: any;
-    tcpip: boolean;
+    portName: string;
+    logger: EventLogger;
     serial: boolean;
+    tcpip: boolean;
     tcpipConnection: {
-        host: any;
-        port: any;
+        host: string;
+        port: string;
     };
-    port: any;
+    port: string;
     settings: any;
     sendRetryDelay: number;
     sp: any;
     connected: boolean;
     blocked: boolean;
-    state: {
-        ack: {
-            wait: boolean;
-            startWait: any;
-        };
-        commandsInQueue: {};
-    };
-    bikeData: {
-        userWeight: number;
-        bikeWeight: number;
-        maxPower: number;
-    };
-    processor: IndoorBikeProcessor;
+    state: any;
+    bikeData: any;
+    processor: any;
+    error: Error;
+    queue: Queue<any>;
+    cmdWorker: any;
+    cmdCurrent: any;
+    cmdStart: number;
+    constructor(props: any);
+    static getClassName(): string;
     getType(): string;
-    getPort(): any;
+    static setSerialPort(spClass: any): void;
+    static setNetImpl(netClass: any): void;
+    static getSupportedInterfaces(): string[];
+    getPort(): string;
     isConnected(): boolean;
     setUser(user: any, callback: any): void;
     getUserWeight(): any;
     getBikeWeight(): number;
     unblock(): void;
-    connect(retry: any): void;
-    firstOpen: boolean;
+    connect(): void;
     reconnect(): Promise<void>;
-    saveConnect(): Promise<any>;
+    saveConnect(): Promise<unknown>;
     onPortOpen(): void;
-    error: any;
     onPortClose(): void;
     onPortError(error: any): NodeJS.Timeout;
     errorHandler(): void;
-    saveClose(force: any): Promise<any>;
+    saveClose(force?: any): Promise<unknown>;
     close(): void;
-    bikeCmdWorker: any;
-    queue: any;
     sendTimeout(message: any): void;
-    cmdCurrent: any;
-    cmdStart: any;
     checkForTimeout(reject: any): void;
-    getTimeoutValue(cmd: any): number;
+    getTimeoutValue(cmd?: any): number;
     onData(data: any): void;
-    sendDaum8iCommand(command: any, queryType: any, payload: any, cb: any): Promise<any>;
+    sendDaum8iCommand(command: any, queryType: any, payload: any): Promise<unknown>;
     sendACK(): void;
     sendNAK(): void;
-    sendReservedDaum8iCommand(command: any, cmdType: any, data: any, onData: any, onError: any): Promise<any[]>;
+    sendReservedDaum8iCommand(command: any, cmdType: any, data: any): Promise<any[]>;
     getProtocolVersion(): Promise<string>;
-    getDashboardVersion(): Promise<any>;
-    getDeviceType(): Promise<string>;
-    getActualBikeType(): Promise<string>;
-    setActualBikeType(actualBikeType: any): Promise<string>;
+    getDashboardVersion(): Promise<unknown>;
+    getDeviceType(): Promise<any>;
+    getActualBikeType(): Promise<any>;
+    setActualBikeType(actualBikeType: any): Promise<any>;
     getTrainingData(): Promise<{
         time: number;
         heartrate: number;
@@ -96,6 +82,18 @@ declare class Daum8i {
     setGear(gear: any): Promise<number>;
     getGear(): Promise<number>;
 }
-import { EventLogger } from "gd-eventlog";
-import IndoorBikeProcessor from "../indoorbike.js";
+export declare class Daum8iTcp extends Daum8i {
+    static getClassName(): string;
+    getType(): string;
+    static setSerialPort(spClass: any): void;
+    static setNetImpl(netClass: any): void;
+    static getSupportedInterfaces(): string[];
+}
+export declare class Daum8iSerial extends Daum8i {
+    static getClassName(): string;
+    getType(): string;
+    static setSerialPort(spClass: any): void;
+    static setNetImpl(netClass: any): void;
+    static getSupportedInterfaces(): string[];
+}
 export {};

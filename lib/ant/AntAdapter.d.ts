@@ -1,7 +1,7 @@
-import Device from "../Device";
+import DeviceAdapter from "../Device";
 import { EventLogger } from 'gd-eventlog';
 export declare const DEFAULT_UPDATE_FREQUENCY = 1000;
-export default class AntAdapter extends Device {
+export default class AntAdapter extends DeviceAdapter {
     paused: boolean;
     ignoreHrm: boolean;
     ignoreBike: boolean;

@@ -1,19 +1,45 @@
-import DeviceProtocol from './DeviceProtocol';
-export default class Device {
+import { DeviceProtocol, Device } from './DeviceProtocol';
+export declare type OnDeviceDataCallback = (data: any) => void;
+export interface DeviceAdapter extends Device {
+    isBike(): boolean;
+    isPower(): boolean;
+    isHrm(): boolean;
+    getID(): string;
+    getDisplayName(): string;
+    getName(): string;
+    getPort(): string;
+    getProtocol(): DeviceProtocol;
+    getProtocolName(): string;
+    setIgnoreHrm(ignore: boolean): void;
+    setIgnorePower(ignore: boolean): void;
+    setIgnoreBike(ignore: boolean): void;
+    select(): void;
+    unselect(): void;
+    isSelected(): boolean;
+    setDetected(detected?: boolean): void;
+    isDetected(): boolean;
+    start(props?: any): Promise<any>;
+    stop(): Promise<boolean>;
+    pause(): Promise<boolean>;
+    resume(): Promise<boolean>;
+    sendUpdate(request: any): void;
+    onData(callback: OnDeviceDataCallback): void;
+}
+export default class DeviceAdapterBase implements DeviceAdapter {
     protocol: DeviceProtocol;
     detected: boolean;
     selected: boolean;
-    onDataFn: any;
-    constructor(proto: any);
-    isBike(): void;
-    isPower(): void;
-    isHrm(): void;
-    getID(): void;
-    getDisplayName(): void;
-    getName(): void;
-    getPort(): void;
+    onDataFn: OnDeviceDataCallback;
+    constructor(proto: DeviceProtocol);
+    isBike(): boolean;
+    isPower(): boolean;
+    isHrm(): boolean;
+    getID(): string;
+    getDisplayName(): string;
+    getName(): string;
+    getPort(): string;
     getProtocol(): DeviceProtocol;
-    getProtocolName(): void;
+    getProtocolName(): string | undefined;
     setIgnoreHrm(ignore: any): void;
     setIgnorePower(ignore: any): void;
     setIgnoreBike(ignore: any): void;
@@ -31,5 +57,5 @@ export default class Device {
     pause(): Promise<boolean>;
     resume(): Promise<boolean>;
     sendUpdate(request: any): void;
-    onData(callback: any): void;
+    onData(callback: OnDeviceDataCallback): void;
 }

@@ -1,6 +1,6 @@
 import DeviceRegistry from './DeviceRegistry';
-import Device from './Device';
-import DeviceProtocol, { INTERFACE } from './DeviceProtocol';
+import DeviceAdapter from './Device';
+import DeviceProtocolBase, { INTERFACE, DeviceProtocol } from './DeviceProtocol';
 import SimulatorProtocol from './simulator/Simulator';
 import DaumPremiumProtocol from './daum/premium/DaumPremiumProtocol';
 import DaumClassicProtocol from './daum/classic/DaumClassicProtocol';
@@ -10,4 +10,4 @@ declare const Protocols: {
     DaumClassicProtocol: typeof DaumClassicProtocol;
     DaumPremiumProtocol: typeof DaumPremiumProtocol;
 };
-export { DeviceProtocol, DeviceRegistry, INTERFACE, Device, Protocols, AntScanner, };
+export { DeviceProtocolBase, DeviceProtocol, DeviceRegistry, INTERFACE, DeviceAdapter as Device, Protocols, AntScanner, };

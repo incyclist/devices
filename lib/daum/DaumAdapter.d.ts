@@ -1,9 +1,9 @@
 import { EventLogger } from 'gd-eventlog';
-import Device from '../Device';
+import DeviceAdapterBase, { DeviceAdapter } from '../Device';
 interface DaumAdapter {
     getCurrentBikeData(): Promise<any>;
 }
-export default class DaumAdapterBase extends Device implements DaumAdapter {
+export default class DaumAdapterBase extends DeviceAdapterBase implements DeviceAdapter, DaumAdapter {
     bike: any;
     ignoreHrm: boolean;
     ignoreBike: boolean;

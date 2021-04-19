@@ -1,11 +1,11 @@
-import DeviceProtocol from '../../DeviceProtocol';
+import DeviceProtocolBase from '../../DeviceProtocol';
 import { EventLogger } from 'gd-eventlog';
 export interface DaumPremiumProtocolState {
     activeScans: Array<any>;
     scanning: boolean;
     stopScanning?: boolean;
 }
-export default class DaumPremiumProtocol extends DeviceProtocol {
+export default class DaumPremiumProtocol extends DeviceProtocolBase {
     state: DaumPremiumProtocolState;
     logger: EventLogger;
     constructor();
