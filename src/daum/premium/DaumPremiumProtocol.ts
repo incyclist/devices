@@ -1,8 +1,9 @@
-import DeviceProtocol, { INTERFACE } from '../../DeviceProtocol';
+import DeviceProtocolBase, { INTERFACE } from '../../DeviceProtocol';
 import DeviceRegistry from '../../DeviceRegistry'
 import {Daum8iSerial,Daum8iTcp} from '../premium/bike'
 import DaumPremium from './DaumPremiumAdapter'
 import { EventLogger } from 'gd-eventlog';
+import DaumAdapterBase from '../DaumAdapter';
 
 const PROTOCOL_NAME = "Daum Premium"
 
@@ -17,7 +18,7 @@ const DefaultState: DaumPremiumProtocolState = {
     scanning: false,
     stopScanning: false
 }
-export default class DaumPremiumProtocol extends DeviceProtocol {
+export default class DaumPremiumProtocol extends DeviceProtocolBase {
 
     state: DaumPremiumProtocolState;
     logger: EventLogger;
@@ -69,7 +70,8 @@ export default class DaumPremiumProtocol extends DeviceProtocol {
             this.devices.push( device )            
         } 
         else {
-            const idx = this.devices.findIndex( d => d.getBike().getPort()===portName)
+            const devices = this.devices as Array<DaumPremium>
+            const idx = devices.findIndex( d => d.getBike().getPort()===portName)
             if ( idx===-1) {
                 const bike = new DeviceClass(opts);
                 device = new DaumPremium(this,bike)
@@ -85,7 +87,7 @@ export default class DaumPremiumProtocol extends DeviceProtocol {
     }
 
     scanTcpip(opts) {
-        Daum8iTcp.setNetImpl( DeviceProtocol.getNetImpl())
+        Daum8iTcp.setNetImpl( DeviceProtocolBase.getNetImpl())
 
         const {host,port} = opts;
         let device = this.addDevice( Daum8iTcp, opts, `${host}:${port||51955}`)
@@ -97,7 +99,7 @@ export default class DaumPremiumProtocol extends DeviceProtocol {
 
     scanSerial(opts) {
 
-        Daum8iSerial.setSerialPort( DeviceProtocol.getSerialPort())
+        Daum8iSerial.setSerialPort( DeviceProtocolBase.getSerialPort())
         let device = this.addDevice( Daum8iSerial, opts, opts.port)
         if (device) {
             const iv = setInterval( ()=> {this.scanCommand(device,opts)}, 500)
@@ -121,9 +123,10 @@ export default class DaumPremiumProtocol extends DeviceProtocol {
             this.state.activeScans =[];
             
         }
+        const devices = this.devices as Array<DaumPremium>
 
-        for ( let i=0; i<this.devices.length;i++) {        
-            const d = this.devices[i];
+        for ( let i=0; i<devices.length;i++) {        
+            const d = devices[i];
             if ( !d.isSelected() && !d.isDetected()) {
                 try {
                     await d.getBike().saveClose(true);
@@ -134,8 +137,8 @@ export default class DaumPremiumProtocol extends DeviceProtocol {
             }
         }
 
-        for ( let i=0; i<this.devices.length;i++) {        
-            const d = this.devices[i];
+        for ( let i=0; i<devices.length;i++) {        
+            const d = devices[i];
             if ( !d.isSelected() && !d.isDetected()) {
                 try {
                     await d.getBike().unblock();

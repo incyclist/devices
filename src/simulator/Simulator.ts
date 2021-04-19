@@ -1,11 +1,11 @@
-import DeviceProtocol,{INTERFACE} from '../DeviceProtocol';
+import DeviceProtocolBase,{INTERFACE} from '../DeviceProtocol';
 import DeviceRegistry from '../DeviceRegistry';
-import Device from '../Device';
+import DeviceAdapter from '../Device';
 
 import {EventLogger} from 'gd-eventlog'
 import Calculations from '../calculations'
 
-export class Simulator extends Device {
+export class Simulator extends DeviceAdapter {
     static NAME = 'Simulator';
 
     logger: EventLogger;
@@ -198,7 +198,7 @@ export class Simulator extends Device {
 
 }
 
-export default class SimulatorProtocol extends DeviceProtocol{
+export default class SimulatorProtocol extends DeviceProtocolBase{
 
     static NAME = 'Simulator';
 

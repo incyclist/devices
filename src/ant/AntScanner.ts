@@ -1,5 +1,5 @@
 import { EventLogger } from "gd-eventlog";
-import DeviceProtocol,{INTERFACE} from "../DeviceProtocol";
+import DeviceProtocolBase,{INTERFACE,DeviceProtocol} from "../DeviceProtocol";
 import AntHrmAdapter from './anthrm/AntHrmAdapter'
 import AntAdapter from "./AntAdapter";
 import AntFEAdapter from "./antfe/AntFEAdapter";
@@ -71,7 +71,7 @@ class AntProfile  {
 
 }
 
-export class AntProtocol extends DeviceProtocol{
+export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
     logger: EventLogger;
     ant: any;
     activeScans: Record<string,ScanState>
@@ -95,17 +95,17 @@ export class AntProtocol extends DeviceProtocol{
     }
 
     getAnt() { 
-        return this.ant || DeviceProtocol.getAnt()
+        return this.ant || DeviceProtocolBase.getAnt()
     }
 
-    getName() { return 'Ant'}
-    getInterfaces() { return INTERFACE.ANT}
-    isBike() { return true;}
-    isHrm() { return true;}
-    isPower() { return true;}
-    isScanning() { return Object.keys(this.activeScans).length>0 }
+    getName(): string { return 'Ant'}
+    getInterfaces(): Array<string> { return [INTERFACE.ANT]}
+    isBike(): boolean { return true;}
+    isHrm(): boolean { return true;}
+    isPower(): boolean { return true;}
+    isScanning(): boolean { return Object.keys(this.activeScans).length>0 }
 
-    getSupportedProfiles() {
+    getSupportedProfiles(): Array<string> {
         return this.profiles.map( i => i.name)
     }
 
@@ -284,7 +284,7 @@ export class AntProtocol extends DeviceProtocol{
                 }
 
                 const onData = (profile: string,deviceId: string, data:any) => {
-                    const device = this.devices.find( d => d.getID()===deviceId)
+                    const device = this.devices.find( d => d.getID()===deviceId) as AntAdapter
                     if ( device ) {
                         const isHrm = device.isHrm();
                         device.onDeviceData(data)

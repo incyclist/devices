@@ -2,8 +2,8 @@
 
 /* eslint-disable no-unused-vars */
 import DeviceRegistry from './DeviceRegistry'
-import Device from './Device'
-import DeviceProtocol,{INTERFACE} from './DeviceProtocol'
+import DeviceAdapter from './Device'
+import DeviceProtocolBase,{INTERFACE,DeviceProtocol} from './DeviceProtocol'
 
 // import all supported device protocols, as they will auto-register in the DeviceRegistry
 import SimulatorProtocol from './simulator/Simulator'
@@ -18,10 +18,11 @@ const Protocols = {
 }
 
 export {
+    DeviceProtocolBase,
     DeviceProtocol,
     DeviceRegistry,
     INTERFACE,
-    Device,
+    DeviceAdapter as Device,
     Protocols,
     AntScanner,
 }

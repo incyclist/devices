@@ -1,10 +1,10 @@
-import IndoorBikeProcessor from '../indoorbike.js'
-import {ACTUAL_BIKE_TYPE,BIKE_INTERFACE} from "../constants.js"
+import IndoorBikeProcessor from '../indoorbike'
+import {ACTUAL_BIKE_TYPE,BIKE_INTERFACE} from "../constants"
 import TcpSocketPort from './tcpserial'
 import {buildMessage,hexstr,ascii,getReservedCommandKey,
        Int16ToIntArray, append,bin2esc, esc2bin,parseTrainingData} from './utils'
 
-import {sleep} from '../../utils';
+import {Queue, sleep} from '../../utils';
 
 
 import {EventLogger} from 'gd-eventlog'
@@ -26,15 +26,36 @@ var net = undefined;
 
 
 class Daum8i  {
+    portName: string;
+    logger: EventLogger;
+    serial: boolean;
+    tcpip: boolean;
+    tcpipConnection: { host:string, port:string}
+    port: string;
+    settings: any;
+    sendRetryDelay: number;
+    sp: any;
+
+    connected: boolean;
+    blocked: boolean;
+    state: any;
+    bikeData: any;
+    processor: any;
+    error: Error;
+    queue: Queue<any>
+    cmdWorker: any;
+    cmdCurrent: any;
+    cmdStart: number;
 
     /*
     ====================================== Comstructor ==============================================
     */
     constructor( props) {
 
+        
         const opts = props || {}
-        this.LOG = new EventLogger('DaumPremium') 
-        this.LOG.logEvent( {message:'new DaumPremium object',opts})
+        this.logger = new EventLogger('DaumPremium') 
+        this.logger.logEvent( {message:'new DaumPremium object',opts})
 
         if (opts.interface==='tcpip') {
             const port = opts.port || DAUM_PREMIUM_DEFAULT_PORT;
@@ -53,7 +74,7 @@ class Daum8i  {
 
 
         this.settings = opts.settings || {};        
-        this.settings.logger  = this.LOG;
+        this.settings.logger  = this.logger;
 
         this.sendRetryDelay = DEFAULT_SEND_DELAY;
 
@@ -113,7 +134,7 @@ class Daum8i  {
 
    
     setUser(user, callback) {
-        this.LOG.logEvent({message:"setUser()",user,port:this.portName});
+        this.logger.logEvent({message:"setUser()",user,port:this.portName});
         
         this.settings.user = user || {};  
 
@@ -137,8 +158,8 @@ class Daum8i  {
         this.blocked= false;
     }
 
-    connect(retry) {
-        this.LOG.logEvent({message:"connect()",sp:(this.sp!==undefined),port:this.portName,retry,settings:this.settings,scanMode:this.scanMode});
+    connect() {
+        this.logger.logEvent({message:"connect()",sp:(this.sp!==undefined),port:this.portName,settings:this.settings});
 
         if ( this.connected || this.blocked) {
             return;
@@ -163,9 +184,7 @@ class Daum8i  {
                 this.sp.on('close', this.onPortClose.bind(this));            
                 this.sp.on('error', (error)=>{this.onPortError(error)} );    
 
-                this.sp.on('data', (data)=>{ this.onData(data)} );    
-    
-                this.firstOpen = true;
+                this.sp.on('data', (data)=>{ this.onData(data)} );        
             }
             const start= Date.now()
             this.state.connecting = true;
@@ -182,7 +201,7 @@ class Daum8i  {
 
         }
         catch (err)  {
-            this.LOG.logEvent({message:"scan:error:",error:err.message, stack:err.stack});
+            this.logger.logEvent({message:"scan:error:",error:err.message, stack:err.stack});
             this.state.busy=false;
         }               
 
@@ -231,11 +250,11 @@ class Daum8i  {
         this.state.opened = true;
         this.state.busy=false;
 
-        this.LOG.logEvent({message:"port opened",port:this.portName});
+        this.logger.logEvent({message:"port opened",port:this.portName});
     }
 
     onPortClose() {
-        this.LOG.logEvent( {message:"port closed",port:this.portName});
+        this.logger.logEvent( {message:"port closed",port:this.portName});
         
         this.error = undefined;
         this.connected = false;
@@ -256,7 +275,7 @@ class Daum8i  {
     onPortError(error) {
 
         
-        this.LOG.logEvent({message:"port error:",port:this.portName,error:error.message,connected:this.connected,state:this.state});
+        this.logger.logEvent({message:"port error:",port:this.portName,error:error.message,connected:this.connected,state:this.state});
         this.error = error;
 
         if ( this.blocked) {
@@ -270,8 +289,8 @@ class Daum8i  {
 
         const reconnect = ()=> {
             if ( this.state.opening && !this.state.closing) {
-                this.LOG.logEvent({message:"retry connection:",portName:this.port,connected:this.connected,scanMode:this.scanMode});
-                this.connect(true);
+                this.logger.logEvent({message:"retry connection:",portName:this.port,connected:this.connected});
+                this.connect();
             }
         }
 
@@ -288,7 +307,7 @@ class Daum8i  {
                     return setTimeout( ()=> {this.close()}, CLOSE_RETRY_TIMEOUT)
                 }
                 else {
-                    this.LOG.logEvent({message:"close request failed - giving up",port:this.portName});
+                    this.logger.logEvent({message:"close request failed - giving up",port:this.portName});
                     this.state.closing = undefined;
                 }            
             }
@@ -332,7 +351,7 @@ class Daum8i  {
         }
         else if (this.state.sending) {
             // TODO
-            this.LOG.logEvent({message:"closing port",port:this.portName});
+            this.logger.logEvent({message:"closing port",port:this.portName});
             this.sp.close();
             this.state = { opened:true, closed:false, busy:true}
         }
@@ -346,7 +365,7 @@ class Daum8i  {
     }
 
 
-    saveClose(force) {
+    saveClose(force?) {
         return new Promise ( (resolve, reject) => {
             if (force)
                 this.blocked = true;
@@ -367,14 +386,14 @@ class Daum8i  {
 
     close() {
 
-        this.LOG.logEvent( {message:'close request',port:this.portName});
+        this.logger.logEvent( {message:'close request',port:this.portName});
 
         var port = this.sp;
 
-        if (this.bikeCmdWorker!==undefined) {
-            this.LOG.logEvent( {message:"stopping worker",port:this.portName});
-            clearInterval(this.bikeCmdWorker);
-            this.bikeCmdWorker=undefined;
+        if (this.cmdWorker!==undefined) {
+            this.logger.logEvent( {message:"stopping worker",port:this.portName});
+            clearInterval(this.cmdWorker);
+            this.cmdWorker=undefined;
         }
 
         let connected = this.connected ;
@@ -399,7 +418,7 @@ class Daum8i  {
             }    
         }
         catch(err) {
-            this.LOG.logEvent( {message: 'close: Exception', port:this.portName, error:err.message});
+            this.logger.logEvent( {message: 'close: Exception', port:this.portName, error:err.message});
         }
 
         const start= Date.now();
@@ -414,7 +433,7 @@ class Daum8i  {
     }
 
     sendTimeout  (message) {
-        this.LOG.logEvent({message:`sendCommand:${message||'timeout'}`,port:this.portName,cmd:this.cmdCurrent});
+        this.logger.logEvent({message:`sendCommand:${message||'timeout'}`,port:this.portName,cmd:this.cmdCurrent});
         delete this.state.commandsInQueue[this.cmdCurrent.command];
         if (this.cmdCurrent.callbackErr!==undefined) {
             let cb = this.cmdCurrent.callbackErr;
@@ -453,12 +472,12 @@ class Daum8i  {
     
         }
         catch ( err) {
-            this.LOG.logEvent({message:'checkForTimeout: Exception', port:this.portName, error:err.message, stack:err.stack})
+            this.logger.logEvent({message:'checkForTimeout: Exception', port:this.portName, error:err.message, stack:err.stack})
         }
 
     }
 
-    getTimeoutValue(cmd) {
+    getTimeoutValue(cmd?) {
         let timeout = DEFAULT_TIMEOUT;
         if ( this.settings && this.settings.tcpip && this.settings.tcpip.timeout)
             timeout =this.settings.tcpip.timeout
@@ -507,14 +526,14 @@ class Daum8i  {
         {
             const c= incoming.readUInt8(i)
             if ( c===0x06) {
-                this.LOG.logEvent({message:"sendCommand:ACK received:",port:portName});
+                this.logger.logEvent({message:"sendCommand:ACK received:",port:portName});
                 this.state.waitingForStart = true;
                 this.state.waitingForACK = false;
             }
             else if ( c===0x15) {
                 this.state.waitingForStart = true;
                 this.state.waitingForACK = false;
-                this.LOG.logEvent({message:"sendCommand:NAK received:",port:portName});
+                this.logger.logEvent({message:"sendCommand:NAK received:",port:portName});
 
                 // TODO: retries
             }
@@ -524,7 +543,13 @@ class Daum8i  {
             }
 
             else if ( c===0x17) {
-                this.LOG.logEvent({message:"sendCommand:received:",port:portName,cmd: `${cmd} [${hexstr(cmd)}]`});
+                const done = i===(incoming.length-1);
+                let remaining = '';
+                if (!done) {
+                    for ( let j=i; j<incoming.length;j++)
+                        remaining +=  String.fromCharCode( incoming.readUInt8(j) )
+                }
+                this.logger.logEvent({message:"sendCommand:received:",port:portName,cmd: `${cmd} [${hexstr(cmd)}]`,done, remaining: hexstr(remaining)});
 
                 if (this.state.sending.timeoutCheckIv) clearInterval(this.state.sending.timeoutCheckIv);
                 
@@ -556,7 +581,7 @@ class Daum8i  {
     }
 
 
-    sendDaum8iCommand( command, queryType, payload, cb) {
+    sendDaum8iCommand( command, queryType, payload) {
 
         return new Promise ( async (resolve,reject) => {
 
@@ -570,7 +595,7 @@ class Daum8i  {
                     reject ( new Error('not connected'));
 
                     if ( !this.state.connecting) {
-                        this.saveConnect(true)
+                        this.saveConnect()
                         .then( () => {this.state.busy=false} )
                         .catch( (reason)=> {this.state.busy=reason==='busy'} )    
                     }
@@ -602,13 +627,13 @@ class Daum8i  {
                 const message = buildMessage( command,payload)
                 const start= Date.now();
                 const timeout =  start+this.getTimeoutValue() ;
-                this.LOG.logEvent({message:"sendCommand:sending:",port:this.portName,cmd:command,hex:hexstr(message)});
+                this.logger.logEvent({message:"sendCommand:sending:",port:this.portName,cmd:command,hex:hexstr(message)});
     
 
 
                 this.state.writeBusy =true;
                 if(!this.connected) {
-                    this.LOG.logEvent({message:"sendCommand:error: not connected",port:this.portName});
+                    this.logger.logEvent({message:"sendCommand:error: not connected",port:this.portName});
                     this.state.writeBusy =false;
                     this.state.busy = false;
                     this.state.sending = undefined;
@@ -639,7 +664,7 @@ class Daum8i  {
                         setTimeout( ()=> {
                             const restart = Date.now();
                             this.state.ack = { start:restart, timeout:restart+this.getTimeoutValue() }
-                            this.LOG.logEvent({message:"sendCommand:retry:",port:this.portName,cmd:command,hex:hexstr(message)});
+                            this.logger.logEvent({message:"sendCommand:retry:",port:this.portName,cmd:command,hex:hexstr(message)});
                             port.write(message);
                             this.state.retryBusy = false;
                         }, this.sendRetryDelay)
@@ -650,7 +675,7 @@ class Daum8i  {
         
             }
             catch (err)  {
-                this.LOG.logEvent({message:"sendCommand:error:",port:portName,error:err.message,stack:err.stack});
+                this.logger.logEvent({message:"sendCommand:error:",port:portName,error:err.message,stack:err.stack});
                 this.state.writeBusy =false;
                 this.state.busy = false;
                 this.state.sending = undefined;
@@ -669,7 +694,7 @@ class Daum8i  {
         }
         catch(err) {}
         this.state.writeBusy =false;
-        this.LOG.logEvent({message:"sendCommand:sending ACK",port,queue:this.state.commandsInQueue});
+        this.logger.logEvent({message:"sendCommand:sending ACK",port,queue:this.state.commandsInQueue});
     }
 
     sendNAK() {
@@ -678,10 +703,10 @@ class Daum8i  {
             this.sp.write( [0x15]); // send NAK
         }
         catch(err) {}
-        this.LOG.logEvent({message:"sendCommand:sending NAK",port});
+        this.logger.logEvent({message:"sendCommand:sending NAK",port});
     }
 
-    sendReservedDaum8iCommand( command,cmdType, data, onData, onError)  {
+    sendReservedDaum8iCommand( command,cmdType, data)  {
         let cmdData = [];
         const key = getReservedCommandKey(command);
         append( cmdData, Int16ToIntArray(key) );
@@ -710,7 +735,7 @@ class Daum8i  {
     getProtocolVersion() {
 
         return  this.sendDaum8iCommand('V00','AF', [])
-        .then( (data) =>  {    
+        .then( (data: string) =>  {    
                 const version = data.substring(0,1)+'.'+ data.substring(1)
                 return(version)    
         });
@@ -809,14 +834,14 @@ class Daum8i  {
     }
 
     setSlope ( slope) {
-        this.LOG.logEvent( {message:'setSlope not implemted'})
+        this.logger.logEvent( {message:'setSlope not implemted'})
         return;
     }
 
     setPower( power ) {
         const powerStr = Number.parseFloat(power).toFixed(2);
         return this.sendDaum8iCommand(`S23${powerStr}`,'BF',[])
-        .then( (str) =>  {
+        .then( (str: string) =>  {
             return  parseInt(str);
         })
         
@@ -824,7 +849,7 @@ class Daum8i  {
 
     getPower( power ) {
         return this.sendDaum8iCommand('S23','AF',[])
-        .then( (str) =>  {
+        .then( (str: string) =>  {
             return  parseInt(str);
         })
     }
@@ -838,7 +863,7 @@ class Daum8i  {
     setGear( gear ) {
 
         return this.sendDaum8iCommand('M71','BF',`${gear}`)
-        .then( (str) =>  {
+        .then( (str: string) =>  {
             const gearVal = parseInt(str);
             return  gearVal>0 ? gearVal-1 : undefined;
         })
@@ -846,7 +871,7 @@ class Daum8i  {
 
     getGear( ) {
         return this.sendDaum8iCommand('M71','AF','')
-        .then( (str) =>  {
+        .then( (str: string) =>  {
             return parseInt(str);
         })
     }

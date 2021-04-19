@@ -1,16 +1,21 @@
 import { EventLogger } from 'gd-eventlog';
 import {Daum8iSerial} from './bike'
-import {ACTUAL_BIKE_TYPE} from '../bike'
+import {ACTUAL_BIKE_TYPE} from '../constants'
 import {asciiArrayToString, buildMessage,getAsciiArrayFromStr,ascii,hexstr,append} from './utils'
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
 
-var __reponses = [];
+var __responses = {} as any;
 
 class MockSerialPort {
 
-    
+    callbacks: any;
+    isOpen: boolean;
+    path: string;
+    outputQueue: Array<any>
+    iv: any;
+
     constructor() {
         this.callbacks= {}
         this.isOpen = false;
@@ -99,17 +104,17 @@ class MockSerialPort {
     }
 
     static setResponse( command, fn ) {
-        if (!global.responses) 
+        if (!__responses) 
             this.reset();
-        global.responses[command] = fn;
+        __responses[command] = fn;
     }
 
     static getReponseHandler(command) {
-        return global.responses[command];
+        return __responses[command];
     }
 
     static reset() {
-        global.responses = {};
+        __responses = {};
     }
 
 }
@@ -120,7 +125,7 @@ describe( 'Daum8i', ()=> {
     let Daum8i = Daum8iSerial;
 
     beforeAll( ()=> {
-        if (process.env.DEBUG!==undefined && process.env.DEBUG!=='' && process.env.DEBUG!==false)
+        if (process.env.DEBUG!==undefined && process.env.DEBUG!=='' && Boolean(process.env.DEBUG)!==false)
             EventLogger.useExternalLogger ( { log: (str)=>console.log(str), logEvent:(event)=>console.log(event) } )
     })
 
@@ -131,7 +136,7 @@ describe( 'Daum8i', ()=> {
 
     beforeEach( ()=> {
         MockSerialPort.reset();
-        MockSerialPort.list = ()=> { return new Promise( resolve=> resolve([ {path:'COM1'}])) }
+        (MockSerialPort as any).list = ()=> { return new Promise( resolve=> resolve([ {path:'COM1'}])) }
         Daum8i.setSerialPort( MockSerialPort);
     })
 
@@ -337,6 +342,19 @@ describe( 'Daum8i', ()=> {
             const power = await bike.setPower(120)
             expect(power).toBe(120);    
         })
+
+        test('illegal response',async ()=> {
+        
+            MockSerialPort.setResponse( 'V00' , ( command, sendData) => { sendData( [0x06]); sendData( 'fdlknsfdklfnl'+String.fromCharCode(0x17) ) } )            
+            let error = undefined;
+            try {
+                const res = await bike.getProtocolVersion();
+                console.log(res)
+            }
+            catch (err) { error = err}
+            expect(error.message).toBe('illegal response');
+        })
+
 
     
     })

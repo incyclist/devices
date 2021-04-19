@@ -1,41 +1,41 @@
-import DeviceProtocol from './DeviceProtocol'
+import DeviceProtocolBase,{DeviceProtocol} from './DeviceProtocol'
 
-let _devices = [];
+let _protocols = [];
 
 export default class DeviceRegistry {
 
     // reserved for tests
     static _reset() {
-        _devices = [];
+        _protocols = [];
     }
 
     // reserved for tests
     static _get() {
-        return _devices;
+        return _protocols;
     }
 
-    static register(device) { 
-        if (!device)
+    static register(protocol: DeviceProtocol) { 
+        if (!protocol)
             return;
-        const idx = _devices.findIndex( d => d.getName()===device.getName());
+        const idx = _protocols.findIndex( d => d.getName()===protocol.getName());
         if (idx!==-1) {
-            _devices[idx] = device;
+            _protocols[idx] = protocol;
         } 
         else {
-            _devices.push(device)
+            _protocols.push(protocol)
         }
     }
 
-    static findByName(name): DeviceProtocol {
+    static findByName(name:string): DeviceProtocol {
         if (!name)
             return;
-        return _devices.find( d => d.getName()===name);
+        return _protocols.find( d => d.getName()===name);
     }
 
-    static findByInterface(interf): Array<DeviceProtocol> {
+    static findByInterface(interf:string): Array<DeviceProtocol> {
         if (!interf)
             return;
-        return _devices.filter( d => 
+        return _protocols.filter( d => 
             d.getInterfaces().findIndex(i => i===interf)!==-1);
     }    
 }

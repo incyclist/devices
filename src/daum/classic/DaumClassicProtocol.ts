@@ -1,8 +1,9 @@
-import DeviceProtocol, { INTERFACE,ScanProps } from '../../DeviceProtocol';
+import DeviceProtocolBase, { INTERFACE,ScanProps, DeviceProtocol } from '../../DeviceProtocol';
 import DeviceRegistry from '../../DeviceRegistry'
 import Bike from './bike'
 import Adapter from './DaumClassicAdapter'
 import { EventLogger } from 'gd-eventlog';
+import DaumClassicAdapter from './DaumClassicAdapter';
 
 const PROTOCOL_NAME = "Daum Classic"
 
@@ -23,7 +24,7 @@ export interface DaumClassicScanProps extends ScanProps  {
 }
 
 
-export default class DaumClassicProtocol extends DeviceProtocol {
+export default class DaumClassicProtocol extends DeviceProtocolBase implements DeviceProtocol {
     logger: EventLogger;
     state: DaumClassicProtocolState;
 
@@ -34,26 +35,26 @@ export default class DaumClassicProtocol extends DeviceProtocol {
         this.devices = [];
     }
 
-    getName() {
+    getName(): string {
         return PROTOCOL_NAME;
     }
-    getInterfaces() {
+    getInterfaces(): Array<string> {
         return [ INTERFACE.SERIAL]
     }
 
-    isBike() {
+    isBike(): boolean {
         return true;
     }
-    isHrm() {
+    isHrm(): boolean {
         return true;
     }
-    isPower() {
+    isPower(): boolean {
         return true;
     }
 
-    scan( props: DaumClassicScanProps) {
+    scan( props: DaumClassicScanProps):void {
         this.logger.logEvent( {message:'start scan',id:props.id, port:props.port})
-        Bike.setSerialPort( DeviceProtocol.getSerialPort())
+        Bike.setSerialPort( DeviceProtocolBase.getSerialPort())
         this.state.scanning=true;
 
         let device = this.addDevice( props, props.port)
@@ -72,7 +73,9 @@ export default class DaumClassicProtocol extends DeviceProtocol {
             this.devices.push( device )            
         } 
         else {
-            const idx = this.devices.findIndex( d => d.getBike().getPort()===portName)
+            const devices = this.devices as Array<DaumClassicAdapter>
+
+            const idx = devices.findIndex( d  => d.getBike().getPort()===portName)
             if ( idx===-1) {
                 const bike = new Bike(opts);
                 device = new Adapter(this,bike)

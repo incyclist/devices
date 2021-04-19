@@ -2,9 +2,25 @@ import netClass from 'net'
 
 const TIMEOUT_OPEN = 2000;
 
+var __responses = {}
+
 export default class TcpSocketPort {
 
-    
+    callbacks: any;
+    enabled: boolean;
+    host: string;
+    port: number;
+    net: any;
+    props: any;
+    socket: any;
+
+    isOpen: boolean;
+    isClosed: boolean;
+
+    path: string;
+    outputQueue: Array<any>
+    iv: any;
+
     constructor(props) {
         this.callbacks= {}
         this.isOpen = false;
@@ -125,16 +141,16 @@ export default class TcpSocketPort {
     }
 
     static setResponse( command, fn ) {
-        if (!global.responses) 
+        if (!__responses) 
             this.reset();
-        global.responses[command] = fn;
+        __responses[command] = fn;
     }
 
     static getReponseHandler(command) {
-        return global.responses[command];
+        return __responses[command];
     }
 
     static reset() {
-        global.responses = {};
+        __responses = {};
     }
 }
