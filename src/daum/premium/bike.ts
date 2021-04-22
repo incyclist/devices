@@ -2,7 +2,7 @@ import IndoorBikeProcessor from '../indoorbike'
 import {ACTUAL_BIKE_TYPE,BIKE_INTERFACE} from "../constants"
 import TcpSocketPort from './tcpserial'
 import {buildMessage,hexstr,ascii,getReservedCommandKey,
-       Int16ToIntArray, append,bin2esc, esc2bin,parseTrainingData} from './utils'
+       Int16ToIntArray, append,bin2esc, esc2bin,parseTrainingData, checkSum, getAsciiArrayFromStr} from './utils'
 
 import {Queue, sleep} from '../../utils';
 
@@ -497,16 +497,14 @@ class Daum8i  {
     */
 
     onData (data)  {
+
         let cmd ='';
-
-        if ( !Buffer.isBuffer(data) ) {
-            data = Buffer.from(data,'latin1')
-        }
-
+        
+        const bufferData = Buffer.isBuffer(data) ? data: Buffer.from(data,'latin1') 
         const s = this.state.sending;
         if ( s===undefined) {
             if ( this.state.input === undefined) 
-                this.state.input = Buffer.from(data)
+                this.state.input = bufferData;
             return;
         }
 
@@ -514,26 +512,40 @@ class Daum8i  {
 
         let incoming;
         if ( this.state.input!==undefined) {
-            const arr = [ this.state.input, data ]
+            const arr = [ this.state.input, bufferData ]
             incoming= Buffer.concat(arr)
         }
         else {
-            incoming = data;
+            incoming = bufferData;
         }
 
         for (let i=0;i<incoming.length;i++)
         //incoming.forEach( async (c,i)=> 
         {
+            const getRemaining = ()=> {
+                let remaining=''
+                const done = i===(incoming.length-1);
+                if (!done) {
+                    for ( let j=i+1; j<incoming.length;j++)
+                        remaining +=  String.fromCharCode( incoming.readUInt8(j) )
+                }
+                return remaining;
+            }
+
             const c= incoming.readUInt8(i)
             if ( c===0x06) {
                 this.logger.logEvent({message:"sendCommand:ACK received:",port:portName});
                 this.state.waitingForStart = true;
                 this.state.waitingForACK = false;
+                const remaining = getRemaining()
+                if (  remaining && remaining!=='') return this.onData(remaining)
             }
             else if ( c===0x15) {
                 this.state.waitingForStart = true;
                 this.state.waitingForACK = false;
                 this.logger.logEvent({message:"sendCommand:NAK received:",port:portName});
+                const remaining = getRemaining()
+                if (  remaining && remaining!=='') return this.onData(remaining)
 
                 // TODO: retries
             }
@@ -543,30 +555,34 @@ class Daum8i  {
             }
 
             else if ( c===0x17) {
-                const done = i===(incoming.length-1);
-                let remaining = '';
-                if (!done) {
-                    for ( let j=i; j<incoming.length;j++)
-                        remaining +=  String.fromCharCode( incoming.readUInt8(j) )
+                const remaining = getRemaining();
+                this.logger.logEvent({message:"sendCommand:received:",port:portName,cmd: `${cmd} [${hexstr(cmd)}]`,remaining: hexstr(remaining)});
+                this.state.waitingForEnd = false;   
+                const cmdStr = cmd.substring(0,cmd.length-2)
+                const checksumExtracted  = cmd.slice(-2)
+                const checksumCalculated = checkSum( getAsciiArrayFromStr(cmdStr),[])
+
+                if ( checksumExtracted===checksumCalculated) {
+                    this.sendACK();
+                    if (this.state.sending.timeoutCheckIv) clearInterval(this.state.sending.timeoutCheckIv);
+                    this.state= {
+                        sending: undefined,
+                        busy:false,
+                        writeBusy: false,        
+                        waitingForStart: false,
+                        waitingForEnd: false,
+                        waitingForACK: false,
+                    }    
+                    const payload = cmd.substring(3,cmd.length-2)
+    
+                    resolve(payload);        
                 }
-                this.logger.logEvent({message:"sendCommand:received:",port:portName,cmd: `${cmd} [${hexstr(cmd)}]`,done, remaining: hexstr(remaining)});
-
-                if (this.state.sending.timeoutCheckIv) clearInterval(this.state.sending.timeoutCheckIv);
-                
-                this.state= {
-                    sending: undefined,
-                    busy:false,
-                    writeBusy: false,        
-                    waitingForStart: false,
-                    waitingForEnd: false,
-                    waitingForACK: false,
+                else {
+                    this.sendNAK();
                 }
-
-                this.sendACK();
-                const payload = cmd.substring(3,cmd.length-2)
-
-                resolve(payload);    
                 cmd = '';
+                if ( remaining)
+                    return this.onData( remaining);
 
                 
             }

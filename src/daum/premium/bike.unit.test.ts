@@ -345,14 +345,64 @@ describe( 'Daum8i', ()=> {
 
         test('illegal response',async ()=> {
         
-            MockSerialPort.setResponse( 'V00' , ( command, sendData) => { sendData( [0x06]); sendData( 'fdlknsfdklfnl'+String.fromCharCode(0x17) ) } )            
+            MockSerialPort.setResponse( 'V00' , ( command, sendData) => { 
+                sendData( [0x06]); 
+                const data = [0x06];
+                const data1 = [0x31,0x32,0x20,0x10] 
+                data1.push(0x17);
+                sendData( data1)
+
+            })            
+            bike.sendNAK = jest.fn()
+            bike.settings= { tcpip:{timeout:100}};
             let error = undefined;
             try {
                 const res = await bike.getProtocolVersion();
                 console.log(res)
             }
             catch (err) { error = err}
-            expect(error.message).toBe('illegal response');
+            expect(bike.sendNAK).toBeCalled();
+            expect(error.message).toBe('timeout'); // as simulated server is not sending the correct response
+        })
+
+        test('illegal response, followed by correction',async ()=> {
+        
+            MockSerialPort.setResponse( 'V00' , ( command, sendData) => { 
+                sendData( [0x06]); 
+                const data = [0x06];
+                const data1 = [0x31,0x32,0x20,0x10] 
+                data1.push(0x17);
+                sendData( data1)
+                sendData( buildMessage( 'V00201' ));
+            })            
+            bike.sendNAK = jest.fn()
+            let error = undefined;
+            let res;
+            try {
+                res = await bike.getProtocolVersion();
+                console.log(res)
+            }
+            catch (err) { error = err}
+            expect(bike.sendNAK).toBeCalled();
+            expect(error).toBeUndefined();
+            expect(res).toBe('2.01')
+        },100000)
+
+
+        test('reponse sent together with ACK',async ()=> {
+            /*MockSerialPort.setResponse( 'Y00' , ( command, sendData) => { 
+                /sendData( [0x06]); sendData( buildMessage( 'Y000' ))
+            })*/
+
+            MockSerialPort.setResponse( 'Y00' , ( command, sendData) => { 
+                const data = [0x06];
+                data.push( ...buildMessage( 'Y000' ))                
+                sendData( data)
+            })
+            const deviceType1 = await bike.getDeviceType()
+            const deviceType2 = await bike.getDeviceType()
+            expect(deviceType1).toBe('run');    
+            expect(deviceType2).toBe('run');    
         })
 
 
