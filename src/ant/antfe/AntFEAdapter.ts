@@ -146,7 +146,7 @@ export default class AntFEAdapter extends AntAdapter {
 
 
     updateData( data,deviceData) {
-
+        console.log( '~~~Ant:updateData',deviceData.Distance,this.lastUpdate)
         // update data based on information received from ANT+FE sensor
         if (data.distanceOffs===undefined) data.distanceOffs=0;
         data.speed = (deviceData.VirtualSpeed!==undefined ? deviceData.VirtualSpeed : deviceData.RealSpeed)*3.6;
@@ -154,14 +154,18 @@ export default class AntFEAdapter extends AntAdapter {
         data.power = (deviceData.InstantaneousPower!==undefined? deviceData.InstantaneousPower :data.power);
         data.pedalRpm = (deviceData.Cadence!==undefined? deviceData.Cadence :data.pedalRpm) ;
         data.heartrate = ( deviceData.HeartRate!==undefined ? deviceData.HeartRate : data.heartrate);
-        if ( deviceData.Distance!==undefined) {
+        if ( deviceData.Distance!==undefined && deviceData.Distance!==0) {
             data.distanceInternal = deviceData.Distance-data.distanceOffs;
             data.distance = data.distanceInternal/1000;
         }
         else {
             if (this.lastUpdate && deviceData.Cadence!==undefined &&  deviceData.Cadence>0  && data.speed ) {
                 const t = (Date.now()-this.lastUpdate)/1000;
-                data.distanceInternal = Math.round(data.speed/3.6*t)
+                console.log( '~~~Ant:updateData:calc',t,data.speed )
+                const prevDistance = data.distanceInternal || 0;
+                data.distanceInternal = Math.round(data.speed/3.6*t)+prevDistance;
+
+
                 data.distance = data.distanceInternal/1000;
             }
 
