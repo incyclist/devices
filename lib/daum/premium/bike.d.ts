@@ -48,7 +48,7 @@ declare class Daum8i {
     sendTimeout(message: any): void;
     checkForTimeout(reject: any): void;
     getTimeoutValue(cmd?: any): number;
-    onData(data: any): void;
+    onData(data: any): any;
     sendDaum8iCommand(command: any, queryType: any, payload: any): Promise<unknown>;
     sendACK(): void;
     sendNAK(): void;

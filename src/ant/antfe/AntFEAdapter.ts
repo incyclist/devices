@@ -12,6 +12,12 @@ const TIMEOUT_START = 10000;
 const DEFAULT_USER_WEIGHT = 75;
 const DEFAULT_BIKE_WEIGHT = 12.75;
 
+/*
+class MockLogger {
+    log(...args) { console.log('~~~~~Ant:',...args)}
+    logEvent(event) { console.log('~~~~~Ant:'+event.message, event)}
+}
+*/
 export default class AntFEAdapter extends AntAdapter {
 
     started: boolean;
@@ -26,6 +32,8 @@ export default class AntFEAdapter extends AntAdapter {
         super(protocol)
 
         this.logger = new EventLogger('Ant+FE')
+        //this.logger = new MockLogger() as EventLogger;
+
         this.deviceID = DeviceID;
         this.port = port;
         this.stick = stick;
@@ -57,7 +65,7 @@ export default class AntFEAdapter extends AntAdapter {
     }
 
     onAttached() {
-
+        this.logger.logEvent( {message:'Device connected'})
         this.connected = true;
 
     }
@@ -197,14 +205,18 @@ export default class AntFEAdapter extends AntAdapter {
         const opts = props || {} as any
 
         return new Promise( async (resolve,reject) => {
-            if(this.ignoreHrm && this.ignoreBike && this.ignorePower)
+            if(this.ignoreHrm && this.ignoreBike && this.ignorePower) {
+                this.logger.logEvent({message:'start() not done: bike disabled'});        
                 return resolve(false)
+            }
 
             if (this.starting) {
+                this.logger.logEvent({message:'start() not done: bike starting'});        
                 return resolve(false)
             } 
 
             if ( this.started) {
+                this.logger.logEvent({message:'start() done: bike was already started'});        
                 return resolve(true);
             }
 
@@ -253,6 +265,7 @@ export default class AntFEAdapter extends AntAdapter {
 
                 })
                 .catch(err=> {
+                    this.logger.logEvent({message:'start() error',error:err.message});        
                     this.starting = false;
                     reject(err)
                 })
@@ -268,12 +281,11 @@ export default class AntFEAdapter extends AntAdapter {
         const stick = this.stick;
         const channel = this.channel;
 
-        stick.write(Messages.openChannel(channel));
 
         return new Promise( async (resolve,reject) => {
 
-            // Workaround: proper closing does not work -> when trying to re-open, the sensor does not get attached
-            //return resolve(true);
+            //Workaround: proper closing does not work -> when trying to re-open, the sensor does not get attached
+            return resolve(true);
 
             
 
@@ -281,16 +293,19 @@ export default class AntFEAdapter extends AntAdapter {
                 return resolve(false)
 
             try {
+                stick.write(Messages.openChannel(channel));
+
                 const protocol = this.getProtocol() as AntProtocol;
                 await protocol.detachSensor(this);
                 this.started = false;
                 this.connected = false;
-
+                this.logger.logEvent({message:'stop() finished'});  
                 resolve(true)
             }
             catch( err) 
             {
                 this.connected = false;
+                this.logger.logEvent({message:'stop() error',error:err.message});  
                 reject(err);
             }                
             
@@ -354,7 +369,14 @@ export default class AntFEAdapter extends AntAdapter {
         if (this.queue===undefined) {
             this.queue=new Queue();
         }
-        this.workerId = setInterval( ()=>{this.sendFromQueue()}, 10);
+        this.workerId = setInterval( ()=>{ 
+            try  {
+                this.sendFromQueue()
+            }
+            catch(err) {
+                this.logger.logEvent( {message: 'sendFromQueue error',error:err.message})
+            }
+        }, 10);
     }
 
     stopWorker() {

@@ -386,7 +386,7 @@ describe( 'Daum8i', ()=> {
             expect(bike.sendNAK).toBeCalled();
             expect(error).toBeUndefined();
             expect(res).toBe('2.01')
-        },100000)
+        })
 
 
         test('reponse sent together with ACK',async ()=> {

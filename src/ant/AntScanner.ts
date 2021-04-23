@@ -192,10 +192,13 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
     }
 
     closeStick(stick) {
-        
+        if (process.env.DEBUG)
+            console.log('~~~Ant:closeStick')
         return new Promise ( (resolve,reject) => {
             stick.on('shutdown', () => { 
                 stick.removeAllListeners('shutdown')
+                this.sensors.stickStarted = false;
+                this.sensors.stickOpen = false;
                 resolve(true)
             });
             try {
@@ -203,6 +206,7 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                 setTimeout( ()=>{
                     try {
                         stick.close()
+        
                     }
                     catch(err) {}
                     
@@ -402,7 +406,7 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                     device.setSensor(sensor);
                     sensor.on(message, (data)=> {device.onDeviceData(data)})
                     sensor.on('eventData', (data)=> {device.onDeviceEvent(data)})
-                    sensor.once('attached',()=>{device.onAttached()})
+                    sensor.once('attached',()=>{ device.onAttached() })
 
                     this.sensors.pending.push( {device, sensor,message})
         
@@ -413,11 +417,14 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                 if (!this.sensors.attached)
                     this.sensors.attached = [];
                 
+                
                 const channelsUsed = this.sensors.attached.length;
                 this.sensors.pending.forEach( (i,idx) => {
                     const channel = channelsUsed + idx;
                     const {sensor} = i;    
                     i.device.setChannel(channel);
+                    if ( process.env.DEBUG)
+                        console.log('~~~~Ant: attach', channel,i.device.getID() )
                     sensor.attach(channel,i.device.getID())
                     this.sensors.attached.push(i);
                 })
