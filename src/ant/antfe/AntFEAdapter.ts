@@ -76,6 +76,7 @@ export default class AntFEAdapter extends AntAdapter {
         if (!this.started)
             return;
         this.deviceData = deviceData;
+        
         try {
             if ( this.onDataFn && !(this.ignoreHrm && this.ignoreBike && this.ignorePower) && !this.paused) {
                 if (!this.lastUpdate || (Date.now()-this.lastUpdate)>this.updateFrequency) {
@@ -156,6 +157,14 @@ export default class AntFEAdapter extends AntAdapter {
         if ( deviceData.Distance!==undefined) {
             data.distanceInternal = deviceData.Distance-data.distanceOffs;
             data.distance = data.distanceInternal/1000;
+        }
+        else {
+            if (this.lastUpdate && deviceData.Cadence!==undefined &&  deviceData.Cadence>0  && data.speed ) {
+                const t = (Date.now()-this.lastUpdate)/1000;
+                data.distanceInternal = Math.round(data.speed/3.6*t)
+                data.distance = data.distanceInternal/1000;
+            }
+
         }
 
         return data;
