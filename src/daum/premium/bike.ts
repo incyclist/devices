@@ -519,6 +519,9 @@ class Daum8i  {
             incoming = bufferData;
         }
 
+        const response = [...incoming];
+        this.logger.logEvent({message:'sendCommand:RECV',data:hexstr(response) })
+
         for (let i=0;i<incoming.length;i++)
         //incoming.forEach( async (c,i)=> 
         {
