@@ -71,6 +71,18 @@ class AntProfile  {
 
 }
 
+class MockLogger extends EventLogger {
+    log(str) {
+        console.log(str)
+    }
+
+    logEvent(event) {
+        console.dir(event)
+    }
+
+}
+
+
 export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
     logger: EventLogger;
     ant: any;
@@ -82,7 +94,7 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
 
     constructor(antClass) {
         super()
-        this.logger = new EventLogger(LOGGER_NAME)
+        this.logger = process.env.DEBUG ? new MockLogger(LOGGER_NAME) : new EventLogger(LOGGER_NAME)
         this.ant = antClass;
         this.activeScans = {}
         this.sensors = {}
@@ -143,17 +155,27 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
         this.logger.logEvent( {message:'stick info', info} )
     }
 
-    getStick() {
+    
+
+    getStick(onStart:(stick:any)=>void) {
         if (!this.ant)
             return;
         
         const stick2 = new this.ant.GarminStick2();
+        stick2.once('startup', () => {
+            this.logger.logEvent( {message:'GarminStick2 opened'})
+            onStart(stick2)
+        })
         if ( stick2.is_present() && stick2.open()) {
             this.logger.logEvent( {message:'found GarminStick2'})
             return stick2;
         }
 
         const stick3 = new this.ant.GarminStick3();
+        stick3.once('startup', () => {
+            this.logger.logEvent( {message:'GarminStick3 opened'})
+            onStart(stick3)
+        })
         if ( stick3.is_present() && stick3.open()) {
             this.logger.logEvent( {message:'found GarminStick3'})
             return stick3;
@@ -162,38 +184,38 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
         return undefined;
     }
 
-    async getSticks(): Promise<Array<any>> {
-        if (!this.ant)
-            return;
-    
-        let done = false;
-        const sticks = [];
-        
-        while (!done) {
-            const stick = this.getStick();
-            if ( stick) {
-                const port = this.getUSBDeviceInfo(stick.device).port;
-                sticks.push(stick);
-                if (!this.sticks.find( i => i.port===port ) ) {
-                    this.sticks.push( {port,stick})
-                }
+    async getFirstStick(): Promise<any> {
+
+        return new Promise( (resolve,reject) => {
+            if (!this.ant)
+                return reject( new Error('Ant not supported'))
+
+
+            try {
+                const found = this.getStick( (stick)=> {
+                    const port = this.getUSBDeviceInfo(stick.device).port;
+                    if (!this.sticks.find( i => i.port===port ) ) {
+                        this.sticks.push( {port,stick})
+                    }
+                    resolve({port,stick})
+                })
+                if (!found) 
+                    resolve(undefined)
             }
-            else
-                done = true;
-        }
-
-        const stickInfos = sticks.map ( stick => {return { stick, port:this.getUSBDeviceInfo(stick.device).port}}  )
-
-
-        for ( let i=0;i<sticks.length;i++)  {
-            await this.closeStick(sticks[i])
-        }
-        return stickInfos;
+            catch( err) {
+                this.logger.logEvent({message:'getFirstStick error',error:err.message})
+    
+            }        
+        
+        })
+        
     }
 
     closeStick(stick) {
         if (process.env.DEBUG)
             console.log('~~~Ant:closeStick')
+        this.logger.logEvent( {message:'closing stick'})
+
         return new Promise ( (resolve,reject) => {
             stick.on('shutdown', () => { 
                 stick.removeAllListeners('shutdown')
@@ -209,6 +231,7 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
         
                     }
                     catch(err) {}
+                    this.logger.logEvent( {message:'stick closed'})
                     
                 },1000)
                 
@@ -249,107 +272,102 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
 
         return new Promise ( (resolve,reject) => {
 
-            stick.once('startup', () => { 
-                if (!port || (this.activeScans[port] && this.activeScans[port].isScanning))
-                    return
-        
-                if ( !this.activeScans[port]) {
-                    this.activeScans[port] = { isScanning:false,stick} 
-                }
-                const state = this.activeScans[port];
-                if(state.isScanning)
-                    return;
-        
-                state.isScanning = true;
-                this.logger.logEvent( {message:'start scan',port});
-                state.timeout = Date.now()+timeout;
+            if (!port) 
+                return reject(new Error('busy'))
+                
+            if (this.activeScans[port] && this.activeScans[port].isScanning)
+                return reject(new Error('busy'))
 
-                const onNewDevice = (profile: string,deviceId: string)  => {
-                    this.logger.logEvent( {message:'found device',profile,id:deviceId})
-                    const profileInfo = this.profiles.find( i => i.name===profile);
-                    if ( profileInfo) {
-                        let device;
-                        try {
-                            device = new profileInfo.Adapter(deviceId,port,stick,this,props)
-                            this.devices.push(device)
-                        }
-                        catch ( err) {
-                            //TODO
-                            console.log(err)
-                        }
+            if ( !this.activeScans[port]) {
+                this.activeScans[port] = { isScanning:false,stick} 
+            }
+            const state = this.activeScans[port];
+            if(state.isScanning)
+                return reject(new Error('busy'))
 
-                        if (device && onDeviceFound) {
-                            onDeviceFound(device,this);
-                            device.setDetected(true);
-                        }
+            state.isScanning = true;
+            this.logger.logEvent( {message:'start scan',port});
+            state.timeout = Date.now()+timeout;
 
-                        
+            const onNewDevice = (profile: string,deviceId: string)  => {
+                this.logger.logEvent( {message:'found device',profile,id:deviceId})
+                const profileInfo = this.profiles.find( i => i.name===profile);
+                if ( profileInfo) {
+                    let device;
+                    try {
+                        device = new profileInfo.Adapter(deviceId,port,stick,this,props)
+                        this.devices.push(device)
                     }
-                }
-
-                const onData = (profile: string,deviceId: string, data:any) => {
-                    const device = this.devices.find( d => d.getID()===deviceId) as AntAdapter
-                    if ( device ) {
-                        const isHrm = device.isHrm();
-                        device.onDeviceData(data)
-                        if ( device.isHrm() && !isHrm && onDeviceFound )  {
-                            onDeviceFound(device,this);
-                        }
-                        if(onUpdate)
-                            onUpdate(device);
+                    catch ( err) {
+                        //TODO
+                        console.log(err)
                     }
-                }
 
-                const hrm = new AntProfile( 'Heartrate Monitor', this.ant.HeartRateScanner, stick, 'hbData', onNewDevice, onData)
-                const fe = new AntProfile( 'Smart Trainer', this.ant.FitnessEquipmentScanner, stick, 'fitnessData', onNewDevice, onData)
-                const power = new AntProfile('Power Meter' , this.ant.BicyclePowerScanner, stick, 'powerData', onNewDevice, onData)
-
-                hrm.getScanner().scan()
-                hrm.getScanner().on( 'attached', ()=> {
-                    power.getScanner().scan();
-                    fe.getScanner().scan();
-
-                });
-
-                state.iv = setInterval( ()=> {
-                    if ( Date.now()>timeout) {
-                        this.logger.logEvent( {message:'scan timeout',port});
-                        this.stopScanOnStick(stickInfo).then( ()=>{
-                            if ( onScanFinished) 
-                                onScanFinished(id)
-                            resolve(true)
-                        })
-
+                    if (device && onDeviceFound) {
+                        onDeviceFound(device,this);
+                        device.setDetected(true);
                     }
-                } ,timeout);
-        
+
+                    
+                }
+            }
+
+            const onData = (profile: string,deviceId: string, data:any) => {
+                const device = this.devices.find( d => d.getID()===deviceId) as AntAdapter
+                if ( device ) {
+                    const isHrm = device.isHrm();
+                    device.onDeviceData(data)
+                    if ( device.isHrm() && !isHrm && onDeviceFound )  {
+                        onDeviceFound(device,this);
+                    }
+                    if(onUpdate)
+                        onUpdate(device);
+                }
+            }
+
+            const hrm = new AntProfile( 'Heartrate Monitor', this.ant.HeartRateScanner, stick, 'hbData', onNewDevice, onData)
+            const fe = new AntProfile( 'Smart Trainer', this.ant.FitnessEquipmentScanner, stick, 'fitnessData', onNewDevice, onData)
+            const power = new AntProfile('Power Meter' , this.ant.BicyclePowerScanner, stick, 'powerData', onNewDevice, onData)
+
+            hrm.getScanner().scan()
+            hrm.getScanner().on( 'attached', ()=> {
+                power.getScanner().scan();
+                fe.getScanner().scan();
+
             });
 
-            let opened = false;
-            try {
-                opened = stick.open();
-            }
-            catch(err) {}
-            if (!opened) {
-                reject( new Error('stick could not be opened'))
-                return;
-            } 
-            this.logger.log('stick opened',port)
+            state.iv = setInterval( ()=> {
+                if ( Date.now()>timeout) {
+                    this.logger.logEvent( {message:'scan timeout',port});
+                    this.stopScanOnStick(stickInfo).then( ()=>{
+                        if ( onScanFinished) 
+                            onScanFinished(id)
+                        resolve(true)
+                    })
+
+                }
+            } ,timeout);
+    
         })
     }
     
 
     async scan(props) {
+        this.logger.logEvent({message:'scan request',props})
+
         this.logStickInfo();
-        const sticks = await this.getSticks()    
         
-        if ( sticks && sticks.length>0) {
-            const stick = sticks[0];
+        try {
+            const stick = await this.getFirstStick()    
+            if (!stick)  {
+                this.logger.logEvent( {message:'no stick found'})
+                return;
+            }
             this.scanOnStick(stick,props)
         }
-        else {
-            this.logger.logEvent( {message:'no stick found'})
-        }
+        catch( err) {
+            this.logger.logEvent( {message:'scan request error',error:err.message})
+        }        
     }
 
     async stopScan() {

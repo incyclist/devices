@@ -59,6 +59,8 @@ const onScanFinished = (id) => {
 
 }
 
+logger.log('ANT Sample')
+
 const scanner = new AntScanner(Ant);
 scanner.scan({id:0,timeout:5000,onDeviceFound,onScanFinished})
 
