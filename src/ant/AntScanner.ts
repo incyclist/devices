@@ -347,12 +347,19 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
             const fe = new AntProfile( 'Smart Trainer', this.ant.FitnessEquipmentScanner, stick, 'fitnessData', onNewDevice, onData)
             const power = new AntProfile('Power Meter' , this.ant.BicyclePowerScanner, stick, 'powerData', onNewDevice, onData)
 
-            hrm.getScanner().scan()
-            hrm.getScanner().on( 'attached', ()=> {
-                power.getScanner().scan();
-                fe.getScanner().scan();
+            try {
+                hrm.getScanner().scan()
+                hrm.getScanner().on( 'attached', ()=> {
 
-            });
+                    power.getScanner().scan();
+                    fe.getScanner().scan();
+    
+                });
+    
+            }
+            catch(err) {
+                this.logger.logEvent( {message:'scan error',error:err.message});
+            }
 
             state.iv = setInterval( ()=> {
                 if ( Date.now()>timeout) {
