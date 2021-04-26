@@ -174,7 +174,7 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
     }
 
     async getFirstStick(): Promise<any> {
-
+        console.log( 'getFirstStick()')
         return new Promise( (resolve,reject) => {
             if (!this.ant)
                 return reject( new Error('Ant not supported'))
@@ -184,7 +184,26 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
             }
 
             try {
+                
+                let success = false;
+                let start = Date.now();
+                let timeout = start +5000;
+                const iv = setInterval( ()=>{
+                    if ( success) {
+                        clearInterval(iv);
+                        return;
+                    }
+                    if ( Date.now()>timeout) {
+                        clearInterval(iv);
+                        if (found)
+                            this.closeStick(found)
+                        throw new Error('timeout')
+                    }
+                }, 100)
+            
                 const found = this.getStick( (stick)=> {
+                    success = true;
+                    clearInterval(iv)
                     const port = this.getUSBDeviceInfo(stick.device).port;
                     if (!this.sticks.find( i => i.port===port ) ) {
                         this.sticks.push( {port,stick,connected:true})

@@ -4,6 +4,7 @@ import AntAdapter from '../AntAdapter';
 import { AntProtocol } from '../AntScanner';
 import {getBrand} from '../utils'
 
+const DEFAULT_START_TIMEOUT = 5000;
 
 export default class AntHrmAdapter extends AntAdapter {
 
@@ -62,7 +63,7 @@ export default class AntHrmAdapter extends AntAdapter {
     }
 
 
-    async start() {
+    async start(props = {} as any) {
         this.logger.logEvent({message:'start()'});        
 
         return new Promise( async (resolve,reject) => {
@@ -72,8 +73,21 @@ export default class AntHrmAdapter extends AntAdapter {
         const Ant = this.getProtocol().getAnt();
         const protocol = this.getProtocol() as AntProtocol;
 
+        let start = Date.now();
+        let timeout = start + (props.timeout || DEFAULT_START_TIMEOUT);
+        const iv = setInterval( ()=>{
+            if ( Date.now()>timeout) {
+                clearInterval(iv);
+                reject( new Error('timeout'))
+            }
+        }, 100)
+
+
         protocol.attachSensors(this,Ant.HeartRateSensor,'hbData')
-            .then(()=>resolve(true))
+            .then(()=> {
+                clearInterval(iv)
+                resolve(true)
+            })
             .catch(err=>reject(err))
         })
     }

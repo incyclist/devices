@@ -9,6 +9,7 @@ const intVal = (d) => d ? parseInt(d) :d
 
 const TIMEOUT_ACK = 5000;
 const TIMEOUT_START = 10000;
+const TIMEOUT_ATTACH = 3000;
 const DEFAULT_USER_WEIGHT = 75;
 const DEFAULT_BIKE_WEIGHT = 12.75;
 
@@ -237,8 +238,18 @@ export default class AntFEAdapter extends AntAdapter {
             const Ant = this.getProtocol().getAnt();
             const protocol = this.getProtocol() as AntProtocol;
 
+            let start = Date.now();
+            let timeout = start + (opts.timeout || TIMEOUT_ATTACH);
+            const ivAttach = setInterval( ()=>{
+                if ( Date.now()>timeout) {
+                    clearInterval(ivAttach);
+                    reject( new Error('timeout'))
+                }
+            }, 100)
+    
             protocol.attachSensors(this,Ant.FitnessEquipmentSensor,'fitnessData')
                 .then( async ()=> {
+                    clearInterval(ivAttach);
                     this.startWorker();
 
                     const tsStart = Date.now();

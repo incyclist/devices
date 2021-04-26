@@ -43,7 +43,10 @@ const onScanFinished = (id) => {
                             logger.log('starting adapter'); 
                             device.start()
                                 .then(()=> device.stop())
-                                .then(()=> process.exit())
+                                .catch((err) =>  { 
+                                    logger.logEvent({message:'error',error:err.message})                                    
+                                })
+                                .finally(()=> process.exit())
 
                             }, 1000)})
                     },10000)})
