@@ -71,17 +71,6 @@ class AntProfile  {
 
 }
 
-class MockLogger extends EventLogger {
-    log(str) {
-        console.log(str)
-    }
-
-    logEvent(event) {
-        console.dir(event)
-    }
-
-}
-
 
 export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
     logger: EventLogger;
@@ -94,7 +83,7 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
 
     constructor(antClass) {
         super()
-        this.logger = process.env.DEBUG ? new MockLogger(LOGGER_NAME) : new EventLogger(LOGGER_NAME)
+        this.logger = new EventLogger(LOGGER_NAME)
         this.ant = antClass;
         this.activeScans = {}
         this.sensors = {}
@@ -190,12 +179,15 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
             if (!this.ant)
                 return reject( new Error('Ant not supported'))
 
+            if ( this.sticks && this.sticks.length>0 && this.sticks[0].connected) {
+                return resolve(this.sticks[0]);
+            }
 
             try {
                 const found = this.getStick( (stick)=> {
                     const port = this.getUSBDeviceInfo(stick.device).port;
                     if (!this.sticks.find( i => i.port===port ) ) {
-                        this.sticks.push( {port,stick})
+                        this.sticks.push( {port,stick,connected:true})
                     }
                     resolve({port,stick})
                 })
@@ -219,6 +211,12 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
         return new Promise ( (resolve,reject) => {
             stick.on('shutdown', () => { 
                 stick.removeAllListeners('shutdown')
+                const port = this.getUSBDeviceInfo(stick.device).port;
+                const idx = this.sticks.findIndex( i => i.port===port );
+                if (idx!==-1 ) {
+                    this.sticks[idx].connected = false;
+                }
+
                 this.sensors.stickStarted = false;
                 this.sensors.stickOpen = false;
                 resolve(true)
@@ -274,7 +272,7 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
 
             if (!port) 
                 return reject(new Error('busy'))
-                
+
             if (this.activeScans[port] && this.activeScans[port].isScanning)
                 return reject(new Error('busy'))
 
@@ -469,7 +467,11 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
     detachSensor(adapter: AntAdapter) {
 
         return new Promise ( async (resolve, reject)  => {
-            const idx = this.sensors.attached.findIndex( i => (i.device.getID()===adapter.getID() && i.device.getName()===adapter.getName()) );
+
+            const idx = (this.sensors && this.sensors.attached) ? 
+                this.sensors.attached.findIndex(i => (i.device.getID() === adapter.getID() && i.device.getName() === adapter.getName())) : -1;
+
+
             if (idx===-1) 
                 return resolve(true);
 

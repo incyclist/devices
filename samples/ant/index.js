@@ -5,17 +5,15 @@ const {EventLogger,ConsoleAdapter} = require( 'gd-eventlog')
 
 EventLogger.registerAdapter(new ConsoleAdapter()) 
 const logger = new EventLogger('AntSampleApp')
-
 const foundDevices = [];
 
-const logData = data => { logger.logEvent( {message:'received', data})}
 
 const onDeviceFound = (device,protocol) => {
     try {
         console.log(device.getName())
+        foundDevices.push(device)
     }
     catch(err) {console.log(err)}
-    foundDevices.push(device);
     logger.logEvent( {message: 'device found',name:device.getName(),port:device.getPort(), protocol:protocol.getName()})
 }
 
@@ -29,8 +27,14 @@ const onScanFinished = (id) => {
                 logger.log('starting adapter')
                 device.start().catch()
                 .finally(()=>{ 
-                    logger.log('set Target Power')
-                    device.sendTargetPower(100).catch((err)=>logger.logEvent({message:'error',error:err.message}));
+                    if ( device.isBike() ) {
+                        logger.log('set Target Power')
+                        device.sendTargetPower(100).catch((err)=>logger.logEvent({message:'error',error:err.message}));    
+                    }
+                    device.onData( (data)=> { 
+                        logger.logEvent( {message:'device data',device:device.getName(),data})
+                    })
+            
                     setTimeout( ()=>{
                         logger.log('stopping adapter')
                         device.stop()
@@ -41,8 +45,8 @@ const onScanFinished = (id) => {
                                 .then(()=> device.stop())
                                 .then(()=> process.exit())
 
-                            }, 3000)})
-                },3000)})
+                            }, 1000)})
+                    },10000)})
 
 
             })
@@ -62,5 +66,8 @@ const onScanFinished = (id) => {
 logger.log('ANT Sample')
 
 const scanner = new AntScanner(Ant);
+if ( process.env.DEBUG)
+    scanner.logger = logger;
+    
 scanner.scan({id:0,timeout:5000,onDeviceFound,onScanFinished})
 

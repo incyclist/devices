@@ -14,6 +14,7 @@ export default class AntHrmAdapter extends AntAdapter {
         this.deviceID = DeviceID;
         this.port = port;
         this.stick = stick;
+        this.paused = false;
         this.deviceData = {
             DeviceID
         }
@@ -42,7 +43,7 @@ export default class AntHrmAdapter extends AntAdapter {
         this.deviceData = deviceData;
         try {
             if ( this.onDataFn && !this.ignoreHrm && !this.paused) {
-                if (!this.lastUpdate || (Date.now()-this.lastUpdate)>this.updateFrequency) {
+                if ( this.lastUpdate===undefined || (Date.now()-this.lastUpdate)>this.updateFrequency) {
                     this.logger.logEvent( {message:'onDeviceData',data:deviceData})
 
                     const data = this.updateData(this.data,deviceData)
