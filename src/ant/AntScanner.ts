@@ -197,7 +197,8 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                         clearInterval(iv);
                         if (found)
                             this.closeStick(found)
-                        throw new Error('timeout')
+                        reject (new Error('timeout'))
+                        return;
                     }
                 }, 100)
             
