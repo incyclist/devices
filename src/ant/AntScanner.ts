@@ -144,33 +144,46 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
         this.logger.logEvent( {message:'stick info', info} )
     }
 
-    
+    getDetailedStickInfo(stick: any):void  {
+        const devices = stick.getDevices();
+        if ( devices.length>0 ) {
+            const device = devices[0];
+        
+            try {
+                const config = JSON.parse(JSON.stringify(device.configDescriptor))
+                const interfaces = config ? config.interfaces : []
+                delete config.interfaces;
+                this.logger.logEvent( {message:'USB DeviceConfig',config,interfaces})
+            }
+            catch(err) {
+                this.logger.logEvent( {message:'USB Error',error:err.message})
+            }
+        }
+    } 
 
-    getStick(onStart:(stick:any)=>void) {
+    getStick(onStart:(stick:any)=>void):any {
         if (!this.ant)
             return;
-        
-        const stick2 = new this.ant.GarminStick2();
-        stick2.once('startup', () => {
-            this.logger.logEvent( {message:'GarminStick2 opened'})
-            onStart(stick2)
-        })
-        if ( stick2.is_present() && stick2.open()) {
-            this.logger.logEvent( {message:'found GarminStick2'})
-            return stick2;
-        }
 
-        const stick3 = new this.ant.GarminStick3();
-        stick3.once('startup', () => {
-            this.logger.logEvent( {message:'GarminStick3 opened'})
-            onStart(stick3)
-        })
-        if ( stick3.is_present() && stick3.open()) {
-            this.logger.logEvent( {message:'found GarminStick3'})
-            return stick3;
+        const startupAttempt = (stick: any,name:string):any => {
+            if ( stick.is_present() ) {
+                stick.once('startup', () => {
+                    this.logger.logEvent( {message:`${name} opened`})
+                    onStart(stick)
+                })
+                this.getDetailedStickInfo(stick)
+                if ( stick.open()) {
+                    this.logger.logEvent( {message:`found ${name}`})
+                    return stick;
+                }
+            }
+            return false;
         }
-
-        return undefined;
+    
+        const stick = startupAttempt( new this.ant.GarminStick2(), 'GarminStick2')
+        if (stick)
+            return stick;
+        startupAttempt( new this.ant.GarminStick3(), 'GarminStick3')
     }
 
     async getFirstStick(): Promise<any> {
@@ -185,25 +198,18 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
 
             try {
                 
-                let success = false;
                 let start = Date.now();
                 let timeout = start +5000;
+                let found = false;
+
                 const iv = setInterval( ()=>{
-                    if ( success) {
+                    if ( !found && Date.now()>timeout) {
                         clearInterval(iv);
-                        return;
-                    }
-                    if ( Date.now()>timeout) {
-                        clearInterval(iv);
-                        if (found)
-                            this.closeStick(found)
                         reject (new Error('timeout'))
-                        return;
                     }
                 }, 100)
             
-                const found = this.getStick( (stick)=> {
-                    success = true;
+                const stickFound = this.getStick( (stick)=> {
                     clearInterval(iv)
                     const port = this.getUSBDeviceInfo(stick.device).port;
                     if (!this.sticks.find( i => i.port===port ) ) {
@@ -211,11 +217,12 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                     }
                     resolve({port,stick})
                 })
+                found = stickFound!==undefined && stickFound!==null;
                 if (!found) 
                     resolve(undefined)
             }
             catch( err) {
-                this.logger.logEvent({message:'getFirstStick error',error:err.message})
+                this.logger.logEvent({message:'getFirstStick error',error:err.message,stack:err.stack})
     
             }        
         
