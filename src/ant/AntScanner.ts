@@ -171,14 +171,34 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                     this.logger.logEvent( {message:`${name} opened`})
                     onStart(stick)
                 })
-                this.getDetailedStickInfo(stick)
-                if ( stick.open()) {
-                    this.logger.logEvent( {message:`found ${name}`})
-                    return stick;
+                const devices = stick.getDevices();
+                if (devices && devices.length>0) {
+                    devices.forEach( d => {
+                        d.closeFn = d.close;
+                        d.close = ()=>{}
+                    })
                 }
-                else {
+                this.getDetailedStickInfo(stick)
+                let open = false;
+                try {
+                    open = stick.open();
+                    if (open) {
+                        this.logger.logEvent( {message:`found ${name}`})
+                        return stick;
+                    }
+                }
+                catch( openErr) {
+                    this.logger.logEvent({message:'Open Error',error:openErr.message})
+                }
+                if (devices && devices.length>0) {
+                    devices.forEach( d => {
+                        d.close = d.closeFn;
+                    })
+                }
+
+                if(!open) {
                     // DEBUG CODE - remove once issue is clarified
-                    const devices = stick.getDevices();
+                    
                     
                     let detachedKernelDriver = false;
                     while (devices.length) {
