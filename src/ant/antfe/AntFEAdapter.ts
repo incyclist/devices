@@ -340,6 +340,10 @@ export default class AntFEAdapter extends AntAdapter {
         this.logger.logEvent({message:"sendBikeUpdate():",request}) ;
 
         try {
+
+            const isReset = ( !request || request.reset || Object.keys(request).length===0 );
+            // TODO: handle reset
+            
             if (request.slope!==undefined) {
                 await this.sendTrackResistance(request.slope);
             }

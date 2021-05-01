@@ -45,6 +45,11 @@ export default class IndoorBikeProcessor  {
                 this.logger.logEvent( {message:"setValues result (no bike)",data} );
                 return data;
             }
+
+            if ( !data || data.reset || Object.keys(data).length===0 ) {
+                this.prevSettings = undefined;
+                return data;
+            }
     
             if ( data.refresh ) {
                 if ( this.prevSettings!==undefined)

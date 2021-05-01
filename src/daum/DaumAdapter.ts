@@ -113,9 +113,19 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
             }
 
             try {
+
+                const isReset = ( !request || request.reset || Object.keys(request).length===0 );
+    
                 if (this.bike.processor!==undefined) {
                     this.bike.processor.setValues(request);
                 }    
+
+                if (isReset) {
+                    this.logEvent({message:"sendBikeUpdate():reset done"});
+                    resolve( {})
+                    return;
+                }
+                    
                 this.logEvent({message:"sendBikeUpdate():sending",request});
     
                 if (request.slope!==undefined) {
@@ -144,6 +154,7 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
             catch (err) {
                 this.logEvent( {message:'sendBikeUpdate error',error:err.message})
                 resolve(undefined)
+                return;
             }
         
             resolve(request)
