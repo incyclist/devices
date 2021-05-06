@@ -12,6 +12,8 @@ export function getCockpit( c) {
             return "8080";
         case 60: 
             return "Therapie";
+        case 100: 
+            return "8008 TRS Pro";
         default:
             return "Unknown";
     }

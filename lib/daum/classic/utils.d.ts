@@ -1,4 +1,4 @@
-export declare function getCockpit(c: any): "Cardio" | "Fitness" | "Vita De Luxe" | "8008" | "8080" | "Therapie" | "Unknown";
+export declare function getCockpit(c: any): "Cardio" | "Fitness" | "Vita De Luxe" | "8008" | "8080" | "Therapie" | "8008 TRS Pro" | "Unknown";
 export declare function getBikeType(type: any): 1 | 0;
 export declare function getAge(birthday: any): number;
 export declare function getGender(sex: any): 1 | 2;
