@@ -6,6 +6,7 @@ import AntFEAdapter from "./antfe/AntFEAdapter";
 
 const LOGGER_NAME = 'ANT+Scanner'
 const DEFAULT_SCAN_TIMEOUT  = 30000; // 30s
+const TIMEOUT_STARTUP = 3000;
 
 const hex = (n,len) => {
     const c = "0";
@@ -166,9 +167,19 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
             return;
 
         const startupAttempt = (stick: any,name:string):any => {
+            this.logger.logEvent( {message:`${name} startup attempt`})
+            if ( stick.scanConnected) {
+                onStart(this);
+                return;
+            }
+
             if ( stick.is_present() ) {
-                stick.once('startup', () => {
-                    this.logger.logEvent( {message:`${name} opened`})
+                stick.on('startup', () => {
+                    if ( stick.scanConnected)   
+                        return;
+
+                    this.logger.logEvent( {message:`${name} startup completed`})
+                    stick.scanConnected = true;
                     onStart(stick)
                 })
                 const devices = stick.getDevices();
@@ -184,6 +195,15 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                     open = stick.open();
                     if (open) {
                         this.logger.logEvent( {message:`found ${name}`})
+                        const openStart = Date.now();
+                        const iv = setInterval( ()=>{
+                            if (!stick.scanConnected && openStart+TIMEOUT_STARTUP>Date.now())  {
+                                clearInterval(iv);
+                                this.logger.logEvent( {message:`${name} startup timeout`})
+                            }
+                            if ( stick.scanConnected)
+                                clearInterval(iv);  
+                        }, 100)
                         return stick;
                     }
                 }
@@ -240,14 +260,15 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
             return false;
         }
     
-        const stick = startupAttempt( new this.ant.GarminStick2(), 'GarminStick2')
-        if (stick)
-            return stick;
-        startupAttempt( new this.ant.GarminStick3(), 'GarminStick3')
+        let stick = undefined;
+        stick = startupAttempt( new this.ant.GarminStick2(), 'GarminStick2')
+        if (!stick)
+            stick = startupAttempt( new this.ant.GarminStick3(), 'GarminStick3')
+        return stick
     }
 
     async getFirstStick(): Promise<any> {
-        console.log( 'getFirstStick()')
+        
         return new Promise( (resolve,reject) => {
             if (!this.ant)
                 return reject( new Error('Ant not supported'))
@@ -308,6 +329,7 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                 this.sensors.stickOpen = false;
                 resolve(true)
             });
+
             try {
                 stick.detach_all();
                 setTimeout( ()=>{
@@ -317,7 +339,7 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                     }
                     catch(err) {}
                     this.logger.logEvent( {message:'stick closed'})
-                    
+                    stick.scanConnected = false;
                 },1000)
                 
             }
@@ -354,6 +376,8 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
         const {stick,port} =stickInfo;
         const timeout = props.timeout || DEFAULT_SCAN_TIMEOUT;
         const {onDeviceFound,onScanFinished,onUpdate,id} = props;
+
+        this.logger.logEvent( {message:'stick scan request',port,activeScans:this.activeScans});
 
         return new Promise ( (resolve,reject) => {
 
