@@ -195,9 +195,9 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                     open = stick.open();
                     if (open) {
                         this.logger.logEvent( {message:`found ${name}`})
-                        const openStart = Date.now();
+                        const timeoutStartup = Date.now()+TIMEOUT_STARTUP
                         const iv = setInterval( ()=>{
-                            if (!stick.scanConnected && openStart+TIMEOUT_STARTUP>Date.now())  {
+                            if (!stick.scanConnected && Date.now()>timeoutStartup)  {
                                 clearInterval(iv);
                                 this.logger.logEvent( {message:`${name} startup timeout`})
                             }
