@@ -23,6 +23,11 @@ export default class IndoorBikeProcessor  {
     constructor ( bike, opts?) {
         const props = opts || {} as any;
         this.bike = bike
+        this.logger = props.logger || new EventLogger('IndoorBike')
+        this.reset();
+    }
+
+    reset() {
         this.prevTS = 0;
         this.prevDistance = 0;
         this.prevRpm = 0;
@@ -34,9 +39,9 @@ export default class IndoorBikeProcessor  {
         this.prevSettings = undefined;
         this.hasBikeUpdate = false;
         this.lastUpdate = {}
-        this.logger = props.logger || new EventLogger('IndoorBike')
-    }
 
+    }
+ 
     setValues ( data) {
         this.logger.logEvent( {message:"setValues request",data,prev:this.prevSettings} );
 

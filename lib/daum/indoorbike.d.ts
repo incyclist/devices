@@ -13,6 +13,7 @@ export default class IndoorBikeProcessor {
     hasBikeUpdate: boolean;
     logger: EventLogger;
     constructor(bike: any, opts?: any);
+    reset(): void;
     setValues(data: any): any;
     isAccelMode(): any;
     getSlope(data: any): any;
