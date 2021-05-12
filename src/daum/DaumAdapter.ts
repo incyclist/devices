@@ -71,7 +71,8 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
         this.data       = {}
         this.currentRequest = {}
         this.requests   = [];
-
+        if (this.bike.processor!==undefined) 
+            this.bike.processor.reset();
     }
 
     startUpdatePull() {
