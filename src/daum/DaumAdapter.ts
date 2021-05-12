@@ -68,7 +68,15 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
     initData() {
         this.distanceInternal = undefined;
         this.paused = undefined;
-        this.data       = {}
+        this.data       = {
+            time:0,
+            slope:0,
+            distance:0,
+            speed:0,
+            isPedalling:false,
+            power:0,
+            distanceInternal:0
+        }
         this.currentRequest = {}
         this.requests   = [];
         if (this.bike.processor!==undefined) 
@@ -106,7 +114,6 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
     }
 
     sendBikeUpdate(request) {
-
         return new Promise ( async (resolve) => {
             
             if ( request.slope) {
@@ -157,7 +164,7 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
                 resolve(undefined)
                 return;
             }
-        
+
             resolve(request)
         });
 
@@ -242,11 +249,13 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
         // now get the latest data from the bike
         this.getCurrentBikeData()
         .then( bikeData => {
+
+            let prev = JSON.parse(JSON.stringify(this.data))
+
             // clone existing data object         
-            let data = JSON.parse(JSON.stringify(this.data))
 
             // update Data based on information received from bike
-            data = this.updateData(data, bikeData)
+            let data = this.updateData(prev, bikeData)
 
             // transform  ( rounding / remove ignored values)
             this.data = this.transformData(data);
