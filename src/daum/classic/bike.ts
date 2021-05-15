@@ -175,6 +175,11 @@ export default class Daum8008  {
                     clearInterval(iv);
                 }
                 else {
+                    if ( this.error) {
+                        reject(this.error)
+                        clearInterval(iv);
+                        return;
+                    }
                     if ( Date.now()>tTimeout ) {
                         this.opening = false;
                         reject( new Error('timeout') );

@@ -51,6 +51,7 @@ export default class DaumPremiumProtocol extends DeviceProtocolBase {
     scan( props ) {
         const opts = props || {}
         this.logger.logEvent( {message:'start scan',opts})
+        this.state.scanning = true;
 
         if(opts.interface===INTERFACE.TCPIP) {
             this.scanTcpip(opts);
@@ -88,7 +89,6 @@ export default class DaumPremiumProtocol extends DeviceProtocolBase {
 
     scanTcpip(opts) {
         Daum8iTcp.setNetImpl( DeviceProtocolBase.getNetImpl())
-
         const {host,port} = opts;
         let device = this.addDevice( Daum8iTcp, opts, `${host}:${port||51955}`)
         if (device) {
@@ -107,6 +107,10 @@ export default class DaumPremiumProtocol extends DeviceProtocolBase {
         }
         
 
+    }
+
+    isScanning() {
+        return this.state.scanning
     }
 
     async stopScan() {

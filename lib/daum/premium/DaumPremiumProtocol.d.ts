@@ -18,6 +18,7 @@ export default class DaumPremiumProtocol extends DeviceProtocolBase {
     addDevice(DeviceClass: any, opts: any, portName: any): any;
     scanTcpip(opts: any): void;
     scanSerial(opts: any): void;
+    isScanning(): boolean;
     stopScan(): Promise<boolean>;
     scanCommand(device: any, opts: any): void;
 }
