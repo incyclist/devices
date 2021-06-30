@@ -1,3 +1,4 @@
+import { EventLogger } from 'gd-eventlog';
 export default class TcpSocketPort {
     callbacks: any;
     enabled: boolean;
@@ -11,6 +12,7 @@ export default class TcpSocketPort {
     path: string;
     outputQueue: Array<any>;
     iv: any;
+    logger: EventLogger;
     constructor(props: any);
     flush(): void;
     open(): void;

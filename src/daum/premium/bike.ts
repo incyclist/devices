@@ -159,7 +159,7 @@ class Daum8i  {
     }
 
     connect() {
-        this.logger.logEvent({message:"connect()",sp:(this.sp!==undefined),port:this.portName,settings:this.settings});
+        this.logger.logEvent({message:"connect()",sp:(this.sp!==undefined),connected:this.connected, blocked:this.blocked,port:this.portName,settings:this.settings});
 
         if ( this.connected || this.blocked) {
             return;
@@ -172,14 +172,17 @@ class Daum8i  {
 
                 if ( this.tcpip) {
                     const {host,port} = this.tcpipConnection                     
+                    this.logger.logEvent({message:"creating TCPSocketPort",host,port});
                     this.sp = new TcpSocketPort( {host, port,net})
                 }
                 else {
                     const settings = this.settings.port || {}
                     settings.autoOpen=false;
     
+                    this.logger.logEvent({message:"creating TCPSocketPort",port:this.port,settings});
                     this.sp = new __SerialPort( this.port,settings);
                 }
+
                 this.sp.on('open', this.onPortOpen.bind(this) );            
                 this.sp.on('close', this.onPortClose.bind(this));            
                 this.sp.on('error', (error)=>{this.onPortError(error)} );    
@@ -196,6 +199,7 @@ class Daum8i  {
                 this.state.opening.retry = this.state.opening.retry+1;
             }
 
+            this.logger.logEvent({message:"opening port ..."});
             this.sp.open()
                 
 

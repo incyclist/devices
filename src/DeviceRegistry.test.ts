@@ -13,7 +13,7 @@ describe ( 'DeviceRegistry' ,()=>{
                 marker:string;
                 getName() { return 'A'}
             }
-            DeviceRegistry.register(new A())
+            DeviceRegistry.register(new A() as unknown as DeviceProtocol)
             const r =DeviceRegistry._get(); 
             expect(r.length).toBe(1);
             expect(r[0].getName()).toBe('A');
@@ -25,9 +25,9 @@ describe ( 'DeviceRegistry' ,()=>{
             class B  { getName() { return 'B'} }
             class C  { getName() { return 'C'} }
 
-            DeviceRegistry.register(new A())
-            DeviceRegistry.register(new B())
-            DeviceRegistry.register(new C())
+            DeviceRegistry.register(new A() as unknown as DeviceProtocol)
+            DeviceRegistry.register(new B() as unknown as DeviceProtocol)
+            DeviceRegistry.register(new C() as unknown as DeviceProtocol)
             const r =DeviceRegistry._get(); 
             expect(r.length).toBe(3);
             expect(r[0].getName()).toBe('A');
@@ -44,9 +44,9 @@ describe ( 'DeviceRegistry' ,()=>{
             a1.marker = 'a1';
             a2.marker = 'a2';
 
-            DeviceRegistry.register(a1)
-            DeviceRegistry.register(new B())
-            DeviceRegistry.register(a2)
+            DeviceRegistry.register(a1 as unknown as DeviceProtocol)
+            DeviceRegistry.register(new B() as unknown as DeviceProtocol)
+            DeviceRegistry.register(a2 as unknown as DeviceProtocol)
             const r =DeviceRegistry._get(); 
             expect(r.length).toBe(2);
             expect(r[0].getName()).toBe('A');
@@ -58,7 +58,7 @@ describe ( 'DeviceRegistry' ,()=>{
             class A  {
                 getName() { return 'A'}
             }
-            DeviceRegistry.register(new A())
+            DeviceRegistry.register(new A() as unknown as DeviceProtocol)
             DeviceRegistry.register(undefined)
 
             const r =DeviceRegistry._get(); 
@@ -118,9 +118,9 @@ describe ( 'DeviceRegistry' ,()=>{
             class B extends A { getName() { return 'B'} }
             class C extends A { getName() { return 'C'} }
             
-            DeviceRegistry.register(new A(['ant','serial','tcpip']))
-            DeviceRegistry.register(new B(['ant']))
-            DeviceRegistry.register(new C(['serial']))
+            DeviceRegistry.register(new A(['ant','serial','tcpip']) as unknown as DeviceProtocol)
+            DeviceRegistry.register(new B(['ant']) as unknown as DeviceProtocol)
+            DeviceRegistry.register(new C(['serial']) as unknown as DeviceProtocol)
         })
   
         test( 'interface only available in one device',()=> {

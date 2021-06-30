@@ -24,7 +24,7 @@ describe ( 'IndoorBikeProcessor', ()=> {
             const p = new IndoorBikeProcessor( bike )
             
             const data  = p.setValues({})
-            expect(data.targetPower).toBe(50);
+            expect(data.targetPower).toBeUndefined();
     
         })
 
@@ -54,7 +54,7 @@ describe ( 'IndoorBikeProcessor', ()=> {
 
             p.setValues({minPower:200, maxPower:200})
             const data  = p.setValues({})
-            expect(data.targetPower).toBeCloseTo(278,0)
+            expect(data.targetPower).toBeUndefined(); // TODO: is this correct? or do we need to do somethingto specificy unset limits?
     
         })
 

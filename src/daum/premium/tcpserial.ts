@@ -1,4 +1,5 @@
 import netClass from 'net'
+import {EventLogger} from 'gd-eventlog'
 
 const TIMEOUT_OPEN = 2000;
 
@@ -20,8 +21,10 @@ export default class TcpSocketPort {
     path: string;
     outputQueue: Array<any>
     iv: any;
+    logger: EventLogger;
 
     constructor(props) {
+        this.logger = new EventLogger('TCPSocket') 
         this.callbacks= {}
         this.isOpen = false;
         
@@ -52,12 +55,12 @@ export default class TcpSocketPort {
             this.socket.on('error',(err)=>{ this.onError(err) })
 
             this.socket.on('ready',()=>{
-                this.isOpen=true
-                this.emit('open')
+                this.logger.logEvent( {message:'ready'})
             })
             this.socket.connect( this.port, this.host );
         }
         catch (err) {
+            this.logger.logEvent( {message:'error',error:err.message, stack:err.stack})
             this.emit( 'error',err)
         }
 
@@ -100,10 +103,14 @@ export default class TcpSocketPort {
     }
  
     onConnect() {
+        this.logger.logEvent( {message:'connected'})
+        this.isOpen=true
         this.isClosed= false;
+        this.emit('open')
     }
 
     onError(err) {
+        this.logger.logEvent( {message:'error',error:err.message})
         if ( this.callbacks['error'])
             this.callbacks['error']( err)
     }
