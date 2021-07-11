@@ -15,7 +15,7 @@ export default class TcpSocketPort {
     logger: EventLogger;
     constructor(props: any);
     flush(): void;
-    open(): void;
+    open(retry?: boolean): void;
     close(): void;
     onTimeout(): void;
     onConnect(): void;

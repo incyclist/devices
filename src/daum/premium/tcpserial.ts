@@ -1,7 +1,7 @@
 import netClass from 'net'
 import {EventLogger} from 'gd-eventlog'
 
-const TIMEOUT_OPEN = 2000;
+const TIMEOUT_OPEN = 200;
 
 var __responses = {}
 
@@ -27,6 +27,7 @@ export default class TcpSocketPort {
         this.logger = new EventLogger('TCPSocket') 
         this.callbacks= {}
         this.isOpen = false;
+        this.isClosed = false;
         
         this.props = props || {}
         this.enabled = this.props.enabled || true;
@@ -46,17 +47,19 @@ export default class TcpSocketPort {
         //
     }
     
-    open() {
+    open(retry=false) {
 
         try {
-            this.socket.setTimeout(TIMEOUT_OPEN,(e) =>{})
-            this.socket.on('timeout',()=>{ this.onTimeout() })
-            this.socket.on('connect',()=>{ this.onConnect() })
-            this.socket.on('error',(err)=>{ this.onError(err) })
+            if (!retry) {
+                this.socket.setTimeout(TIMEOUT_OPEN,(e) =>{})
+                this.socket.on('timeout',()=>{ this.onTimeout() })
+                this.socket.on('connect',()=>{ this.onConnect() })
+                this.socket.on('error',(err)=>{ this.onError(err) })
 
-            this.socket.on('ready',()=>{
-                this.logger.logEvent( {message:'ready'})
-            })
+                this.socket.on('ready',()=>{
+                    this.logger.logEvent( {message:'ready'})
+                })
+            }
             this.socket.connect( this.port, this.host );
         }
         catch (err) {
@@ -65,6 +68,8 @@ export default class TcpSocketPort {
         }
 
     }
+
+    
 
     close() {
         this.isOpen = false;
@@ -87,19 +92,16 @@ export default class TcpSocketPort {
     }
 
     onTimeout() {
+        this.logger.logEvent( {message:'timeout'})
+        try {
+            this.socket.end();
+        }
+        catch {}
+
         if ( this.isClosed)
             return;
 
-
-        /*
-        this.socket.end();
-        this.socket.destroy();
-
-        this.socket.setTimeout(TIMEOUT_SEND,(e) =>{})
-        this.socket.on('timeout',()=>{})
-
-        this.emit('error', new Error('timeout opening port'))
-        */
+        this.emit('error', new Error('timeout'))
     }
  
     onConnect() {
