@@ -162,118 +162,142 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
         }
     } 
 
-    getStick(onStart:(stick:any)=>void):any {
+    async getStick( onStart:(stick:any)=>void, onError:(reason: string)=>void):Promise<any> {
         if (!this.ant)
             return;
 
-        const startupAttempt = (stick: any,name:string):any => {
-            this.logger.logEvent( {message:`${name} startup attempt`})
-            if ( stick.scanConnected) {
-                onStart(this);
-                return;
-            }
+        const startupAttempt = (stick: any,name:string):Promise<any> => {
 
-            if ( stick.is_present() ) {
-                stick.on('startup', () => {
-                    if ( stick.scanConnected)   
-                        return;
+            return new Promise( (resolve,reject) => {
 
-                    this.logger.logEvent( {message:`${name} startup completed`})
-                    stick.scanConnected = true;
-                    onStart(stick)
-                })
-                const devices = stick.getDevices();
-                if (devices && devices.length>0) {
-                    devices.forEach( d => {
-                        d.closeFn = d.close;
-                        d.close = ()=>{}
-                    })
+                this.logger.logEvent( {message:`${name} startup attempt`})
+
+                if ( stick.scanConnected) {
+                    onStart(this);
+                    resolve(stick)
+                    return;
                 }
-                this.getDetailedStickInfo(stick)
-                let open = false;
-                try {
-                    open = stick.open();
-                    if (open) {
-                        this.logger.logEvent( {message:`found ${name}`})
-                        const timeoutStartup = Date.now()+TIMEOUT_STARTUP
-                        const iv = setInterval( ()=>{
-                            if (!stick.scanConnected && Date.now()>timeoutStartup)  {
-                                clearInterval(iv);
-                                this.logger.logEvent( {message:`${name} startup timeout`})
-                            }
-                            if ( stick.scanConnected)
-                                clearInterval(iv);  
-                        }, 100)
-                        return stick;
+    
+                if ( stick.is_present() ) {
+                    stick.on('startup', () => {
+                        if ( stick.scanConnected)   
+                            return;
+    
+                        this.logger.logEvent( {message:`${name} startup completed`})
+                        stick.scanConnected = true;
+                        onStart(stick)
+                        resolve(stick)
+                    })
+
+                    const devices = stick.getDevices();
+                    if (devices && devices.length>0) {
+                        devices.forEach( d => {
+                            d.closeFn = d.close;
+                            d.close = ()=>{}
+                        })
                     }
-                }
-                catch( openErr) {
-                    this.logger.logEvent({message:'Open Error',error:openErr.message})
-                }
-                if (devices && devices.length>0) {
-                    devices.forEach( d => {
-                        d.close = d.closeFn;
-                    })
-                }
+                    else {  
+                        this.logger.logEvent( {message:`${name} startup failed: no devices `})
+                        resolve(null)
+                    }
 
-                if(!open) {
-                    // DEBUG CODE - remove once issue is clarified
-                    
-                    
-                    let detachedKernelDriver = false;
-                    while (devices.length) {
-                        let device;
-                        try {
-                            device = devices.shift();
-                            device.open();
-                            const iface = device.interfaces[0];
+                    this.getDetailedStickInfo(stick)
+                    let open = false;
+                    try {
+                        open = stick.open();
+                        if (open) {
+                            this.logger.logEvent( {message:`found ${name}`})
+                            const timeoutStartup = Date.now()+TIMEOUT_STARTUP
+                            const iv = setInterval( ()=>{
+                                if (!stick.scanConnected && Date.now()>timeoutStartup)  {
+                                    clearInterval(iv);
+                                    this.logger.logEvent( {message:`${name} startup timeout`})
+                                }
+                                if ( stick.scanConnected)
+                                    clearInterval(iv);  
+                            }, 100)
+                            return stick;
+                        }
+                    }
+                    catch( openErr) {
+                        this.logger.logEvent({message:'Open Error',error:openErr.message})
+                    }
+                    if (devices && devices.length>0) {
+                        devices.forEach( d => {
+                            d.close = d.closeFn;
+                        })
+                    }
+    
+                    if(!open) {
+                        // DEBUG CODE - remove once issue is clarified
+                        
+                        
+                        let detachedKernelDriver = false;
+                        while (devices.length) {
+                            let device;
                             try {
-                                if (iface.isKernelDriverActive()) {
-                                    detachedKernelDriver = true;
-                                    iface.detachKernelDriver();
-                                }
-                            }
-                            catch (kernelErr) {
-                                // Ignore kernel driver errors;
-                                this.logger.logEvent({message:'Kernel Error',error:kernelErr.message})
-                            }
-                            iface.claim();
-                            break;
-                        }
-                        catch (deviceErr) {
-                            // Ignore the error and try with the next device, if present
-                            this.logger.logEvent({message:'Device Error',error:deviceErr.message})
-                            if (device) {
+                                device = devices.shift();
+                                device.open();
+                                const iface = device.interfaces[0];
                                 try {
-                                    device.close();
+                                    if (iface.isKernelDriverActive()) {
+                                        detachedKernelDriver = true;
+                                        iface.detachKernelDriver();
+                                    }
                                 }
-                                catch {}
+                                catch (kernelErr) {
+                                    // Ignore kernel driver errors;
+                                    this.logger.logEvent({message:'Kernel Error',error:kernelErr.message})
+                                }
+                                iface.claim();
+                                break;
+                            }
+                            catch (deviceErr) {
+                                // Ignore the error and try with the next device, if present
+                                this.logger.logEvent({message:'Device Error',error:deviceErr.message})
+                                if (device) {
+                                    try {
+                                        device.close();
+                                    }
+                                    catch {}
+                                }
                             }
                         }
+                
+    
+    
+    
                     }
-            
-
-
-
                 }
-            }
-            return false;
+                
+                this.logger.logEvent( {message:`${name} startup failed: no stick present`})
+                resolve (null);
+                
+    
+            })
+
         }
     
         let stick = undefined;
-        stick = startupAttempt( new this.ant.GarminStick2(), 'GarminStick2')
+        stick = await startupAttempt( new this.ant.GarminStick2(), 'GarminStick2')
         if (!stick)
-            stick = startupAttempt( new this.ant.GarminStick3(), 'GarminStick3')
-        return stick
+            stick = await startupAttempt( new this.ant.GarminStick3(), 'GarminStick3')
+        
+        if (!stick) 
+            onError('No stick found')
+        else
+            return stick
+
     }
 
     async getFirstStick(): Promise<any> {
         
-        return new Promise( (resolve,reject) => {
+        return new Promise( async (resolve,reject) => {
             if (!this.ant)
                 return reject( new Error('Ant not supported'))
 
             if ( this.sticks && this.sticks.length>0 && this.sticks[0].connected) {
+                this.logger.logEvent( {message:'stick already connected'})
                 return resolve(this.sticks[0]);
             }
 
@@ -290,17 +314,16 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                     }
                 }, 100)
             
-                const stickFound = this.getStick( (stick)=> {
+                this.getStick( (stick)=> {
                     clearInterval(iv)
                     const port = this.getUSBDeviceInfo(stick.device).port;
                     if (!this.sticks.find( i => i.port===port ) ) {
                         this.sticks.push( {port,stick,connected:true})
                     }
                     resolve({port,stick})
+                    }, (reason)=> {
+                        resolve(undefined)
                 })
-                found = stickFound!==undefined && stickFound!==null;
-                if (!found) 
-                    resolve(undefined)
             }
             catch( err) {
                 this.logger.logEvent({message:'getFirstStick error',error:err.message,stack:err.stack})

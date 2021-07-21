@@ -37,7 +37,7 @@ export declare class AntProtocol extends DeviceProtocolBase implements DevicePro
     findStickByPort(port: any): any;
     logStickInfo(): void;
     getDetailedStickInfo(stick: any): void;
-    getStick(onStart: (stick: any) => void): any;
+    getStick(onStart: (stick: any) => void, onError: (reason: string) => void): Promise<any>;
     getFirstStick(): Promise<any>;
     closeStick(stick: any): Promise<unknown>;
     stopScanOnStick(stickInfo: any): Promise<boolean>;
