@@ -1,4 +1,4 @@
-import { getWeight } from "./utils"
+import { getWeight, parseRunData } from "./utils"
 
 describe ('utils',()=>{
 
@@ -44,6 +44,32 @@ describe ('utils',()=>{
     test( 'number as string => returns number (rounded)',()=>{
         const res=getWeight('75.2')
         expect(res).toBe(75)
+    })
+
+    describe ('parseRunData',()=> { 
+        test( 'valid data' ,()=>{ 
+            let error=undefined;
+            let data = undefined;
+            try {
+                data = parseRunData( [0x40,0,0,0,0xC0,0x13,0,0,0xF9,3,0x28,0x2E,3,41,0,0,7,0xE4,0x32]);
+            } catch (e) {
+                error =e;
+            }
+            expect(error).toBeUndefined();
+            expect(data).toBeDefined()
+            expect(data).toMatchObject( {power:95})
+        })
+
+        test( 'invalidvalid data: "pedalling=0x40"' ,()=>{ 
+            let error=undefined;
+            try {
+                const data = parseRunData( [0x40,0,0,0,0x40,5,0,0,0,0,0,0,0,0,0,0,0xA,0,0]);
+            } catch (e) {
+                error =e;
+            }
+            expect(error).toBeDefined();
+            expect(error.message).toBe('Invalid data')
+        })
     })
 
 })

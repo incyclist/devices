@@ -562,7 +562,15 @@ export default class Daum8008  {
         return new Promise( (resolve,reject) => {            
             this.sendDaum8008Command(
                 `runData(${bikeNo})`,[0x40,bikeNo],19,
-                (data)          => resolve(parseRunData(data)),
+                (data)          =>  {
+                    try {
+                        const parsed = parseRunData(data);
+                        resolve(parsed);
+                    }
+                    catch(e) {
+                        reject( buildError(500,e) );
+                    }
+                },
                 (status,err)    => reject(buildError(status,err))             
             );
         });

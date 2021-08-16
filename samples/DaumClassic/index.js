@@ -11,6 +11,11 @@ async function run() {
         const device = devices[0];
 
         logger.logEvent( {message:'starting device',device:device.getName()})        
+
+        if ( process.env.DEBUG) {
+            device.logger = logger;
+            device.bike.logger = logger;
+        }
         device.onData( (data)=> { logger.logEvent( {message:'onData',data}) })
         await device.start();
 

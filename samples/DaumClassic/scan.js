@@ -26,6 +26,8 @@ function scan(timeout=DEFAULT_SCAN_TIMEOUT) {
             logger.logEvent( {message: 'found ports',ports})
             const scanner = DeviceRegistry.findByName('Daum Classic');
             scanner.setSerialPort(SerialPort)
+
+
         
             ports.forEach( (port,idx) => {
                 const props = {id:idx, port, interface:INTERFACE.SERIAL, onDeviceFound,onScanFinished}
