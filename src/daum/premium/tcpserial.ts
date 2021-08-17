@@ -92,7 +92,10 @@ export default class TcpSocketPort {
     }
 
     onTimeout() {
-        this.logger.logEvent( {message:'timeout'})
+        if ( this.isOpen) 
+            return;
+
+        this.logger.logEvent( {message:'Socket timeout'})
         try {
             this.socket.end();
         }
@@ -108,6 +111,9 @@ export default class TcpSocketPort {
         this.logger.logEvent( {message:'connected'})
         this.isOpen=true
         this.isClosed= false;
+
+        this.socket.setKeepAlive(true);
+        this.socket.setTimeout(0);
         this.emit('open')
     }
 

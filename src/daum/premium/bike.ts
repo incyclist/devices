@@ -471,7 +471,7 @@ class Daum8i  {
             if ( d<this.state.sending.timeout)
                 return;
 
-            reject( new Error('timeout') )            
+            reject( new Error('RESP timeout') )            
             return;
     
         }
@@ -620,7 +620,7 @@ class Daum8i  {
                     if ( !this.state.connecting) {
                         this.saveConnect()
                         .then( () => {this.state.busy=false} )
-                        .catch( (reason)=> {this.state.busy=reason==='busy'} )    
+                        .catch( (reason)=> {this.state.busy=false} )    
                     }
                     
                     return;
@@ -634,7 +634,7 @@ class Daum8i  {
                     await sleep(500)
                 }
                 if ( this.state.busy ) {
-                    reject( new Error('timeout'))
+                    reject( new Error('BUSY timeout'))
                     return;
                 }
 
