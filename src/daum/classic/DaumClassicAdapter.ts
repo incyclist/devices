@@ -85,20 +85,37 @@ export default class DaumClassicAdapter extends DaumAdapter{
         const person = props;
 
         this.initData();        
-        return runWithRetries( async ()=>{
+        let startState = { } as any;
 
+        return runWithRetries( async ()=>{
             try {
                 await this.getBike().resetDevice();
 
-                await this.getBike().setProg(0);
-                await this.getBike().setPerson({person});
-                await this.getBike().startProg();
-                await this.bike.setGear( this.data.gear || ( opts.gear ||10 ));    
+                if ( !startState.setProg) {
+                    await this.getBike().setProg(0);
+                    startState.setProg = true;
+                }
+                if ( !startState.setPerson) {
+                    await this.getBike().setPerson({person});
+                    startState.setPerson = true;
+                }
+                if ( !startState.startProg) {              
+                    await this.getBike().startProg();
+                    startState.startProg = true;
+                }
+                if ( !startState.setGear) {
+                    await this.bike.setGear( this.data.gear || ( opts.gear ||10 ));    
+                    startState.setGear = true;
+                }
 
+                startState.checkRunData = true;
                 return await this.bike.runData();
                 
             }
             catch (err) {
+                if ( startState.checkRunData ) { 
+                    startState = { } as any
+                }
                 throw(err);
             }
         }, 5, 1000 )
