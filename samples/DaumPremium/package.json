@@ -6,7 +6,7 @@
     "dependencies": {
         "gd-ant-plus": "^0.0.29",
         "gd-eventlog": "^0.1.21",
-        "serialport": "^9.0.7"
+        "serialport": "^9.2.0"
     },
     "scripts": {
         "start": "node index.js"

@@ -12,8 +12,9 @@ export function runWithRetries( fn, maxRetries, timeBetween) {
             const tNow =Date.now();
 
             /* istanbul ignore next */
-            if(busy)
+            if(busy) 
                 return;
+
             if ( tLastFailure===undefined || tNow-tLastFailure>timeBetween) {
                 try {
                     busy = true;
@@ -24,12 +25,15 @@ export function runWithRetries( fn, maxRetries, timeBetween) {
                 }
                 catch( err) {
                     tLastFailure = Date.now();
-                    busy = false;
                     retries++;
-                    if ( retries>maxRetries) {
+                    if ( retries>=maxRetries) {
                         clearInterval(iv)
+                        busy = false;
                         return reject( err);    
                     }         
+                    else {
+                        busy = false;
+                    }
                 }    
             }
         }, 50)

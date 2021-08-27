@@ -6,11 +6,13 @@ const logger = new EventLogger('DaumPremiumSample');
 const {scan} = require('./scan')
 
 async function run() {
+
     const devices = await scan();
     if (devices && devices.length>0) {
         const device = devices[0];
 
         logger.logEvent( {message:'starting device',device:device.getName()})        
+
         device.onData( (data)=> { logger.logEvent( {message:'onData',data}) })
         await device.start();
 

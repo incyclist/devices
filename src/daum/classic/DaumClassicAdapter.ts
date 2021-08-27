@@ -86,6 +86,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
 
         this.initData();        
         let startState = { } as any;
+        let retry = 0;
 
         return runWithRetries( async ()=>{
             try {
@@ -108,15 +109,22 @@ export default class DaumClassicAdapter extends DaumAdapter{
                     startState.setGear = true;
                 }
 
+                await this.bike.setPower(50);
+                
                 startState.checkRunData = true;
-                return await this.bike.runData();
+                const data = await this.bike.runData();
+                if (data.power===25) {
+                    throw new Error( 'invalid device response: runData');
+                }
+                return data;
                 
             }
             catch (err) {
                 if ( startState.checkRunData ) { 
                     startState = { } as any
+                    retry++;
                 }
-                throw(err);
+                throw( new Error(`could not start device, reason:${err.message}`));
             }
         }, 5, 1000 )
         .then ( data => {

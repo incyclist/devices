@@ -51,7 +51,7 @@ export default class Daum8008  {
 
     constructor( opts={} as any ) {
         
-        this.logger = new EventLogger('DaumClassic');
+        this.logger = opts.logger || new EventLogger('DaumClassic');
 
         this.portName = opts.port || process.env.COM_PORT
         this.settings = opts.settings || {};        

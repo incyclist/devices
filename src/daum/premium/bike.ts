@@ -54,7 +54,7 @@ class Daum8i  {
 
         
         const opts = props || {}
-        this.logger = new EventLogger('DaumPremium') 
+        this.logger = props.logger || new EventLogger('DaumPremium') ;
         this.logger.logEvent( {message:'new DaumPremium object',opts})
 
         if (opts.interface==='tcpip') {
@@ -179,7 +179,7 @@ class Daum8i  {
                     const settings = this.settings.port || {}
                     settings.autoOpen=false;
     
-                    this.logger.logEvent({message:"creating TCPSocketPort",port:this.port,settings});
+                    this.logger.logEvent({message:"creating SerialPort",port:this.port,settings});
                     this.sp = new __SerialPort( this.port,settings);
                 }
 

@@ -2,6 +2,7 @@ const {EventLogger} = require( 'gd-eventlog');
 const net = require ('net')
 const {DeviceRegistry,INTERFACE} = require('../../lib/DeviceSupport');
 const { networkInterfaces } = require('os');
+const SerialPort = require('serialport');
 
 const logger = new EventLogger('DaumPremiumSample')
 const DEFAULT_SCAN_TIMEOUT = 10000; 
@@ -96,11 +97,23 @@ function scan(timeout=DEFAULT_SCAN_TIMEOUT) {
             logger.log('starting scan...')
     
             const scanner = DeviceRegistry.findByName('Daum Premium');
-            scanner.setNetImpl(net)
+            scanner.setNetImpl(net);
+            scanner.setSerialPort(SerialPort);
             scanner.logger = logger;
             
             const props = {id:0, host, interface:INTERFACE.TCPIP, onDeviceFound,onScanFinished}
             scanner.scan(props)
+
+            SerialPort.list().then( portList => {
+                const ports = portList.map( i => i.path)
+                logger.logEvent( {message: 'found ports',ports})
+
+       
+                ports.forEach( (port,idx) => {
+                    const serialProps = {id:idx, port, interface:INTERFACE.SERIAL, onDeviceFound,onScanFinished,logger}
+                    scanner.scan(serialProps)
+                });
+            });        
 
             setTimeout( ()=>{
                 logger.log('timeout')

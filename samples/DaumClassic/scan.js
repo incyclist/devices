@@ -8,7 +8,6 @@ const DEFAULT_SCAN_TIMEOUT = 10000;
 const _devices = [];
 
 const onDeviceFound = (device,protocol) => {
-    console.log(device.getName())
     _devices.push(device);
     logger.logEvent( {message: 'device found',name:device.getName(),port:device.getPort(), protocol:protocol.getName()})
 }
@@ -30,7 +29,7 @@ function scan(timeout=DEFAULT_SCAN_TIMEOUT) {
 
         
             ports.forEach( (port,idx) => {
-                const props = {id:idx, port, interface:INTERFACE.SERIAL, onDeviceFound,onScanFinished}
+                const props = {id:idx, port, interface:INTERFACE.SERIAL, onDeviceFound,onScanFinished,logger}
                 scanner.scan(props)
             });
         
