@@ -59,7 +59,7 @@ export default class DaumClassicProtocol extends DeviceProtocolBase implements D
 
         let device = this.addDevice( props, props.port)
         if (device) {
-            const iv = setInterval( ()=> {this.scanCommand(device,props)}, 500)
+            const iv = setInterval( ()=> {this.scanCommand(device,props)}, 1000)
             this.state.activeScans.push( { iv,device,props})
         }
     }

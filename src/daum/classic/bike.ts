@@ -143,9 +143,6 @@ export default class Daum8008  {
                 this.sp.on('error', (error)=>{this.onPortError(error)} );            
                 this.firstOpen = true;
             }    
-            else {                
-                this.sp.open();
-            }
 
             this.sp.open()
             this.cmdBusy=true;
@@ -170,20 +167,20 @@ export default class Daum8008  {
             const tTimeout = Date.now()+TIMEOUT_START;
             const iv = setInterval( ()=>{
                 if ( this.isConnected() ) {
+                    clearInterval(iv);
                     this.opening = false;
                     resolve(true);
-                    clearInterval(iv);
                 }
                 else {
                     if ( this.error) {
-                        reject(this.error)
                         clearInterval(iv);
+                        reject(this.error)
                         return;
                     }
                     if ( Date.now()>tTimeout ) {
+                        clearInterval(iv);
                         this.opening = false;
                         reject( new Error('timeout') );
-                        clearInterval(iv);
                     }
                 }
             } ,100)
@@ -199,28 +196,36 @@ export default class Daum8008  {
 
         var serialPort = this.sp;
         this.closing = true;
-        if ( this.queue!==undefined )
-            this.queue.clear();
 
         if (this.bikeCmdWorker!==undefined) {
             clearInterval(this.bikeCmdWorker);
             this.bikeCmdWorker=undefined;
         }
 
+        if ( this.queue!==undefined )
+            this.queue.clear();
+
+
         let connected = this.connected ;
         if ( connected) {
             if( serialPort ) {
                 serialPort.unpipe();
                 serialPort.flush();    
-                serialPort.drain( ()=> {
+                if ( this.cmdBusy) {
+                    serialPort.drain( ()=> {
+                        serialPort.close();
+                    })
+                }
+                else {
                     serialPort.close();
-                })
+                }
             }
        
         }
         else {
-            if (serialPort)
+            if (serialPort) {
                 serialPort.close()
+            }
         }
         this.cmdBusy=false;    
 
@@ -228,21 +233,21 @@ export default class Daum8008  {
 
     saveClose() {
         return new Promise( (resolve,reject)=> {
-    
+
             this.close();
+    
             const tTimeout = Date.now()+TIMEOUT_CLOSE;
             const iv = setInterval( ()=>{
                 if ( !this.closing || this.closed) {
-                    resolve(true);
                     clearInterval(iv);
+                    resolve(true);
                 }
                 else {
-                    if ( this.sp)
-                        this.sp.close()
+                    //this.close();
                     if ( Date.now()>tTimeout ) {
+                        clearInterval(iv);
                         this.closing = false;
                         reject( new Error('timeout') );
-                        clearInterval(iv);
                     }
                 }
             } ,100)
