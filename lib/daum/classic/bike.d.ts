@@ -18,7 +18,6 @@ export default class Daum8008 {
     processor: any;
     sp: any;
     error: Error;
-    firstOpen: boolean;
     opening: boolean;
     connected: boolean;
     closing: boolean;

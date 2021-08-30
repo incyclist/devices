@@ -10,7 +10,7 @@ const nop = ()=>{}
 const TIMEOUT_START = 15000;
 const TIMEOUT_CLOSE = 5000;    // 5s
 const TIMEOUT_SEND  = 2000;    // 2s
-var SerialPort = undefined;
+var __SerialPort = undefined;
 
 
 type SuccessCallbackFn = (data: any) => void
@@ -38,7 +38,6 @@ export default class Daum8008  {
     processor: any;
     sp: any;
     error: Error;
-    firstOpen: boolean;
     opening: boolean;
     connected: boolean;
     closing: boolean;
@@ -76,7 +75,7 @@ export default class Daum8008  {
     }
 
     static setSerialPort(spClass) {
-        SerialPort= spClass;
+        __SerialPort= spClass;
     }
 
     static getClassName() {
@@ -106,17 +105,15 @@ export default class Daum8008  {
     }
 
     getUserWeight() {
-        //this.log("Daum8008: getUserWeight()");
-        if (this.settings===undefined || this.settings===null || this.settings.user===undefined || this.settings.user===null)
-            return getWeight(undefined);
+        if (this.settings && this.settings.user && this.settings.user.weight) 
+            return getWeight(this.settings.user.weight);
         else
-            return getWeight(this.settings.user.weight)-10;
+            return getWeight();
 
     }
 
     getBikeWeight() {
-        //this.log("Daum8008: getBikeWeight()");
-        if ( this.settings.weight ) {
+        if ( this.settings && this.settings.weight ) {
             let m = this.settings.weight;
             if (m>0 && m<20)
                 return m;
@@ -137,17 +134,16 @@ export default class Daum8008  {
                 const settings = this.settings.port || {}
                 settings.autoOpen=false;
 
-                this.sp = new SerialPort( this.portName,settings);
+                this.sp = new __SerialPort( this.portName,settings);
                 this.sp.on('open', ()=>{this.onPortOpen()} );            
                 this.sp.on('close', ()=>{this.onPortClose()});            
                 this.sp.on('error', (error)=>{this.onPortError(error)} );            
-                this.firstOpen = true;
             }    
 
-            this.sp.open()
             this.cmdBusy=true;
             this.opening = true;
             this.closed = undefined;
+            this.sp.open()
 
         }
         catch (err)  {
@@ -164,7 +160,8 @@ export default class Daum8008  {
             }
 
             this.connect();
-            const tTimeout = Date.now()+TIMEOUT_START;
+            const timeoutStart = this.settings.timeoutStart || TIMEOUT_START;
+            const tTimeout = Date.now()+timeoutStart;
             const iv = setInterval( ()=>{
                 if ( this.isConnected() ) {
                     clearInterval(iv);
@@ -174,12 +171,14 @@ export default class Daum8008  {
                 else {
                     if ( this.error) {
                         clearInterval(iv);
+                        this.cmdBusy = false
                         reject(this.error)
                         return;
                     }
                     if ( Date.now()>tTimeout ) {
                         clearInterval(iv);
                         this.opening = false;
+                        this.cmdBusy = false
                         reject( new Error('timeout') );
                     }
                 }
@@ -266,10 +265,6 @@ export default class Daum8008  {
         if ( this.cmdStart!==undefined) {
             this.cmdStart=Date.now();
         }
-        if (this.firstOpen!==undefined) {
-            this.firstOpen=undefined;
-            //console.log("on('open'):cmdBusy=false");
-        }
         this.cmdBusy=false;
     }
 
@@ -344,7 +339,7 @@ export default class Daum8008  {
         if ( this.connected && this.cmdBusy) { 
             if( this.cmdCurrent!==undefined  && this.cmdCurrent.start!==undefined) {      
                 const cmdInfo = this.cmdCurrent;
-                const timeout =  ( cmdInfo.options && cmdInfo.options.timeout) ? cmdInfo.options.timeout : TIMEOUT_SEND;
+                const timeout =  ( cmdInfo.options && cmdInfo.options.timeout) ? cmdInfo.options.timeout :  (this.settings.timeoutMessage || TIMEOUT_SEND);
 
                 let d = Date.now()-cmdInfo.start;
                 if ( d>timeout) {
@@ -454,7 +449,10 @@ export default class Daum8008  {
             this.sendDaum8008Command(
                 `checkCockpit(${bikeNo})`,[0x10,bikeNo],3, 
                 (data)          => resolve({bike : data[1], version: data[2]}),
-                (status,err)    => reject(buildError(status,err))             
+                (status,err)    => { 
+                    if ( status===408) 
+                        return resolve({bike : bikeNo, version: undefined})
+                    reject(buildError(status,err))     }         
             );
         });
     }
@@ -547,7 +545,7 @@ export default class Daum8008  {
         cmd.push(0); // body fat
         cmd.push(0); // coaching: fitness
         cmd.push(3); // coaching: training freq
-        cmd.push(800/5); // power Limit
+        cmd.push(0); // power Limit
         cmd.push(0); // hrm Limit
         cmd.push(0); // time Limit
         cmd.push(0); // dist Limit
@@ -556,7 +554,17 @@ export default class Daum8008  {
         return new Promise( (resolve,reject) => {            
             this.sendDaum8008Command(
                 `setPerson(${bikeNo},${age},${gender},${length},${weight})`,cmd,16, 
-                (data)          => resolve({bike:data[1],age,gender,length,weight}),
+                (data)          => { 
+                    let ok = true;
+                    cmd.forEach( (v,i) => { 
+                        if (data[i]!==v) {
+                            reject( buildError(512,'illegal response' )) 
+                            ok = false;
+                        }
+                    } )
+                    if (ok)
+                        resolve({bike:data[1],age,gender,length,weight}) 
+                },
                 (status,err)    => reject(buildError(status,err))             
             );
         });

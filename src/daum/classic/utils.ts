@@ -103,10 +103,12 @@ export function getWeight(weight?) {
 export function parseRunData( data) {
     const bikeData = {} as any
 
+    /*
     const pedalling = data[4];
     if (pedalling===0x40 || pedalling===0x41) {
         throw new Error('Invalid data');
     }
+    */
 
     bikeData.isPedalling = (data[4]>0);
     bikeData.power  = data[5]*5;

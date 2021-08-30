@@ -295,7 +295,7 @@ describe( 'Daum8i', ()=> {
                 catch(err) { error=err}
 
                 // TODO: verify that command was retried 3 times
-                expect(error.message).toBe('timeout');
+                expect(error.message).toBe('RESP timeout');
             },1000)
 
 
@@ -362,7 +362,7 @@ describe( 'Daum8i', ()=> {
             }
             catch (err) { error = err}
             expect(bike.sendNAK).toBeCalled();
-            expect(error.message).toBe('timeout'); // as simulated server is not sending the correct response
+            expect(error.message).toBe('RESP timeout'); // as simulated server is not sending the correct response
         })
 
         test('illegal response, followed by correction',async ()=> {
