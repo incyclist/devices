@@ -62,13 +62,18 @@ describe ('utils',()=>{
 
         test( 'invalidvalid data: "pedalling=0x40"' ,()=>{ 
             let error=undefined;
+            let data = undefined;
             try {
-                const data = parseRunData( [0x40,0,0,0,0x40,5,0,0,0,0,0,0,0,0,0,0,0xA,0,0]);
+                data = parseRunData( [0x40,0,0,0,0x40,5,0,0,0,0,0,0,0,0,0,0,0xA,0,0]);
             } catch (e) {
                 error =e;
             }
-            expect(error).toBeDefined();
-            expect(error.message).toBe('Invalid data')
+            expect(error).toBeUndefined();
+            expect(data).toBeDefined()
+            expect(data).toMatchObject( {power:25})
+
+            //expect(error).toBeDefined();
+            //expect(error.message).toBe('Invalid data')
         })
     })
 

@@ -1,32 +1,23 @@
 
-//const POS_OBERLENKER = 0;
+const POS_OBERLENKER = 0;
 const POS_BREMSGRIFF = 1;
-//const POS_UNTERLENKER = 2;
+const POS_UNTERLENKER = 2;
 const POS_TRIATHLON = 3;
 
-let crX = 0.0033;
-let g = 9.80665;
-
-// oberlenker
-let clOL = 0.4594;
-let cOL = 0.05;
-
-// unterlenker
-let clUL = 0.3218;
-let cUL = 0.05;
-
-// triathlon
-let clTri = 0.325;
-let cTri = 0.017;
-
-let airDensity = 1.2041; 	// air densite at 20°C at sea level
-let rho = airDensity; 		// just to shorten the formula
-
-let cWAs = [0.45,0.35,0.30,0.25];	// oberlenker, bremsgriff,unterlenker, triathlon
-let k = 0.01090;					// http://www.radpanther.de/index.php?id=85  -- Shimano Ultegra WH6700 (4)
-let cRR = 0.0036;					// http://www.radpanther.de/index.php?id=85  -- Conti GP 4000 RS
+const g = 9.80665;
+const rho = 1.2041;  		        // air densite at 20°C at sea level
+const cWAs = [0.45,0.35,0.30,0.25];	// oberlenker, bremsgriff,unterlenker, triathlon
+const k = 0.01090;					// http://www.radpanther.de/index.php?id=85  -- Shimano Ultegra WH6700 (4)
+const cRR = 0.0036;					// http://www.radpanther.de/index.php?id=85  -- Conti GP 4000 RS
 	
 var _speedCache = {}
+
+export class IllegalArgumentException extends Error {
+    constructor(message) {
+        super(message);
+        this.name = "IllegalArgumentException";
+    }
+}
 
 export default class Calculations {
     
@@ -37,78 +28,37 @@ export default class Calculations {
 	 * 
 	 */
 
-	static calculateSpeed (m, power, slope) {
+	static calculateSpeed (m, power, slope, props={} as any) {
+                
         var speed=undefined;
-        let key = Math.round(m)*1000000+Math.round(power)*1000+Math.round(slope*10);
-
+        let key = `${Math.round(m*10)} ${Math.round(power)} ${Math.round(slope*10)} ${JSON.stringify(props)}`;
 	    speed = _speedCache[key];
 		if (speed!==undefined) 
             return speed;
             
-		speed = this.calculateSpeedUncached(m,power,slope);
+		speed = this.calculateSpeedUncached(m,power,slope,props);
 		_speedCache[key] = speed;
 		return speed;
 		
     }
 
-    static calculateAccelSpeed ( m, power, slope, speedPrev, t) {
-        let vPrev = speedPrev/3.6;
-        let Pres = Calculations.calculatePower(m,vPrev,slope);
-        var P = power-Pres;
-        if (P>0) {
-            let a = Math.sqrt(P/(m*t));
-            let v = vPrev+a*t;    
-            return v*3.6
-        }
-        else {
-            P = P*-1;
-            let a = Math.sqrt(P/(m*t));
-            let v = vPrev-a*t;    
-            return v*3.6
-        }        
-    }
+	static calculateSpeedUncached (m:number, power:number, slope:number, props={} as any) {
+        if (m===undefined || m===null || m<0)
+            throw new IllegalArgumentException("m must be a positive number");
 
-	static calculateSpeedUncachedOld (m, power, slope) {
-		let c = cTri;
-		let cl = clTri;
-		let cr=crX;
-		
+        if (power===undefined || power===null || power<0)
+            throw new IllegalArgumentException("power must be a positive number");
+
+        if (slope===undefined || slope===null )
+            slope = 0;
+
+        const _rho = props.rho || rho;
+        const _cRR = props.cRR || cRR;
+        const _cwA = props.cwA || cwA(slope);
+
 		let sl = Math.atan(slope/100);
-		if (slope<0)
-		{
-			let crDyn = 0.1 * Math.cos(sl);
-			cl=clUL;
-			c = cUL;
-			cr = (1+crDyn)*cr;
-		}
-		if (slope<-2)
-		{
-			let crDyn = 0.1 * Math.cos(sl);
-			cl=clOL;
-			c = cOL;
-			cr = (1+crDyn)*cr;
-		}
-
-
-		let c1 = 1.0/(1.0-c);
-		let a= m*g*(sl+cr)*c1;
-		let b=cl/2.0*c1;
-		
-		let p= a/b;
-		let q=-1.0*power/b;
-		
-		var z = solveCubic(p,q);
-		if (z.length>0) {
-			for (var i=0;i<z.length;i++)
-				if (z[i]>0) return z[i]*3.6;
-		}
-		return 0;
-    }
-    
-	static calculateSpeedUncached (m, power, slope) {
-		let sl = Math.atan(slope/100);
-		let c1 = 0.5*rho*cwA(slope)+2*k;
-		let c2 = (sl +cRR)*m*g;
+		let c1 = 0.5*_rho*_cwA+2*k;
+		let c2 = (sl +_cRR)*m*g;
 		
 		let p = c2/c1;
 		let q = -1.0*power/c1;
@@ -121,58 +71,30 @@ export default class Calculations {
 		return 0;
 	}
 
-    static calculatePower (m,  v,  slope) {
+    static calculatePower (m:number,  v:number,  slope:number, props={} as any) {
+        if (m===undefined || m===null || m<0)
+            throw new IllegalArgumentException("m must be a positive number");
+
+        if (v===undefined || v===null || v<0)
+            throw new IllegalArgumentException("v must be a positive number");
+
+        if (slope===undefined || slope===null )
+            slope = 0;
+
+        let _rho = props.rho || rho;
+        let _cRR = props.cRR || cRR;
+        let _cwA = props.cwA || cwA(slope);
+
 		/**
 		 * P = 1/2*rho*cWA*v^3 +2*k v^3 + m*g*sl*v + cRR*m*g*v 
 		 */
 		let sl = Math.sin(Math.atan(slope/100));
-		let P = (0.5*rho*cwA(slope)+2*k)*Math.pow(v,3.0)+(sl +cRR)*m*g*v; 
+		let P = (0.5*_rho*_cwA+2*k)*Math.pow(v,3.0)+(sl +_cRR)*m*g*v; 
 		
 		return P;
     }	
 
-
-
-    static calculateForce (m, v, slope) {
-		/**
-		 * P = 1/2*rho*cWA*v^3 +2*k v^3 + m*g*sl*v + cRR*m*g*v 
-		 */
-		let sl = Math.sin( Math.atan(slope/100) );
-
-        //let Fgrav = m*g*sl;
-        //let Froll = cRR*m*g;
-        //let Faero = (0.5*rho*cwA(slope)+2*k)*v*v;
-
-		let F = (0.5*rho*cwA(slope)+2*k)*Math.pow(v,3.0)+(sl +cRR)*m*g*v; 
-		
-		return F;
-    }	
-
-    static calculatePowerAccelaration (m,  a, v ) {
-		let P = m*a*v;		
-		return P;
-	}	
-
-	static calculatePowerResistance ( m,  v,  slope) {
-		/**
-		 * P = 1/2*rho*cWA*v^3 +2*k v^3 + cRR*m*g*v 
-		 */
-		let P = (0.5*rho*cwA(slope)+2*k)*Math.pow(v,3.0)+cRR*m*g*v; 		
-		return P;
-	}	
-
-    static  crankPower( rpm,  torque) {
-		return torque*rpm*2*Math.PI/60.0;
-	}
-
-	static  crankTorque( rpm,  power) {
-		return power/(rpm*2*Math.PI/60.0);
-	}
-
-	static  crankRPM( power, torque) {
-		return power*60/(2*Math.PI*torque);
-    }
-    
+   
 	static  calculateSpeedDaum( gear, rpm,  bikeType) 
 	{
         if (bikeType===0 || bikeType===undefined || bikeType==="race") { // Rennrad
@@ -273,58 +195,6 @@ function solveCubic(p , q ) {
     return [];
 }
 
-/*
-function Float32ToIntArray (float32)  {
-    var view = new DataView(new ArrayBuffer(4))
-    view.setFloat32(0, float32);
-    var arr = [];
-  	for ( i=0;i<4;i++) {
-      arr.push( view.getUint8(i))
-    }
-    return arr;
-}
-
-function slopeCmd(slope) {
-    var cmd = [0x55,0];
-    var arr = Float32ToIntArray(slope);
-    cmd.push( arr[3]);
-    cmd.push( arr[2]);
-    cmd.push( arr[1]);
-    cmd.push( arr[0]);
-
-    return cmd;
-}
-
-function hexstr(arr,start,len) {
-    var str = "";
-    if (start==undefined) 
-        start = 0;
-    if ( len==undefined) {
-        len = arr.length;
-    }
-    if (len-start>arr.length) {
-        len = arr.length-start;
-    }
-
-    var j=start;
-    for (var i = 0; i< len; i ++) {
-        var hex = Math.abs( arr[j++]).toString(16);
-        if ( i!=0 ) str+=" ";
-        if (hex.length<2)
-            str+="0";
-        str+=hex;
-    }
-	return str;
-}
-
-console.log ( hexstr(slopeCmd(0.15774746) ));
-console.log ( hexstr(slopeCmd(-0.028462412)));
-
-console.log ( hexstr(slopeCmd(0)));
-console.log ( hexstr(slopeCmd(0.01)));
-console.log ( hexstr(slopeCmd(0.1)));
-
-*/
 
 /*  
 

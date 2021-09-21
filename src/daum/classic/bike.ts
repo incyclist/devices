@@ -534,8 +534,8 @@ export default class Daum8008  {
         const gender = getGender( user.sex) ;    
         const length = getLength( user.length) ;  
 
-        const mUser = user.weight || 80;
-        const weight = getWeight( mUser)+10; // adding weight of bike    
+        const mUser = user.weight || this.getUserWeight();
+        const weight = getWeight( mUser)+this.getBikeWeight(); // adding weight of bike    
         
         var cmd = [0x24,bikeNo,0];
         cmd.push( age );
@@ -555,6 +555,8 @@ export default class Daum8008  {
             this.sendDaum8008Command(
                 `setPerson(${bikeNo},${age},${gender},${length},${weight})`,cmd,16, 
                 (data)          => { 
+                    // In some cases, there was a communication glitch and setPerson was setting limits (based on wrong values)
+                    // To avoid this to happen, we need to explicitly verify that the response matches the request
                     let ok = true;
                     cmd.forEach( (v,i) => { 
                         if (data[i]!==v) {
