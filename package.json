@@ -7,7 +7,7 @@
     "@types/serialport": "^8.0.1"
   },
   "peerDependencies": {
-    "gd-eventlog": "^0.1.21"
+    "gd-eventlog": "^0.1.22"
   },
   "devDependencies": {
     "@types/jest": "^25.2.1",

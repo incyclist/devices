@@ -4,8 +4,8 @@
     "private": true,
     "homepage": "./",
     "dependencies": {
-        "gd-ant-plus": "^0.0.29",
-        "gd-eventlog": "^0.1.21",
+        "gd-ant-plus": "^0.0.31",
+        "gd-eventlog": "^0.1.22",
         "incyclist-devices": "^1.2.0"
     },
     "scripts": {
