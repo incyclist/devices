@@ -401,6 +401,10 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
         const {onDeviceFound,onScanFinished,onUpdate,id} = props;
 
         this.logger.logEvent( {message:'stick scan request',port,activeScans:this.activeScans});
+        if (process.env.ANT_DEBUG) {
+            stick.props = { debug:true }
+        }
+
 
         return new Promise ( (resolve,reject) => {
 
@@ -540,6 +544,9 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
         
                 if (!stick.inUse) {
                     try {
+                        if (process.env.ANT_DEBUG) {
+                            stick.props = { debug:true }
+                        }
                         stick.open();
                         opened = true;
                     }
