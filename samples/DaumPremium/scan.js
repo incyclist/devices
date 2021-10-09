@@ -6,7 +6,7 @@ const SerialPort = require('serialport');
 
 const logger = new EventLogger('DaumPremiumSample')
 const DEFAULT_SCAN_TIMEOUT = 10000; 
-
+const DEFAULT_PORT = 51955;
 const _devices = [];
 
 const onDeviceFound = (device,protocol) => {
@@ -73,6 +73,7 @@ function scan(timeout=DEFAULT_SCAN_TIMEOUT) {
     })
 
     const subnets  = address.filter((x, i) => i === address.indexOf(x))
+    subnets.push('127.0.0.1')
     console.log(subnets)
 
 
@@ -83,7 +84,7 @@ function scan(timeout=DEFAULT_SCAN_TIMEOUT) {
     subnets.forEach( sn => {
         range.forEach( j => {
             const host = `${sn}.${j}`
-            scanPort(host,51955).then( r => { console.log(host,r); hosts.push(r)}).catch(()=>{})
+            scanPort(host,DEFAULT_PORT).then( r => { console.log(host,r); hosts.push(r)}).catch(()=>{})
         })
     })
 
@@ -101,7 +102,7 @@ function scan(timeout=DEFAULT_SCAN_TIMEOUT) {
             scanner.setSerialPort(SerialPort);
             scanner.logger = logger;
             
-            const props = {id:0, host, interface:INTERFACE.TCPIP, onDeviceFound,onScanFinished}
+            const props = {id:0, host,port:DEFAULT_PORT, interface:INTERFACE.TCPIP, onDeviceFound,onScanFinished}
             scanner.scan(props)
 
             SerialPort.list().then( portList => {

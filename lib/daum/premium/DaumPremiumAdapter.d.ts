@@ -4,6 +4,7 @@ export default class DaumPremiumDevice extends DaumAdapter {
     constructor(protocol: any, bike: any);
     getName(): string;
     getPort(): any;
+    getInterface(): any;
     check(): Promise<unknown>;
     start(props: any): Promise<unknown>;
     getCurrentBikeData(): any;

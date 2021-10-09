@@ -1,5 +1,5 @@
 import { EventLogger } from "gd-eventlog";
-import DeviceProtocolBase,{INTERFACE,DeviceProtocol} from "../DeviceProtocol";
+import DeviceProtocolBase,{INTERFACE,DeviceProtocol,DeviceSettings} from "../DeviceProtocol";
 import AntHrmAdapter from './anthrm/AntHrmAdapter'
 import AntAdapter from "./AntAdapter";
 import AntFEAdapter from "./antfe/AntFEAdapter";
@@ -72,6 +72,10 @@ class AntProfile  {
 
 }
 
+interface AntDeviceSettings extends DeviceSettings {
+    deviceID:string,
+    profile: string
+}
 
 export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
     logger: EventLogger;
@@ -94,6 +98,26 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
             { name:'Heartrate Monitor', Adapter: AntHrmAdapter },
             { name:'Smart Trainer', Adapter: AntFEAdapter }
         ]
+    }
+
+    add(settings: AntDeviceSettings) {
+        this.logger.logEvent( {message:'adding device',settings})
+        const {profile,deviceID,port} = settings
+        const profileInfo = this.profiles.find( i => i.name===profile);
+        if ( profileInfo) {
+            let device;
+            try {
+                device = new profileInfo.Adapter(deviceID,port,undefined,this)
+                this.devices.push(device)        
+                return device;
+            }
+            catch ( err) {
+                this.logger.logEvent( {message:'adding device error',error:err.message})
+                return;
+            }
+        }
+        this.logger.logEvent( {message:'adding device: profile not found'})
+
     }
 
     getAnt() { 
@@ -527,7 +551,7 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
     }
 
     async attachSensors( d: AntAdapter | Array<AntAdapter>, SensorClass,message) {
-        return new Promise( (resolve,reject) => {
+        return new Promise( async (resolve,reject) => {
             if ( d===undefined) {
                 resolve(false)
                 return;
@@ -539,28 +563,45 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
             }
 
             if (!this.sensors.stick) {
-                const stick = this.findStickByPort(devices[0].getPort());
-                let opened = false;
-        
-                if (!stick.inUse) {
+                let stick;
+                if ( devices[0].getPort() ===undefined) {
                     try {
-                        if (process.env.ANT_DEBUG) {
-                            stick.props = { debug:true }
+                        const stickInfo = await this.getFirstStick()
+                        stick = stickInfo.stick
+                        this.sensors.stick = stick;
+                        this.sensors.stickOpen = true;
+                        this.sensors.stickStarted = true;
                         }
-                        stick.open();
-                        opened = true;
+                    catch {}
+                    if ( !stick) {
+                        reject( new Error('could not pen stick') )
                     }
-                    catch(err) {
-                        console.log(err)
-                    }
-                    if(!opened)
-                        return false;
                 }
                 else {
-                    opened = true;
+                    stick = this.findStickByPort(devices[0].getPort());
+                    let opened = false;
+                    if (!stick.inUse) {
+                        try {
+                            if (process.env.ANT_DEBUG) {
+                                stick.props = { debug:true }
+                            }
+                            stick.open();
+                            opened = true;
+                        }
+                        catch(err) {
+                            console.log(err)
+                        }
+                        if(!opened)
+                            return false;
+                    }
+                    else {
+                        opened = true;
+                    }
+                    this.sensors.stick = stick;
+                    this.sensors.stickOpen = opened;
+    
                 }
-                this.sensors.stick = stick;
-                this.sensors.stickOpen = opened;
+
             }
 
             if (this.sensors.stickOpen) {

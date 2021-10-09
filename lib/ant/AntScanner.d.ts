@@ -1,5 +1,5 @@
 import { EventLogger } from "gd-eventlog";
-import DeviceProtocolBase, { DeviceProtocol } from "../DeviceProtocol";
+import DeviceProtocolBase, { DeviceProtocol, DeviceSettings } from "../DeviceProtocol";
 import AntAdapter from "./AntAdapter";
 declare type ScanState = {
     isScanning: boolean;
@@ -11,6 +11,10 @@ declare type AntAdapterInfo = {
     name: string;
     Adapter: any;
 };
+interface AntDeviceSettings extends DeviceSettings {
+    deviceID: string;
+    profile: string;
+}
 export declare class AntProtocol extends DeviceProtocolBase implements DeviceProtocol {
     logger: EventLogger;
     ant: any;
@@ -19,6 +23,7 @@ export declare class AntProtocol extends DeviceProtocolBase implements DevicePro
     sensors: any;
     sticks: Array<any>;
     constructor(antClass: any);
+    add(settings: AntDeviceSettings): any;
     getAnt(): any;
     getName(): string;
     getInterfaces(): Array<string>;

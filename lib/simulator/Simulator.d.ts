@@ -1,4 +1,4 @@
-import DeviceProtocolBase from '../DeviceProtocol';
+import DeviceProtocolBase, { DeviceSettings } from '../DeviceProtocol';
 import DeviceAdapter from '../Device';
 import { EventLogger } from 'gd-eventlog';
 export declare class Simulator extends DeviceAdapter {
@@ -35,6 +35,7 @@ export declare class Simulator extends DeviceAdapter {
 export default class SimulatorProtocol extends DeviceProtocolBase {
     static NAME: string;
     constructor();
+    add(settings: DeviceSettings): void;
     getName(): string;
     getInterfaces(): string[];
     isBike(): boolean;

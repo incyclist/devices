@@ -1,4 +1,4 @@
-import DeviceProtocolBase,{INTERFACE} from '../DeviceProtocol';
+import DeviceProtocolBase,{INTERFACE,DeviceSettings} from '../DeviceProtocol';
 import DeviceRegistry from '../DeviceRegistry';
 import DeviceAdapter from '../Device';
 
@@ -206,6 +206,9 @@ export default class SimulatorProtocol extends DeviceProtocolBase{
         super();
 
         this.devices.push( new Simulator(this) );
+    }
+    add ( settings: DeviceSettings) {
+        // nothing to do
     }
 
     getName() {

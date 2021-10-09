@@ -911,6 +911,7 @@ export class Daum8iTcp extends Daum8i {
     getType() { return "Daum8iTcp"; }
 
     static setSerialPort(spClass) { }
+    getInterface() { return BIKE_INTERFACE.TCPIP}
 
     static setNetImpl(netClass) { 
         net= netClass; 
@@ -926,6 +927,7 @@ export class Daum8iSerial extends Daum8i {
     static getClassName() { return "Daum8i" }
 
     getType() { return "Daum8iSerial"; }
+    getInterface() { return BIKE_INTERFACE.SERIAL}
 
     static setSerialPort(spClass) { 
         __SerialPort= spClass;

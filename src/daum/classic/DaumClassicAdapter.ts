@@ -90,6 +90,10 @@ export default class DaumClassicAdapter extends DaumAdapter{
 
         return runWithRetries( async ()=>{
             try {
+
+                if(!this.bike.isConnected())
+                    await this.bike.saveConnect();
+                    
                 await this.getBike().resetDevice();
 
                 if ( !startState.setProg) {

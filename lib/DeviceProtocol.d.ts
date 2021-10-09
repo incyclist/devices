@@ -13,6 +13,10 @@ export declare type Device = {
     getProtocol(): DeviceProtocol;
     getProtocolName(): string;
 };
+export interface DeviceSettings {
+    name: string;
+    port: string;
+}
 export declare type DeviceFoundCallback = (device: Device, protocol: DeviceProtocolBase) => void;
 export declare type ScanFinishedCallback = (id: number) => void;
 export declare type ScanProps = {
@@ -21,6 +25,7 @@ export declare type ScanProps = {
     onScanFinished?: ScanFinishedCallback;
 };
 export interface DeviceProtocol {
+    add(props: DeviceSettings): any;
     getName(): string;
     getInterfaces(): Array<string>;
     isBike(): boolean;

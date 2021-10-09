@@ -24,34 +24,7 @@ const onScanFinished = (id) => {
 
         if ( foundDevices.length>0) {
             foundDevices.forEach( device => {
-                logger.log('starting adapter')
-                device.start().catch()
-                .finally(()=>{ 
-                    if ( device.isBike() ) {
-                        logger.log('set Target Power')
-                        device.sendTargetPower(100).catch((err)=>logger.logEvent({message:'error',error:err.message}));    
-                    }
-                    device.onData( (data)=> { 
-                        logger.logEvent( {message:'device data',device:device.getName(),data})
-                    })
-            
-                    setTimeout( ()=>{
-                        logger.log('stopping adapter')
-                        device.stop()
-                        .catch()
-                        .finally( ()=>{ setTimeout( ()=>{ 
-                            logger.log('starting adapter'); 
-                            device.start()
-                                .then(()=> device.stop())
-                                .catch((err) =>  { 
-                                    logger.logEvent({message:'error',error:err.message})                                    
-                                })
-                                .finally(()=> process.exit())
-
-                            }, 1000)})
-                    },10000)})
-
-
+                start(device);
             })
             
         }       
@@ -66,11 +39,60 @@ const onScanFinished = (id) => {
 
 }
 
+const start = (device) => {
+
+    return new Promise( (resolve,reject)=> {
+        logger.log('starting adapter')
+        device.start().catch( (err) => reject(err))
+        .finally(()=>{ 
+            if ( device.isBike() ) {
+                logger.log('set Target Power')
+                device.sendTargetPower(100).catch((err)=>logger.logEvent({message:'error',error:err.message}));    
+            }
+            device.onData( (data)=> { 
+                logger.logEvent( {message:'device data',device:device.getName(),data})
+            })
+    
+            setTimeout( ()=>{
+                logger.log('stopping adapter')
+                device.stop()
+                .then( ()=> { logger.log('stopped'); resolve(true)})
+                .catch( err => reject(err))
+                .finally( )
+            },10000)})
+    
+    } )
+}
+
+const getProfile = (argv) => {
+    switch (argv.toLowerCase()) {
+        case 'hrm': return 'Heartrate Monitor'
+        case 'anthrm': return 'Heartrate Monitor'
+        case 'ant+hrm': return 'Heartrate Monitor'
+        case 'fe': return 'Smart Trainer'
+        case 'antfe': return 'Smart Trainer'
+        case 'ant+fe': return 'Smart Trainer'
+        default: return
+    }
+}
+
 logger.log('ANT Sample')
+var args = process.argv.slice(2);
 
 const scanner = new AntScanner(Ant);
 if ( process.env.DEBUG)
     scanner.logger = logger;
-    
-scanner.scan({id:0,timeout:5000,onDeviceFound,onScanFinished})
 
+if ( args.length<2) {
+    scanner.scan({id:0,timeout:5000,onDeviceFound,onScanFinished})
+}
+else {
+    const profile = getProfile(args[0])
+    const device = scanner.add( { deviceID:args[1],profile })
+    logger.log('starting adapter')
+    start(device)
+    .then( ()=> {
+        logger.log('2nd try')
+        start(device).then( ()=> process.exit).catch( ()=> process.exit())
+    })
+}

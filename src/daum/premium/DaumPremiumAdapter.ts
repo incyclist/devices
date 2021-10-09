@@ -34,6 +34,10 @@ export default class DaumPremiumDevice extends DaumAdapter{
         return this.bike.getPort();
     }
 
+    getInterface() {
+        return this.bike.getInterface();
+    }
+
     check() {
         var info = {} as any
 
@@ -61,6 +65,8 @@ export default class DaumPremiumDevice extends DaumAdapter{
         this.initData();        
         return runWithRetries( async ()=>{
             try {
+                if(!this.bike.isConnected())
+                    await this.bike.saveConnect();
                 const gear = await this.bike.setGear( this.data.gear || ( opts.gear ||10 ));    
                 return gear;
             }

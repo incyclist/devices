@@ -17,6 +17,11 @@ export type Device = {
     getProtocolName(): string    
 }
 
+export interface DeviceSettings  {
+    name: string
+    port: string
+}
+
 export type DeviceFoundCallback = (device:Device, protocol: DeviceProtocolBase) => void
 export type ScanFinishedCallback = (id: number) => void
 
@@ -27,6 +32,8 @@ export type ScanProps = {
 }
 
 export interface DeviceProtocol {
+
+    add(props:DeviceSettings) 
     getName(): string
     getInterfaces(): Array<string>
     isBike(): boolean

@@ -1,9 +1,8 @@
-import DeviceProtocolBase, { INTERFACE } from '../../DeviceProtocol';
+import DeviceProtocolBase, { INTERFACE ,DeviceProtocol, DeviceSettings} from '../../DeviceProtocol';
 import DeviceRegistry from '../../DeviceRegistry'
 import {Daum8iSerial,Daum8iTcp} from '../premium/bike'
 import DaumPremium from './DaumPremiumAdapter'
 import { EventLogger } from 'gd-eventlog';
-import DaumAdapterBase from '../DaumAdapter';
 
 const PROTOCOL_NAME = "Daum Premium"
 
@@ -18,7 +17,17 @@ const DefaultState: DaumPremiumProtocolState = {
     scanning: false,
     stopScanning: false
 }
-export default class DaumPremiumProtocol extends DeviceProtocolBase {
+
+interface DaumPremiumSettings extends DeviceSettings {
+    interface: string
+}
+
+interface DaumPremiumTCPSettings extends DaumPremiumSettings {
+    host: string
+}
+
+
+export default class DaumPremiumProtocol extends DeviceProtocolBase  implements DeviceProtocol{
 
     state: DaumPremiumProtocolState;
     logger: EventLogger;
@@ -29,6 +38,24 @@ export default class DaumPremiumProtocol extends DeviceProtocolBase {
         this.logger = new EventLogger('DaumPremium');
 
         this.devices = [];
+    }
+
+    add(settings: DaumPremiumSettings|DaumPremiumTCPSettings) {
+        if ( settings.interface && settings.interface===INTERFACE.TCPIP) {
+            Daum8iTcp.setNetImpl( DeviceProtocolBase.getNetImpl())
+            const {host,port} = settings as DaumPremiumTCPSettings;
+            const portName = `${host}:${port||51955}`
+            return this.addDevice( Daum8iTcp,{host,port,interface:INTERFACE.TCPIP},portName)
+        }
+
+        if ( settings.interface && settings.interface===INTERFACE.SERIAL) {
+            Daum8iSerial.setSerialPort( DeviceProtocolBase.getSerialPort())
+            const {port} = settings as DaumPremiumSettings;
+            
+            return this.addDevice( Daum8iSerial,{port,interface:INTERFACE.SERIAL},port)
+        }
+
+        
     }
 
     getName() {
@@ -61,6 +88,7 @@ export default class DaumPremiumProtocol extends DeviceProtocolBase {
         }
         
     }
+
 
     addDevice( DeviceClass, opts, portName ) {
         let device;

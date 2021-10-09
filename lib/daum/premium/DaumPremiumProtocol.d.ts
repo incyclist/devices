@@ -1,14 +1,21 @@
-import DeviceProtocolBase from '../../DeviceProtocol';
+import DeviceProtocolBase, { DeviceProtocol, DeviceSettings } from '../../DeviceProtocol';
 import { EventLogger } from 'gd-eventlog';
 export interface DaumPremiumProtocolState {
     activeScans: Array<any>;
     scanning: boolean;
     stopScanning?: boolean;
 }
-export default class DaumPremiumProtocol extends DeviceProtocolBase {
+interface DaumPremiumSettings extends DeviceSettings {
+    interface: string;
+}
+interface DaumPremiumTCPSettings extends DaumPremiumSettings {
+    host: string;
+}
+export default class DaumPremiumProtocol extends DeviceProtocolBase implements DeviceProtocol {
     state: DaumPremiumProtocolState;
     logger: EventLogger;
     constructor();
+    add(settings: DaumPremiumSettings | DaumPremiumTCPSettings): any;
     getName(): string;
     getInterfaces(): string[];
     isBike(): boolean;
@@ -22,3 +29,4 @@ export default class DaumPremiumProtocol extends DeviceProtocolBase {
     stopScan(): Promise<boolean>;
     scanCommand(device: any, opts: any): void;
 }
+export {};

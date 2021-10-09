@@ -86,12 +86,14 @@ export declare class Daum8iTcp extends Daum8i {
     static getClassName(): string;
     getType(): string;
     static setSerialPort(spClass: any): void;
+    getInterface(): string;
     static setNetImpl(netClass: any): void;
     static getSupportedInterfaces(): string[];
 }
 export declare class Daum8iSerial extends Daum8i {
     static getClassName(): string;
     getType(): string;
+    getInterface(): string;
     static setSerialPort(spClass: any): void;
     static setNetImpl(netClass: any): void;
     static getSupportedInterfaces(): string[];

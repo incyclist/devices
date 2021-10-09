@@ -1,4 +1,4 @@
-import DeviceProtocolBase, { INTERFACE,ScanProps, DeviceProtocol } from '../../DeviceProtocol';
+import DeviceProtocolBase, { INTERFACE,ScanProps, DeviceProtocol, DeviceSettings } from '../../DeviceProtocol';
 import DeviceRegistry from '../../DeviceRegistry'
 import Bike from './bike'
 import Adapter from './DaumClassicAdapter'
@@ -33,6 +33,16 @@ export default class DaumClassicProtocol extends DeviceProtocolBase implements D
         this.state = DefaultState
         this.logger = new EventLogger('DaumClassic');
         this.devices = [];
+    }
+
+    add(settings: DeviceSettings) {        
+        this.logger.logEvent( {message:'adding device',settings})
+        const {port} = settings;
+        Bike.setSerialPort( DeviceProtocolBase.getSerialPort())
+        const bike = new Bike({port});
+        let device = new DaumClassicAdapter(this,bike)
+        this.devices.push(device)
+        return device
     }
 
     getName(): string {
