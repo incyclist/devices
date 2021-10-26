@@ -309,7 +309,6 @@ export default class AntFEAdapter extends AntAdapter {
         return new Promise( async (resolve,reject) => {
 
             //Workaround: proper closing does not work -> when trying to re-open, the sensor does not get attached
-            this.started = false;
             return resolve(true);
 
             

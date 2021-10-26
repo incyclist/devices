@@ -121,6 +121,10 @@ export default class AntHrmAdapter extends AntAdapter {
 
 
         return new Promise( async (resolve,reject) => {
+
+            //Workaround: proper closing does not work -> when trying to re-open, the sensor does not get attached
+            return resolve(true);
+
             this.started = false;
 
             if(this.ignoreHrm)    
