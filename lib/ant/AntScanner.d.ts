@@ -22,6 +22,7 @@ export declare class AntProtocol extends DeviceProtocolBase implements DevicePro
     profiles: Array<AntAdapterInfo>;
     sensors: any;
     sticks: Array<any>;
+    scanning: boolean;
     constructor(antClass: any);
     add(settings: AntDeviceSettings): any;
     getAnt(): any;
@@ -46,10 +47,11 @@ export declare class AntProtocol extends DeviceProtocolBase implements DevicePro
     getFirstStick(): Promise<any>;
     closeStick(stick: any): Promise<unknown>;
     stopScanOnStick(stickInfo: any): Promise<boolean>;
+    stillScanning(): boolean;
     scanOnStick(stickInfo: any, props?: any): Promise<unknown>;
     scan(props: any): Promise<void>;
     stopScan(): Promise<boolean>;
-    waitForStickOpened(): Promise<unknown>;
+    waitForStickOpenedForSensor(): Promise<unknown>;
     attachSensors(d: AntAdapter | Array<AntAdapter>, SensorClass: any, message: any): Promise<unknown>;
     detachSensor(adapter: AntAdapter): Promise<unknown>;
     closeSensor(device: any): Promise<void>;

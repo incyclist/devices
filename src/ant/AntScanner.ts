@@ -99,6 +99,7 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
     profiles: Array<AntAdapterInfo>
     sensors: any
     sticks: Array<any>
+    scanning: boolean;
     
 
     constructor(antClass) {
@@ -108,6 +109,7 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
         this.activeScans = {}
         this.sensors = {}
         this.sticks = []
+        this.scanning = false;
 
         this.profiles = [
             { name:'Heartrate Monitor', Adapter: AntHrmAdapter },
@@ -380,6 +382,7 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
 
         return new Promise ( (resolve,reject) => {
             stick.on('shutdown', () => { 
+                this.logger.logEvent( {message:'stick shutdown'})
                 stick.removeAllListeners('shutdown')
                 const port = this.getUSBDeviceInfo(stick.device).port;
                 const idx = this.sticks.findIndex( i => i.port===port );
@@ -387,8 +390,9 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                     this.sticks[idx].connected = false;
                 }
 
-                this.sensors.stickStarted = false;
-                this.sensors.stickOpen = false;
+                //this.sensors.stickStarted = false;
+                //this.sensors.stickOpen = false;
+                this.sensors = {}
                 resolve(true)
             });
 
@@ -402,6 +406,7 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                     catch(err) {}
                     this.logger.logEvent( {message:'stick closed'})
                     stick.scanConnected = false;
+                    this.sensors = {}
                 },1000)
                 
             }
@@ -421,6 +426,7 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
         .then (
             ()=> {
                 state.isScanning = false;
+                this.scanning = this.stillScanning();
                 if ( state.iv) {
                     clearInterval(state.iv);
                     state.iv=undefined;
@@ -433,6 +439,12 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
             return true;
         })
     } 
+
+    stillScanning() {
+        const ports = Object.keys(this.activeScans)
+
+        return ports.find( p => this.activeScans[p].isScanning)!==undefined
+    }
 
     scanOnStick(stickInfo,props={} as any ) {
         const {stick,port} =stickInfo;
@@ -471,7 +483,10 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                     let device;
                     try {
                         device = new profileInfo.Adapter(deviceId,port,stick,this,props)
-                        this.devices.push(device)
+                        const existing = this.devices.find( d => (d.getID()===deviceId && (d as AntAdapter).getProfile()===profile));
+                        if (!existing)
+                            this.devices.push(device)
+                            
                     }
                     catch ( err) {
                         //TODO
@@ -536,6 +551,7 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
 
     async scan(props) {
         this.logger.logEvent({message:'scan request',props})
+        this.scanning = true;
 
         this.logStickInfo();
         
@@ -561,14 +577,16 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                 await this.stopScanOnStick( {port,stick:scanState.stick})
             }
         }
+        this.sensors = {}
         this.logger.logEvent({message:'scan stopped'})
+        this.scanning = false;
         return true;
     }
 
-    waitForStickOpened() {
+    waitForStickOpenedForSensor() {
         return new Promise( (resolve,reject) => {
             const iv = setInterval( ()=> {
-                if (!this.sensors.stickOpening) {
+                if (!this.sensors.stickOpening && !this.scanning) {
                     clearInterval(iv);
                     resolve(true)
                 }
@@ -591,67 +609,38 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
             }
             this.logger.logEvent( {message:'attachSensors',  names: Array.isArray(d) ? d.map(dd=>dd.getName()): d.getName(), state:this.sensors})
 
-            if (this.sensors.stickOpening) {
-                await this.waitForStickOpened();
+            if (this.sensors.stickOpening || this.scanning) {
+                await this.waitForStickOpenedForSensor();
             }
             this.sensors.stickOpening = true;
 
             let stick;
 
             if (!this.sensors.stick) {
-                if ( devices[0].getPort() ===undefined) {
-                    this.logger.logEvent({message:'openStick', device:devices[0].getName()})
-                    let retryCnt = 0;
-                    while ( !stick && retryCnt<3) {
-                        try {
-                            const stickInfo = await this.getFirstStick()
-                            if (stickInfo && stickInfo.stick) {
-                                this.logger.logEvent({message:'stick opened', device:devices[0].getName()})
-                                stick = stickInfo.stick
-                                this.sensors.stick = stick;
-                                this.sensors.stickOpen = true;
-                                this.sensors.stickStarted = true;
-                                this.sensors.stickOpening = false;
-                            }
-                            else {
-                                retryCnt++;
-                            }
+                this.logger.logEvent({message:'openStick', device:devices[0].getName()})
+                let retryCnt = 0;
+                while ( !stick && retryCnt<3) {
+                    try {
+                        const stickInfo = await this.getFirstStick()
+                        if (stickInfo && stickInfo.stick) {
+                            this.logger.logEvent({message:'stick opened', device:devices[0].getName()})
+                            stick = stickInfo.stick
+                            this.sensors.stick = stick;
+                            this.sensors.stickOpen = true;
+                            this.sensors.stickStarted = true;
+                            this.sensors.stickOpening = false;
                         }
-                        catch (err) {
+                        else {
                             retryCnt++;
-                            this.logger.logEvent({message:'stick open error', error:err.message, device:devices[0].getName()})                        
                         }
                     }
-                    if ( !stick) {
-                        return reject( new Error('could not pen stick') )
+                    catch (err) {
+                        retryCnt++;
+                        this.logger.logEvent({message:'stick open error', error:err.message, device:devices[0].getName()})                        
                     }
                 }
-                else {
-                    stick = this.findStickByPort(devices[0].getPort());
-                    let opened = false;
-                    if (!stick.inUse) {
-                        try {
-                            if (process.env.ANT_DEBUG) {
-                                stick.props = { debug:true }
-                            }
-                            stick.open();
-                            opened = true;
-                        }
-                        catch(err) {
-                            this.logger.logEvent( {message:'stick open error', error:err.message, device:devices[0].getName()})
-                        }
-                        if(!opened)
-                            return false;
-                    }
-                    else {
-                        opened = true;
-                    }
-                    this.sensors.stick = stick;
-                    this.sensors.stickOpen = opened;
-                    this.sensors.stickStarted = true;
-                    this.sensors.stickOpening = false;
-
-    
+                if ( !stick) {
+                    return reject( new Error('could not pen stick') )
                 }
 
             }
@@ -691,6 +680,10 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                     resolve(true)    
                 }
                 catch(err) {
+                    console.log('~~~ ERROR',err);
+                    if ( typeof(err) === 'string') {
+                        err = new Error(err);
+                    }
                     this.logger.logEvent( {message:'attachFromPending error',error:err.message})
                     reject(err)
                 }

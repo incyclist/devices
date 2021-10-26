@@ -22,7 +22,7 @@ export default class AntAdapter extends DeviceAdapter {
     setIgnoreHrm(ignore: any): void;
     setIgnoreBike(ignore: any): void;
     setIgnorePower(ignore: any): void;
-    getProfile(): void;
+    getProfile(): string;
     getPort(): string;
     setChannel(channel: any): void;
     setStick(stick: any): void;

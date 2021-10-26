@@ -25,7 +25,7 @@ const onScanFinished = (id) => {
 
         if ( foundDevices.length>0) {
             foundDevices.forEach( device => {
-                start(device);
+                start(device).catch();
             })
             
         }       
@@ -35,7 +35,7 @@ const onScanFinished = (id) => {
         }
 
 
-    },1000)
+    },2000)
 
 
 }

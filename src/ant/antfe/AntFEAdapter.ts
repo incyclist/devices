@@ -291,7 +291,8 @@ export default class AntFEAdapter extends AntAdapter {
                 .catch(err=> {
                     this.logger.logEvent({message:'start() error',error:err.message});        
                     this.starting = false;
-                    reject(err)
+
+                    reject( new Error(`could not start device, reason:${err.message}`));                    
                 })
         })
     }

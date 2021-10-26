@@ -56,7 +56,9 @@ export default class AntAdapter extends DeviceAdapter {
         this.ignorePower = ignore
     }
 
-    getProfile() {}
+    getProfile(): string {
+        return "unknown"
+    }
 
     getPort() 
     {
