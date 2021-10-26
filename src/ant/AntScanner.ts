@@ -460,7 +460,7 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                     }
                     catch ( err) {
                         //TODO
-                        console.log(err)
+                        this.logger.logEvent({message:'onNewDevice:ERROR',error:err.message})
                     }
 
                     if (device && onDeviceFound) {
@@ -550,29 +550,58 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
         return true;
     }
 
+    waitForStickOpened() {
+        return new Promise( (resolve,reject) => {
+            const iv = setInterval( ()=> {
+                if (!this.sensors.stickOpening) {
+                    clearInterval(iv);
+                    resolve(true)
+                }
+            }, 100)
+        });
+    }
+
     async attachSensors( d: AntAdapter | Array<AntAdapter>, SensorClass,message) {
+
         return new Promise( async (resolve,reject) => {
             if ( d===undefined) {
                 resolve(false)
                 return;
             }
 
+
             const devices = Array.isArray(d) ? d : [d] ;
             if (devices.length===0) {
                 return resolve(false);
             }
+            this.logger.logEvent( {message:'attachSensors',  names: Array.isArray(d) ? d.map(dd=>dd.getName()): d.getName(), state:this.sensors})
+
+            if (this.sensors.stickOpening) {
+                await this.waitForStickOpened();
+            }
+            this.sensors.stickOpening = true;
+
+            let stick;
 
             if (!this.sensors.stick) {
-                let stick;
                 if ( devices[0].getPort() ===undefined) {
-                    try {
-                        const stickInfo = await this.getFirstStick()
-                        stick = stickInfo.stick
-                        this.sensors.stick = stick;
-                        this.sensors.stickOpen = true;
-                        this.sensors.stickStarted = true;
+                    this.logger.logEvent({message:'openStick', device:devices[0].getName()})
+                    let retryCnt = 0;
+                    while ( !stick && retryCnt<5) {
+                        try {
+                            const stickInfo = await this.getFirstStick()
+                            this.logger.logEvent({message:'stick opened', device:devices[0].getName()})
+                            stick = stickInfo.stick
+                            this.sensors.stick = stick;
+                            this.sensors.stickOpen = true;
+                            this.sensors.stickStarted = true;
+                            this.sensors.stickOpening = false;
                         }
-                    catch {}
+                        catch (err) {
+                            retryCnt++;
+                            this.logger.logEvent({message:'stick open error', error:err.message, device:devices[0].getName()})                        
+                        }
+                    }
                     if ( !stick) {
                         reject( new Error('could not pen stick') )
                     }
@@ -589,7 +618,7 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                             opened = true;
                         }
                         catch(err) {
-                            console.log(err)
+                            this.logger.logEvent( {message:'stick open error', error:err.message, device:devices[0].getName()})
                         }
                         if(!opened)
                             return false;
@@ -599,6 +628,9 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                     }
                     this.sensors.stick = stick;
                     this.sensors.stickOpen = opened;
+                    this.sensors.stickStarted = true;
+                    this.sensors.stickOpening = false;
+
     
                 }
 
@@ -609,6 +641,7 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                 devices.forEach ( device => {
                     const sensor = new SensorClass(this.sensors.stick);
                     device.setSensor(sensor);
+                    device.setStick(stick);
                     sensor.on(message, (data)=> {device.onDeviceData(data)})
                     sensor.on('eventData', (data)=> {device.onDeviceEvent(data)})
                     sensor.once('attached',()=>{ device.onAttached() })
@@ -624,17 +657,23 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                 
                 
                 const channelsUsed = this.sensors.attached.length;
-                this.sensors.pending.forEach( (i,idx) => {
-                    const channel = channelsUsed + idx;
-                    const {sensor} = i;    
-                    i.device.setChannel(channel);
-                    if ( process.env.DEBUG)
-                        console.log('~~~~Ant: attach', channel,i.device.getID() )
-                    sensor.attach(channel,i.device.getID())
-                    this.sensors.attached.push(i);
-                })
-                this.sensors.pending = [];
-                resolve(true)
+                try {
+                    this.sensors.pending.forEach( (i,idx) => {
+                        const channel = channelsUsed + idx;
+                        const {sensor} = i;    
+                        i.device.setChannel(channel);
+                        if ( process.env.DEBUG)
+                            console.log('~~~~Ant: attach', channel,i.device.getID() )
+                        sensor.attach(channel,i.device.getID())
+                        this.sensors.attached.push(i);
+                    })
+                    this.sensors.pending = [];
+                    resolve(true)    
+                }
+                catch(err) {
+                    this.logger.logEvent( {message:'attachFromPending error',error:err.message})
+                    reject(err)
+                }
 
 
             }
@@ -643,8 +682,10 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                 attachFromPending()
             }
             else {
-                this.sensors.stick.once('startup',()=> {
-                    this.sensors.stickStarted = true;
+                const sensors = this.sensors;
+                const stick = this.sensors.stick;
+                stick.once('startup',()=> {
+                    sensors.stickStarted = true;
                     setTimeout( attachFromPending, 1000)                
                 })
 
@@ -696,7 +737,7 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                 stick.close()
             }
             catch(err) {
-                console.log(err)
+                this.logger.logEvent( {message:'closeSensor error',error:err.message, device: device? device.getName():'unknown'})                
             }
         }
 

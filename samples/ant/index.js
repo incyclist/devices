@@ -1,7 +1,8 @@
 const Ant = require('gd-ant-plus');
 //const {AntScanner} = require('incyclist-devices');
 const {AntScanner} = require('../../lib/DeviceSupport');
-const {EventLogger,ConsoleAdapter} = require( 'gd-eventlog')
+const {EventLogger,ConsoleAdapter} = require( 'gd-eventlog');
+const { exit } = require('process');
 
 EventLogger.registerAdapter(new ConsoleAdapter()) 
 const logger = new EventLogger('AntSampleApp')
@@ -43,8 +44,9 @@ const start = (device) => {
 
     return new Promise( (resolve,reject)=> {
         logger.log('starting adapter')
-        device.start().catch( (err) => reject(err))
-        .finally(()=>{ 
+        device.start()
+        .then( ()=> {
+            console.log( '~~~ device started', device.getName())
             if ( device.isBike() ) {
                 logger.log('set Target Power')
                 device.sendTargetPower(100).catch((err)=>logger.logEvent({message:'error',error:err.message}));    
@@ -54,14 +56,21 @@ const start = (device) => {
             })
     
             setTimeout( ()=>{
-                logger.log('stopping adapter')
+                logger.log('stopping adapter', device.getName())
                 device.stop()
-                .then( ()=> { logger.log('stopped'); resolve(true)})
+                .then( ()=> { logger.log('stopped', device.getName()); resolve(true)})
                 .catch( err => reject(err))
                 .finally( )
-            },10000)})
+            },10000)
+        })
+   
+        .catch( (err) => {
+            console.log(err);
+            reject(err)
+        }) 
+
+    })
     
-    } )
 }
 
 const getProfile = (argv) => {
@@ -83,16 +92,24 @@ const scanner = new AntScanner(Ant);
 if ( process.env.DEBUG)
     scanner.logger = logger;
 
-if ( args.length<2) {
+if ( args.length<1) {
     scanner.scan({id:0,timeout:5000,onDeviceFound,onScanFinished})
 }
 else {
-    const profile = getProfile(args[0])
-    const device = scanner.add( { deviceID:args[1],profile })
-    logger.log('starting adapter')
-    start(device)
-    .then( ()=> {
-        logger.log('2nd try')
-        start(device).then( ()=> process.exit).catch( ()=> process.exit())
+    // const profile = getProfile(args[0])
+    const devices = [];
+
+    args.forEach( arg => {
+        const [p,deviceID] = arg.split(':');
+        const device = scanner.add( { deviceID,profile:getProfile(p) })
+        devices.push(device)
     })
+
+
+    console.log(scanner.stick, scanner.devices.map( d => d.getName()));
+    //process.exit();
+
+    logger.log('starting gears')
+    devices.forEach( device => start(device))
+
 }

@@ -460,7 +460,8 @@ export default class AntFEAdapter extends AntAdapter {
             this.currentCmd.tsStart = Date.now();
             const {msg,logStr} = this.currentCmd;
             this.logger.logEvent({message:"sending",cmd:logStr,msg:hexstr(msg),queueSize:this.queue.size()} );
-            this.stick.write(msg);
+            if ( this.stick)
+                this.stick.write(msg);
         }
     }
 

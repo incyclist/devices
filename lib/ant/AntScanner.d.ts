@@ -49,6 +49,7 @@ export declare class AntProtocol extends DeviceProtocolBase implements DevicePro
     scanOnStick(stickInfo: any, props?: any): Promise<unknown>;
     scan(props: any): Promise<void>;
     stopScan(): Promise<boolean>;
+    waitForStickOpened(): Promise<unknown>;
     attachSensors(d: AntAdapter | Array<AntAdapter>, SensorClass: any, message: any): Promise<unknown>;
     detachSensor(adapter: AntAdapter): Promise<unknown>;
     closeSensor(device: any): Promise<void>;
