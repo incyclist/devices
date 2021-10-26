@@ -1,5 +1,7 @@
 import AntAdapter from '../AntAdapter';
 export default class AntHrmAdapter extends AntAdapter {
+    started: boolean;
+    starting: boolean;
     constructor(DeviceID: any, port: any, stick: any, protocol: any);
     isBike(): boolean;
     isHrm(): boolean;

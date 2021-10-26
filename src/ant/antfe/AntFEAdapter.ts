@@ -3,6 +3,7 @@ import AntAdapter from '../AntAdapter';
 import { AntProtocol } from '../AntScanner';
 import {getBrand} from '../utils'
 import {Queue,hexstr, runWithRetries} from '../../utils'
+import { timingSafeEqual } from 'crypto';
 
 const floatVal = (d) => d ? parseFloat(d) :d
 const intVal = (d) => d ? parseInt(d) :d
@@ -147,7 +148,6 @@ export default class AntFEAdapter extends AntAdapter {
 
 
     updateData( data,deviceData) {
-        console.log( '~~~Ant:updateData',deviceData.Distance,this.lastUpdate)
         // update data based on information received from ANT+FE sensor
         if (data.distanceOffs===undefined) data.distanceOffs=0;
         data.speed = (deviceData.VirtualSpeed!==undefined ? deviceData.VirtualSpeed : deviceData.RealSpeed)*3.6;
@@ -162,7 +162,6 @@ export default class AntFEAdapter extends AntAdapter {
         else {
             if (this.lastUpdate && deviceData.Cadence!==undefined &&  deviceData.Cadence>0  && data.speed ) {
                 const t = (Date.now()-this.lastUpdate)/1000;
-                console.log( '~~~Ant:updateData:calc',t,data.speed )
                 const prevDistance = data.distanceInternal || 0;
                 data.distanceInternal = Math.round(data.speed/3.6*t)+prevDistance;
 
@@ -243,6 +242,7 @@ export default class AntFEAdapter extends AntAdapter {
             const ivAttach = setInterval( ()=>{
                 if ( Date.now()>timeout) {
                     clearInterval(ivAttach);
+                    this.starting = false;	
                     reject( new Error('timeout'))
                 }
             }, 100)
@@ -309,6 +309,7 @@ export default class AntFEAdapter extends AntAdapter {
         return new Promise( async (resolve,reject) => {
 
             //Workaround: proper closing does not work -> when trying to re-open, the sensor does not get attached
+            this.started = false;
             return resolve(true);
 
             

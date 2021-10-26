@@ -8,6 +8,9 @@ const DEFAULT_START_TIMEOUT = 5000;
 
 export default class AntHrmAdapter extends AntAdapter {
 
+    started: boolean;
+    starting: boolean;
+
     constructor( DeviceID,port,stick, protocol) {
         super(protocol)
 
@@ -20,6 +23,9 @@ export default class AntHrmAdapter extends AntAdapter {
             DeviceID
         }
         this.data = {}
+
+        this.started = false;
+        this.starting = false;
     }
 
     isBike() { return false;}
@@ -41,6 +47,9 @@ export default class AntHrmAdapter extends AntAdapter {
     }
 
     onDeviceData( deviceData) {
+        if (!this.started)
+            return;
+
         this.deviceData = deviceData;
         try {
             if ( this.onDataFn && !this.ignoreHrm && !this.paused) {
@@ -70,25 +79,39 @@ export default class AntHrmAdapter extends AntAdapter {
             if(this.ignoreHrm)
                 resolve(false)
 
-        const Ant = this.getProtocol().getAnt();
-        const protocol = this.getProtocol() as AntProtocol;
+            if (this.starting) {
+                this.logger.logEvent({message:'start() not done: bike starting'});        
+                return resolve(false)
+            } 
 
-        let start = Date.now();
-        let timeout = start + (props.timeout || DEFAULT_START_TIMEOUT);
-        const iv = setInterval( ()=>{
-            if ( Date.now()>timeout) {
-                clearInterval(iv);
-                reject( new Error('timeout'))
+            if ( this.started) {
+                this.logger.logEvent({message:'start() done: bike was already started'});        
+                return resolve(true);
             }
-        }, 100)
+    
+            this.starting = true;
+            const Ant = this.getProtocol().getAnt();
+            const protocol = this.getProtocol() as AntProtocol;
+
+            let start = Date.now();
+            let timeout = start + (props.timeout || DEFAULT_START_TIMEOUT);
+            const iv = setInterval( ()=>{
+                if ( Date.now()>timeout) {
+                    clearInterval(iv);
+                    this.starting = false;                    
+                    reject( new Error('timeout'))
+                }
+            }, 100)
 
 
-        protocol.attachSensors(this,Ant.HeartRateSensor,'hbData')
-            .then(()=> {
-                clearInterval(iv)
-                resolve(true)
-            })
-            .catch(err=>reject(err))
+            protocol.attachSensors(this,Ant.HeartRateSensor,'hbData')
+                .then(()=> {
+                    this.starting = false;      
+                    this.started = true;
+                    clearInterval(iv)
+                    resolve(true)
+                })
+                .catch(err=>reject(err))
         })
     }
 
@@ -98,6 +121,8 @@ export default class AntHrmAdapter extends AntAdapter {
 
 
         return new Promise( async (resolve,reject) => {
+            this.started = false;
+
             if(this.ignoreHrm)    
                 return resolve(false)
 
