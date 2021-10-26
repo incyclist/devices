@@ -16,6 +16,21 @@ const hex = (n,len) => {
     return  `0x${s}`
 } 
 
+const isStickPresent = async (stick: any, retries:number) =>{
+
+    let n = 0;
+    while (n<retries) {
+        try {
+            return stick.is_present();
+        }
+        catch (e) {
+            n++;
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+    }
+    return false    
+}
+
 type ScanState = {
     isScanning: boolean;
     timeout?: number;
@@ -202,7 +217,7 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                     return;
                 }
     
-                if ( stick.is_present() ) {
+                if ( isStickPresent(stick,2)) {
                     stick.on('startup', () => {
                         if ( stick.scanConnected)   
                             return;
@@ -587,15 +602,20 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                 if ( devices[0].getPort() ===undefined) {
                     this.logger.logEvent({message:'openStick', device:devices[0].getName()})
                     let retryCnt = 0;
-                    while ( !stick && retryCnt<5) {
+                    while ( !stick && retryCnt<3) {
                         try {
                             const stickInfo = await this.getFirstStick()
-                            this.logger.logEvent({message:'stick opened', device:devices[0].getName()})
-                            stick = stickInfo.stick
-                            this.sensors.stick = stick;
-                            this.sensors.stickOpen = true;
-                            this.sensors.stickStarted = true;
-                            this.sensors.stickOpening = false;
+                            if (stickInfo && stickInfo.stick) {
+                                this.logger.logEvent({message:'stick opened', device:devices[0].getName()})
+                                stick = stickInfo.stick
+                                this.sensors.stick = stick;
+                                this.sensors.stickOpen = true;
+                                this.sensors.stickStarted = true;
+                                this.sensors.stickOpening = false;
+                            }
+                            else {
+                                retryCnt++;
+                            }
                         }
                         catch (err) {
                             retryCnt++;
@@ -603,7 +623,7 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                         }
                     }
                     if ( !stick) {
-                        reject( new Error('could not pen stick') )
+                        return reject( new Error('could not pen stick') )
                     }
                 }
                 else {

@@ -110,6 +110,6 @@ else {
     //process.exit();
 
     logger.log('starting gears')
-    devices.forEach( device => start(device))
+    devices.forEach( device => start(device).catch(err=>logger.logEvent({message:'error',error:err.message})))
 
 }
