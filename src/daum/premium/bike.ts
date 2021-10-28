@@ -595,7 +595,9 @@ class Daum8i  {
 
                 if ( checksumExtracted===checksumCalculated) {
                     this.sendACK();
-                    if (this.state.sending.timeoutCheckIv) clearInterval(this.state.sending.timeoutCheckIv);
+                    if (this.state.sending && this.state.sending.responseCheckIv) { 
+                        clearInterval(this.state.sending.responseCheckIv);
+                    }
                     this.state= {
                         sending: undefined,
                         busy:false,
@@ -640,17 +642,30 @@ class Daum8i  {
             }
             else 
             {             
+                console.log('~~busy')
                 let start = Date.now();
                 while ( this.state.busy && Date.now()-start<5000) {
                     await sleep(500)
                 }
                 if ( this.state.busy ) {
+                    console.log('~~busy timeout')
                     reject( new Error('BUSY timeout'))
                     return;
                 }
 
                 this.state.busy = true;
             }
+
+            const writeDone = () => {
+                this.state.sending= undefined;
+                this.state.writeBusy =false;
+                this.state.busy = false;
+                this.state.sending = undefined;
+                this.state.waitingForStart = false;
+                this.state.waitingForEnd = false;
+                this.state.waitingForACK = false;
+            }
+
 
             const port = this.sp;
             const portName = this.portName;
@@ -668,12 +683,12 @@ class Daum8i  {
                 this.state.writeBusy =true;
                 if(!this.connected || port===undefined) {
                     this.logger.logEvent({message:"sendCommand:error: not connected",port:this.portName});
-                    this.state.writeBusy =false;
-                    this.state.busy = false;
-                    this.state.sending = undefined;
+                    writeDone()
                     return reject( new Error('not connected'))
                 }    
+
                 port.write( message);
+
                 this.state.waitingForACK = true;
                 this.state.writeBusy =false;
                 this.state.retry = 0;
@@ -681,11 +696,11 @@ class Daum8i  {
                 this.state.ack= { start, timeout }
                 this.state.sending = { command,payload, start, timeout,port, portName, resolve,reject}
 
-                this.state.sending.timeoutCheckIv = setInterval( ()=>{ 
+                const iv = this.state.sending.responseCheckIv = setInterval( ()=>{ 
                     const stillWaiting = this.checkForResponse();
                     if (!stillWaiting) {
-                        clearInterval(this.state.sending.timeoutCheckIv);
-                        this.state.sending.timeoutCheckIv = undefined;
+                        clearInterval(iv);                        
+                        writeDone();    
                     }
                 },100)
                     
@@ -693,9 +708,7 @@ class Daum8i  {
             }
             catch (err)  {
                 this.logger.logEvent({message:"sendCommand:error:",port:portName,error:err.message,stack:err.stack});
-                this.state.writeBusy =false;
-                this.state.busy = false;
-                this.state.sending = undefined;
+                writeDone();
                 reject(err)
             }          
     

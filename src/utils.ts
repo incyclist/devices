@@ -24,6 +24,7 @@ export function runWithRetries( fn, maxRetries, timeBetween) {
                     return resolve( data )
                 }
                 catch( err) {
+                    console.log(`runWithRetries: ${err}`)
                     tLastFailure = Date.now();
                     retries++;
                     if ( retries>=maxRetries) {
