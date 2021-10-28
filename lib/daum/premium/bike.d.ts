@@ -1,4 +1,3 @@
-/// <reference types="node" />
 import { Queue } from '../../utils';
 import { EventLogger } from 'gd-eventlog';
 declare class Daum8i {
@@ -14,6 +13,7 @@ declare class Daum8i {
     settings: any;
     sendRetryDelay: number;
     sp: any;
+    props: any;
     connected: boolean;
     blocked: boolean;
     state: any;
@@ -21,7 +21,6 @@ declare class Daum8i {
     processor: any;
     error: Error;
     queue: Queue<any>;
-    cmdWorker: any;
     cmdCurrent: any;
     cmdStart: number;
     constructor(props: any);
@@ -41,12 +40,24 @@ declare class Daum8i {
     saveConnect(): Promise<unknown>;
     onPortOpen(): void;
     onPortClose(): void;
-    onPortError(error: any): NodeJS.Timeout;
+    getLogState(): {
+        sending: any;
+        busy: any;
+        writeBusy: any;
+        opening: any;
+        connecting: any;
+        waitingForStart: any;
+        waitingForEnd: any;
+        waitingForAck: any;
+        retry: any;
+    };
+    onPortError(error: any): void;
     errorHandler(): void;
     saveClose(force?: any): Promise<unknown>;
+    forceClose(updateState?: boolean): void;
     close(): void;
     sendTimeout(message: any): void;
-    checkForTimeout(reject: any): void;
+    checkForResponse(): boolean;
     getTimeoutValue(cmd?: any): number;
     onData(data: any): any;
     sendDaum8iCommand(command: any, queryType: any, payload: any): Promise<unknown>;

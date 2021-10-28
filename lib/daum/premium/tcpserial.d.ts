@@ -7,6 +7,7 @@ export default class TcpSocketPort {
     net: any;
     props: any;
     socket: any;
+    id: number;
     isOpen: boolean;
     isClosed: boolean;
     path: string;
@@ -21,6 +22,7 @@ export default class TcpSocketPort {
     onConnect(): void;
     onError(err: any): void;
     on(event: any, callback: any): void;
+    removeAllListeners(): void;
     emit(event: any, ...args: any[]): void;
     write(message: any): void;
     unpipe(): void;

@@ -116,7 +116,6 @@ export default class DaumPremiumProtocol extends DeviceProtocolBase  implements 
     }
 
     scanTcpip(opts) {
-        console.log('scanTcpip',opts)
         Daum8iTcp.setNetImpl( DeviceProtocolBase.getNetImpl())
         const {host,port} = opts;
         let device = this.addDevice( Daum8iTcp, opts, `${host}:${port||51955}`)
@@ -127,8 +126,6 @@ export default class DaumPremiumProtocol extends DeviceProtocolBase  implements 
     }
 
     scanSerial(opts) {
-
-        console.log('scanSerial',opts)
         Daum8iSerial.setSerialPort( DeviceProtocolBase.getSerialPort())
         let device = this.addDevice( Daum8iSerial, opts, opts.port)
         if (device) {

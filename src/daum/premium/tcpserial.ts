@@ -1,7 +1,7 @@
 import netClass from 'net'
 import {EventLogger} from 'gd-eventlog'
 
-const TIMEOUT_OPEN = 200;
+const TIMEOUT_OPEN = 1000;
 
 var __responses = {}
 
@@ -14,6 +14,7 @@ export default class TcpSocketPort {
     net: any;
     props: any;
     socket: any;
+    id: number;
 
     isOpen: boolean;
     isClosed: boolean;
@@ -24,12 +25,12 @@ export default class TcpSocketPort {
     logger: EventLogger;
 
     constructor(props) {
-        this.logger = new EventLogger('TCPSocket') 
         this.callbacks= {}
         this.isOpen = false;
         this.isClosed = false;
         
         this.props = props || {}
+        this.logger = new EventLogger('TCPSocket') || props.logger; 
         this.enabled = this.props.enabled || true;
         this.host = this.props.host || '127.0.0.1'
         this.port = this.props.port || 10000;
@@ -48,10 +49,10 @@ export default class TcpSocketPort {
     }
     
     open(retry=false) {
-
         try {
             if (!retry) {
-                this.socket.setTimeout(TIMEOUT_OPEN,(e) =>{})
+                this.id = Date.now();
+                this.socket.setTimeout(this.props.timeout || TIMEOUT_OPEN,(e) =>{})
                 this.socket.on('timeout',()=>{ this.onTimeout() })
                 this.socket.on('connect',()=>{ this.onConnect() })
                 this.socket.on('error',(err)=>{ this.onError(err) })
@@ -60,10 +61,13 @@ export default class TcpSocketPort {
                     this.logger.logEvent( {message:'ready'})
                 })
             }
+            this.logger.logEvent( {message:'opening',id: this.id, retry})
+            console.log('~~opening socket',this.id)
             this.socket.connect( this.port, this.host );
         }
         catch (err) {
-            this.logger.logEvent( {message:'error',error:err.message, stack:err.stack})
+            this.logger.logEvent( {message:'opening error',id:this.id, error:err.message, stack:err.stack})
+            console.log('~~open socket error',this.id,err)
             this.emit( 'error',err)
         }
 
@@ -72,22 +76,21 @@ export default class TcpSocketPort {
     
 
     close() {
+        this.logger.logEvent( {message:'closing',id: this.id})
+        console.log('~~closing socket',this.id)
         this.isOpen = false;
         this.isClosed = true;
         try {
-            this.socket.close();
+            this.socket.removeAllListeners();
             this.socket.destroy();
-            this.socket.on('timeout',()=>{})
-            this.socket.on('connect',()=>{})
             this.socket.on('error',()=>{})
-            this.socket.on('ready',()=>{})
         }
         catch (err) {
-            //
+            console.log(err)
         }
         this.emit('close')
 
-        setTimeout( ()=>{ this.callbacks = {}}, 100);
+        setTimeout( ()=>{ this.removeAllListeners()}, 100);
 
     }
 
@@ -95,7 +98,8 @@ export default class TcpSocketPort {
         if ( this.isOpen) 
             return;
 
-        this.logger.logEvent( {message:'Socket timeout'})
+        this.logger.logEvent( {message:'timeout',id:this.id})
+        console.log('~~socket timeout',this.id)
         try {
             this.socket.end();
         }
@@ -108,7 +112,8 @@ export default class TcpSocketPort {
     }
  
     onConnect() {
-        this.logger.logEvent( {message:'connected'})
+        this.logger.logEvent( {message:'connected',id:this.id})
+        console.log('~~socket connected',this.id)
         this.isOpen=true
         this.isClosed= false;
 
@@ -119,6 +124,7 @@ export default class TcpSocketPort {
 
     onError(err) {
         this.logger.logEvent( {message:'error',error:err.message})
+        console.log('~~socket error',this.id,err)
         if ( this.callbacks['error'])
             this.callbacks['error']( err)
     }
@@ -131,6 +137,11 @@ export default class TcpSocketPort {
             return;
         }
         this.socket.on(event,callback)
+    }
+
+    removeAllListeners() {
+        this.callbacks = {}
+        
     }
 
     emit(event, ...args) {

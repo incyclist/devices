@@ -10,7 +10,6 @@ const DEFAULT_PORT = 51955;
 const _devices = [];
 
 const onDeviceFound = (device,protocol) => {
-    console.log(device.getName())
     _devices.push(device);
     logger.logEvent( {message: 'device found',name:device.getName(),port:device.getPort(), protocol:protocol.getName()})
 }
@@ -24,12 +23,11 @@ function scanPort( host,port) {
     return new Promise( (resolve,reject) => {
         try {
             const socket = new net.Socket();
-            socket.setTimeout(100,(e) =>{})
+            socket.setTimeout(1000,(e) =>{})
             socket.on('timeout',()=>{ reject(0) })
             socket.on('error',(err)=>{ reject(0) })
     
             socket.on('ready',()=>{
-                console.log(host,'connected');
                 resolve(host)
                 socket.destroy();
             })
@@ -74,12 +72,13 @@ function scan(timeout=DEFAULT_SCAN_TIMEOUT) {
 
     const subnets  = address.filter((x, i) => i === address.indexOf(x))
     subnets.push('127.0.0.1')
-    console.log(subnets)
 
 
     const hosts = [];
     const range = [];
     for (let i=1;i<255;i++) range.push(i)
+
+    hosts.push( '192.168.2.244')
 
     subnets.forEach( sn => {
         range.forEach( j => {
@@ -92,7 +91,6 @@ function scan(timeout=DEFAULT_SCAN_TIMEOUT) {
     return new Promise( resolve => {
         setTimeout( ()=>{
 
-            console.log(hosts)
             const host = hosts.length>0 ? hosts[0] : '127.0.0.1';
 
             logger.log('starting scan...')
@@ -104,7 +102,7 @@ function scan(timeout=DEFAULT_SCAN_TIMEOUT) {
             
             const props = {id:0, host,port:DEFAULT_PORT, interface:INTERFACE.TCPIP, onDeviceFound,onScanFinished}
             scanner.scan(props)
-
+            /*
             SerialPort.list().then( portList => {
                 const ports = portList.map( i => i.path)
                 logger.logEvent( {message: 'found ports',ports})
@@ -115,7 +113,7 @@ function scan(timeout=DEFAULT_SCAN_TIMEOUT) {
                     scanner.scan(serialProps)
                 });
             });        
-
+*/
             setTimeout( ()=>{
                 logger.log('timeout')
                 scanner.stopScan(props)

@@ -15,24 +15,28 @@ const {scan} = require('./scan')
         device.onData( (data)=> { logger.logEvent( {message:'onData',data}) })
         await device.start();
     
-        // setting power to 200W after 5s
-        setTimeout( async ()=>{
+        // setting power to 200W every 1s
+        const iv = setInterval( async ()=>{
             logger.logEvent( {message:'setting Power',power:200,device:device.getName()})        
             await device.sendUpdate( {targetPower:200});
     
-        }, 5000)
+        }, 1000)
     
-        // stopping device after 10s
+        // stopping device after 60s
         setTimeout( async ()=>{
             logger.logEvent( {message:'stopping device',device:device.getName()})        
+            clearInterval(iv)
             await device.stop();        
+
             resolve(true)
-        }, 10000)
+        }, 60000)
     
     })
 
 }
 async function run() {
+
+
     var args = process.argv.slice(2);
     if (args.length<1) {
         const devices = await scan();
@@ -66,9 +70,15 @@ async function run() {
         logger.logEvent({message:'adding device',props})
         const device = scanner.add( props)
 
-        await runDevice(device)      
-        console.log('2nd try...')
-        await runDevice(device)
+        try {
+            await runDevice(device)      
+            console.log('2nd try...')
+            await runDevice(device)
+    
+        }
+        catch(err) {
+            console.log('~~~ Error',err)
+        }
         process.exit();
 
     }
