@@ -78,7 +78,7 @@ export default class DaumPremiumDevice extends DaumAdapter{
                 throw( new Error(`could not start device, reason:${err.message}`));
             }
 
-        }, 3, 11000 )
+        }, 3, 1000 )
         .then ( data => {
             this.startUpdatePull();
             return data;
