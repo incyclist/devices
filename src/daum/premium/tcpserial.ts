@@ -52,7 +52,7 @@ export default class TcpSocketPort {
         try {
             if (!retry) {
                 this.id = Date.now();
-                this.socket.setTimeout(this.props.timeout || TIMEOUT_OPEN,(e) =>{})
+                //this.socket.setTimeout(this.props.timeout || TIMEOUT_OPEN,(e) =>{})
                 this.socket.on('timeout',()=>{ this.onTimeout() })
                 this.socket.on('connect',()=>{ this.onConnect() })
                 this.socket.on('error',(err)=>{ this.onError(err) })
@@ -117,8 +117,8 @@ export default class TcpSocketPort {
         this.isOpen=true
         this.isClosed= false;
 
-        this.socket.setKeepAlive(true);
-        this.socket.setTimeout(0);
+        // this.socket.setKeepAlive(true);
+        // this.socket.setTimeout(0);
         this.emit('open')
     }
 
