@@ -1,4 +1,4 @@
-import DeviceProtocol from './DeviceProtocol';
+import {DeviceProtocol} from './DeviceProtocol';
 import DeviceRegistry from './DeviceRegistry'
 
 describe ( 'DeviceRegistry' ,()=>{
@@ -71,9 +71,9 @@ describe ( 'DeviceRegistry' ,()=>{
 
     describe ( 'findByName',()=> {
 
-        class A  extends DeviceProtocol{ 
+        class A  { 
             marker:string;
-            constructor(m) { super();this.marker=m} 
+            constructor(m) { this.marker=m} 
             getName() { return 'A'} 
         }
         class B extends A { getName() { return 'B'} }
@@ -82,13 +82,13 @@ describe ( 'DeviceRegistry' ,()=>{
         beforeEach( ()=> {
             DeviceRegistry._reset();
             
-            DeviceRegistry.register(new A('1'))
-            DeviceRegistry.register(new B('2'))
-            DeviceRegistry.register(new C('3'))
+            DeviceRegistry.register(new A('1') as unknown as DeviceProtocol)
+            DeviceRegistry.register(new B('2') as unknown as DeviceProtocol)
+            DeviceRegistry.register(new C('3') as unknown as DeviceProtocol)
         })
 
         test( 'successfull search',()=> {
-            const res = DeviceRegistry.findByName('B') as B;
+            const res = DeviceRegistry.findByName('B') as any;
             expect(res.marker).toBe('2')
         })
 
