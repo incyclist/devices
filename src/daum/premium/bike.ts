@@ -635,24 +635,41 @@ class Daum8i  {
         return new Promise ( async (resolve,reject) => {
 
             if ( this.blocked)
-                reject( new Error('blocked'))
+                return reject( new Error('blocked'))
 
             if ( !this.state.busy) {
                 this.state.busy = true;
             }
             else 
             {             
-                console.log('~~busy')
-                let start = Date.now();
-                while ( this.state.busy && Date.now()-start<5000) {
-                    await sleep(500)
-                }
-                if ( this.state.busy ) {
-                    console.log('~~busy timeout')
-                    reject( new Error('BUSY timeout'))
-                    return;
+                const message = buildMessage( command,payload)
+                this.logger.logEvent({message:'sendCommand:waiting',port:this.portName,cmd:command,hex:hexstr(message)})
+                
+                const busyWait = ()=> {
+                    return new Promise ( (done) => {
+                        let start = Date.now();
+                        let timeout = start+5000;
+                        const iv = setInterval(()=> {
+                            if ( this.state.busy) {  
+                                if (Date.now()>timeout) {
+                                    clearInterval(iv);
+                                    done(false);
+                                } 
+                            }
+                            else {
+                                clearInterval(iv);
+                                done(true);
+                            }
+                        }, 100) 
+    
+                    })
                 }
 
+                const res = await busyWait();
+                if (!res) {
+                    this.logger.logEvent({message:'sendCommand:busy timeout',port:this.portName,cmd:command,hex:hexstr(message)})
+                    return reject( new Error('BUSY timeout'))        
+                }
                 this.state.busy = true;
             }
 
