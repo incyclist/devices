@@ -21,23 +21,16 @@ const onDeviceFound = (device,protocol) => {
 const onScanFinished = (id) => {
     logger.logEvent( {message: 'scan finished',id})
 
-    setTimeout( ()=> {
-
-        if ( foundDevices.length>0) {
-            foundDevices.forEach( device => {
-                start(device).catch();
-            })
-            
-        }       
-        else {
-            console.log('no devices found');
-            process.exit()
-        }
-
-
-    },2000)
-
-
+    if ( foundDevices.length>0) {
+        foundDevices.forEach( device => {
+            start(device).catch();
+        })
+        
+    }       
+    else {
+        console.log('no devices found');
+        process.exit()
+    }
 }
 
 const start = (device) => {

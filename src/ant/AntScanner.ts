@@ -220,6 +220,10 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                 }
     
                 if ( isStickPresent(stick,2)) {
+                    stick.on('error',(err)=>{
+                        this.logger.logEvent( {message:`${name} startup error`,error:err.message})
+                        onError(err.message)
+                    })
                     stick.on('startup', () => {
                         if ( stick.scanConnected)   
                             return;
@@ -697,6 +701,9 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
             else {
                 const sensors = this.sensors;
                 const stick = this.sensors.stick;
+                stick.on('error',(err)=>{
+                    this.logger.logEvent( {message:'stick error',error:err.message})
+                })
                 stick.once('startup',()=> {
                     sensors.stickStarted = true;
                     setTimeout( attachFromPending, 1000)                
