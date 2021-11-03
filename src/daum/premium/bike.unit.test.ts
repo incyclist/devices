@@ -53,6 +53,10 @@ class MockSerialPort {
         this.callbacks[event]=callback;
     }
 
+    removeAllListeners() {
+        this.callbacks = {}
+    }
+
     emit(event, ...args) {
         if ( this.callbacks[event])
             this.callbacks[event](...args)
@@ -403,6 +407,29 @@ describe( 'Daum8i', ()=> {
             const deviceType2 = await bike.getDeviceType()
             expect(deviceType1).toBe('run');    
             expect(deviceType2).toBe('run');    
+        })
+
+        test('partial response',async ()=> {
+        
+            MockSerialPort.setResponse( 'X70' , ( command, sendData) => { 
+                sendData( [0x06]); 
+                sendData( [0x01]); 
+                sendData( [0x58,0x37,0x30,0x30,0x1d,0x30,0x1d,0x30,0x2e]);
+                sendData( [0x30,0x30,0x1d,0x30,0x2e,0x30,0x1d,0x30,0x1d,0x20]);
+                sendData( [0x30,0x2e,0x30,0x1d,0x35,0x30,0x1d,0x20,0x30,0x2e,0x30]); 
+                sendData( [0x1d,0x20,0x30,0x2e,0x30,0x1d,0x20,0x30,0x2e,0x30,0x1d,0x31,0x30,0x1d,0x30,0x1d,0x30,0x1d,0x33,0x34,0x17]); 
+            })            
+            bike.sendNAK = jest.fn()
+            bike.sendACK = jest.fn()
+            bike.settings= { tcpip:{timeout:500}};
+            let error = undefined;
+            try {
+                const res = await bike.getTrainingData();
+            }
+            catch (err) { error = err }
+            expect(error).toBeUndefined()
+            expect(bike.sendACK).toBeCalled();
+            
         })
 
 

@@ -527,6 +527,11 @@ class Daum8i  {
     onData (data)  {
 
         let cmd ='';
+
+        if ( this.state.waitingForEnd) {
+            cmd = this.state.partialCmd;
+        }
+
         
         const bufferData = Buffer.isBuffer(data) ? data: Buffer.from(data,'latin1') 
         const s = this.state.sending;
@@ -625,6 +630,10 @@ class Daum8i  {
             }
 
 
+        }
+
+        if ( this.state.waitingForEnd) {
+            this.state.partialCmd = cmd;
         }
 
     }
