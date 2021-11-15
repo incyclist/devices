@@ -61,16 +61,19 @@ export default class DaumPremiumDevice extends DaumAdapter{
     async start(props) {
         this.logger.logEvent({message:'start()',props});        
         const opts = props || {}
-
+        var info = {} as any
         this.initData();        
         return runWithRetries( async ()=>{
             try {
-                console.log('~~~ connected? ',this.bike.isConnected())
                 if(!this.bike.isConnected()) {
-                    console.log('~~~ saveConect()')
                     await this.bike.saveConnect();
                 }
-                console.log('~~~ setGear()')
+                if (!info.deviceType) {
+                    info.deviceType = await this.bike.getDeviceType()
+                }
+                if (!info.version) {
+                    info.version = await this.bike.getProtocolVersion();
+                }
                 const gear = await this.bike.setGear( this.data.gear || ( opts.gear ||10 ));    
                 return gear;
             }
@@ -78,7 +81,7 @@ export default class DaumPremiumDevice extends DaumAdapter{
                 throw( new Error(`could not start device, reason:${err.message}`));
             }
 
-        }, 3, 1000 )
+        }, 5, 1000 )
         .then ( data => {
             this.startUpdatePull();
             return data;

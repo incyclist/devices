@@ -91,7 +91,7 @@ function scan(timeout=DEFAULT_SCAN_TIMEOUT) {
     return new Promise( resolve => {
         setTimeout( ()=>{
 
-            const host = hosts.length>0 ? hosts[0] : '127.0.0.1';
+            const host = hosts.length>0 ? hosts[hosts.length-1] : '127.0.0.1';
 
             logger.log('starting scan...')
     

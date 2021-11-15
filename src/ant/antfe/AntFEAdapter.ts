@@ -3,7 +3,6 @@ import AntAdapter from '../AntAdapter';
 import { AntProtocol } from '../AntScanner';
 import {getBrand} from '../utils'
 import {Queue,hexstr, runWithRetries} from '../../utils'
-import { timingSafeEqual } from 'crypto';
 
 const floatVal = (d) => d ? parseFloat(d) :d
 const intVal = (d) => d ? parseInt(d) :d
