@@ -75,7 +75,8 @@ const start = (device) => {
                         await device.start();
 
                         logger.log('sending setTargePower', device.getName()); 
-                        await device.sendTargetPower(100);
+                        if ( device.isBike() )
+                            await device.sendTargetPower(150);
                         await sleep(3000);
                         await device.stop();
                         logger.log('stopped', device.getName()); 

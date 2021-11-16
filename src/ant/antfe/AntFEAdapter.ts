@@ -217,7 +217,7 @@ export default class AntFEAdapter extends AntAdapter {
         await super.start(props);
 
         this.logger.logEvent({message:'start()'});        
-        const opts = props || {} as any
+        const args = props || {} as any
 
         return new Promise( async (resolve,reject) => {
             if(this.ignoreHrm && this.ignoreBike && this.ignorePower) {
@@ -241,13 +241,20 @@ export default class AntFEAdapter extends AntAdapter {
             const protocol = this.getProtocol() as AntProtocol;
 
             let start = Date.now();
-            let timeout = start + (opts.timeout || TIMEOUT_ATTACH);
+            let timeout = start + (args.timeout || TIMEOUT_ATTACH);
             const ivAttach = setInterval( ()=>{
                 if ( Date.now()>timeout) {
                     clearInterval(ivAttach);
                     this.starting = false;	
                     reject( new Error('timeout'))
                 }
+
+                if (this.isStopped()) {
+                    clearInterval(ivAttach);
+                    this.starting = false;                    
+                    reject( new Error('stopped'))
+                }
+
             }, 100)
     
             protocol.attachSensors(this,Ant.FitnessEquipmentSensor,'fitnessData')
@@ -263,7 +270,7 @@ export default class AntFEAdapter extends AntAdapter {
                             return runWithRetries( async ()=>{
                                 try {
                                     await this.sendTrackResistance(0.0);
-                                    await this.sendUserConfiguration( opts.userWeight||DEFAULT_USER_WEIGHT, opts.bikeWeight||DEFAULT_BIKE_WEIGHT, opts.wheelDiameter, opts.gearRatio);
+                                    await this.sendUserConfiguration( args.userWeight||DEFAULT_USER_WEIGHT, args.bikeWeight||DEFAULT_BIKE_WEIGHT, args.wheelDiameter, args.gearRatio);
 
                                     this.started = true;
                                     this.starting = false;
@@ -316,6 +323,9 @@ export default class AntFEAdapter extends AntAdapter {
         return new Promise( async (resolve,reject) => {
 
             //Workaround: proper closing does not work -> when trying to re-open, the sensor does not get attached
+
+            // interrupt ongoing start attempt
+            this.starting = false;
             return resolve(true);
 
             

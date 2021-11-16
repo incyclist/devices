@@ -77,6 +77,7 @@ export default class AntHrmAdapter extends AntAdapter {
         await super.start(props);
 
         this.logger.logEvent({message:'start()'});        
+        const args = props || {} as any
 
         return new Promise( async (resolve,reject) => {
             if(this.ignoreHrm)
@@ -97,12 +98,17 @@ export default class AntHrmAdapter extends AntAdapter {
             const protocol = this.getProtocol() as AntProtocol;
 
             let start = Date.now();
-            let timeout = start + (props.timeout || DEFAULT_START_TIMEOUT);
+            let timeout = start + (args.timeout || DEFAULT_START_TIMEOUT);
             const iv = setInterval( ()=>{
                 if ( Date.now()>timeout) {
                     clearInterval(iv);
                     this.starting = false;                    
                     reject( new Error('timeout'))
+                }
+                if (this.isStopped()) {
+                    clearInterval(iv);
+                    this.starting = false;                    
+                    reject( new Error('stopped'))
                 }
             }, 100)
 
@@ -129,6 +135,8 @@ export default class AntHrmAdapter extends AntAdapter {
         return new Promise( async (resolve,reject) => {
 
             //Workaround: proper closing does not work -> when trying to re-open, the sensor does not get attached
+            
+            this.starting = false;
             return resolve(true);
 
             this.started = false;
