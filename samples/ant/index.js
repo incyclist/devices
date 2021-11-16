@@ -8,6 +8,17 @@ EventLogger.registerAdapter(new ConsoleAdapter())
 const logger = new EventLogger('AntSampleApp')
 const foundDevices = [];
 
+logger.log('ANT Sample')
+var args = process.argv.slice(2);
+
+const scanner = new AntScanner(Ant);
+if ( process.env.DEBUG)
+    scanner.logger = logger;
+
+// sleep function
+const sleep = (ms) => {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}    
 
 const onDeviceFound = (device,protocol) => {
     try {
@@ -37,6 +48,7 @@ const start = (device) => {
 
     return new Promise( (resolve,reject)=> {
         logger.log('starting adapter')
+        device.logger = logger;
         device.start()
         .then( ()=> {
             console.log( '~~~ device started', device.getName())
@@ -49,16 +61,48 @@ const start = (device) => {
             })
     
             setTimeout( ()=>{
+
+                // test stopping, restarting and scanning again
+                
                 logger.log('stopping adapter', device.getName())
                 device.stop()
-                .then( ()=> { logger.log('stopped', device.getName()); resolve(true)})
-                .catch( err => reject(err))
-                .finally( )
-            },10000)
+                .then( async ()=> { 
+                    logger.log('stopped', device.getName()); 
+                    await sleep(3000);
+
+                    try {
+                        logger.log('starting', device.getName()); 
+                        await device.start();
+
+                        logger.log('sending setTargePower', device.getName()); 
+                        await device.sendTargetPower(100);
+                        await sleep(3000);
+                        await device.stop();
+                        logger.log('stopped', device.getName()); 
+    
+                    }
+                    catch(err) {
+                        
+                        console.log(err)
+                    }
+                })
+                .catch( err => {
+                    console.log(err);
+                    reject(err)
+                })
+                .finally( ()=> {
+                    
+                    scanner.scan({id:1,timeout:5000, onDeviceFound:(device,protocol) => console.log('found',device.getName()), onScanFinished:id=>process.exit()})
+                    resolve(true)
+                })
+
+                
+                
+            },1000)
         })
    
         .catch( (err) => {
-            console.log(err);
+            console.log('ERROR',err);
             reject(err)
         }) 
 
@@ -78,12 +122,6 @@ const getProfile = (argv) => {
     }
 }
 
-logger.log('ANT Sample')
-var args = process.argv.slice(2);
-
-const scanner = new AntScanner(Ant);
-if ( process.env.DEBUG)
-    scanner.logger = logger;
 
 if ( args.length<1) {
     scanner.scan({id:0,timeout:5000,onDeviceFound,onScanFinished})

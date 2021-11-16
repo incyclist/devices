@@ -43,6 +43,10 @@ export default class DaumPremiumDevice extends DaumAdapter{
 
         return new Promise(  async (resolve, reject ) => {
             this.logger.logEvent( {message:"check()",port:this.getPort()});
+
+            if (this.isStopped())
+                reject(new Error("device is stopped"));
+
             try {
                 if(!this.bike.isConnected())
                     await this.bike.saveConnect();
@@ -60,10 +64,14 @@ export default class DaumPremiumDevice extends DaumAdapter{
 
     async start(props) {
         this.logger.logEvent({message:'start()',props});        
+        super.start(props);
         const opts = props || {}
         var info = {} as any
         this.initData();        
         return runWithRetries( async ()=>{
+            if (this.isStopped())
+                return;
+
             try {
                 if(!this.bike.isConnected()) {
                     await this.bike.saveConnect();

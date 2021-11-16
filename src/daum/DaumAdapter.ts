@@ -25,6 +25,7 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
 
     distanceInternal: number;
     paused: boolean;
+    stopped: boolean;
     data;
     currentRequest;
     requests: Array<any>;
@@ -34,6 +35,8 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
     constructor( props, bike) {
         super(props);
         this.bike = bike;
+        this.stopped = false;
+        this.paused = false;
 
     }
     
@@ -65,6 +68,10 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
         this.ignoreBike=ignore;
     }
 
+    isStopped() {
+        return this.stopped;
+    }
+
     initData() {
         this.distanceInternal = undefined;
         this.paused = undefined;
@@ -81,6 +88,11 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
         this.requests   = [];
         if (this.bike.processor!==undefined) 
             this.bike.processor.reset();
+    }
+
+    start( props?: any ): Promise<any> {
+        this.stopped = false;
+        return new Promise( done => done(true))
     }
 
     startUpdatePull() {
@@ -172,7 +184,7 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
 
     stop(): Promise<boolean> {
         this.logEvent({message:'stop request'});        
-
+        this.stopped = true;
         return new Promise( (resolve,reject) => {
             try {
                 if ( this.iv) {

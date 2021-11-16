@@ -80,6 +80,8 @@ export default class DaumClassicAdapter extends DaumAdapter{
 
     async start(props) {
         this.logger.logEvent({message:'start()',props});        
+        super.start(props);
+
         const opts = props || {}
 
         const person = props;

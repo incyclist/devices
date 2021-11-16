@@ -11,6 +11,6 @@ export default class AntHrmAdapter extends AntAdapter {
     getDisplayName(): string;
     onDeviceData(deviceData: any): void;
     updateData(data: any, deviceData: any): any;
-    start(props?: any): Promise<unknown>;
+    start(props?: any): Promise<any>;
     stop(): Promise<boolean>;
 }

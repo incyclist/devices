@@ -3,6 +3,7 @@ import { EventLogger } from 'gd-eventlog';
 export declare const DEFAULT_UPDATE_FREQUENCY = 1000;
 export default class AntAdapter extends DeviceAdapter {
     paused: boolean;
+    stopped: boolean;
     ignoreHrm: boolean;
     ignoreBike: boolean;
     ignorePower: boolean;
@@ -26,6 +27,7 @@ export default class AntAdapter extends DeviceAdapter {
     getPort(): string;
     setChannel(channel: any): void;
     setStick(stick: any): void;
+    isStopped(): boolean;
     onDeviceData(data: any): void;
     onDeviceEvent(data: any): void;
     onAttached(): void;
@@ -35,4 +37,6 @@ export default class AntAdapter extends DeviceAdapter {
     close(): void;
     pause(): Promise<boolean>;
     resume(): Promise<boolean>;
+    start(props?: any): Promise<any>;
+    stop(): Promise<boolean>;
 }

@@ -20,7 +20,7 @@ export default class AntFEAdapter extends AntAdapter {
     onDeviceEvent(data: any): void;
     updateData(data: any, deviceData: any): any;
     transformData(bikeData: any): any;
-    start(props?: any): Promise<unknown>;
+    start(props?: any): Promise<any>;
     stop(): Promise<boolean>;
     sendUpdate(request: any): Promise<void>;
     send(msg: any, logStr: any, callback?: any, expectedResponse?: any): void;

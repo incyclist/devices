@@ -72,7 +72,10 @@ export default class AntHrmAdapter extends AntAdapter {
     }
 
 
-    async start(props = {} as any) {
+    async start( props?: any ): Promise<any> {
+        
+        await super.start(props);
+
         this.logger.logEvent({message:'start()'});        
 
         return new Promise( async (resolve,reject) => {
@@ -116,7 +119,10 @@ export default class AntHrmAdapter extends AntAdapter {
     }
 
 
-    stop(): Promise<boolean>  {
+    async stop(): Promise<boolean>  {
+        
+        await super.stop();
+    
         this.logger.logEvent({message:'stop()'});        
 
 

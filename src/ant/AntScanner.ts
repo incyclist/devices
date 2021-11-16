@@ -380,8 +380,6 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
     }
 
     closeStick(stick) {
-        if (process.env.DEBUG)
-            console.log('~~~Ant:closeStick')
         this.logger.logEvent( {message:'closing stick'})
 
         return new Promise ( (resolve,reject) => {
@@ -554,22 +552,37 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
     
 
     async scan(props) {
+        
         this.logger.logEvent({message:'scan request',props})
         this.scanning = true;
-
         this.logStickInfo();
         
-        try {
-            const stick = await this.getFirstStick()    
-            if (!stick)  {
-                this.logger.logEvent( {message:'no stick found'})
-                return;
+        if (this.sensors && this.sensors.stick && this.sensors.stickOpen) {
+            try {
+                
+                await this.closeStick(this.sensors.stick);
+                this.sensors = {}
+                this.devices = []
+
             }
-            this.scanOnStick(stick,props)
+            catch(err) {
+                this.logger.logEvent( {message:'error on closing stick',error:err.message})
+            }      
         }
-        catch( err) {
-            this.logger.logEvent( {message:'scan request error',error:err.message})
-        }        
+        
+            try {
+                const stick = await this.getFirstStick()    
+                if (!stick)  {
+                    this.logger.logEvent( {message:'no stick found'})
+                    return;
+                }
+                this.scanOnStick(stick,props)
+            }
+            catch( err) {
+                this.logger.logEvent( {message:'scan request error',error:err.message})
+            }        
+    
+        
     }
 
     async stopScan() {
@@ -684,12 +697,8 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                     resolve(true)    
                 }
                 catch(err) {
-                    console.log('~~~ ERROR',err);
-                    if ( typeof(err) === 'string') {
-                        err = new Error(err);
-                    }
-                    this.logger.logEvent( {message:'attachFromPending error',error:err.message})
-                    reject(err)
+                    this.logger.logEvent( {message:'error',fn:'attachFromPending()',error:err.message||err})
+                    reject(err.message ? err: new Error(err))
                 }
 
 

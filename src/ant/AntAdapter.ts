@@ -6,6 +6,8 @@ export const DEFAULT_UPDATE_FREQUENCY  = 1000;
 export default class AntAdapter extends DeviceAdapter {
 
     paused: boolean;
+    stopped: boolean;
+
     ignoreHrm: boolean;
     ignoreBike: boolean;
     ignorePower: boolean;
@@ -25,6 +27,7 @@ export default class AntAdapter extends DeviceAdapter {
     constructor(protocol) {
         super(protocol)
         this.paused = false;
+        this.stopped = false;
         this.ignoreHrm=false;
         this.ignoreBike=false;
         this.ignorePower=false;
@@ -73,6 +76,10 @@ export default class AntAdapter extends DeviceAdapter {
         this.stick = stick;
     }
 
+    isStopped() {
+        return this.stopped;
+    }
+
 
     /* callback called whenever, we receive data on the Ant+ channel */
     onDeviceData(data) {}
@@ -102,5 +109,20 @@ export default class AntAdapter extends DeviceAdapter {
         })
 
     }
+
+    start( props?: any ): Promise<any> {
+        return new Promise ( resolve => {
+            this.stopped = false;
+            resolve(true)
+        })
+    }
+
+    stop(): Promise<boolean> {
+        return new Promise ( resolve => {
+            this.stopped = true;
+            resolve(true)
+        })
+    }
+
 
 }

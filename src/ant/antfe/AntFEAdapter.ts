@@ -74,7 +74,7 @@ export default class AntFEAdapter extends AntAdapter {
 
 
     onDeviceData( deviceData) {
-        if (!this.started)
+        if (!this.started || this.isStopped())
             return;
         this.deviceData = deviceData;
         
@@ -212,7 +212,10 @@ export default class AntFEAdapter extends AntAdapter {
 
 
 
-    async start(props?) {
+    async start( props?: any ): Promise<any> {
+        
+        await super.start(props);
+
         this.logger.logEvent({message:'start()'});        
         const opts = props || {} as any
 
@@ -223,12 +226,13 @@ export default class AntFEAdapter extends AntAdapter {
             }
 
             if (this.starting) {
-                this.logger.logEvent({message:'start() not done: bike starting'});        
+                this.logger.logEvent({message:'start() not done: bike starting'});  
                 return resolve(false)
             } 
 
             if ( this.started) {
                 this.logger.logEvent({message:'start() done: bike was already started'});        
+                this.startWorker();      
                 return resolve(true);
             }
 
@@ -297,7 +301,10 @@ export default class AntFEAdapter extends AntAdapter {
     }
 
     
-    stop(): Promise<boolean>  {
+    async stop(): Promise<boolean>  {
+
+        await super.stop();
+
         this.logger.logEvent({message:'stop()'});        
         this.stopWorker();
 
@@ -383,6 +390,7 @@ export default class AntFEAdapter extends AntAdapter {
         this.queue.enqueue( { msg, logStr, callback,expectedResponse} );
     }
 
+    
     sendAsync(msg,logStr,expectedResponse) {       
         return new Promise( (resolve,reject) => {
             this.send(msg,logStr, (res,err)=> {
@@ -394,6 +402,7 @@ export default class AntFEAdapter extends AntAdapter {
     }
 
     startWorker() {
+        this.logger.logEvent({message:'startWorker()'});
         if (this.queue===undefined) {
             this.queue=new Queue();
         }
@@ -416,8 +425,10 @@ export default class AntFEAdapter extends AntAdapter {
     }
 
     sendFromQueue() {
-        if (this.queue===undefined)
+        if (this.queue===undefined) {
             return;
+        }
+            
             
         if (this.currentCmd!==undefined) {
             const cmdInfo = this.currentCmd;
@@ -470,9 +481,12 @@ export default class AntFEAdapter extends AntAdapter {
     */
 
     sendUserConfiguration (userWeight, bikeWeight, wheelDiameter, gearRatio) {
-        if (!this.connected)
-            return;
+
         return new Promise( (resolve,reject) => {
+            if (!this.connected)
+                reject (new Error('not connected'));
+            if (!this.queue)
+                this.startWorker()
 
 
             var payload = [];
@@ -521,10 +535,13 @@ export default class AntFEAdapter extends AntAdapter {
     }
 
     sendBasicResistance( resistance) {
-        if (!this.connected)
-            return;
-
         return new Promise( (resolve,reject) => {
+
+            if (!this.connected)
+                reject (new Error('not connected'));
+            if (!this.queue)
+                this.startWorker()
+
             var payload = [];
             payload.push ( this.channel);
     
@@ -556,10 +573,13 @@ export default class AntFEAdapter extends AntAdapter {
     }
 
     sendTargetPower( power) {
-        if (!this.connected)
-            return;
 
         return new Promise( (resolve,reject) => {
+            if (!this.connected)
+                reject (new Error('not connected'));
+            if (!this.queue)
+                this.startWorker()
+
             var payload = [];
             payload.push ( this.channel);
     
@@ -590,10 +610,12 @@ export default class AntFEAdapter extends AntAdapter {
     }
 
     sendWindResistance( windCoeff,windSpeed,draftFactor) {
-        if (!this.connected)
-            return;
-
         return new Promise( (resolve,reject) => {
+            if (!this.connected)
+                reject (new Error('not connected'));
+            if (!this.queue)
+                this.startWorker()
+
             var payload = [];
             payload.push ( this.channel);
     
@@ -634,10 +656,12 @@ export default class AntFEAdapter extends AntAdapter {
     }
 
     sendTrackResistance( slope, rrCoeff?) {
-        if (!this.connected)
-            return;
-
         return new Promise( (resolve,reject) => {
+            if (!this.connected)
+                reject (new Error('not connected'));
+            if (!this.queue)
+                this.startWorker()
+
             var payload = [];
             payload.push ( this.channel);
             

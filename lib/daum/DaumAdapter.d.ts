@@ -10,6 +10,7 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
     ignorePower: boolean;
     distanceInternal: number;
     paused: boolean;
+    stopped: boolean;
     data: any;
     currentRequest: any;
     requests: Array<any>;
@@ -23,7 +24,9 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
     isHrm(): boolean;
     setIgnoreHrm(ignore: any): void;
     setIgnoreBike(ignore: any): void;
+    isStopped(): boolean;
     initData(): void;
+    start(props?: any): Promise<any>;
     startUpdatePull(): void;
     connect(): void;
     close(): any;
