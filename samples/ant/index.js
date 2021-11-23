@@ -49,6 +49,7 @@ const start = (device) => {
     return new Promise( (resolve,reject)=> {
         logger.log('starting adapter')
         device.logger = logger;
+        device.getProtocol().logger = logger;
         device.start()
         .then( ()=> {
             console.log( '~~~ device started', device.getName())
@@ -101,9 +102,15 @@ const start = (device) => {
                 
             },1000)
         })
-        .catch( (err) => {
+        .catch( async (err) => {
             console.log('ERROR',err.message);
-            process.exit();
+
+            device.stop();
+            console.log ( 'retry in 20s');
+            await sleep(20000);
+            start(device);
+
+
         }) 
 
     })
@@ -133,6 +140,7 @@ else {
     args.forEach( arg => {
         const [p,deviceID] = arg.split(':');
         const device = scanner.add( { deviceID,profile:getProfile(p) })
+        device.logger = logger;
         devices.push(device)
     })
 

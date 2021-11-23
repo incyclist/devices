@@ -258,72 +258,78 @@ export default class AntFEAdapter extends AntAdapter {
 
             }, 100)
     
-            protocol.attachSensors(this,Ant.FitnessEquipmentSensor,'fitnessData')
-                .then( async ()=> {
-                    clearInterval(ivAttach);
-                    this.startWorker();
+            try {
+                if ( !this.connected) {
+                    this.logger.logEvent({message:'attach device ...'});
+                    await protocol.attachSensors(this,Ant.FitnessEquipmentSensor,'fitnessData');
+                }
 
-                    const tsStart = Date.now();
-                    const iv = setInterval( async ()=>{
-                        if ( this.connected) {
-                            clearInterval(iv);
-    
-                            let status = {
-                                trackResistanceSent: false,
-                                userSent: false,
-                            }
-                            runWithRetries( async ()=>{
-                                if (this.isStopped())
-                                    resolve(false);
-                
-                                try {
-                                    if (!status.trackResistanceSent) {
-                                        await this.sendTrackResistance(0.0);
-                                        status.trackResistanceSent = true;
-                                    }
-                                    if (!status.userSent) {
-                                        await this.sendUserConfiguration( args.userWeight||DEFAULT_USER_WEIGHT, args.bikeWeight||DEFAULT_BIKE_WEIGHT, args.wheelDiameter, args.gearRatio);
-                                        status.userSent = true;
-                                    }
+                clearInterval(ivAttach);
+                this.startWorker();
 
-                                    this.started = true;
-                                    this.starting = false;
-                                    resolve(true)
-        
-                                    }
-                                catch(err) {
-                                    throw( new Error(`could not start device, reason:${err.message||err}`));
-                                }
-                    
-                            }, 5, 1500 )
-                            .catch(err => { 
-                                this.logger.logEvent({message:'start() error',error:err.message||err});        
-                                this.starting = false;
-                                reject(err)
-                            })
+                const tsStart = Date.now();
+                const iv = setInterval( async ()=>{
+                    if ( this.connected) {
+                        clearInterval(iv);
 
-                    
+                        let status = {
+                            trackResistanceSent: false,
+                            userSent: false,
                         }
-                        else if ( (Date.now()-tsStart)>TIMEOUT_START) {
-                            clearInterval(iv);
+                        runWithRetries( async ()=>{
+                            if (this.isStopped())
+                                resolve(false);
+            
                             try {
-                                await protocol.detachSensor(this);
+                                if (!status.trackResistanceSent) {
+                                    await this.sendTrackResistance(0.0);
+                                    status.trackResistanceSent = true;
+                                }
+                                if (!status.userSent) {
+                                    await this.sendUserConfiguration( args.userWeight||DEFAULT_USER_WEIGHT, args.bikeWeight||DEFAULT_BIKE_WEIGHT, args.wheelDiameter, args.gearRatio);
+                                    status.userSent = true;
+                                }
+
+                                this.started = true;
+                                this.starting = false;
+                                resolve(true)
+    
+                                }
+                            catch(err) {
+                                throw( new Error(`could not start device, reason:${err.message||err}`));
                             }
-                            catch(err){}
-                            this.started = false;
+                
+                        }, 5, 1500 )
+                        .catch(err => { 
+                            this.logger.logEvent({message:'start() error',error:err.message||err});        
                             this.starting = false;
-                            reject( new Error('timeout'))
+                            reject(err)
+                        })
 
+                
+                    }
+                    else if ( (Date.now()-tsStart)>TIMEOUT_START) {
+                        clearInterval(iv);
+                        try {
+                            await protocol.detachSensor(this);
                         }
-                    } , 50)
+                        catch(err){}
+                        this.started = false;
+                        this.starting = false;
+                        reject( new Error('could not start device, reason:timeout'))
 
-                })
-                .catch(err=> {
-                    this.logger.logEvent({message:'start() error',error:err.message});        
-                    this.starting = false;
+                    }
+                } , 50)
 
-                    reject( new Error(`could not start device, reason:${err.message}`));                    
-                })
+            }
+            catch (err) {
+                this.logger.logEvent({message:'start() error',error:err.message});        
+                this.starting = false;
+
+                reject( new Error(`could not start device, reason:${err.message}`));      
+            }
+                
+
         })
     }
 
