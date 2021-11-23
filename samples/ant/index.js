@@ -101,10 +101,9 @@ const start = (device) => {
                 
             },1000)
         })
-   
         .catch( (err) => {
-            console.log('ERROR',err);
-            reject(err)
+            console.log('ERROR',err.message);
+            process.exit();
         }) 
 
     })

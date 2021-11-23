@@ -6,6 +6,7 @@ import {Queue,hexstr, runWithRetries} from '../../utils'
 
 const floatVal = (d) => d ? parseFloat(d) :d
 const intVal = (d) => d ? parseInt(d) :d
+const hex = (v) =>  Math.abs(v).toString(16).toUpperCase();
 
 const TIMEOUT_ACK = 5000;
 const TIMEOUT_START = 10000;
@@ -107,28 +108,28 @@ export default class AntFEAdapter extends AntAdapter {
 
             if ( data.message===msg) {
                 if ( expectedResponse===undefined && data.code===Constants.EVENT_TRANSFER_TX_COMPLETED) {
-                    this.currentCmd.response = { success:true }
+                    this.currentCmd.response = { success:true,message:hex(data.message),code:hex(data.code)  }
                     return;
                 }
     
                 if ( expectedResponse===undefined && data.code!==Constants.EVENT_TRANSFER_TX_COMPLETED) {
-                    this.currentCmd.response = { success:false}
+                    this.currentCmd.response = { success:false,message:hex(data.message),code:hex(data.code) }
                     return;
                 }
             }
 
             if ( data.message===1) {
                 if ( expectedResponse!==undefined && data.code===expectedResponse) {
-                    this.currentCmd.response = { success:true }
+                    this.currentCmd.response = { success:true,message:hex(data.message),code:hex(data.code) }
                     return;
                 }
                 if ( expectedResponse===undefined && (data.code===Constants.EVENT_TRANSFER_TX_COMPLETED || data.code===3) ) {
-                    this.currentCmd.response = { success:true }
+                    this.currentCmd.response = { success:true,message:hex(data.message),code:hex(data.code)  }
                     return;
                 }    
                 if ( data.code===Constants.EVENT_TRANSFER_TX_FAILED)  { 
                     this.stick.write(this.currentCmd.msg);
-                    this.currentCmd.response = { success:false }
+                    this.currentCmd.response = { success:false,message:hex(data.message),code:hex(data.code)  }
                     return;
                 }
             }
@@ -137,11 +138,11 @@ export default class AntFEAdapter extends AntAdapter {
                 this.logger.log("could not send (TRANSFER_IN_PROGRESS)");
                 return;
             }
-            this.logger.logEvent({message:"Incoming Event ", event:data} );
+            this.logger.logEvent({message:"Incoming Event ", event:  {message:hex(data.message),code:hex(data.code)} } );
     
         }
         catch (err) {
-            this.logger.logEvent({message:'Error',fn:'parseEvent',data:hexstr(data),error:err.message})
+            this.logger.logEvent({message:'Error',fn:'parseEvent',event:{message:hex(data.message),code:hex(data.code)} ,error:err.message||err})
         }
     }
 
@@ -267,10 +268,23 @@ export default class AntFEAdapter extends AntAdapter {
                         if ( this.connected) {
                             clearInterval(iv);
     
-                            return runWithRetries( async ()=>{
+                            let status = {
+                                trackResistanceSent: false,
+                                userSent: false,
+                            }
+                            runWithRetries( async ()=>{
+                                if (this.isStopped())
+                                    resolve(false);
+                
                                 try {
-                                    await this.sendTrackResistance(0.0);
-                                    await this.sendUserConfiguration( args.userWeight||DEFAULT_USER_WEIGHT, args.bikeWeight||DEFAULT_BIKE_WEIGHT, args.wheelDiameter, args.gearRatio);
+                                    if (!status.trackResistanceSent) {
+                                        await this.sendTrackResistance(0.0);
+                                        status.trackResistanceSent = true;
+                                    }
+                                    if (!status.userSent) {
+                                        await this.sendUserConfiguration( args.userWeight||DEFAULT_USER_WEIGHT, args.bikeWeight||DEFAULT_BIKE_WEIGHT, args.wheelDiameter, args.gearRatio);
+                                        status.userSent = true;
+                                    }
 
                                     this.started = true;
                                     this.starting = false;
@@ -278,10 +292,16 @@ export default class AntFEAdapter extends AntAdapter {
         
                                     }
                                 catch(err) {
-                                    throw err
+                                    throw( new Error(`could not start device, reason:${err.message||err}`));
                                 }
                     
-                            }, 3, 1000 )
+                            }, 5, 1500 )
+                            .catch(err => { 
+                                this.logger.logEvent({message:'start() error',error:err.message||err});        
+                                this.starting = false;
+                                reject(err)
+                            })
+
                     
                         }
                         else if ( (Date.now()-tsStart)>TIMEOUT_START) {
@@ -416,6 +436,9 @@ export default class AntFEAdapter extends AntAdapter {
         if (this.queue===undefined) {
             this.queue=new Queue();
         }
+        if (this.workerId) 
+            return;
+
         this.workerId = setInterval( ()=>{ 
             try  {
                 this.sendFromQueue()
@@ -464,7 +487,7 @@ export default class AntFEAdapter extends AntAdapter {
                 this.currentCmd=undefined;
                 if (callback!==undefined) {
                     if ( response && response.success===false) {
-                        callback(undefined, new Error('error'))
+                        callback(undefined, new Error(`ANT error ${response.code}`))
                         return;
                     }
                     callback( response )
