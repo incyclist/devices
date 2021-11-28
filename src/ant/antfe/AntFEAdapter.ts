@@ -128,8 +128,8 @@ export default class AntFEAdapter extends AntAdapter {
                     this.currentCmd.response = { success:true,message:hex(data.message),code:hex(data.code)  }
                     return;
                 }    
-                if ( data.code===Constants.EVENT_TRANSFER_TX_FAILED)  { 
-                    this.stick.write(this.currentCmd.msg);
+                if ( data.code===Constants.EVENT_TRANSFER_TX_FAILED || data.code===Constants.EVENT_CHANNEL_COLLISION)  { 
+                    //this.stick.write(this.currentCmd.msg);
                     this.currentCmd.response = { success:false,message:hex(data.message),code:hex(data.code)  }
                     return;
                 }
@@ -137,6 +137,7 @@ export default class AntFEAdapter extends AntAdapter {
 
             if ( this.currentCmd!==undefined && data.message===Constants.MESSAGE_CHANNEL_ACKNOWLEDGED_DATA && data.code===31) {
                 this.logger.log("could not send (TRANSFER_IN_PROGRESS)");
+                this.currentCmd.response = { success:false,message:hex(data.message),code:hex(data.code)  }
                 return;
             }
             this.logger.logEvent({message:"Incoming Event ", event:  {message:hex(data.message),code:hex(data.code)} } );
