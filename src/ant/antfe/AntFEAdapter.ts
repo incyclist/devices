@@ -35,6 +35,7 @@ export default class AntFEAdapter extends AntAdapter {
 
         this.logger = new EventLogger('Ant+FE')
         //this.logger = new MockLogger() as EventLogger;
+        this.logger.logEvent( {message:'Ant+FE Adapter created', DeviceID,port})
 
         this.deviceID = DeviceID;
         this.port = port;
@@ -388,19 +389,19 @@ export default class AntFEAdapter extends AntAdapter {
             // TODO: handle reset
             
             if (request.slope!==undefined) {
-                await this.sendTrackResistance(request.slope);
+                await  runWithRetries( async ()=>{ return await this.sendTrackResistance(request.slope) }, 2, 100 );
             }
     
             if (request.targetPower!==undefined) {
-                await this.sendTargetPower(request.targetPower);
+                await  runWithRetries( async ()=>{ return await this.sendTargetPower(request.targetPower)},2,100);
             }
             else if (request.maxPower!==undefined) {
                 if ( this.data.power && this.data.power>request.maxPower)
-                    await this.sendTargetPower(request.maxPower);
+                await  runWithRetries( async ()=>{ return await this.sendTargetPower(request.maxPower);},2,100);
             }
             else if (request.minPower!==undefined) {
                 if ( this.data.power && this.data.power<request.minPower)
-                    await this.sendTargetPower(request.minPower);
+                await  runWithRetries( async ()=>{ return await this.sendTargetPower(request.minPower);},2,100);
             }
     
             if ( request.maxHrm!==undefined) {
