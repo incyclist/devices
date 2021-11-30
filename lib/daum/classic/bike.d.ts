@@ -15,7 +15,6 @@ export default class Daum8008 {
     portName: string;
     settings: any;
     bikeData: any;
-    processor: any;
     sp: any;
     error: Error;
     opening: boolean;

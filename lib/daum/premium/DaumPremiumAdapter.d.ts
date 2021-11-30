@@ -8,5 +8,4 @@ export default class DaumPremiumDevice extends DaumAdapter {
     check(): Promise<unknown>;
     start(props: any): Promise<unknown>;
     getCurrentBikeData(): Promise<any>;
-    updateData(data: any, bikeData: any): any;
 }

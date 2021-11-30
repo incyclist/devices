@@ -3,7 +3,7 @@ import DeviceRegistry from '../DeviceRegistry';
 import DeviceAdapter from '../Device';
 
 import {EventLogger} from 'gd-eventlog'
-import Calculations from '../calculations'
+import C from '../calculations'
 
 export class Simulator extends DeviceAdapter {
     static NAME = 'Simulator';
@@ -151,20 +151,20 @@ export class Simulator extends DeviceAdapter {
         
         if ( this.speed===undefined )                 
             this.speed = 30;
-        this.power = Calculations.calculatePower(75,this.speed/3.6,this.slope);    
+        this.power = C.calculatePower(75,this.speed/3.6,this.slope);    
 
         if ( this.limit.targetPower) {
             this.power = this.limit.targetPower;
-            this.speed = Calculations.calculateSpeed(75, this.power, this.slope)
+            this.speed = C.calculateSpeed(75, this.power, this.slope)
         }
         
         if ( this.limit.maxPower && this.power>this.limit.maxPower) {
             this.power = this.limit.maxPower;
-            this.speed = Calculations.calculateSpeed(75, this.power, this.slope)
+            this.speed = C.calculateSpeed(75, this.power, this.slope)
         }
         else if ( this.limit.minPower && this.power<this.limit.minPower) {
             this.power = this.limit.minPower;
-            this.speed = Calculations.calculateSpeed(75, this.power, this.slope)
+            this.speed = C.calculateSpeed(75, this.power, this.slope)
         }
 
         let distance = this.calculateDistance(this.speed, timespan/1000)

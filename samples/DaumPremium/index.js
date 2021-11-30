@@ -14,11 +14,12 @@ const {scan} = require('./scan')
     return new Promise ( async (resolve) => {
         device.onData( (data)=> { logger.logEvent( {message:'onData',data}) })
         await device.start();
-    
+        let slope =0
         // setting power to 200W every 1s
         const iv = setInterval( async ()=>{
-            logger.logEvent( {message:'setting Power',power:200,device:device.getName()})        
-            await device.sendUpdate( {targetPower:200});
+            //logger.logEvent( {message:'setting Power',power:200,device:device.getName()})        
+            await device.sendUpdate( {slope});
+            slope+=0.1
     
         }, 1000)
     

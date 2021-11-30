@@ -96,6 +96,7 @@ export default class DaumPremiumDevice extends DaumAdapter{
         })
     }
 
+
     async getCurrentBikeData() {
         if(!this.bike.isConnected()) {
             await this.bike.saveConnect();
@@ -103,22 +104,6 @@ export default class DaumPremiumDevice extends DaumAdapter{
         return this.getBike().getTrainingData()
     }
 
-    updateData( data,bikeData) {
-        data.isPedalling = bikeData.cadence>0;
-        data.power  = bikeData.power
-        data.pedalRpm = bikeData.cadence
-        data.speed = bikeData.speed
-        data.heartrate = bikeData.heartrate
-        data.distance = bikeData.distance/1000
-        data.distanceInternal = bikeData.distance;
-        data.time = bikeData.time
-        data.gear = bikeData.gear
-        
-        if (this.bike.processor!==undefined) {
-            data = this.bike.processor.getValues(data);
-        }
-        return data;
-    }
 
 
 

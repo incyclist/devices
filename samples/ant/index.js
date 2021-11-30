@@ -53,12 +53,17 @@ const start = (device) => {
         device.start()
         .then( ()=> {
             console.log( '~~~ device started', device.getName())
-
+            /*
             let ivSend;
             setTimeout( ()=> {
+               
+            },1500)
+*/
+            let i=1;
+            device.onData( (data)=> { 
+                logger.logEvent( {message:'device data',device:device.getName(),data})
                 if ( device.isBike() ) {
-                    let i=1;
-                    ivSend = setInterval( ()=> {
+                    
                         if (i%3===0) {
                             logger.log('set Target Power')
                             device.sendUpdate({targetPower: Math.floor(Math.random()*100)})
@@ -72,18 +77,14 @@ const start = (device) => {
                             device.sendUpdate({slope: Math.random()*3,maxPower:100})
                         }
                         i++;
-                    },1000)
+                    
                 }
-            },1500)
-
-            device.onData( (data)=> { 
-                logger.logEvent( {message:'device data',device:device.getName(),data})
             })
     
             setTimeout( ()=>{
 
                 // test stopping, restarting and scanning again
-                clearInterval(ivSend);
+                //clearInterval(ivSend);
                 logger.log('stopping adapter', device.getName())
                 device.stop()
                 .then( async ()=> { 

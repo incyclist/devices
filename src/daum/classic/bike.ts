@@ -1,4 +1,3 @@
-import IndoorBikeProcessor from '../indoorbike'
 import {EventLogger} from 'gd-eventlog'
 import {hexstr, getCockpit,getBikeType,getAge,getGender,getLength,getWeight,buildError,Float32ToIntArray, parseRunData} from './utils'
 import {Queue} from '../../utils'
@@ -35,7 +34,6 @@ export default class Daum8008  {
     portName: string;
     settings: any;
     bikeData: any;
-    processor: any;
     sp: any;
     error: Error;
     opening: boolean;
@@ -62,7 +60,6 @@ export default class Daum8008  {
             maxPower: 800
         }
             
-        this.processor = new IndoorBikeProcessor(this,{});
 
         this.sp = undefined;
         this.error = undefined;

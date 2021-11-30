@@ -1,4 +1,5 @@
 import { EventLogger } from 'gd-eventlog';
+import CyclingMode from '../CyclingMode';
 import DeviceAdapterBase, { DeviceAdapter } from '../Device';
 interface DaumAdapter {
     getCurrentBikeData(): Promise<any>;
@@ -16,7 +17,17 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
     requests: Array<any>;
     iv: any;
     logger: EventLogger;
+    cyclingMode: CyclingMode;
+    userSettings: any;
+    bikeSettings: any;
     constructor(props: any, bike: any);
+    setCyclingMode(mode: CyclingMode): void;
+    getSupportedCyclingModes(): Array<any>;
+    getCyclingMode(): CyclingMode;
+    getDefaultCyclingMode(): CyclingMode;
+    setUserSettings(userSettings: any): void;
+    setBikeSettings(bikeSettings: any): void;
+    getWeight(): any;
     getCurrentBikeData(): Promise<any>;
     getBike(): any;
     isBike(): boolean;
@@ -31,7 +42,6 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
     connect(): void;
     close(): any;
     logEvent(event: any): void;
-    sendBikeUpdate(request: any): Promise<unknown>;
     stop(): Promise<boolean>;
     pause(): Promise<boolean>;
     resume(): Promise<boolean>;
@@ -39,5 +49,7 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
     update(): Promise<void>;
     updateData(data: any, bikeData: any): any;
     transformData(bikeData: any): any;
+    sendRequest(request: any): Promise<any>;
+    sendBikeUpdate(request: any): Promise<unknown>;
 }
 export {};

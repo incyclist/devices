@@ -404,14 +404,7 @@ export default class AntFEAdapter extends AntAdapter {
                 if ( this.data.power && this.data.power<request.minPower)
                 await  runWithRetries( async ()=>{ return await this.sendTargetPower(request.minPower);},2,100);
             }
-    
-            if ( request.maxHrm!==undefined) {
-                // TODO
-            }
-            if (request.minHrm!==undefined) {
-                // TODO
-            }    
-    
+        
         }
         catch( err) {
             this.logger.logEvent( {message:'sendBikeUpdate() error',error:err.message})

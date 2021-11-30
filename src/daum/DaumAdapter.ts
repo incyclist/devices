@@ -1,5 +1,12 @@
 import { EventLogger } from 'gd-eventlog';
+import CyclingMode from '../CyclingMode';
 import DeviceAdapterBase,{DeviceAdapter} from '../Device'
+import ERGCyclingMode from './ERGCyclingMode';
+import SmartTrainerCyclingMode from './SmartTrainerCyclingMode';
+
+const DEFAULT_BIKE_WEIGHT = 10;
+const DEFAULT_USER_WEIGHT = 75;
+
 
 function floatVal(d) {
     if (d===undefined)
@@ -31,6 +38,9 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
     requests: Array<any>;
     iv;
     logger: EventLogger;
+    cyclingMode: CyclingMode;
+    userSettings: any;
+    bikeSettings: any;
 
     constructor( props, bike) {
         super(props);
@@ -38,7 +48,47 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
         this.stopped = false;
         this.paused = false;
 
+        const options = props || {};
+        this.cyclingMode = options.cyclingMode;
+        this.userSettings = options.userSettings || {}
+        this.bikeSettings = options.bikeSettings || {};
+        this.data = {}
+
     }
+
+    setCyclingMode(mode: CyclingMode) { 
+        this.cyclingMode = mode;
+    }
+
+
+    getSupportedCyclingModes() : Array<any> {         
+        return [ERGCyclingMode,SmartTrainerCyclingMode]
+    }
+
+    getCyclingMode() {
+        if (!this.cyclingMode)
+            this.setCyclingMode( this.getDefaultCyclingMode());
+        return this.cyclingMode;
+    }
+
+    getDefaultCyclingMode   ():CyclingMode {
+        return new SmartTrainerCyclingMode(this)        
+    }
+
+
+    setUserSettings(userSettings) {
+        this.userSettings = userSettings || {}
+    } 
+    setBikeSettings(bikeSettings) {
+        this.bikeSettings = bikeSettings|| {}
+    } 
+
+    getWeight() {
+        const userWeight = this.userSettings.weight || (this.bike ? this.bike.getUserWeight(): undefined) || DEFAULT_USER_WEIGHT;
+        const bikeWeight = this.bikeSettings.weight || (this.bike ? this.bike.getBikeWeight():undefined) || DEFAULT_BIKE_WEIGHT;
+        return bikeWeight+userWeight;
+    }
+
     
     getCurrentBikeData(): Promise<any> {
         throw new Error('Method not implemented.');
@@ -125,62 +175,7 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
         this.logger.logEvent(event);
     }
 
-    sendBikeUpdate(request) {
-        return new Promise ( async (resolve) => {
-            
-            if ( request.slope) {
-                this.data.slope = request.slope;
-            }
-
-            try {
-
-                const isReset = ( !request || request.reset || Object.keys(request).length===0 );
-    
-                if (this.bike.processor!==undefined) {
-                    this.bike.processor.setValues(request);
-                }    
-
-                if (isReset) {
-                    this.logEvent({message:"sendBikeUpdate():reset done"});
-                    resolve( {})
-                    return;
-                }
-                    
-                this.logEvent({message:"sendBikeUpdate():sending",request});
-    
-                if (request.slope!==undefined) {
-                    await this.bike.setSlope(request.slope);
-                }
-                if (request.targetPower!==undefined ) {
-                    await this.bike.setPower(request.targetPower);
-                }
-                if ( request.minPower!==undefined && request.maxPower!==undefined && request.minPower===request.maxPower) {
-                    await this.bike.setPower(request.minPower);
-                }
-                if ( request.maxPower!==undefined) {
-                    // TODO
-                }
-                if (request.minPower!==undefined) {
-                    // TODO
-                }
-                if ( request.maxHrm!==undefined) {
-                    // TODO
-                }
-                if (request.minHrm!==undefined) {
-                    // TODO
-                }
-            
-            }
-            catch (err) {
-                this.logEvent( {message:'sendBikeUpdate error',error:err.message})
-                resolve(undefined)
-                return;
-            }
-
-            resolve(request)
-        });
-
-    }            
+          
 
     stop(): Promise<boolean> {
         this.logEvent({message:'stop request'});        
@@ -292,12 +287,14 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
         data.distanceInternal = bikeData.distance;
         data.time = bikeData.time
         data.gear = bikeData.gear
+        if (bikeData.slope) data.slope = bikeData.slope;
+
+        this.getCyclingMode().updateData(data);
+        //this.bike.processor.getValues(data);
         
-        if (this.bike.processor!==undefined) {
-            data = this.bike.processor.getValues(data);
-        }
         return data;
     }
+
 
     transformData( bikeData) {
 
@@ -333,5 +330,46 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
 
         return data;
     }
+
+    async sendRequest(request) {
+        try {
+
+            const bike = this.getBike();
+            const isReset = ( !request || request.reset || Object.keys(request).length===0 );
+
+            if (isReset) {
+                return {};
+            }
+               
+            if (request.slope!==undefined) {
+                await bike.setSlope(request.slope);
+            }
+            if (request.targetPower!==undefined ) {
+                await bike.setPower(request.targetPower);
+            }
+            return request
+        
+        }
+        catch (err) {
+            this.logEvent( {message:'error',fn:'sendRequest()',error:err.message||err})            
+            return;
+        }
+
+
+    }
+
+
+    sendBikeUpdate(request) {
+        if ( request.slope) {
+            this.data.slope = request.slope;
+        }
+        return new Promise ( async (resolve) => {
+            let bikeRequest = this.getCyclingMode().sendBikeUpdate(request)
+            const res = await this.sendRequest(bikeRequest);            
+            resolve(res);
+
+        })
+    }
+
 
 }

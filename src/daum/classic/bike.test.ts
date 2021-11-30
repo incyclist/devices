@@ -157,7 +157,6 @@ describe( 'bike',()=> {
                 bikeWeight:10,
                 maxPower: 800
             })
-            expect(bike.processor).toBeDefined();
         })
 
         it( 'with port',()=> {
@@ -172,7 +171,6 @@ describe( 'bike',()=> {
                 bikeWeight:10,
                 maxPower: 800
             })
-            expect(bike.processor).toBeDefined();
         })
 
         it( 'with settings',()=> {
@@ -187,7 +185,6 @@ describe( 'bike',()=> {
                 bikeWeight:10,
                 maxPower: 800
             })
-            expect(bike.processor).toBeDefined();
         })
 
     })

@@ -49,14 +49,20 @@ export default class DaumClassicAdapter extends DaumAdapter{
     }
 
 
+
     check() {
 
         var info = {} as any
 
         return new Promise(  async (resolve, reject ) => {
             this.logger.logEvent( {message:"check()",port:this.getPort()});
-            try {
+            
+            const iv = setTimeout( async () => {
+                reject( new Error(`timeout`));
+            },5000)
 
+            try {
+                
                 if(!this.bike.isConnected())
                     await this.bike.saveConnect();
                 
@@ -68,9 +74,11 @@ export default class DaumClassicAdapter extends DaumAdapter{
                 this.setName('Daum '+info.cockpit);
                 this.setID(info.serialNo);
 
+                clearTimeout(iv);
                 resolve(info)               
             }
             catch (err) {
+                clearTimeout(iv);
                 reject(err)
             }
 
@@ -91,8 +99,9 @@ export default class DaumClassicAdapter extends DaumAdapter{
         let retry = 0;
 
         return runWithRetries( async ()=>{
+            
             try {
-
+    
                 if(!this.bike.isConnected())
                     await this.bike.saveConnect();
                     
@@ -143,22 +152,5 @@ export default class DaumClassicAdapter extends DaumAdapter{
         return this.getBike().runData()
     }
 
-
-    updateData( data,bikeData) {
-        data.isPedalling = bikeData.cadence>0;
-        data.power  = bikeData.power
-        data.pedalRpm = bikeData.cadence
-        data.speed = bikeData.speed
-        data.heartrate = bikeData.heartrate
-        data.distance = bikeData.distance/100
-        data.distanceInternal = bikeData.distance;
-        data.time = bikeData.time
-        data.gear = bikeData.gear
-        
-        if (this.bike.processor!==undefined) {
-            data = this.bike.processor.getValues(data);
-        }
-        return data;
-    }
 
 }

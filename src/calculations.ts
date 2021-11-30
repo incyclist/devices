@@ -19,7 +19,7 @@ export class IllegalArgumentException extends Error {
     }
 }
 
-export default class Calculations {
+export default class C {
     
 	/*
 	 * P = (m*g*v*(sl/100+cr)+cl/2*v^3)  * 1/(1-c) 
@@ -95,7 +95,7 @@ export default class Calculations {
     }	
 
    
-	static  calculateSpeedDaum( gear, rpm,  bikeType) 
+	static  calculateSpeedDaum( gear:number, rpm:number,  bikeType?:string|number) 
 	{
         if (bikeType===0 || bikeType===undefined || bikeType==="race") { // Rennrad
             let lengthRPM=210;
@@ -158,12 +158,17 @@ function sqrtN(x, n) {
     return Math.sign(x)*Math.pow(Math.abs(x),exp);
 }
 
-function solveCubic(p , q ) {
+    
+
+// https://en.wikipedia.org/wiki/Cubic_equation#Cardano's_formula
+// x^{3}+px+q=0
+export function solveCubic(p , q ) {
     let D = Math.pow(q/2.0,2) + Math.pow(p/3.0, 3);
+    
     let R = Math.sign(q)*Math.sqrt(Math.abs(p)/3.0);
     
     if (p===0) {
-        return [sqrtN(q,3)];
+        return [sqrtN(-1*q,3)];
     }
     
     if (D===0) {
@@ -171,7 +176,7 @@ function solveCubic(p , q ) {
     }
     
     if (D<0 && p<0) {
-        var results = [];
+        const results = [];
         let phi = Math.acos(q/(2*Math.pow(R, 3)));
         results[0] = -2*R*Math.cos(phi/3);
         results[1] = -2*R*Math.cos(phi/3+2*Math.PI/3);
@@ -180,157 +185,17 @@ function solveCubic(p , q ) {
     }
 
     if (D>0 && p<0) {
-        let results = [];
+        const results = [];
         let phi = acosh(q/(2*Math.pow(R, 3)));
         results[0] = -2*R*Math.cosh(phi/3);
         return results;
     }
     
-    if (p>0) {
-        let results = [];
-        let phi = asinh(q/(2*Math.pow(R, 3)));
-        results[0] = -2*R*Math.sinh(phi/3);
-        return results;
-    }
-    return [];
+    // at this point we know that D!=0 and p>0
+    
+    const results = [];
+    let phi = asinh(q/(2*Math.pow(R, 3)));
+    results[0] = -2*R*Math.sinh(phi/3);
+    return results;
+    
 }
-
-
-/*  
-
-=============================================
-TESTS
-=============================================
-
-TODO: move tests into mocka test
-
-results = solveCubic(-7, -6);
-if (results.length>0) {
-    var str = "";
-    for ( i in results) {
-        if (i>0)
-            str+=","
-        str += parseFloat(results[i]).toPrecision(2);
-    } 
-    console.log( str);
-}
-else
-    console.log("no results");
-
-results = solveCubic(6, -20);
-if (results.length>0) {
-    var str = "";
-    for ( i in results) {
-        if (i>0)
-            str+=","
-        str += parseFloat(results[i]).toPrecision(2);
-    } 
-    console.log( str);
-}
-else
-    console.log("no results");
-
-results = solveCubic(-6, 4);
-if (results.length>0) {
-    var str = "";
-    for ( i in results) {
-        if (i>0)
-            str+=","
-        str += parseFloat(results[i]).toPrecision(2);
-    } 
-    console.log( str);
-}
-else
-    console.log("no results");
-
-
-var ts = Date.now();
-for (var i=0;i<1000000;i++) {
-    Calculations.calculateSpeed ( 70, 100, 0 );
-}
-var tsE = Date.now();
-console.log("Speed Cached:"+(Date.now()-ts))
-
-var ts = Date.now();
-for (var i=0;i<1000000;i++) {
-    Calculations.calculateSpeedUncached ( 70, 100, 0 );
-}
-console.log("Speed UnCached:"+(Date.now()-ts))
-
-var ts = Date.now();
-for (var i=0;i<1000000;i++) {
-    Calculations.calculatePower ( 70, 30/3,6, 0 );
-}
-console.log("Power:"+(Date.now()-ts))
-
-console.log("33km/h -3.0: "+Calculations.calculatePower ( 70, 33/3.6, -3.0 ))
-
-console.log(Calculations.calculateSpeed ( 70, 100, 0 ));
-console.log(Calculations.calculateSpeed ( 70, 100, 0 ));
-console.log(Calculations.calculateSpeedUncachedOld ( 70, 100, 0 ));
-console.log(Calculations.calculateSpeedDaum ( 10, 100 ));
-
-let v = Calculations.calculateSpeed ( 70, Calculations.calculatePower ( 70,30/3.6,0), 0 );
-console.log(v==30 ? true : "false:"+v);
-
-
-console.log(_speedCache);
-
-//-0.5,90: P=330: Pr=373, v=45.264689999999995
-
-*/
-/*
-let v= 35.525/3.6;
-
-for (var i=0; i<90; i++)
-    //console.log( i+":"+Calculations.calculatePower ( i,v,0.2));
-
-s = Calculations.calculateSpeed(85,100,0);
-P = Calculations.calculatePower(85,0,0);
-console.log ( Calculations.calculateSpeed(85,100,0));
-console.log (P),
-console.log(Calculations.calculatePowerAccelarationFromTwoPoints( 82,0,s/3.6,1) )
-
-
-for ( var i=0;i<100;i++) {
-    let slope = (50-i)/10;
-    let sl1 = Math.atan(slope/100) ;
-    let sl2 = Math.sin( Math.atan(slope/100) );
-    console.log( slope+":"+"atan:"+sl1+",sin(atan):"+sl2)
-}
-
-P = Calculations.calculatePower(85,1.084,0);
-console.log (P);
-*/
-
-/*
-let P =100;
-let m = 85;
-let v = 0;
-let Pres = 0;
-var speed = 0;
-
-for ( var i=0;i<10;i++) {
-    console.log( i+": v="+v*3.6+",speed="+speed+",Pres="+Pres);
-    speed =  Calculations.calculateAccelSpeed(m,100,0,speed,1)
-
-    Pres = Calculations.calculatePower(m,v,0);
-    P = 100-Pres;
-    if (P>0) {
-        a = Math.sqrt(P/m);
-        v = v+a;    
-    }
-    else {
-        P = P*-1;
-        a = Math.sqrt(P/m);
-        v = v-a;    
-    }
-    console.log( i+": v="+v*3.6+",speed="+speed+",Pres="+Pres);
-}
-
-vc = Calculations.calculateSpeed(m,100,0);
-pc = Calculations.calculatePower(m,vc/3.6,0);
-console.log( vc);
-console.log( pc);
-
-*/

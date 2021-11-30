@@ -1,10 +1,9 @@
-import IndoorBikeProcessor from '../indoorbike'
 import {ACTUAL_BIKE_TYPE,BIKE_INTERFACE} from "../constants"
 import TcpSocketPort from './tcpserial'
 import {buildMessage,hexstr,ascii,getReservedCommandKey,
        Int16ToIntArray, append,bin2esc, esc2bin,parseTrainingData, checkSum, getAsciiArrayFromStr} from './utils'
 
-import {Queue, sleep} from '../../utils';
+import {Queue} from '../../utils';
 
 
 import {EventLogger} from 'gd-eventlog'
@@ -95,9 +94,6 @@ class Daum8i  {
             bikeWeight:10,
             maxPower: 800
         }
-        
-        this.processor = new IndoorBikeProcessor(this);
-
         
     }
     /*

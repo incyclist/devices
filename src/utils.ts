@@ -1,5 +1,5 @@
-export const sleep = (x) => { 
-    return new Promise( ok => { setTimeout( ()=>{ok()}, x)})
+export const sleep = (ms) => { 
+    return new Promise( resolve => setTimeout(resolve, ms))
 };
 
 export function runWithRetries( fn, maxRetries, timeBetween) {
@@ -24,7 +24,6 @@ export function runWithRetries( fn, maxRetries, timeBetween) {
                     return resolve( data )
                 }
                 catch( err) {
-                    console.log(`runWithRetries: ${err}`)
                     tLastFailure = Date.now();
                     retries++;
                     if ( retries>=maxRetries) {
@@ -42,21 +41,21 @@ export function runWithRetries( fn, maxRetries, timeBetween) {
 }
 
 export function hexstr(arr,start?,len?) {
-    var str = "";
-    if (start===undefined) 
-        start = 0;
-    if ( len===undefined) {
-        len = arr.length;
-    }
-    if (len-start>arr.length) {
-        len = arr.length-start;
+    let str = "";
+
+    const startIdx = start || 0;
+    const length = len || arr.length;
+    let endIdx = startIdx+length;
+    if (endIdx>=arr.length) {
+        endIdx = arr.length;
     }
 
-    var j=start;
-    for (var i = 0; i< len; i ++) {
-        var hex = Math.abs( arr[j++]).toString(16);
-        if ( i!==0 ) str+=" ";
+    let added = 0;
+    for (var i = startIdx; i< endIdx; i ++) {
+        const hex = Math.abs( arr[i]).toString(16).toUpperCase();
+        if ( added!==0 ) str+=' ';
         str+=hex;
+        added++
     }
 	return str;
 }

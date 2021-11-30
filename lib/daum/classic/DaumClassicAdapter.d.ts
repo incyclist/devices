@@ -12,5 +12,4 @@ export default class DaumClassicAdapter extends DaumAdapter {
     check(): Promise<unknown>;
     start(props: any): Promise<unknown>;
     getCurrentBikeData(): any;
-    updateData(data: any, bikeData: any): any;
 }
