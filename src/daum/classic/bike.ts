@@ -381,7 +381,9 @@ export default class Daum8008  {
             options: options
         }
         this.queue.enqueue(cmdInfo);
-        //this.logger.logEvent({message:"sendCommand:adding:",cmd:logStr, hex:hexstr(payload),queueSize:this.queue.size()});
+        
+        if (this.queue.size()>1)
+            this.logger.logEvent({message:"sendCommand:adding:",cmd:logStr, hex:hexstr(payload),queueSize:this.queue.size()});
 
         if ( this.bikeCmdWorker===undefined) {
             this.startWorker();
@@ -435,6 +437,8 @@ export default class Daum8008  {
         }          
     
     }
+
+ 
 
     /*
     ====================================== Commands ==============================================
@@ -530,6 +534,7 @@ export default class Daum8008  {
         const age = user.age!==undefined ? user.age : getAge(user.birthday) ;
         const gender = getGender( user.sex) ;    
         const length = getLength( user.length) ;  
+        const maxPower = this.settings.maxPower===undefined? 800 : this.settings.maxPower;
 
         const mUser = user.weight || this.getUserWeight();
         const weight = getWeight( mUser)+this.getBikeWeight(); // adding weight of bike    
@@ -542,7 +547,7 @@ export default class Daum8008  {
         cmd.push(0); // body fat
         cmd.push(0); // coaching: fitness
         cmd.push(3); // coaching: training freq
-        cmd.push(0); // power Limit
+        cmd.push(Math.round(maxPower/5)); // power Limit
         cmd.push(0); // hrm Limit
         cmd.push(0); // time Limit
         cmd.push(0); // dist Limit
@@ -557,6 +562,13 @@ export default class Daum8008  {
                     let ok = true;
                     cmd.forEach( (v,i) => { 
                         if (data[i]!==v) {
+                            
+                            // avoid to reject if maxPower was set to 400 on DaumFitness devices
+                            if (i===10 && v>=160 /* maxPower*/) {
+                                if (data[i]===0 || data[i]===80) /* 400/5 */
+                                    return; 
+                            }
+                                
                             reject( buildError(512,'illegal response' )) 
                             ok = false;
                         }

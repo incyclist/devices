@@ -8,6 +8,7 @@ module.exports = {
     collectCoverageFrom: [
       "src/**/*.{js,ts}",
       "!src/**/*.d.ts",
+      "!src/Device.ts",
       "!src/**/*.unit.{test,tests}.{js,ts}",
       "!src/**/*.test.util.{js,ts}"
     ]

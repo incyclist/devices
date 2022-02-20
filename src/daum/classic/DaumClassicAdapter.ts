@@ -1,6 +1,8 @@
 import { EventLogger } from 'gd-eventlog';
+import CyclingMode from '../../CyclingMode';
 import {runWithRetries} from '../../utils';
 import DaumAdapter from '../DaumAdapter'
+import DaumClassicCyclingMode from './DaumClassicCyclingMode';
 
 const PROTOCOL_NAME = "Daum Classic"
 
@@ -48,6 +50,15 @@ export default class DaumClassicAdapter extends DaumAdapter{
         return this.bike.getPort();
     }
 
+    getSupportedCyclingModes() : Array<any> {         
+        const supported = super.getSupportedCyclingModes();
+        supported.push(DaumClassicCyclingMode);
+        return supported
+    }
+
+    getDefaultCyclingMode():CyclingMode {
+        return new DaumClassicCyclingMode(this)        
+    }
 
 
     check() {
@@ -87,8 +98,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
     }
 
     async start(props) {
-        this.logger.logEvent({message:'start()',props});        
-        super.start(props);
+        this.logger.logEvent({message:'start()',props});                
 
         const opts = props || {}
 
@@ -96,7 +106,6 @@ export default class DaumClassicAdapter extends DaumAdapter{
 
         this.initData();        
         let startState = { } as any;
-        let retry = 0;
 
         return runWithRetries( async ()=>{
             
@@ -124,20 +133,22 @@ export default class DaumClassicAdapter extends DaumAdapter{
                     startState.setGear = true;
                 }
 
-                await this.bike.setPower(50);
+                const startRequest = this.getCyclingMode().getBikeInitRequest()
+                await this.sendRequest(startRequest);
                 
                 startState.checkRunData = true;
                 const data = await this.bike.runData();
-                if (data.power===25) {
+                
+                if (startRequest.targetPower && startRequest.targetPower!==25 && data.power===25) {
                     throw new Error( 'invalid device response: runData');
                 }
+                
                 return data;
                 
             }
             catch (err) {
                 if ( startState.checkRunData ) { 
                     startState = { } as any
-                    retry++;
                 }
                 throw( new Error(`could not start device, reason:${err.message}`));
             }

@@ -319,6 +319,7 @@ describe( 'bike',()=> {
 
         test('default user data',async ()=>{
             bike.sendDaum8008Command = jest.fn();    
+            bike.settings.maxPower = 0;
             bike.setPerson() ;
             // age: 30, gender: 2, length: 180, weight: 90, bodyFat:0, coachingLevel:0, coaching:3, powerLimit:0, hrmLimit: 0, timeLimit:0, distLimit:0, kcalLimit:0
             expect(bike.sendDaum8008Command).toBeCalledWith( "setPerson(0,30,2,180,90)", [0x24, 0, 0, 30, 2, 180, 90, 0, 0, 3, 0, 0, 0, 0, 0],16, expect.anything(), expect.anything())
@@ -326,12 +327,29 @@ describe( 'bike',()=> {
 
         test('user: 75kg, 170cm',async ()=>{
             bike.sendDaum8008Command = jest.fn();    
+            bike.settings.maxPower = 0;
             bike.setPerson({weight:75,length:170}) ;
             expect(bike.sendDaum8008Command).toBeCalledWith( "setPerson(0,30,2,170,85)", [0x24, 0, 0, 30, 2, 170, 85, 0, 0, 3, 0, 0, 0, 0, 0],16, expect.anything(), expect.anything())
         })
 
         test('correct response from bike - ',async ()=>{
             MockSerialPort.setResponse( 0x24, ( _command: any, sendData: (msg: number[]) => void) => { sendData([0x24, 0, 0, 30, 2, 170, 85, 0, 0, 3, 0, 0, 0, 0, 0]) } )
+
+            let error;
+            let res;
+            await bike.saveConnect();
+            try {
+                res = await bike.setPerson({weight:75,length:170}) ;
+            }                
+            catch (err) { error = err; }
+
+            expect(res).toMatchObject({bike:0,age:30,gender:2,length:170,weight:85}) /* 75kk user weight + 10kg bike weight) */
+            expect(error).toBeUndefined()
+
+        })
+
+        test('correct response from bike, but maxPower reduced to 400 - ',async ()=>{
+            MockSerialPort.setResponse( 0x24, ( _command: any, sendData: (msg: number[]) => void) => { sendData([0x24, 0, 0, 30, 2, 170, 85, 0, 0, 3, 80, 0, 0, 0, 0]) } )
 
             let error;
             let res;

@@ -1,23 +1,28 @@
 import { EventLogger } from "gd-eventlog";
-import CyclingMode, { CyclingModeProperty, IncyclistBikeData, Settings, UpdateRequest } from "../CyclingMode";
+import CyclingMode, { CyclingModeBase, CyclingModeProperty, IncyclistBikeData, UpdateRequest } from "../CyclingMode";
 import DaumAdapter from "./DaumAdapter";
-export default class ERGCyclingMode implements CyclingMode {
-    adapter: DaumAdapter;
+export declare type ERGEvent = {
+    rpmUpdated?: boolean;
+    gearUpdated?: boolean;
+    starting?: boolean;
+    tsStart?: number;
+};
+export default class ERGCyclingMode extends CyclingModeBase implements CyclingMode {
     logger: EventLogger;
-    prevData: IncyclistBikeData;
+    data: IncyclistBikeData;
     prevRequest: UpdateRequest;
     prevUpdateTS: number;
     hasBikeUpdate: boolean;
-    settings: Settings;
-    constructor(adapter: DaumAdapter, props?: Settings);
-    setAdapter(adapter: DaumAdapter): void;
+    chain: number[];
+    cassette: number[];
+    event: ERGEvent;
+    constructor(adapter: DaumAdapter, props?: any);
     getName(): string;
     getDescription(): string;
     getProperties(): CyclingModeProperty[];
     getProperty(name: string): CyclingModeProperty;
-    setSetting(name: string, value: any): void;
-    getSetting(name: string): any;
+    getBikeInitRequest(): UpdateRequest;
     sendBikeUpdate(request: UpdateRequest): UpdateRequest;
-    updateData(data: IncyclistBikeData): IncyclistBikeData;
+    updateData(bikeData: IncyclistBikeData): any;
     calculateTargetPower(request: any, updateMode?: boolean): any;
 }

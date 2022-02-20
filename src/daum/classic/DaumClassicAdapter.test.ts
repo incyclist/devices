@@ -2,7 +2,6 @@ import { EventLogger } from 'gd-eventlog';
 import DaumClassicAdapter from './DaumClassicAdapter';
 import DaumClassicProtocol from './DaumClassicProtocol';
 import BikeInterface from './bike'
-import CyclingMode from '../../CyclingMode'
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
@@ -194,14 +193,12 @@ describe( 'DaumClassicAdapter', ()=>{
     describe('sendRequest',()=>{
         let a: DaumClassicAdapter;
         let bikeComms:any;
-        let data:any;
     
         beforeEach( async ()=>{
             bikeComms = new BikeInterface({port:'COMX'})   
             bikeComms.setSlope = jest.fn( (slope,bike=0)=>({bike,slope}))
             bikeComms.setPower = jest.fn( (power,bike=0)=>({bike,power}));
             a = new DaumClassicAdapter( new DaumClassicProtocol(),bikeComms);
-            data={}
         })
 
         test('slope has been set',async ()=>{

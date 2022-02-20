@@ -1,3 +1,4 @@
+import CyclingMode from '../../CyclingMode';
 import DaumAdapter from '../DaumAdapter';
 export default class DaumClassicAdapter extends DaumAdapter {
     static NAME: string;
@@ -9,6 +10,8 @@ export default class DaumClassicAdapter extends DaumAdapter {
     getName(): string;
     setName(name: any): void;
     getPort(): any;
+    getSupportedCyclingModes(): Array<any>;
+    getDefaultCyclingMode(): CyclingMode;
     check(): Promise<unknown>;
     start(props: any): Promise<unknown>;
     getCurrentBikeData(): any;

@@ -588,7 +588,7 @@ class Daum8i  {
 
             else if ( c===0x17) {
                 const remaining = getRemaining();
-                this.logger.logEvent({message:"sendCommand:received:",port:portName,cmd: `${cmd} [${hexstr(cmd)}]`,remaining: hexstr(remaining)});
+                this.logger.logEvent({message:"sendCommand:received:",duration: Date.now()-this.state.sending.tsRequest,port:portName,cmd: `${cmd} [${hexstr(cmd)}]`,remaining: hexstr(remaining)});
                 this.state.waitingForEnd = false;   
                 const cmdStr = cmd.substring(0,cmd.length-2)
                 const checksumExtracted  = cmd.slice(-2)
@@ -637,6 +637,8 @@ class Daum8i  {
 
     sendDaum8iCommand( command, queryType, payload) {
 
+        const tsRequest = Date.now();        
+
         return new Promise ( async (resolve,reject) => {
 
             if ( this.blocked)
@@ -652,6 +654,7 @@ class Daum8i  {
                 
                 const busyWait = ()=> {
                     return new Promise ( (done) => {
+
                         let start = Date.now();
                         let timeout = start+5000;
                         const iv = setInterval(()=> {
@@ -665,14 +668,14 @@ class Daum8i  {
                                 clearInterval(iv);
                                 done(true);
                             }
-                        }, 100) 
+                        }, 10) 
     
                     })
                 }
 
                 const res = await busyWait();
                 if (!res) {
-                    this.logger.logEvent({message:'sendCommand:busy timeout',port:this.portName,cmd:command,hex:hexstr(message)})
+                    this.logger.logEvent({message:'sendCommand:busy timeout',port:this.portName,cmd:command,hex:hexstr(message),duration: Date.now()-tsRequest})
                     return reject( new Error('BUSY timeout'))        
                 }
                 this.state.busy = true;
@@ -716,7 +719,7 @@ class Daum8i  {
                 this.state.retry = 0;
 
                 this.state.ack= { start, timeout }
-                this.state.sending = { command,payload, start, timeout,port, portName, resolve,reject}
+                this.state.sending = { command,payload, start, timeout,port, portName,tsRequest, resolve,reject}
 
                 const iv = this.state.sending.responseCheckIv = setInterval( ()=>{ 
                     const stillWaiting = this.checkForResponse();
@@ -724,7 +727,7 @@ class Daum8i  {
                         clearInterval(iv);                        
                         writeDone();    
                     }
-                },100)
+                },10)
                     
         
             }
@@ -864,6 +867,7 @@ class Daum8i  {
         return this.sendDaum8iCommand('X70','AF',[])
         .then ( (data) =>  {
             const td = parseTrainingData(data); 
+            
             return td;
         })
         

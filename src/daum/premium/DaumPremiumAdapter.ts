@@ -64,7 +64,7 @@ export default class DaumPremiumDevice extends DaumAdapter{
 
     async start(props) {
         this.logger.logEvent({message:'start()',props});        
-        super.start(props);
+        
         const opts = props || {}
         var info = {} as any
         this.initData();        

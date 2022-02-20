@@ -10,6 +10,7 @@ import SimulatorProtocol from './simulator/Simulator'
 import DaumPremiumProtocol from './daum/premium/DaumPremiumProtocol'
 import DaumClassicProtocol from './daum/classic/DaumClassicProtocol'
 import {AntScanner} from './ant/AntScanner'
+import { CyclingModeProperyType } from './CyclingMode'
 
 const Protocols = {
     SimulatorProtocol,
@@ -25,4 +26,5 @@ export {
     DeviceAdapter as Device,
     Protocols,
     AntScanner,
+    CyclingModeProperyType
 }

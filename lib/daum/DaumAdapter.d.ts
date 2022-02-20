@@ -1,10 +1,10 @@
 import { EventLogger } from 'gd-eventlog';
 import CyclingMode from '../CyclingMode';
-import DeviceAdapterBase, { DeviceAdapter } from '../Device';
+import DeviceAdapterBase, { Bike, DeviceAdapter } from '../Device';
 interface DaumAdapter {
     getCurrentBikeData(): Promise<any>;
 }
-export default class DaumAdapterBase extends DeviceAdapterBase implements DeviceAdapter, DaumAdapter {
+export default class DaumAdapterBase extends DeviceAdapterBase implements DeviceAdapter, DaumAdapter, Bike {
     bike: any;
     ignoreHrm: boolean;
     ignoreBike: boolean;
@@ -20,14 +20,18 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
     cyclingMode: CyclingMode;
     userSettings: any;
     bikeSettings: any;
+    tsPrevData: number;
+    adapterTime: number;
+    requestBusy: boolean;
+    updateBusy: boolean;
     constructor(props: any, bike: any);
-    setCyclingMode(mode: CyclingMode): void;
+    setCyclingMode(mode: CyclingMode | string, settings?: any): void;
     getSupportedCyclingModes(): Array<any>;
     getCyclingMode(): CyclingMode;
     getDefaultCyclingMode(): CyclingMode;
     setUserSettings(userSettings: any): void;
     setBikeSettings(bikeSettings: any): void;
-    getWeight(): any;
+    getWeight(): number;
     getCurrentBikeData(): Promise<any>;
     getBike(): any;
     isBike(): boolean;
@@ -45,11 +49,15 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
     stop(): Promise<boolean>;
     pause(): Promise<boolean>;
     resume(): Promise<boolean>;
-    sendUpdate(data: any): Promise<void>;
+    sendUpdate(request: any): Promise<unknown>;
+    sendData(): void;
     update(): Promise<void>;
-    updateData(data: any, bikeData: any): any;
-    transformData(bikeData: any): any;
+    sendRequests(): Promise<void>;
+    bikeSync(): Promise<void>;
+    updateData(prev: any, bikeData: any): void;
+    transformData(): void;
     sendRequest(request: any): Promise<any>;
-    sendBikeUpdate(request: any): Promise<unknown>;
+    refreshRequests(): void;
+    processClientRequest(request: any): Promise<unknown>;
 }
 export {};

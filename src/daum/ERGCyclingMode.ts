@@ -1,39 +1,47 @@
 import { EventLogger } from "gd-eventlog";
-import CyclingMode, { CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, Settings, UpdateRequest } from "../CyclingMode";
+import CyclingMode, { CyclingModeBase, CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, Settings, UpdateRequest } from "../CyclingMode";
 import DaumAdapter from "./DaumAdapter";
 import calc from '../calculations'
 
 
 const config = {
-    name: "Ergometer mode",
-    description: "Calculates speed based on power and slope. Power is calculated from gear and cadence",
+    name: "ERG",
+    description: "Calculates speed based on power and slope. Power is either set by workout or calculated based on gear and cadence",
     properties: [
-        {key:'startPower',name: 'Starting Power', description: 'Starting power in watts', type: CyclingModeProperyType.Integer, default: 50} 
+        {key:'bikeType',name: 'Bike Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Race','Mountain','Triathlon'], default: 'Race'},
+        {key:'startPower',name: 'Starting Power', description: 'Initial power in Watts at start of raining', type: CyclingModeProperyType.Integer, default: 50, min:25, max:800},
     ]
 }
 
+export type ERGEvent = {
+    rpmUpdated?: boolean;
+    gearUpdated?: boolean;
+    starting?: boolean;
+    tsStart?: number;
+}
 
-export default class ERGCyclingMode implements CyclingMode {
 
-    adapter: DaumAdapter;
+export default class ERGCyclingMode extends CyclingModeBase implements CyclingMode {
+
     logger: EventLogger;
-    prevData: IncyclistBikeData;
+    data: IncyclistBikeData ;
     prevRequest: UpdateRequest;
     prevUpdateTS: number = 0;
     hasBikeUpdate: boolean = false;
-    settings: Settings = {}
+    chain: number[];
+    cassette: number[];
+    event: ERGEvent ={};
 
+    constructor(adapter: DaumAdapter, props?:any) {
 
-    constructor(adapter: DaumAdapter, props?: Settings) {
-        this.setAdapter(adapter);                
-        this.logger = new EventLogger('ERGMode')      
-        this.settings = props || {} as any;
+        super(adapter,props);
+        this.logger = adapter.logger || new EventLogger('ERGMode')           
+        this.data = {} as any;
+
+        this.logger.logEvent({message:'constructor',props})
     }
 
-    setAdapter(adapter: DaumAdapter) {
-        this.adapter = adapter;
-    }
-    
+
     getName(): string {
         return config.name;
     }
@@ -47,89 +55,122 @@ export default class ERGCyclingMode implements CyclingMode {
         return config.properties.find(p => p.name===name);
     }
 
-    setSetting(name: string, value: any):void{
-        this.settings[name] = value;
-
-    }
-    getSetting(name:string):any {
-        const res =  this.settings[name];
-        if (res!==undefined)
-            return res;
-        const prop = this.getProperties().find(p => p.key===name);
-        if (prop && prop.default) 
-            return prop.default;
-        return undefined;
-    }
+    getBikeInitRequest(): UpdateRequest {
+        const startPower = this.getSetting('startPower');
+        return { targetPower: startPower};
+    }    
 
     sendBikeUpdate(request: UpdateRequest): UpdateRequest {
-        this.logger.logEvent( {message:"setValues request",request,prev:this.prevRequest} );
+        const getData= ()=>{
+            if (!this.data) return {}
+            const {gear,pedalRpm,slope, power,speed} = this.data;
+            return {gear,pedalRpm,slope, power,speed} 
+        }
+        this.logger.logEvent( {message:"processing update request",request,prev:this.prevRequest,data:getData(),event:this.event} );        
 
+        let newRequest:UpdateRequest = {}
         try {
 
             if ( !request || request.reset || Object.keys(request).length===0 ) {
-                this.prevRequest = undefined;
-                return request;
+                this.prevRequest = {};
+                return request||{};
             }
-    
-            if ( request.refresh ) {
-                if ( this.prevRequest!==undefined && !this.hasBikeUpdate ) {
-                    request.slope = this.prevRequest.slope;
-                    request.targetPower = this.prevRequest.targetPower;
-                    request.minPower = this.prevRequest.minPower;
-                    request.maxPower = this.prevRequest.maxPower;
-                    return request;
-                }
-                else {
-                    return this.calculateTargetPower(request);
-                }
-            } 
-                
-            const isSlopeUpdate = request.slope!==undefined && Object.keys(request).length===1;
-    
-            
+
+            const prevData = this.data || {} as any;
+
             if (request.targetPower!==undefined) {
                 delete request.slope                
+                delete request.refresh;               
             }
-        
-            else if (request.maxPower!==undefined && request.minPower!==undefined && request.maxPower===request.minPower) {
-                request.targetPower = request.maxPower;
-                delete request.slope                
+
+            // don't update below the startPower during the first 5 seconds of a ride or after a pause
+            if (this.event.starting && request.targetPower===undefined) {
+                const startPower = this.getSetting('startPower');
+                if (this.event.tsStart && Date.now()-this.event.tsStart>5000) {
+                    delete this.event.starting;
+                    delete this.event.tsStart;
+                }
+                const target =this.calculateTargetPower(request);
+                if (target<=startPower && (!request.minPower || target>=request.minPower)) {                    
+                    return {};                    
+                }
+                else {
+                    delete this.event.starting;
+                    delete this.event.tsStart;
+                }                
             }
-        
-            else {
-                // istanbul ignore else 
-                if (request.slope!==undefined || (this.prevData!==undefined && this.prevData.slope!==undefined)) {
-                    request = this.calculateTargetPower(request,false);
+
+            // no slope change or targets change -> refresh
+            if ( request.refresh) {
+                delete request.refresh;
+ 
+                if ( this.prevRequest!==undefined && !this.event.gearUpdated && !this.event.rpmUpdated)  {
+                    newRequest.targetPower = this.prevRequest.targetPower;
                 }
-        
-        
-                if (request.maxPower!==undefined) {
-                    if (request.targetPower!==undefined && request.targetPower>request.maxPower) {
-                        request.targetPower = request.maxPower;
-                    }
+                else {
+                    newRequest.targetPower = this.calculateTargetPower(request);
                 }
-            
-                if (request.minPower!==undefined) {
-                    if (request.targetPower!==undefined && request.targetPower<request.minPower) {
-                        request.targetPower = request.minPower;
-                    }
-                }            
-        
+
+                
+
+                if ( this.prevRequest!==undefined && Object.keys(this.prevRequest).length>0)  {
+                    request = {...this.prevRequest};
+                }
+                else {
+                    newRequest.targetPower = this.calculateTargetPower(request);
+                }
+
+            } 
+
+            if (request.slope!==undefined) {
+                if (!this.data) this.data = {} as any;
+                this.data.slope = request.slope;
+            }
+                
+            if (request.maxPower!==undefined && request.minPower!==undefined && request.maxPower===request.minPower) {
+                request.targetPower = request.maxPower;                
             }
     
-            if ( !isSlopeUpdate)
-                this.prevRequest = JSON.parse(JSON.stringify(request));
+            if (request.targetPower===undefined) {
+                newRequest.targetPower = this.calculateTargetPower(request)
+            }
+            else {
+                newRequest.targetPower = request.targetPower;
+            }
+            delete request.slope;
+                
+    
+            if (request.maxPower!==undefined) {
+                if (newRequest.targetPower!==undefined && newRequest.targetPower>request.maxPower) {
+                    newRequest.targetPower = request.maxPower;
+                }
+                newRequest.maxPower = request.maxPower;
+            }
+        
+            if (request.minPower!==undefined) {
+                if (newRequest.targetPower!==undefined && newRequest.targetPower<request.minPower) {
+                    newRequest.targetPower = request.minPower;
+                }
+                newRequest.minPower = request.minPower;
+            }            
+    
+
+            if ( newRequest.targetPower!==undefined && prevData.power!==undefined && newRequest.targetPower===prevData.power) {
+                // no update needed
+                delete newRequest.targetPower;
+            }
+    
+            this.prevRequest = JSON.parse(JSON.stringify(request));
     
     
         }
         
         catch ( err)  /* istanbul ignore next */ {
-            this.logger.logEvent( {message:"setValues Exception",error:err.message,stack:err.stack} );
+            this.logger.logEvent( {message:"error",fn:'sendBikeUpdate()',error:err.message||err,stack:err.stack} );
 
         }
-        this.logger.logEvent( {message:"setValues result",data: request} );
-        this.hasBikeUpdate = false;
-        return request;
+        
+        return newRequest;
 
 
 
@@ -137,38 +178,43 @@ export default class ERGCyclingMode implements CyclingMode {
     }
 
 
-    updateData(data: IncyclistBikeData) {
-        this.logger.logEvent( {message:"updateData",data} );
+    updateData(bikeData: IncyclistBikeData) {
+        const prevData = JSON.parse(JSON.stringify(this.data || {} ))
+        const prevSpeed = prevData.speed;        
+        const prevRequest = this.prevRequest || {};
+        const data = this.data || {} as any;
 
-        const getSlope =() => {
-            if (data.slope) return data.slope
-            if (this.prevData && this.prevData.slope) return this.prevData.slope
-            if (this.prevRequest && this.prevRequest.slope) return this.prevRequest.slope
-            return 0;
+        const bikeType = this.getSetting('bikeType');
+
+        delete this.event.gearUpdated;
+        delete this.event.rpmUpdated;       
+       
+        if (prevData==={} || prevData.speed===undefined || prevData.speed===0) {
+            this.event.starting = true;
+            this.event.tsStart = Date.now();
         }
 
         try {
-            const prevData = this.prevData || {} as any;
 
-            let rpm = data.pedalRpm || 0;
-            let gear = data.gear || 0
-            let power = data.power || 0;
-            let slope = getSlope()
-            let speed = data.speed || 0
+            let rpm = bikeData.pedalRpm || 0;
+            let gear = bikeData.gear || 0
+            let power = bikeData.power || 0;
+            let slope = ( prevData.slope!==undefined ? prevData.slope : prevRequest.slope || 0); // ignore slope delivered by bike
+            let speed;
 
-            let m = this.adapter.getWeight();
+            let m = (this.adapter as DaumAdapter).getWeight();
             let distanceInternal = prevData.distanceInternal || 0;  // meters
             let distance = Math.round(distanceInternal/100);
             let ts = Date.now();
             let duration =  this.prevUpdateTS===0 ? 0: ((ts-this.prevUpdateTS)/1000) ; // sec
                 
             //let speed = calc.calculateSpeedDaum(gear, rpm, bikeType)
-            if (rpm===0 || data.isPedalling===false) {
+            if (rpm===0 || bikeData.isPedalling===false) {
                 speed = 0;
                 power = 0;
             }
             else {
-                speed = calc.calculateSpeed(m,power,slope ); // km/h
+                speed = calc.calculateSpeed(m,power,slope,{bikeType} ); // km/h
                 let v = speed/3.6;
                 distanceInternal += Math.round(v*duration);
                 distance =   Math.round(distanceInternal/100);    
@@ -181,12 +227,19 @@ export default class ERGCyclingMode implements CyclingMode {
             data.slope = slope;
             data.pedalRpm = rpm;
             data.gear = gear;
+            if ( data.time)
+                data.time+=duration;
+            else data.time =0;
+            data.heartrate=bikeData.heartrate;
+            data.isPedalling=bikeData.isPedalling;
 
-            if ( this.prevData===undefined || gear !== prevData.gear ||  rpm !== prevData.pedalRpm ) {
-                this.hasBikeUpdate = true;
+            if (gear!==prevData.gear) {
+                this.event.gearUpdated = true;
             }
-
-            this.prevData = data;
+            if (rpm && rpm!==prevData.pedalRpm) {
+                this.event.rpmUpdated = true;
+            }
+            
             this.prevUpdateTS = ts       
     
         }
@@ -194,30 +247,32 @@ export default class ERGCyclingMode implements CyclingMode {
             this.logger.logEvent({message:'error',fn:'updateData()',error:err.message||err})
         }
 
-        this.logger.logEvent( {message:"updateData result",data} );
+        this.logger.logEvent( {message:"updateData result",data,bikeData,prevRequest,prevSpeed} );
+
+        this.data = data;
         return data;
         
     }
 
 
-    calculateTargetPower(request, updateMode=true) {
-        
-        const bikeType = 'race';
+    calculateTargetPower(request, updateMode=true) {       
+        const bikeType = this.getSetting('bikeType').toLowerCase();
         const defaultPower = this.getSetting('startPower');
-        const m = this.adapter.getWeight();
-        const prevData = this.prevData || {} as any;
-        
-        if ( prevData.pedalRpm!==undefined && prevData.gear!==undefined && (!updateMode ||prevData.pedalRpm!==0)  ) {
-            var speed = calc.calculateSpeedDaum(prevData.gear,prevData.pedalRpm,bikeType);
-            var power = calc.calculatePower(m,speed/3.6,0);
-            request.targetPower = power;
+
+        let m = (this.adapter as DaumAdapter).getWeight();
+        const prevData = this.data || {} as any;
+        let target;
+
+        if ( prevData.pedalRpm  && prevData.gear  && (!updateMode ||prevData.pedalRpm!==0)  ) {
+            const speed = calc.calculateSpeedDaum(prevData.gear,prevData.pedalRpm,bikeType);
+            var power = calc.calculatePower(m,speed/3.6,0,{bikeType});
+            target = Math.round(power);
         }
         else {
-            request.targetPower = request.targetPower || defaultPower;
+            target = Math.round(request.targetPower || defaultPower);
         }        
-         
-        delete request.slope;
-        return request;
+        
+        return target;
     }
 
 }

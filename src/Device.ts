@@ -1,10 +1,21 @@
 /* istanbul ignore file */
 
 import {DeviceProtocol,Device} from './DeviceProtocol'
+import CyclingMode from './CyclingMode'
 
 type DeviceAdapterProps = {}
 export type OnDeviceDataCallback = ( data:any ) => void;
 
+export interface Bike {
+    setCyclingMode(mode: CyclingMode|string, settings?:any):void
+    getSupportedCyclingModes() : Array<any>     
+    getCyclingMode(): CyclingMode
+    getDefaultCyclingMode():CyclingMode
+
+    setUserSettings(userSettings): void  
+    setBikeSettings(bikeSettings):void
+
+}
 
 export interface DeviceAdapter extends Device {
     isBike(): boolean 

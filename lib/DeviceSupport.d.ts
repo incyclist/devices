@@ -5,9 +5,10 @@ import SimulatorProtocol from './simulator/Simulator';
 import DaumPremiumProtocol from './daum/premium/DaumPremiumProtocol';
 import DaumClassicProtocol from './daum/classic/DaumClassicProtocol';
 import { AntScanner } from './ant/AntScanner';
+import { CyclingModeProperyType } from './CyclingMode';
 declare const Protocols: {
     SimulatorProtocol: typeof SimulatorProtocol;
     DaumClassicProtocol: typeof DaumClassicProtocol;
     DaumPremiumProtocol: typeof DaumPremiumProtocol;
 };
-export { DeviceProtocolBase, DeviceProtocol, DeviceRegistry, INTERFACE, DeviceAdapter as Device, Protocols, AntScanner, };
+export { DeviceProtocolBase, DeviceProtocol, DeviceRegistry, INTERFACE, DeviceAdapter as Device, Protocols, AntScanner, CyclingModeProperyType };

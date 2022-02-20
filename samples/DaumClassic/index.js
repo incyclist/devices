@@ -42,12 +42,14 @@ function runDevice(device) {
     return new Promise( resolve => {
         start(device)
         .then(()=>{
-            // setting power to 200W after 5s
-            setTimeout( async ()=>{
-                logger.logEvent( {message:'setting Power',power:200,device:device.getName()})        
-                await device.sendUpdate( {targetPower:200});
+            let slope =0
+            // setting power to 200W every 1s
+            const iv = setInterval( async ()=>{
+                //logger.logEvent( {message:'setting Power',power:200,device:device.getName()})        
+                await device.sendUpdate( {slope});
+                slope+=0.1
         
-            }, 5000)
+            }, 1000)
     
             // stopping device after 10s
             setTimeout( async ()=>{
@@ -81,7 +83,7 @@ async function run() {
         const scanner = DeviceRegistry.findByName('Daum Classic');
         scanner.setSerialPort(SerialPort)
         const device = scanner.add( { port:args[0],opts:{logger} })
-
+        device.logger = logger;
         await runDevice(device)      
         console.log('2nd try...')
         await runDevice(device)

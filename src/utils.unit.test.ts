@@ -1,4 +1,4 @@
-import {runWithRetries, sleep, Queue,hexstr} from './utils'
+import {runWithRetries, sleep, Queue,hexstr,floatVal,intVal} from './utils'
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
@@ -100,6 +100,25 @@ describe('utils',()=>{
         })
     
     
+    })
+
+    describe( 'floatVal',()=>{
+        test('valid string', ()=>{ expect(floatVal('1.2')).toBe(1.2)})
+        test('valid float', ()=>{ expect(floatVal(1.2)).toBe(1.2)})
+        test('valid float', ()=>{ expect(floatVal(undefined)).toBeUndefined()})
+        test('NaN', ()=>{ expect(floatVal( `$(1/0)` )).toBeUndefined()})
+
+    })
+    describe( 'intVal',()=>{
+        test('valid string', ()=>{ expect(intVal('1')).toBe(1)})
+        test('valid float as string', ()=>{ expect(intVal('3.6')).toBe(3)})
+        test('valid int', ()=>{ expect(intVal(2)).toBe(2)})
+        test('valid float float part <0.5', ()=>{ expect(intVal(2.49)).toBe(2)})
+        test('valid float float part >0.5', ()=>{ expect(intVal(2.6)).toBe(2)})
+        test('valid float', ()=>{ expect(intVal(undefined)).toBeUndefined()})
+        test('NaN', ()=>{ expect(intVal( `$(1/0)` )).toBeUndefined()})
+
+
     })
 
     describe('hexstr',()=>{

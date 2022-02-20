@@ -40,6 +40,25 @@ export function runWithRetries( fn, maxRetries, timeBetween) {
     })
 }
 
+export function floatVal(d?:number|string):number {
+
+    if (d===undefined)
+        return;
+    if (typeof d==='number')
+        return d
+    const res = parseFloat(d)
+    return isNaN(res) ? undefined : res;
+}
+export function intVal(d?:number|string):number {
+    if (d===undefined)
+        return;
+    if (typeof d==='number')
+        return Math.floor(d)
+    const res = parseInt(d)
+    return isNaN(res) ? undefined : res;
+}
+
+
 export function hexstr(arr,start?,len?) {
     let str = "";
 

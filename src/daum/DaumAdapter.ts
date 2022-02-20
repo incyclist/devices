@@ -1,29 +1,21 @@
 import { EventLogger } from 'gd-eventlog';
-import CyclingMode from '../CyclingMode';
-import DeviceAdapterBase,{DeviceAdapter} from '../Device'
+import CyclingMode, { IncyclistBikeData } from '../CyclingMode';
+import DeviceAdapterBase,{Bike, DeviceAdapter} from '../Device'
 import ERGCyclingMode from './ERGCyclingMode';
 import SmartTrainerCyclingMode from './SmartTrainerCyclingMode';
+import PowerMeterCyclingMode from './PowerMeterCyclingMode';
+import {floatVal,intVal} from '../utils'
 
 const DEFAULT_BIKE_WEIGHT = 10;
 const DEFAULT_USER_WEIGHT = 75;
 
 
-function floatVal(d) {
-    if (d===undefined)
-        return d;
-    return parseFloat(d)
-}
-function intVal(d) {
-    if (d===undefined)
-        return d;
-    return parseInt(d)
-}
 
 interface DaumAdapter  {
     getCurrentBikeData(): Promise<any>;
 }
 
-export default class DaumAdapterBase extends DeviceAdapterBase implements DeviceAdapter,DaumAdapter  {
+export default class DaumAdapterBase extends DeviceAdapterBase implements DeviceAdapter,DaumAdapter,Bike  {
 
     bike;
     ignoreHrm: boolean;
@@ -35,57 +27,91 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
     stopped: boolean;
     data;
     currentRequest;
-    requests: Array<any>;
+    requests: Array<any> = []
     iv;
     logger: EventLogger;
     cyclingMode: CyclingMode;
     userSettings: any;
     bikeSettings: any;
 
+    tsPrevData: number;
+    adapterTime: number=0;
+
+    requestBusy: boolean = false;
+    updateBusy: boolean = false;
+
+
     constructor( props, bike) {
         super(props);
+
         this.bike = bike;
         this.stopped = false;
         this.paused = false;
+        this.data = {}
 
         const options = props || {};
-        this.cyclingMode = options.cyclingMode;
-        this.userSettings = options.userSettings || {}
-        this.bikeSettings = options.bikeSettings || {};
-        this.data = {}
+        this.cyclingMode = options.cyclingMode;        
+        this.setUserSettings(options.userSettings)
+        this.setBikeSettings(options.bikeSettings);
 
     }
 
-    setCyclingMode(mode: CyclingMode) { 
-        this.cyclingMode = mode;
+    setCyclingMode(mode: CyclingMode|string, settings?:any) { 
+        let selectedMode :CyclingMode;
+
+        if ( typeof mode === 'string') {
+            const supported = this.getSupportedCyclingModes();
+            const CyclingModeClass = supported.find( M => { const m = new M(this); return m.getName() === mode })
+            if (CyclingModeClass) {
+                this.cyclingMode = new CyclingModeClass(this,settings);    
+                return;
+            }
+            selectedMode = this.getDefaultCyclingMode();
+        }
+        else {
+            selectedMode = mode;
+        }
+        this.cyclingMode = selectedMode;        
+        this.cyclingMode.setSettings(settings);
     }
 
 
     getSupportedCyclingModes() : Array<any> {         
-        return [ERGCyclingMode,SmartTrainerCyclingMode]
+        return [ERGCyclingMode,SmartTrainerCyclingMode,PowerMeterCyclingMode]
     }
 
-    getCyclingMode() {
+
+    getCyclingMode():CyclingMode {
         if (!this.cyclingMode)
             this.setCyclingMode( this.getDefaultCyclingMode());
         return this.cyclingMode;
     }
 
-    getDefaultCyclingMode   ():CyclingMode {
-        return new SmartTrainerCyclingMode(this)        
+    getDefaultCyclingMode():CyclingMode {
+        return new ERGCyclingMode(this)        
     }
 
 
-    setUserSettings(userSettings) {
+    setUserSettings(userSettings):void {
         this.userSettings = userSettings || {}
+        if (this.bike) {
+            if (!this.bike.settings) this.bike.settings = { user:{}}
+            if (!this.bike.settings.user) this.bike.settings.user = {}
+            this.bike.settings.user.weight = this.userSettings.weight || DEFAULT_USER_WEIGHT;
+        }
+
     } 
-    setBikeSettings(bikeSettings) {
+    setBikeSettings(bikeSettings):void {
         this.bikeSettings = bikeSettings|| {}
+        if (this.bike) {
+            if (!this.bike.settings) this.bike.settings = {}
+            this.bike.settings.weight = this.userSettings.weight || DEFAULT_BIKE_WEIGHT;
+        }
     } 
 
-    getWeight() {
-        const userWeight = this.userSettings.weight || (this.bike ? this.bike.getUserWeight(): undefined) || DEFAULT_USER_WEIGHT;
-        const bikeWeight = this.bikeSettings.weight || (this.bike ? this.bike.getBikeWeight():undefined) || DEFAULT_BIKE_WEIGHT;
+    getWeight():number {
+        const userWeight = this.userSettings.weight || DEFAULT_USER_WEIGHT;
+        const bikeWeight = this.bikeSettings.weight ||  DEFAULT_BIKE_WEIGHT;
         return bikeWeight+userWeight;
     }
 
@@ -124,7 +150,8 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
 
     initData() {
         this.distanceInternal = undefined;
-        this.paused = undefined;
+        this.paused = false;
+        this.stopped = false;
         this.data       = {
             time:0,
             slope:0,
@@ -136,13 +163,16 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
         }
         this.currentRequest = {}
         this.requests   = [];
-        if (this.bike.processor!==undefined) 
-            this.bike.processor.reset();
+        
+        // create a fresh instance of the CycingMode processor
+        const name = this.getCyclingMode().getName();
+        const settings = this.getCyclingMode().getSettings();
+        this.setCyclingMode(name,settings);
+        
     }
 
     start( props?: any ): Promise<any> {
-        this.stopped = false;
-        return new Promise( done => done(true))
+        throw new Error('Method not implemented.');
     }
 
     startUpdatePull() {
@@ -155,9 +185,17 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
             return;
 
         this.iv = setInterval( ()=>{
-            this.update()
-        } ,1000)
+            this.bikeSync();
             
+
+        } ,1000)
+
+        this.iv = setInterval( ()=>{
+            this.sendData();
+            this.refreshRequests()
+        } ,1000)
+
+
     }
 
     connect() {
@@ -198,6 +236,7 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
     }
 
     pause(): Promise<boolean> {
+        this.logEvent({message:'pause'});    
         return new Promise ( resolve => {
             this.paused = true;
             resolve(true)
@@ -206,6 +245,7 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
 
 
     resume(): Promise<boolean> {
+        this.logEvent({message:'resume'});    
         return new Promise ( resolve => {
             this.paused = false;
             resolve(true)
@@ -213,71 +253,102 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
 
     }
 
-    async sendUpdate(data) {
+    async sendUpdate(request) {
         // don't send any commands if we are pausing
         if( this.paused)
             return;
         
-        this.logEvent({message:'sendUpdate',data});    
-        this.requests.push(data);
+        this.logEvent({message:'sendUpdate',request,waiting:this.requests.length});    
+        return await this.processClientRequest(request);
     } 
 
+    sendData() {
+        if ( this.onDataFn) 
+            this.onDataFn(this.data)
+    }
+
     async update() {
-
-        // don't send any commands if we are pausing
-        if( this.paused)
-            return;
-
-        // check if we have some device commands in the queue
-    
-        // if there are no updates ( e.g. Power, Slope, ...) then add a refresh request
-        if ( !this.ignoreBike) {
-            if (this.requests.length===0) {
-                this.sendUpdate({refresh:true})
-            }  
-    
-            // if we have updates, send them to the device
-            if (this.requests.length>0) {
-                const processing  =[...this.requests];
-                processing.forEach( async request => {
-                    try {
-                        this.logEvent({message:'bike update request',request})
-                        await this.sendBikeUpdate(request);
-                        this.requests.shift();
-        
-                    }
-                    catch (err) {
-                        this.logEvent({message:'bike update error',error:err.message,stack:err.stack,request})
-                    }
-                })
-            }    
-        }
-
         // now get the latest data from the bike
+        this.updateBusy = true;
         this.getCurrentBikeData()
         .then( bikeData => {
-
-            let prev = JSON.parse(JSON.stringify(this.data))
-
-            // clone existing data object         
-
+            
             // update Data based on information received from bike
-            let data = this.updateData(prev, bikeData)
+            this.updateData(this.data, bikeData)
 
             // transform  ( rounding / remove ignored values)
-            this.data = this.transformData(data);
+            this.transformData();
 
-            if ( this.onDataFn) {
-                this.onDataFn(this.data)
-            }
+            this.updateBusy = false;
         })
         .catch(err => {
             this.logEvent({message:'bike update error',error:err.message,stack:err.stack })
+            this.updateBusy = false;
         })
 
     }
 
-    updateData( data,bikeData) {
+    async sendRequests() {
+        // if we have updates, send them to the device
+        if (this.requests.length>0) {
+            const processing  =[...this.requests];
+
+            // ignore previous requests, only send last one
+            const cnt = processing.length;
+            processing.forEach( async (request,idx) => {
+                if (cnt>1 && idx<cnt-1) {
+                    this.logEvent({message:'ignoring bike update request',request})
+                    this.requests.shift();
+                    return;
+                }
+            })
+
+            // at this point we should have only one request remaining
+            const request = processing[0]
+
+            try {
+                await this.sendRequest(request);                                   
+                this.requests.shift();
+
+            }
+            catch (err) {
+                this.logEvent({message:'bike update error',error:err.message,stack:err.stack,request})
+            }
+            
+        }    
+
+    }
+
+    async bikeSync() {
+
+        // don't send any commands if we are pausing
+        if( this.paused) {
+            return;
+        }
+
+        // don't updat if device is still busy with previous cycle
+        if (this.updateBusy || this.requestBusy) {
+            return;
+        }
+
+        this.logEvent({message:'bikeSync'});
+
+        // send bike commands unless we should "ignore" bike mode
+        if ( !this.ignoreBike) {
+            await this.sendRequests();
+        }
+
+        await this.update()
+
+        
+
+    }
+
+    updateData( prev,bikeData) {
+        //this.logEvent({message:'updateData',data,bikeData})
+    
+        
+        let data = {} as any;
         data.isPedalling = bikeData.cadence>0;
         data.power  = bikeData.power
         data.pedalRpm = bikeData.cadence
@@ -285,36 +356,41 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
         data.heartrate = bikeData.heartrate
         data.distance = bikeData.distance/100
         data.distanceInternal = bikeData.distance;
-        data.time = bikeData.time
         data.gear = bikeData.gear
+
+        if (this.tsPrevData && data.isPedalling) {
+            this.adapterTime = Date.now() - this.tsPrevData;
+        }
+        this.tsPrevData = Date.now();
+
+        data.time = Math.round(this.adapterTime||0);
         if (bikeData.slope) data.slope = bikeData.slope;
 
-        this.getCyclingMode().updateData(data);
-        //this.bike.processor.getValues(data);
+
+        this.data = this.getCyclingMode().updateData(data);
         
-        return data;
     }
 
 
-    transformData( bikeData) {
+    transformData( ) {
 
-        if ( bikeData===undefined)
+        if ( this.data===undefined)
             return;
     
         let distance=0;
-        if ( this.distanceInternal!==undefined && bikeData.distanceInternal!==undefined ) {
-            distance = intVal(bikeData.distanceInternal-this.distanceInternal)
+        if ( this.distanceInternal!==undefined && this.data.distanceInternal!==undefined ) {
+            distance = intVal(this.data.distanceInternal-this.distanceInternal)
         }
-        if (bikeData.distanceInternal!==undefined)
-            this.distanceInternal = bikeData.distanceInternal;
+        if (this.data.distanceInternal!==undefined)
+            this.distanceInternal = this.data.distanceInternal;
         
 
         let data =  {
-            speed: floatVal(bikeData.speed),
-            slope: floatVal(bikeData.slope),
-            power: intVal(bikeData.power),
-            cadence: intVal(bikeData.pedalRpm),
-            heartrate: intVal(bikeData.heartrate),
+            speed: floatVal(this.data.speed),
+            slope: floatVal(this.data.slope),
+            power: intVal(this.data.power),
+            cadence: intVal(this.data.pedalRpm),
+            heartrate: intVal(this.data.heartrate),
             distance,
             timestamp: Date.now()
         } as any;
@@ -328,16 +404,18 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
             data = { heartrate: data.heartrate};
         }
 
-        return data;
+        this.data = data;
     }
 
     async sendRequest(request) {
+        this.requestBusy = true;
         try {
-
+            this.logEvent({message:'sendRequest',request})
             const bike = this.getBike();
             const isReset = ( !request || request.reset || Object.keys(request).length===0 );
 
             if (isReset) {
+                this.requestBusy = false;
                 return {};
             }
                
@@ -347,10 +425,12 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
             if (request.targetPower!==undefined ) {
                 await bike.setPower(request.targetPower);
             }
+            this.requestBusy = false;
             return request
         
         }
         catch (err) {
+            this.requestBusy = false;
             this.logEvent( {message:'error',fn:'sendRequest()',error:err.message||err})            
             return;
         }
@@ -358,16 +438,31 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
 
     }
 
+    refreshRequests() {
+        // not pedaling => no need to generate a new request
+        if (!this.data.isPedalling || this.data.pedalRpm===0) 
+            return;
 
-    sendBikeUpdate(request) {
-        if ( request.slope) {
+        let bikeRequest = this.getCyclingMode().sendBikeUpdate({refresh:true})
+
+        const prev = this.requests[this.requests.length-1];
+        if (bikeRequest.targetPower!==undefined && bikeRequest.targetPower!==prev.targetPower) {
+            this.logEvent({message:'add request',request:bikeRequest})
+            this.requests.push(bikeRequest);
+        }
+    }
+
+
+    processClientRequest(request) {
+        if ( request.slope!==undefined) {
             this.data.slope = request.slope;
         }
+        
         return new Promise ( async (resolve) => {
             let bikeRequest = this.getCyclingMode().sendBikeUpdate(request)
-            const res = await this.sendRequest(bikeRequest);            
-            resolve(res);
-
+            this.logEvent({message:'add request',request:bikeRequest})
+            this.requests.push(bikeRequest);
+            resolve(bikeRequest);
         })
     }
 
