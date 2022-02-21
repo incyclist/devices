@@ -62,7 +62,7 @@ class Daum8i  {
         if (this.props.interface==='tcpip') {
             const port = this.props.port || DAUM_PREMIUM_DEFAULT_PORT;
             const host = this.props.host || DAUM_PREMIUM_DEFAULT_HOST;
-            this.portName = `${host}:${port}`;
+            this.portName = `${host}:51955`;
             this.tcpip = true;
             this.serial = false;
             this.tcpipConnection = {host,port};

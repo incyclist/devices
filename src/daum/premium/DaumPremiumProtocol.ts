@@ -43,9 +43,9 @@ export default class DaumPremiumProtocol extends DeviceProtocolBase  implements 
     add(settings: DaumPremiumSettings|DaumPremiumTCPSettings) {
         if ( settings.interface && settings.interface===INTERFACE.TCPIP) {
             Daum8iTcp.setNetImpl( DeviceProtocolBase.getNetImpl())
-            const {host,port} = settings as DaumPremiumTCPSettings;
-            const portName = `${host}:${port||51955}`
-            return this.addDevice( Daum8iTcp,{host,port,interface:INTERFACE.TCPIP},portName)
+            const {host} = settings as DaumPremiumTCPSettings;
+            const portName = `${host}:51955`
+            return this.addDevice( Daum8iTcp,{host,port:51955,interface:INTERFACE.TCPIP},portName)
         }
 
         if ( settings.interface && settings.interface===INTERFACE.SERIAL) {
