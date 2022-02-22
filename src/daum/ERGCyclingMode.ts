@@ -9,7 +9,7 @@ const config = {
     description: "Calculates speed based on power and slope. Power is either set by workout or calculated based on gear and cadence",
     properties: [
         {key:'bikeType',name: 'Bike Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Race','Mountain','Triathlon'], default: 'Race'},
-        {key:'startPower',name: 'Starting Power', description: 'Initial power in Watts at start of raining', type: CyclingModeProperyType.Integer, default: 50, min:25, max:800},
+        {key:'startPower',name: 'Starting Power', description: 'Initial power in Watts at start of training', type: CyclingModeProperyType.Integer, default: 50, min:25, max:800},
     ]
 }
 

@@ -11,7 +11,7 @@ const config = {
     description: "Calculates power based on speed and slope.",
     properties: [
         {key:'bikeType',name: 'Bike Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Race','Mountain','Triathlon'], default: 'Race'},
-        {key:'startPower',name: 'Starting Power', description: 'Initial power in Watts at start of raining', type: CyclingModeProperyType.Integer, default: 50},
+        {key:'startPower',name: 'Starting Power', description: 'Initial power in Watts at start of training', type: CyclingModeProperyType.Integer, default: 50},
         {key:'minPower',name: 'Minimum Power', description: 'Minimum power in declines', type: CyclingModeProperyType.Integer, default: 50},
         {key:'simulation',name: 'Simulate ', description: 'Simulate ', type: CyclingModeProperyType.Boolean, default: false},
         {key:'chainRings',name: 'Chain Rings', description: 'Simulated chain rings (format: <min>-<max>)', type: CyclingModeProperyType.String, validation:'', default:'36-52', condition:(s)=>s.simulation},
