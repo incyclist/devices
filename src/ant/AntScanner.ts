@@ -688,8 +688,6 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                         const channel = channelsUsed + idx;
                         const {sensor} = i;    
                         i.device.setChannel(channel);
-                        if ( process.env.DEBUG)
-                            console.log('~~~~Ant: attach', channel,i.device.getID() )
                         sensor.attach(channel,i.device.getID())
                         this.sensors.attached.push(i);
                     })

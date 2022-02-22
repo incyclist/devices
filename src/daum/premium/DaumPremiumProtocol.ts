@@ -195,7 +195,7 @@ export default class DaumPremiumProtocol extends DeviceProtocolBase  implements 
 
         scan.scanning = true;
         device.check( )
-        .then( ()=>{
+        .then( async ()=>{
             // device was detected after stop scan request
             if ( this.state.stopScanning)
                 return;
@@ -207,6 +207,15 @@ export default class DaumPremiumProtocol extends DeviceProtocolBase  implements 
             if ( onScanFinished) {
                 onScanFinished(id)
             }
+
+            try {
+                await device.getBike().saveClose()
+            }
+            catch ( err) {
+                this.logger.logEvent( {message:'scanCommand warning: Could not close port',error:err.message})
+            }
+
+
             // device found - no need to continue
             clearInterval(scan.iv);
             scan.iv=undefined;

@@ -62,12 +62,10 @@ export default class TcpSocketPort {
                 })
             }
             this.logger.logEvent( {message:'opening',id: this.id, retry})
-            console.log('~~opening socket',this.id)
             this.socket.connect( this.port, this.host );
         }
         catch (err) {
             this.logger.logEvent( {message:'opening error',id:this.id, error:err.message, stack:err.stack})
-            console.log('~~open socket error',this.id,err)
             this.emit( 'error',err)
         }
 
@@ -77,7 +75,6 @@ export default class TcpSocketPort {
 
     close() {
         this.logger.logEvent( {message:'closing',id: this.id})
-        console.log('~~closing socket',this.id)
         this.isOpen = false;
         this.isClosed = true;
         try {
@@ -99,7 +96,6 @@ export default class TcpSocketPort {
             return;
 
         this.logger.logEvent( {message:'timeout',id:this.id})
-        console.log('~~socket timeout',this.id)
         try {
             this.socket.end();
         }
@@ -113,7 +109,6 @@ export default class TcpSocketPort {
  
     onConnect() {
         this.logger.logEvent( {message:'connected',id:this.id})
-        console.log('~~socket connected',this.id)
         this.isOpen=true
         this.isClosed= false;
 
@@ -124,7 +119,6 @@ export default class TcpSocketPort {
 
     onError(err) {
         this.logger.logEvent( {message:'error',error:err.message})
-        console.log('~~socket error',this.id,err)
         if ( this.callbacks['error'])
             this.callbacks['error']( err)
     }

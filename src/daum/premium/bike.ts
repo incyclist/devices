@@ -241,7 +241,6 @@ class Daum8i  {
             const iv = setInterval( ()=>{
 
                 if ( this.state.error !== undefined) {
-                    console.log('~~ -> error')
                     clearInterval(iv);
                     this.forceClose()
                     reject(this.state.error);
@@ -250,7 +249,6 @@ class Daum8i  {
 
                 }
                 else if ( this.isConnected() ) {
-                    console.log('~~ -> connected')
                     this.state.connecting = false;
                     resolve(true);
                     clearInterval(iv);
@@ -258,7 +256,6 @@ class Daum8i  {
                 
                 else {
                     if ( Date.now()>tTimeout ) {
-                        console.log('~~ -> timeout')
                         this.state.connecting = false;
                         this.forceClose()
                         clearInterval(iv);
@@ -384,7 +381,6 @@ class Daum8i  {
     }
 
     forceClose(updateState=false) {
-        console.log('~~~ forceClose',updateState)
         const sp = this.sp;
         if ( !this.sp )
             return;
