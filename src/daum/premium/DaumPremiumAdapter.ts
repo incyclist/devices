@@ -1,6 +1,9 @@
 import { EventLogger } from 'gd-eventlog';
+import { Route } from '../../types/route';
+import { User } from '../../types/user';
 import {runWithRetries} from '../../utils';
 import DaumAdapter from '../DaumAdapter'
+import DaumClassicCyclingMode from './DaumClassicCyclingMode';
 
 const PROTOCOL_NAME = "Daum Premium"
 
@@ -38,6 +41,13 @@ export default class DaumPremiumDevice extends DaumAdapter{
         return this.bike.getInterface();
     }
 
+
+    getSupportedCyclingModes() : Array<any> {         
+        const supported = super.getSupportedCyclingModes();
+        supported.push( DaumClassicCyclingMode);
+        return supported
+    }    
+
     check() {
         var info = {} as any
 
@@ -62,10 +72,35 @@ export default class DaumPremiumDevice extends DaumAdapter{
 
     }
 
+    async initClassic( route:Route) {
+        if ( !route)
+            return true;
+
+        let res;
+        const bikeType = this.getCyclingMode().getSetting('bikeType')
+
+        res = await this.bike.programUpload( bikeType, route);
+        if (!res)
+            return false;
+
+        res = await this.bike.startProgram( route.programId);
+        if (!res)
+            return false;
+
+
+    }
+
     async start(props) {
-        this.logger.logEvent({message:'start()',props});        
+        this.logger.logEvent({message:'start()'});        
         
+        console.log('~~~setPersonSupport:',this.getCyclingMode().getModeProperty('setPersonSupport'))
+        console.log('~~~eppSupport:',this.getCyclingMode().getModeProperty('eppSupport'))
+
         const opts = props || {}
+
+        const user: User = opts.user || this.userSettings
+        const route: Route = opts.route;
+
         var info = {} as any
         this.initData();        
         return runWithRetries( async ()=>{
@@ -82,10 +117,28 @@ export default class DaumPremiumDevice extends DaumAdapter{
                 if (!info.version) {
                     info.version = await this.bike.getProtocolVersion();
                 }
+
+                
+                if (!info.init &&  this.getCyclingMode().getModeProperty('setPersonSupport')  ) {
+                    info.init = await this.initClassic(route);
+                }
+                else {
+                    info.init=true;
+                }
+
+                if (!info.person && this.getCyclingMode().getModeProperty('eppSupport') ) { 
+                    info.person = await this.bike.setPerson(user);
+                }
+                else {
+                    info.person = true;
+                }
+
+
                 const gear = await this.bike.setGear( this.data.gear || ( opts.gear ||10 ));    
                 return gear;
             }
             catch(err) {
+                console.error(err)
                 throw( new Error(`could not start device, reason:${err.message}`));
             }
 

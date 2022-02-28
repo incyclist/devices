@@ -341,10 +341,17 @@ describe( 'Daum8i', ()=> {
             expect(gear).toBe(10);
         })
 
+
         test('setPower',async ()=> {
             MockSerialPort.setResponse( 'S23' , ( command, sendData) => { sendData( [0x06]); sendData( buildMessage('S23','120') ) } )
             const power = await bike.setPower(120)
             expect(power).toBe(120);    
+        })
+
+        test('setPerson',async ()=> {
+            MockSerialPort.setResponse( 'M70' , ( command, sendData) => { sendData( [0x06]); sendData( buildMessage('M70',[0x07,0x00,0x00,0x00]) ) } )
+            const res = await bike.setPerson({weight:88.5,length:181})
+            expect(res).toBeTruthy()
         })
 
         test('illegal response',async ()=> {

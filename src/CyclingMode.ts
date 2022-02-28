@@ -63,11 +63,15 @@ export default interface CyclingMode {
     getSetting(name:string):any;
     getSettings():Settings;
 
+    setModeProperty(name: string, value: any):void;
+    getModeProperty(name:string):any;
+
 }
 
 export class CyclingModeBase implements CyclingMode {
     adapter: Device;
     settings: Settings = {}
+    properties: Settings = {};
 
     constructor(adapter: Device,props?:any) {
         if (!adapter) throw new Error('IllegalArgument: adapter is null')        
@@ -129,6 +133,20 @@ export class CyclingModeBase implements CyclingMode {
     getSettings():Settings {
         return this.settings;
     }   
+
+    setModeProperty(name: string, value: any):void{
+        this.properties[name] = value;
+    }
+
+    getModeProperty(name:string):any { 
+        const res =  this.properties[name];
+        if (res!==undefined)
+            return res;
+        const prop = this.getProperties().find(p => p.key===name);
+        if (prop && prop.default!==undefined) 
+            return prop.default;
+        return undefined;
+    }
 
 
 }

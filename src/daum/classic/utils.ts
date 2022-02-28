@@ -1,3 +1,7 @@
+export const DEFAULT_AGE         = 30;
+export const DEFAULT_USER_WEIGHT = 75;
+export const DEFAULT_BIKE_WEIGHT = 10;
+
 export function getCockpit( c) {
     switch ( c) {        
         case 10: 
@@ -42,21 +46,6 @@ export function getBikeType( type) {
 }
 
 
-export function getAge(birthday) { // birthday is a date
-    if (birthday===undefined) {
-        return 30;
-    }
-
-    try {
-        const bd = new Date(birthday);
-        const ageDifMs = Date.now() - bd.getTime();
-        var ageDate = new Date(ageDifMs); // miliseconds from epoch
-        return Math.abs(ageDate.getUTCFullYear() - 1970);    
-    } 
-    catch (error) {
-        return 30;
-    }
-}
 
 export function getGender(sex) {
     if (sex===undefined)

@@ -1,6 +1,7 @@
 import { EventLogger } from 'gd-eventlog';
 import CyclingMode from '../CyclingMode';
 import DeviceAdapterBase, { Bike, DeviceAdapter } from '../Device';
+import { User } from '../types/user';
 interface DaumAdapter {
     getCurrentBikeData(): Promise<any>;
 }
@@ -18,7 +19,7 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
     iv: any;
     logger: EventLogger;
     cyclingMode: CyclingMode;
-    userSettings: any;
+    userSettings: User;
     bikeSettings: any;
     tsPrevData: number;
     adapterTime: number;
@@ -29,7 +30,7 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
     getSupportedCyclingModes(): Array<any>;
     getCyclingMode(): CyclingMode;
     getDefaultCyclingMode(): CyclingMode;
-    setUserSettings(userSettings: any): void;
+    setUserSettings(userSettings: User): void;
     setBikeSettings(bikeSettings: any): void;
     getWeight(): number;
     getCurrentBikeData(): Promise<any>;

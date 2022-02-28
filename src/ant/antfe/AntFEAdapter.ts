@@ -219,9 +219,10 @@ export default class AntFEAdapter extends AntAdapter {
         
         await super.start(props);
 
-        this.logger.logEvent({message:'start()'});        
-        const args = props || {} as any
-
+        this.logger.logEvent({message:'start()',props});        
+        const opts = props || {} as any;
+        const {args} = opts;
+        
         return new Promise( async (resolve,reject) => {
             if(this.ignoreHrm && this.ignoreBike && this.ignorePower) {
                 this.logger.logEvent({message:'start() not done: bike disabled'});        

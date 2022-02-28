@@ -5,7 +5,8 @@
     "@serialport/parser-byte-length": "^9.0.1",
     "@serialport/parser-delimiter": "^9.0.1",
     "@types/serialport": "^8.0.1",
-    "gd-ant-plus": "^0.0.33"
+    "gd-ant-plus": "^0.0.33",
+    "win32filetime": "^1.0.2"
   },
   "peerDependencies": {
     "gd-eventlog": "^0.1.22"

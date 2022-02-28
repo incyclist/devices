@@ -102,7 +102,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
 
         const opts = props || {}
 
-        const person = props;
+        const {user} = props;
 
         this.initData();        
         let startState = { } as any;
@@ -121,7 +121,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
                     startState.setProg = true;
                 }
                 if ( !startState.setPerson) {
-                    await this.getBike().setPerson({person});
+                    await this.getBike().setPerson(user);
                     startState.setPerson = true;
                 }
                 if ( !startState.startProg) {              

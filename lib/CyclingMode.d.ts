@@ -52,10 +52,13 @@ export default interface CyclingMode {
     setSetting(name: string, value: any): void;
     getSetting(name: string): any;
     getSettings(): Settings;
+    setModeProperty(name: string, value: any): void;
+    getModeProperty(name: string): any;
 }
 export declare class CyclingModeBase implements CyclingMode {
     adapter: Device;
     settings: Settings;
+    properties: Settings;
     constructor(adapter: Device, props?: any);
     setAdapter(adapter: Device): void;
     getBikeInitRequest(): UpdateRequest;
@@ -69,4 +72,6 @@ export declare class CyclingModeBase implements CyclingMode {
     setSetting(name: string, value: any): void;
     getSetting(name: string): any;
     getSettings(): Settings;
+    setModeProperty(name: string, value: any): void;
+    getModeProperty(name: string): any;
 }

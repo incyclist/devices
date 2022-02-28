@@ -5,6 +5,7 @@ import ERGCyclingMode from './ERGCyclingMode';
 import SmartTrainerCyclingMode from './SmartTrainerCyclingMode';
 import PowerMeterCyclingMode from './PowerMeterCyclingMode';
 import {floatVal,intVal} from '../utils'
+import { User } from '../types/user';
 
 const DEFAULT_BIKE_WEIGHT = 10;
 const DEFAULT_USER_WEIGHT = 75;
@@ -31,7 +32,7 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
     iv;
     logger: EventLogger;
     cyclingMode: CyclingMode;
-    userSettings: any;
+    userSettings: User;
     bikeSettings: any;
 
     tsPrevData: number;
@@ -92,7 +93,7 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
     }
 
 
-    setUserSettings(userSettings):void {
+    setUserSettings(userSettings: User):void {
         this.userSettings = userSettings || {}
         if (this.bike) {
             if (!this.bike.settings) this.bike.settings = { user:{}}

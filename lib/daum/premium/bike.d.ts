@@ -1,5 +1,9 @@
+/// <reference types="node" />
+import { ReservedCommands, BikeType } from './utils';
 import { Queue } from '../../utils';
 import { EventLogger } from 'gd-eventlog';
+import { User } from "../../types/user";
+import { Route } from "../../types/route";
 declare class Daum8i {
     portName: string;
     logger: EventLogger;
@@ -63,7 +67,7 @@ declare class Daum8i {
     sendDaum8iCommand(command: any, queryType: any, payload: any): Promise<unknown>;
     sendACK(): void;
     sendNAK(): void;
-    sendReservedDaum8iCommand(command: any, cmdType: any, data: any): Promise<any[]>;
+    sendReservedDaum8iCommand(command: ReservedCommands, cmdType: any, data?: Buffer): Promise<any[]>;
     getProtocolVersion(): Promise<string>;
     getDashboardVersion(): Promise<unknown>;
     getDeviceType(): Promise<any>;
@@ -89,7 +93,13 @@ declare class Daum8i {
     setSlope(slope: any): void;
     setPower(power: any): Promise<number>;
     getPower(power: any): Promise<number>;
-    setPerson(person: any): Promise<any[]>;
+    setPerson(person: User): Promise<boolean>;
+    programUploadInit(): Promise<boolean>;
+    programUploadStart(bikeType: BikeType, route: Route): Promise<Uint8Array>;
+    programUploadSendBlock(epp: Uint8Array, offset: number): Promise<boolean>;
+    programUploadDone(): Promise<boolean>;
+    programUpload(bikeType: BikeType, route: Route): Promise<boolean>;
+    startProgram(programId?: number): Promise<boolean>;
     setGear(gear: any): Promise<number>;
     getGear(): Promise<number>;
 }

@@ -1,6 +1,7 @@
 import {EventLogger} from 'gd-eventlog'
-import {hexstr, getCockpit,getBikeType,getAge,getGender,getLength,getWeight,buildError,Float32ToIntArray, parseRunData} from './utils'
+import {hexstr, getCockpit,getBikeType,getGender,getLength,getWeight,buildError,Float32ToIntArray, parseRunData, DEFAULT_AGE,DEFAULT_USER_WEIGHT,DEFAULT_BIKE_WEIGHT} from './utils'
 import {Queue} from '../../utils'
+import { User } from '../../types/user'
 const ByteLength = require('@serialport/parser-byte-length')
 
 
@@ -55,9 +56,9 @@ export default class Daum8008  {
 
 
         this.bikeData = {
-            userWeight:75,
-            bikeWeight:10,
-            maxPower: 800
+            userWeight: DEFAULT_USER_WEIGHT,
+            bikeWeight: DEFAULT_BIKE_WEIGHT,
+            maxPower: 800  // TODO: Do we distinguish between device types ?!?
         }
             
 
@@ -92,10 +93,11 @@ export default class Daum8008  {
     }
 
 
-    setUser(user, callback) {
+    setUser(user:User, callback) {
         this.logger.logEvent({message:"setUser()",user});
         
-        this.settings.user = user || {};
+        if (user)
+            this.settings.user = user;
 
         var cb = callback||nop;
         cb(200,user)
@@ -530,8 +532,8 @@ export default class Daum8008  {
     }
 
 
-    setPerson(user={} as any,bikeNo=0) {
-        const age = user.age!==undefined ? user.age : getAge(user.birthday) ;
+    setPerson(user={} as User,bikeNo=0) {
+        const age = user.age!==undefined ? user.age : DEFAULT_AGE;
         const gender = getGender( user.sex) ;    
         const length = getLength( user.length) ;  
         const maxPower = this.settings.maxPower===undefined? 800 : this.settings.maxPower;

@@ -1,5 +1,6 @@
 import { EventLogger } from 'gd-eventlog';
 import { Queue } from '../../utils';
+import { User } from '../../types/user';
 declare type SuccessCallbackFn = (data: any) => void;
 declare type ErrorCallbackFn = (status: number, error: any) => void;
 interface CommandInstructions {
@@ -32,7 +33,7 @@ export default class Daum8008 {
     getType(): string;
     getPort(): string;
     isConnected(): boolean;
-    setUser(user: any, callback: any): void;
+    setUser(user: User, callback: any): void;
     getUserWeight(): number;
     getBikeWeight(): any;
     connect(): void;
@@ -54,7 +55,7 @@ export default class Daum8008 {
     stopProg(bikeNo?: number): Promise<unknown>;
     setProg(progNo?: number, bikeNo?: number): Promise<unknown>;
     setBikeType(bikeType: any, bikeNo?: number): Promise<unknown>;
-    setPerson(user?: any, bikeNo?: number): Promise<unknown>;
+    setPerson(user?: User, bikeNo?: number): Promise<unknown>;
     runData(bikeNo?: number): Promise<unknown>;
     setGear(gear: any, bikeNo?: number): Promise<unknown>;
     setPower(power: any, bikeNo?: number): Promise<unknown>;

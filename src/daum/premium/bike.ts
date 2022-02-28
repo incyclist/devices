@@ -1,12 +1,13 @@
 import {ACTUAL_BIKE_TYPE,BIKE_INTERFACE} from "../constants"
 import TcpSocketPort from './tcpserial'
-import {buildMessage,hexstr,ascii,getReservedCommandKey,
-       Int16ToIntArray, append,bin2esc, esc2bin,parseTrainingData, checkSum, getAsciiArrayFromStr} from './utils'
+import {buildMessage,hexstr,ascii,bin2esc, esc2bin,parseTrainingData, checkSum, getAsciiArrayFromStr, getPersonData, ReservedCommands, BikeType, routeToEpp} from './utils'
 
 import {Queue} from '../../utils';
 
 
 import {EventLogger} from 'gd-eventlog'
+import { User } from "../../types/user";
+import { Route } from "../../types/route";
 
 const nop = ()=>{}
 const MAX_RETRIES = 5;
@@ -18,6 +19,7 @@ const OPEN_TIMEOUT = 1000;
 
 const DAUM_PREMIUM_DEFAULT_PORT= 51955;
 const DAUM_PREMIUM_DEFAULT_HOST= '127.0.0.1';
+const MAX_DATA_BLOCK_SIZE = 512;
 
 var __SerialPort = undefined;
 var net = undefined;
@@ -757,23 +759,30 @@ class Daum8i  {
         this.logger.logEvent({message:"sendCommand:sending NAK",port});
     }
 
-    sendReservedDaum8iCommand( command,cmdType, data)  {
-        let cmdData = [];
-        const key = getReservedCommandKey(command);
-        append( cmdData, Int16ToIntArray(key) );
+    sendReservedDaum8iCommand( command:ReservedCommands,cmdType, data?:Buffer)  {
+        let buffer;
+
         if ( data!==undefined && data.length>0) {
-            append( cmdData, Int16ToIntArray( data.length) )
-            append( cmdData, data)
+            buffer = Buffer.alloc(data.length+4);
+            buffer.writeInt16LE(command,0);
+            buffer.writeUInt16LE(data.length,2);
+            data.copy(buffer,4);
         }
         else {
-            append( cmdData, Int16ToIntArray(0) )
+            buffer = Buffer.alloc(4);
+            buffer.writeInt16LE(command,0);
+            buffer.writeUInt16LE(0,2);            
         }
 
+        const cmdData = Uint8Array.from(buffer);        
 
         return this.sendDaum8iCommand('M70',cmdType, bin2esc(cmdData))
-        .then ( (resData) =>  {
+        .then ( (res:string) =>  {
+
+            const resData = Uint8Array.from(res, x => x.charCodeAt(0));
             const cmd = esc2bin(resData);
-            cmd.splice(0,4); // remove key(2bit), length (2bit)
+
+            console.log( '~~~ cmd',cmd)
             return cmd;
         });
     }
@@ -908,10 +917,125 @@ class Daum8i  {
     }
 
 
-    setPerson( person ) {
-        return this.sendReservedDaum8iCommand('PERSON_SET','BF',person.getData())
+    setPerson( person:User ): Promise<boolean> {
+        return this.sendReservedDaum8iCommand( ReservedCommands.PERSON_SET,'BF', getPersonData(person))
+        .then( (res:any[]) => {
+            const buffer = Buffer.from(res);
+            return buffer.readInt16LE(0) === ReservedCommands.PERSON_SET
+        })
     }
 
+    programUploadInit():Promise<boolean> {
+        return this.sendReservedDaum8iCommand( ReservedCommands.PROGRAM_LIST_BEGIN,'BF')
+        .then( (res:any[]) => {
+            const buffer = Buffer.from(res);
+            return buffer.readInt16LE(0) ===ReservedCommands.PROGRAM_LIST_BEGIN
+        })
+    }
+
+    programUploadStart(bikeType:BikeType, route: Route):Promise<Uint8Array> {
+        const payload = Buffer.alloc(40);
+
+        const epp = routeToEpp(route);
+
+        payload.writeInt32LE(0,0);              // pType
+        payload.writeInt8(bikeType,4);          // bikeType
+        payload.writeInt8(bikeType,5);
+        payload.writeInt16LE(0,6);              // startAt
+        payload.writeInt32LE(0,8);              // mType
+        payload.writeInt32LE(0,12);             // duration
+        payload.writeFloatLE(0,16);             // energy
+        payload.writeFloatLE(0,20);             // value
+        payload.writeInt16LE(0,24);             // startWatt
+        payload.writeInt16LE(0,26);             // endWatt
+        payload.writeInt16LE(0,28);             // deltaWatt
+        payload.writeInt16LE(0,30);             // wBits
+        payload.writeInt32LE(7,32);             // eppVersion (4) - EPP_CURRENT_VERSION
+        payload.writeInt32LE(epp.length,36);    // eppSize
+       
+
+        return this.sendReservedDaum8iCommand( ReservedCommands.PROGRAM_LIST_NEW_PROGRAM,'BF', payload)
+        .then( (res:any[]) => {
+            const buffer = Buffer.from(res);
+            if ( buffer.readInt16LE(0) ===ReservedCommands.PROGRAM_LIST_NEW_PROGRAM) {
+                return epp
+            }
+            throw new Error('Illegal Response' )
+        })
+    }
+
+    
+
+    programUploadSendBlock(epp: Uint8Array, offset: number):Promise<boolean> {
+        
+        const remaining = epp.length - offset;
+        if (remaining<=0)
+            return Promise.resolve(true);
+        
+        const size = remaining > MAX_DATA_BLOCK_SIZE? MAX_DATA_BLOCK_SIZE: remaining;
+
+        const payload = Buffer.alloc(size+8);
+
+        payload.writeInt32LE(size,0);              // size
+        payload.writeInt32LE(offset,4);            // offset
+        const chunk = Buffer.from(epp.slice(offset,offset+size));
+        chunk.copy(payload,8);
+
+        return this.sendReservedDaum8iCommand( ReservedCommands.PROGRAM_LIST_CONTINUE_PROGRAM,'BF', payload)
+        .then( (res:any[]) => {
+            const buffer = Buffer.from(res);
+            let success = buffer.readInt16LE(0) ===ReservedCommands.PROGRAM_LIST_CONTINUE_PROGRAM  ;
+
+            console.log( '~~ Buffer', buffer, buffer.readInt16LE(2), buffer.readInt8(4))
+            success = success && (buffer.readInt16LE(2) === 1);
+            success = success && (buffer.readInt8(4) === 1);
+            if (!success) throw new Error('Illegal Response' )
+
+            return success;
+        })
+
+    }
+
+
+    programUploadDone():Promise<boolean> {
+        return this.sendReservedDaum8iCommand( ReservedCommands.PROGRAM_LIST_END,'BF')
+        .then( (res:any[]) => {
+            const buffer = Buffer.from(res);
+            return buffer.readInt16LE(0) ===ReservedCommands.PROGRAM_LIST_END
+        })
+    }
+
+    async programUpload(bikeType:BikeType, route: Route): Promise<boolean> {
+        await this.programUploadInit();
+        const epp = await this.programUploadStart(bikeType, route);
+        
+        let success = true;
+        let done = false;
+        let offset = 0;
+        while (success && !done) {
+            success = await this.programUploadSendBlock(epp,offset);
+            offset += MAX_DATA_BLOCK_SIZE;
+            done = offset >= epp.length;
+        }            
+        if (done) {
+            return await this.programUploadDone()
+        }
+        return false;
+        
+    }
+
+
+    startProgram( programId: number = 1):Promise<boolean> {
+        const payload = Buffer.alloc(2);
+
+        payload.writeInt16LE(programId,0);
+
+        return this.sendReservedDaum8iCommand( ReservedCommands.PROGRAM_LIST_START,'BF', payload)
+        .then( (res:any[]) => {
+            const buffer = Buffer.from(res);
+            return buffer.readInt16LE(0) ===ReservedCommands.PROGRAM_LIST_START
+        })
+    }
 
     setGear( gear ) {
 

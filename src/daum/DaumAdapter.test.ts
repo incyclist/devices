@@ -345,8 +345,13 @@ describe( 'DaumAdapter', ()=>{
             expect(res.targetPower).toEqual(200)
  
         })
-        test('maxPower and targetPower set: targetPower overrules',async ()=>{          
+        test('maxPower and targetPower set, targetPower>maxPower : maxPower overrules',async ()=>{          
             const res =await a.sendUpdate({maxPower:120, targetPower:200}) as any;
+            expect(res.targetPower).toEqual(120)
+ 
+        })
+        test('maxPower and targetPower set, targetPower<maxPower : targetPower overrules',async ()=>{          
+            const res =await a.sendUpdate({maxPower:220, targetPower:200}) as any;
             expect(res.targetPower).toEqual(200)
  
         })

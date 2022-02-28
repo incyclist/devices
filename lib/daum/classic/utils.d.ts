@@ -1,6 +1,8 @@
+export declare const DEFAULT_AGE = 30;
+export declare const DEFAULT_USER_WEIGHT = 75;
+export declare const DEFAULT_BIKE_WEIGHT = 10;
 export declare function getCockpit(c: any): "Cardio" | "Fitness" | "Vita De Luxe" | "8008" | "8008 TRS" | "8080" | "Therapie" | "8008 TRS Pro" | "8008 TRS3" | "Unknown";
 export declare function getBikeType(type: any): 1 | 0;
-export declare function getAge(birthday: any): number;
 export declare function getGender(sex: any): 1 | 2;
 export declare function getLength(length: any): number;
 export declare function getWeight(weight?: any): number;

@@ -70,7 +70,7 @@ describe( 'ERGCyclingMode',()=>{
             const cyclingMode = new ERGCyclingMode(adapter, { test:true } );
             expect( cyclingMode.getProperties() ).toEqual( [
                 {key:'bikeType',name: 'Bike Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Race','Mountain','Triathlon'], default: 'Race'},
-                {key:'startPower',name: 'Starting Power', description: 'Initial power in Watts at start of raining', type: CyclingModeProperyType.Integer, default: 50, min:25, max:800},
+                {key:'startPower',name: 'Starting Power', description: 'Initial power in Watts at start of training', type: CyclingModeProperyType.Integer, default: 50, min:25, max:800},
             ])
         })
 
@@ -81,7 +81,7 @@ describe( 'ERGCyclingMode',()=>{
             const adapter = new DaumAdapter({},null);
             const cyclingMode = new ERGCyclingMode(adapter, { test:true } );
             expect( cyclingMode.getProperty('Starting Power') ).toEqual( 
-                {key:'startPower',name: 'Starting Power', description: 'Initial power in Watts at start of raining', type: CyclingModeProperyType.Integer, default: 50,min:25, max:800} 
+                {key:'startPower',name: 'Starting Power', description: 'Initial power in Watts at start of training', type: CyclingModeProperyType.Integer, default: 50,min:25, max:800} 
             )
         })
 
