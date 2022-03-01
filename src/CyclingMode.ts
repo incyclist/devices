@@ -36,7 +36,7 @@ export type IncyclistBikeData = {
     speed: number;
     heartrate:number;
     distance:number;
-    distanceInternal:number;
+    distanceInternal:number;        // Total Distance in meters 
     time?:number;
     gear?:number;
     slope?:number;

@@ -59,22 +59,23 @@ export default class DaumClassicCyclingMode extends PowerMeterCyclingMode implem
 
             let power = data.power || 0;
             let speed = data.speed || 0
-
             let slope = ( prevData.slope!==undefined ? prevData.slope : prevRequest.slope || 0); // ignore slope delivered by bike
-            let distanceInternal = prevData.distanceInternal || 0;  // meters
-
+            let distanceBike = data.distanceInternal || 0;
+            let distancePrev = prevData.distanceInternal || 0;  // meters
+            let distanceInternal = distanceBike;
+            let ts = Date.now();
             
             if (!bikeData.pedalRpm || bikeData.isPedalling===false) {
                 speed = 0;
                 power = 0;
             }
 
-            // calculate speed and distance
-            let ts = Date.now();
-            let v = speed/3.6;
-            let duration =  this.prevUpdateTS===0 ? 0: ((ts-this.prevUpdateTS)/1000) ; // sec
-            distanceInternal += Math.round(v*duration);
-            
+            if (distanceBike<distancePrev) /* overflow*/  {
+                // calculate speed and distance
+                let v = speed/3.6;
+                let duration =  this.prevUpdateTS===0 ? 0: ((ts-this.prevUpdateTS)/1000) ; // sec
+                distanceInternal = distancePrev + Math.round(v*duration);                                
+            }
 
             data.speed = parseFloat(speed.toFixed(1));
             data.power = Math.round(power);

@@ -782,7 +782,6 @@ class Daum8i  {
             const resData = Uint8Array.from(res, x => x.charCodeAt(0));
             const cmd = esc2bin(resData);
 
-            console.log( '~~~ cmd',cmd)
             return cmd;
         });
     }
@@ -986,7 +985,6 @@ class Daum8i  {
             const buffer = Buffer.from(res);
             let success = buffer.readInt16LE(0) ===ReservedCommands.PROGRAM_LIST_CONTINUE_PROGRAM  ;
 
-            console.log( '~~ Buffer', buffer, buffer.readInt16LE(2), buffer.readInt8(4))
             success = success && (buffer.readInt16LE(2) === 1);
             success = success && (buffer.readInt8(4) === 1);
             if (!success) throw new Error('Illegal Response' )
