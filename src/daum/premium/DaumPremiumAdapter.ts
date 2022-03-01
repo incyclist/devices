@@ -133,9 +133,11 @@ export default class DaumPremiumDevice extends DaumAdapter{
                     info.person = true;
                 }
 
-
-                const gear = await this.bike.setGear( this.data.gear || ( opts.gear ||10 ));    
-                return gear;
+                if (!this.getCyclingMode().getModeProperty('eppSupport')) {
+                    const gear = await this.bike.setGear( this.data.gear || ( opts.gear ||10 ));    
+                    return gear;    
+                }
+                return;
             }
             catch(err) {
                 console.error(err)

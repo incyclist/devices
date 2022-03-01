@@ -917,18 +917,29 @@ class Daum8i  {
 
 
     setPerson( person:User ): Promise<boolean> {
+        this.logger.logEvent( {message:'setPerson() request'})
         return this.sendReservedDaum8iCommand( ReservedCommands.PERSON_SET,'BF', getPersonData(person))
         .then( (res:any[]) => {
             const buffer = Buffer.from(res);
-            return buffer.readInt16LE(0) === ReservedCommands.PERSON_SET
+            const success = buffer.readInt16LE(0) === ReservedCommands.PERSON_SET
+            this.logger.logEvent( {message:'setPerson() response', success, buffer })
+
+            if (!success) 
+                throw new Error('Illegal Response' )
+            return true;
         })
     }
 
     programUploadInit():Promise<boolean> {
+        this.logger.logEvent( {message:'programUploadInit() request'})
         return this.sendReservedDaum8iCommand( ReservedCommands.PROGRAM_LIST_BEGIN,'BF')
         .then( (res:any[]) => {
             const buffer = Buffer.from(res);
-            return buffer.readInt16LE(0) ===ReservedCommands.PROGRAM_LIST_BEGIN
+            const success = buffer.readInt16LE(0) ===ReservedCommands.PROGRAM_LIST_BEGIN
+            this.logger.logEvent( {message:'programUploadInit() response',success, buffer})
+            if (!success) 
+                throw new Error('Illegal Response' )
+            return true;
         })
     }
 
@@ -953,12 +964,15 @@ class Daum8i  {
         payload.writeInt32LE(epp.length,36);    // eppSize
        
 
+        this.logger.logEvent( {message:'programUploadStart() request'})
         return this.sendReservedDaum8iCommand( ReservedCommands.PROGRAM_LIST_NEW_PROGRAM,'BF', payload)
         .then( (res:any[]) => {
             const buffer = Buffer.from(res);
             if ( buffer.readInt16LE(0) ===ReservedCommands.PROGRAM_LIST_NEW_PROGRAM) {
+                this.logger.logEvent( {message:'programUploadStart() response', success:true})
                 return epp
             }
+            this.logger.logEvent( {message:'programUploadStart() response', success:false})
             throw new Error('Illegal Response' )
         })
     }
@@ -980,6 +994,7 @@ class Daum8i  {
         const chunk = Buffer.from(epp.slice(offset,offset+size));
         chunk.copy(payload,8);
 
+        this.logger.logEvent( {message:'programUploadSendBlock() request', offset, size})
         return this.sendReservedDaum8iCommand( ReservedCommands.PROGRAM_LIST_CONTINUE_PROGRAM,'BF', payload)
         .then( (res:any[]) => {
             const buffer = Buffer.from(res);
@@ -987,19 +1002,25 @@ class Daum8i  {
 
             success = success && (buffer.readInt16LE(2) === 1);
             success = success && (buffer.readInt8(4) === 1);
-            if (!success) throw new Error('Illegal Response' )
+            this.logger.logEvent( {message:'programUploadSendBlock() response'})
 
-            return success;
+            if (!success) throw new Error('Illegal Response' )
+            return true;;
         })
 
     }
 
 
     programUploadDone():Promise<boolean> {
+        this.logger.logEvent( {message:'programUploadDone() request'})
         return this.sendReservedDaum8iCommand( ReservedCommands.PROGRAM_LIST_END,'BF')
         .then( (res:any[]) => {
             const buffer = Buffer.from(res);
-            return buffer.readInt16LE(0) ===ReservedCommands.PROGRAM_LIST_END
+            const success =  buffer.readInt16LE(0) ===ReservedCommands.PROGRAM_LIST_END;
+            this.logger.logEvent( {message:'programUploadDone() response', success})
+
+            if (!success) throw new Error('Illegal Response' )
+            return true;;
         })
     }
 
@@ -1027,11 +1048,17 @@ class Daum8i  {
         const payload = Buffer.alloc(2);
 
         payload.writeInt16LE(programId,0);
-
+        this.logger.logEvent( {message:'startProgram() request', programId})
         return this.sendReservedDaum8iCommand( ReservedCommands.PROGRAM_LIST_START,'BF', payload)
         .then( (res:any[]) => {
             const buffer = Buffer.from(res);
-            return buffer.readInt16LE(0) ===ReservedCommands.PROGRAM_LIST_START
+            const success =  buffer.readInt16LE(0) ===ReservedCommands.PROGRAM_LIST_START
+            this.logger.logEvent( {message:'startProgram() request', programId, success})
+            
+            if (!success) throw new Error('Illegal Response' )
+            return true;;
+
+
         })
     }
 

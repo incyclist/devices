@@ -71,6 +71,7 @@ export default class DaumClassicCyclingMode extends PowerMeterCyclingMode implem
             }
 
             if (distanceBike<distancePrev) /* overflow*/  {
+                this.logger.logEvent( {message:'~~~ distance overflow', distanceBike, distancePrev} )   
                 // calculate speed and distance
                 let v = speed/3.6;
                 let duration =  this.prevUpdateTS===0 ? 0: ((ts-this.prevUpdateTS)/1000) ; // sec
