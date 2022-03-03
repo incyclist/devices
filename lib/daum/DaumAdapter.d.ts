@@ -1,6 +1,6 @@
 import { EventLogger } from 'gd-eventlog';
-import CyclingMode from '../CyclingMode';
-import DeviceAdapterBase, { Bike, DeviceAdapter } from '../Device';
+import CyclingMode, { IncyclistBikeData } from '../CyclingMode';
+import DeviceAdapterBase, { Bike, DeviceAdapter, DeviceData } from '../Device';
 import { User } from '../types/user';
 interface DaumAdapter {
     getCurrentBikeData(): Promise<any>;
@@ -13,7 +13,8 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
     distanceInternal: number;
     paused: boolean;
     stopped: boolean;
-    data: any;
+    daumRunData: IncyclistBikeData;
+    deviceData: DeviceData;
     currentRequest: any;
     requests: Array<any>;
     iv: any;
@@ -56,7 +57,7 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
     sendRequests(): Promise<void>;
     bikeSync(): Promise<void>;
     updateData(prev: any, bikeData: any): void;
-    transformData(): void;
+    transformData(): DeviceData;
     sendRequest(request: any): Promise<any>;
     refreshRequests(): void;
     processClientRequest(request: any): Promise<unknown>;

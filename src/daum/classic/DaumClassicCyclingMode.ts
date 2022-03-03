@@ -97,7 +97,6 @@ export default class DaumClassicCyclingMode extends SmartTrainerCyclingMode impl
             data.power = Math.round(power);
             data.slope = slope;
             data.distanceInternal = distanceInternal;
-            data.distance =   Math.round(distanceInternal/100);    
 
             this.logger.logEvent( {message:"updateData result",data,bikeData,prevRequest:this.prevRequest||{},prevSpeed:prevData.speed,event:this.event} );
 

@@ -78,7 +78,7 @@ declare class Daum8i {
         heartrate: number;
         speed: number;
         slope: number;
-        distance: number;
+        distanceInternal: number;
         cadence: number;
         power: number;
         physEnergy: number;

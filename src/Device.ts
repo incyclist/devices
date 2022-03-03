@@ -4,7 +4,22 @@ import {DeviceProtocol,Device} from './DeviceProtocol'
 import CyclingMode from './CyclingMode'
 
 type DeviceAdapterProps = {}
-export type OnDeviceDataCallback = ( data:any ) => void;
+
+export type DeviceData = {
+    speed?: number;
+    slope?: number;
+    power?: number;
+    cadence?: number;
+    heartrate?: number;
+    distance?: number;
+    timestamp?: number;
+
+    deviceTime?: number;
+    deviceDistanceCounter?: number;
+}
+
+
+export type OnDeviceDataCallback = ( data:DeviceData ) => void;
 
 export interface Bike {
     setCyclingMode(mode: CyclingMode|string, settings?:any):void

@@ -31,7 +31,13 @@ describe( 'DaumAdapter', ()=>{
             const a = new DaumAdapter({},bike)
             expect(a.stopped).toBe(false)
             expect(a.paused).toBe(false)
-            expect(a.data).toEqual({})
+            expect(a.daumRunData).toEqual({isPedalling:false,
+                time:0,
+                power:0,
+                pedalRpm:0,
+                speed:0,
+                distanceInternal:0,
+                heartrate:0})
 
         })
         test('with userSettings',()=>{
@@ -146,6 +152,8 @@ describe( 'DaumAdapter', ()=>{
             setSettings: jest.fn(),
             getSetting: jest.fn(),
             getSettings: jest.fn(),
+            setModeProperty: jest.fn(),
+            getModeProperty: jest.fn(),
         }
     
         beforeEach( ()=>{
@@ -159,7 +167,7 @@ describe( 'DaumAdapter', ()=>{
             let data = {}
 
             a.updateData(data,{cadence:0, power:25, speed:0, heartrate:0, distance:0, time:0})
-            expect(a.data).toEqual(cmData)
+            expect(a.daumRunData).toEqual(cmData)
         })
         test('no cycling mode set: uses default cycling mode',()=>{
             a.cyclingMode = undefined;
@@ -186,44 +194,44 @@ describe( 'DaumAdapter', ()=>{
             let data = {}
             
             a.updateData(data,{cadence:0, power:50, speed:0, heartrate:0, distance:0, time:0, gear:10})
-            expect(a.data).toEqual({isPedalling:false, power:0, pedalRpm:0, speed:0, heartrate:0, distance:0, distanceInternal:0, time:0,gear:10, slope:0})
+            expect(a.daumRunData).toEqual({isPedalling:false, power:0, pedalRpm:0, speed:0, heartrate:0, distanceInternal:0, time:0,gear:10, slope:0})
             expect(data).toEqual({})
         })
 
         test('start - pedalling',()=>{
             
             a.updateData({},{cadence:90, power:50, speed:29.9, heartrate:0, distance:0, time:0, gear:10})
-            expect(a.data).toEqual({isPedalling:true, power:50, pedalRpm:90, speed:18.8, heartrate:0, distance:0, distanceInternal:0, time:0,gear:10, slope:0})
+            expect(a.daumRunData).toEqual({isPedalling:true, power:50, pedalRpm:90, speed:18.8, heartrate:0, distanceInternal:0, time:0,gear:10, slope:0})
         })
 
         test('increase slope: power does not change, speed gets slower',()=>{
             
-            a.updateData({},{cadence:90, power:50, slope:0, speed:29.9, heartrate:0, distance:0, time:0, gear:10})
-            expect(a.data).toEqual({isPedalling:true, power:50, pedalRpm:90, speed:18.8, heartrate:0, distance:0, distanceInternal:0, time:0,gear:10, slope:0})
+            a.updateData({},{cadence:90, power:50, slope:0, speed:29.9, heartrate:0, time:0, gear:10})
+            expect(a.daumRunData).toEqual({isPedalling:true, power:50, pedalRpm:90, speed:18.8, heartrate:0, distanceInternal:0, time:0,gear:10, slope:0})
 
             a.sendUpdate({slope:1})
-            a.updateData(a.data,{cadence:90, power:50, slope:1, speed:29.9, heartrate:0, distance:0, time:0, gear:10})
-            expect(a.data.power).toEqual(50)
-            expect(a.data.speed).toBeCloseTo(12.2,1)
+            a.updateData(a.daumRunData,{cadence:90, power:50, slope:1, speed:29.9, heartrate:0,  time:0, gear:10})
+            expect(a.daumRunData.power).toEqual(50)
+            expect(a.daumRunData.speed).toBeCloseTo(12.2,1)
             
             a.sendUpdate({slope:2})
-            a.updateData(a.data,{cadence:90, power:50, slope:2, speed:29.9, heartrate:0, distance:0, time:0, gear:10})
-            expect(a.data.power).toEqual(50)
-            expect(a.data.speed).toBeCloseTo(8.2,1)
+            a.updateData(a.daumRunData,{cadence:90, power:50, slope:2, speed:29.9, heartrate:0,  time:0, gear:10})
+            expect(a.daumRunData.power).toEqual(50)
+            expect(a.daumRunData.speed).toBeCloseTo(8.2,1)
         })
 
         test('slope negative: power does not change, speed increases',()=>{
             
-            a.updateData({},{cadence:90, power:50, slope:0, speed:29.9, heartrate:0, distance:0, time:0, gear:10})
-            expect(a.data).toEqual({isPedalling:true, power:50, pedalRpm:90, speed:18.8, heartrate:0, distance:0, distanceInternal:0, time:0,gear:10, slope:0})
+            a.updateData({},{cadence:90, power:50, slope:0, speed:29.9, heartrate:0,  time:0, gear:10})
+            expect(a.daumRunData).toEqual({isPedalling:true, power:50, pedalRpm:90, speed:18.8, heartrate:0,  distanceInternal:0, time:0,gear:10, slope:0})
             
             a.sendUpdate({slope:-1})
-            a.updateData(data,{cadence:90, power:50, slope:0, speed:29.9, heartrate:0, distance:0, time:0, gear:10})
-            expect(a.data.speed).toBeCloseTo(26.4,1)
+            a.updateData(data,{cadence:90, power:50, slope:0, speed:29.9, heartrate:0,  time:0, gear:10})
+            expect(a.daumRunData.speed).toBeCloseTo(26.4,1)
 
             a.sendUpdate({slope:-2})
-            a.updateData(data,{cadence:90, power:50, slope:-1, speed:29.9, heartrate:0, distance:0, time:0, gear:10})
-            expect(a.data.speed).toBeCloseTo(33.3,1)
+            a.updateData(data,{cadence:90, power:50, slope:-1, speed:29.9, heartrate:0,  time:0, gear:10})
+            expect(a.daumRunData.speed).toBeCloseTo(33.3,1)
         })
 
 

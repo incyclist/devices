@@ -148,7 +148,7 @@ describe( 'parseTrainingData',()=> {
         let payload = [];
         append(payload, getAsciiArrayFromStr('10'));payload.push(GS); // time
         append(payload, getAsciiArrayFromStr('99'));payload.push(GS); // heartrate
-        append(payload, getAsciiArrayFromStr('30.0'));payload.push(GS); // speed
+        append(payload, getAsciiArrayFromStr('10.0'));payload.push(GS); // speed
         append(payload, getAsciiArrayFromStr('-3.3'));payload.push(GS); // slope        
         append(payload, getAsciiArrayFromStr('150'));payload.push(GS); // distance
         append(payload, getAsciiArrayFromStr('90.1'));payload.push(GS); // cadence
@@ -162,7 +162,7 @@ describe( 'parseTrainingData',()=> {
     
         const message = asciiArrayToString(payload)
         const res = parseTrainingData(message);
-        expect(res).toEqual( {time:10, heartrate:99, speed:30, slope:-3.3, distance:150, cadence:90.1, power:130, physEnergy:130.2, realEnergy:130.3, torque:13.1, gear:10, deviceState:1, speedStatus:'ok'})
+        expect(res).toEqual( {time:10, heartrate:99, speed:36, slope:-3.3, distanceInternal:150, cadence:90.1, power:130, physEnergy:130.2, realEnergy:130.3, torque:13.1, gear:10, deviceState:1, speedStatus:'ok'})
     })
 
 });

@@ -49,7 +49,7 @@ export declare function parseTrainingData(payload: any): {
     heartrate: number;
     speed: number;
     slope: number;
-    distance: number;
+    distanceInternal: number;
     cadence: number;
     power: number;
     physEnergy: number;

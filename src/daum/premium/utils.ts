@@ -256,9 +256,9 @@ export function routeToEpp(route:Route, date?:Date): Uint8Array {
 
     const name = route.name || ''
     const description = route.description || ''
-    const minElevation = Math.min ( ...route.points.map(p => p.elevation))
-    const maxElevation = Math.max ( ...route.points.map(p => p.elevation))
-    const sampleRate = route.points.length!==0 ? route.totalDistance/route.points.length : 0;
+    const minElevation = route.minElevation ? route.minElevation : 0;
+    const maxElevation = route.maxElevation ? route.minElevation : Math.max ( ...route.points.map(p => p.elevation))
+    const sampleRate = route.points.length!==0 ? Math.round(route.totalDistance/route.points.length) : 0;
 
     buffer.writeUInt32LE(fileTime.low,offset);offset+=4;
     buffer.writeUInt32LE(fileTime.high,offset); offset+=4;
@@ -303,9 +303,9 @@ export function parseTrainingData(payload) {
     const data = {
         time: parseInt(vals[0]),
         heartrate: parseInt(vals[1]),
-        speed: parseFloat(vals[2]),
+        speed: parseFloat(vals[2]) *3.6,
         slope: parseFloat(vals[3]),
-        distance: parseInt(vals[4]),
+        distanceInternal: parseInt(vals[4]),
         cadence: parseFloat(vals[5]),
         power: parseInt(vals[6]),
         physEnergy: parseFloat(vals[7]),

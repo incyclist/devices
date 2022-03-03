@@ -18,4 +18,7 @@ export declare type Route = {
     description?: string;
     lapMode: boolean;
     totalDistance: number;
+    minElevation?: number;
+    maxElevation?: number;
+    sampleRate?: number;
 };

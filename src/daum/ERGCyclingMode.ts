@@ -204,7 +204,6 @@ export default class ERGCyclingMode extends CyclingModeBase implements CyclingMo
 
             let m = (this.adapter as DaumAdapter).getWeight();
             let distanceInternal = prevData.distanceInternal || 0;  // meters
-            let distance = Math.round(distanceInternal/100);
             let ts = Date.now();
             let duration =  this.prevUpdateTS===0 ? 0: ((ts-this.prevUpdateTS)/1000) ; // sec
                 
@@ -217,13 +216,11 @@ export default class ERGCyclingMode extends CyclingModeBase implements CyclingMo
                 speed = calc.calculateSpeed(m,power,slope,{bikeType} ); // km/h
                 let v = speed/3.6;
                 distanceInternal += Math.round(v*duration);
-                distance =   Math.round(distanceInternal/100);    
             }
         
             data.speed = parseFloat(speed.toFixed(1));
             data.power = Math.round(power);
             data.distanceInternal = Math.round(distanceInternal);
-            data.distance = distance;
             data.slope = slope;
             data.pedalRpm = rpm;
             data.gear = gear;

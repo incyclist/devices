@@ -88,7 +88,6 @@ export default class PowerMeterCyclingMode extends CyclingModeBase implements Cy
             data.speed = parseFloat(speed.toFixed(1));
             data.power = Math.round(power);
             data.distanceInternal = Math.round(distanceInternal);
-            data.distance = Math.round(distanceInternal/100);  
             data.slope = slope;
 
             this.logger.logEvent( {message:"updateData result",data,bikeData,prevRequest:{},prevSpeed:prevData.speed} );

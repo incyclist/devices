@@ -143,7 +143,7 @@ export function hexstr(arr,start?,len?) {
 
 
 export function Float32ToHex (float32)  {
-    function getHex (i) { return ('00' + i.toString(16)).slice(-2) }
+    function getHex (i) { return ('00' + i.toString(16)).slice(-2).toUpperCase() }
     var view = new DataView(new ArrayBuffer(4))
     view.setFloat32(0, float32);
     return Array.apply(null, { length: 4 }).map((_, i) => getHex(view.getUint8(i))).join('');

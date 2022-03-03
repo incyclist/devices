@@ -1,6 +1,6 @@
 import { EventLogger } from 'gd-eventlog';
 import CyclingMode, { IncyclistBikeData } from '../CyclingMode';
-import DeviceAdapterBase,{Bike, DeviceAdapter} from '../Device'
+import DeviceAdapterBase,{Bike, DeviceAdapter, DeviceData} from '../Device'
 import ERGCyclingMode from './ERGCyclingMode';
 import SmartTrainerCyclingMode from './SmartTrainerCyclingMode';
 import PowerMeterCyclingMode from './PowerMeterCyclingMode';
@@ -26,7 +26,8 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
     distanceInternal: number;
     paused: boolean;
     stopped: boolean;
-    data;
+    daumRunData: IncyclistBikeData;
+    deviceData: DeviceData;
     currentRequest;
     requests: Array<any> = []
     iv;
@@ -48,7 +49,17 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
         this.bike = bike;
         this.stopped = false;
         this.paused = false;
-        this.data = {}
+
+        this.daumRunData = {
+            isPedalling:false,
+            time:0,
+            power:0,
+            pedalRpm:0,
+            speed:0,
+            distanceInternal:0,
+            heartrate:0
+        }
+        this.deviceData = {}
 
         const options = props || {};
         this.cyclingMode = options.cyclingMode;        
@@ -153,15 +164,17 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
         this.distanceInternal = undefined;
         this.paused = false;
         this.stopped = false;
-        this.data       = {
-            time:0,
-            slope:0,
-            distance:0,
-            speed:0,
+        this.daumRunData = {
             isPedalling:false,
+            time:0,
             power:0,
-            distanceInternal:0
+            pedalRpm:0,
+            speed:0,
+            distanceInternal:0,
+            heartrate:0
         }
+        this.deviceData = {}
+
         this.currentRequest = {}
         this.requests   = [];
         
@@ -265,7 +278,7 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
 
     sendData() {
         if ( this.onDataFn) 
-            this.onDataFn(this.data)
+            this.onDataFn(this.deviceData)
     }
 
     async update() {
@@ -275,7 +288,7 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
         .then( bikeData => {
             
             // update Data based on information received from bike
-            this.updateData(this.data, bikeData)
+            this.updateData(this.daumRunData, bikeData)
 
             // transform  ( rounding / remove ignored values)
             this.transformData();
@@ -350,51 +363,47 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
     
         
         let data = {} as any;
+
+
         data.isPedalling = bikeData.cadence>0;
         data.power  = bikeData.power
         data.pedalRpm = bikeData.cadence
-        data.speed = bikeData.speed
+        data.speed = bikeData.speed;
         data.heartrate = bikeData.heartrate
-        data.distance = bikeData.distance/100
-        data.distanceInternal = bikeData.distance;
-        data.gear = bikeData.gear
-
-        if (this.tsPrevData && data.isPedalling) {
-            this.adapterTime = Date.now() - this.tsPrevData;
-        }
-        this.tsPrevData = Date.now();
-
-        data.time = Math.round(this.adapterTime||0);
+        data.distanceInternal = bikeData.distanceInternal;
+        data.gear = bikeData.gear;
+        data.time = bikeData.time;
         if (bikeData.slope) data.slope = bikeData.slope;
 
-
-        this.data = this.getCyclingMode().updateData(data);
+        this.daumRunData = this.getCyclingMode().updateData(data);
         
     }
 
 
-    transformData( ) {
+    transformData( ): DeviceData {
 
-        if ( this.data===undefined)
+        if ( this.daumRunData===undefined)
             return;
     
         let distance=0;
-        if ( this.distanceInternal!==undefined && this.data.distanceInternal!==undefined ) {
-            distance = intVal(this.data.distanceInternal-this.distanceInternal)
+        if ( this.distanceInternal!==undefined && this.daumRunData.distanceInternal!==undefined ) {
+            distance = intVal(this.daumRunData.distanceInternal-this.distanceInternal)
         }
-        if (this.data.distanceInternal!==undefined)
-            this.distanceInternal = this.data.distanceInternal;
+        if (this.daumRunData.distanceInternal!==undefined)
+            this.distanceInternal = this.daumRunData.distanceInternal;
         
 
         let data =  {
-            speed: floatVal(this.data.speed),
-            slope: floatVal(this.data.slope),
-            power: intVal(this.data.power),
-            cadence: intVal(this.data.pedalRpm),
-            heartrate: intVal(this.data.heartrate),
+            speed: floatVal(this.daumRunData.speed),
+            slope: floatVal(this.daumRunData.slope),
+            power: intVal(this.daumRunData.power),
+            cadence: intVal(this.daumRunData.pedalRpm),
+            heartrate: intVal(this.daumRunData.heartrate),
             distance,
-            timestamp: Date.now()
-        } as any;
+            timestamp: Date.now(),
+            deviceTime: this.daumRunData.time,
+            deviceDistanceCounter: this.daumRunData.distanceInternal
+        } as DeviceData;
 
         if (this.ignoreHrm) delete data.heartrate;
         if (this.ignorePower) { 
@@ -405,7 +414,7 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
             data = { heartrate: data.heartrate};
         }
 
-        this.data = data;
+        this.deviceData = data;
     }
 
     async sendRequest(request) {
@@ -441,12 +450,12 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
 
     refreshRequests() {
         // not pedaling => no need to generate a new request
-        if (!this.data.isPedalling || this.data.pedalRpm===0) 
+        if (!this.daumRunData.isPedalling || this.daumRunData.pedalRpm===0) 
             return;
 
-        let bikeRequest = this.getCyclingMode().sendBikeUpdate({refresh:true})
+        let bikeRequest = this.getCyclingMode().sendBikeUpdate({refresh:true}) || {}
+        const prev = this.requests[this.requests.length-1] || {};
 
-        const prev = this.requests[this.requests.length-1];
         if (bikeRequest.targetPower!==undefined && bikeRequest.targetPower!==prev.targetPower) {
             this.logEvent({message:'add request',request:bikeRequest})
             this.requests.push(bikeRequest);
@@ -456,7 +465,7 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
 
     processClientRequest(request) {
         if ( request.slope!==undefined) {
-            this.data.slope = request.slope;
+            this.daumRunData.slope = request.slope;
         }
         
         return new Promise ( async (resolve) => {

@@ -31,7 +31,6 @@ export declare type IncyclistBikeData = {
     pedalRpm: number;
     speed: number;
     heartrate: number;
-    distance: number;
     distanceInternal: number;
     time?: number;
     gear?: number;
