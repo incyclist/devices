@@ -109,8 +109,10 @@ export default class DaumPremiumDevice extends DaumAdapter{
                     if (!info.upload) 
                         info.upload = await this.bike.programUpload( bikeType, route, props.onStatusUpdate);
                     
-                    if (!info.started)
-                        info.started = await this.bike.startProgram( route.programId);                                   
+                    if (!info.started) {
+                        const programId = route ? route.programId : 0;
+                        info.started = await this.bike.startProgram( programId);                                   
+                    }
 
                 }
                 

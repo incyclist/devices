@@ -1,6 +1,6 @@
 import {ACTUAL_BIKE_TYPE,BIKE_INTERFACE} from "../constants"
 import TcpSocketPort from './tcpserial'
-import {buildMessage,hexstr,ascii,bin2esc, esc2bin,parseTrainingData, checkSum, getAsciiArrayFromStr, getPersonData, ReservedCommands, BikeType, routeToEpp} from './utils'
+import {buildMessage,hexstr,ascii,bin2esc, esc2bin,parseTrainingData, checkSum, getAsciiArrayFromStr, getPersonData, ReservedCommands, BikeType, routeToEpp, getBikeType} from './utils'
 
 import {Queue} from '../../utils';
 
@@ -918,7 +918,8 @@ class Daum8i  {
 
 
     setPerson( person:User ): Promise<boolean> {
-        this.logger.logEvent( {message:'setPerson() request'})
+        const {sex,age,length,weight} = person;
+        this.logger.logEvent( {message:'setPerson() request',sex,age,length,weight })
         return this.sendReservedDaum8iCommand( ReservedCommands.PERSON_SET,'BF', getPersonData(person))
         .then( (res:any[]) => {
             const buffer = Buffer.from(res);
@@ -944,15 +945,17 @@ class Daum8i  {
         })
     }
 
-    programUploadStart(bikeType:BikeType, route: Route):Promise<Uint8Array> {
+    programUploadStart(bikeType:string, route?: Route):Promise<Uint8Array> {
         const payload = Buffer.alloc(40);
-
-        const epp = routeToEpp(route);
+        
+        const epp = route ? routeToEpp(route) : undefined;
+        const eppLength = epp ? epp.length : 0;
+        const bikeTypeVal = getBikeType(bikeType);
 
         payload.writeInt32LE(0,0);              // pType
-        payload.writeInt8(bikeType,4);          // bikeType
-        payload.writeInt8(bikeType,5);
-        payload.writeInt16LE(0,6);              // startAt
+        payload.writeInt8(bikeTypeVal,4);          // bikeType       
+        payload.writeInt8(0,5);                 // startAt (LSB)
+        payload.writeInt16LE(0,6);              // startAt (HSB)
         payload.writeInt32LE(0,8);              // mType
         payload.writeInt32LE(0,12);             // duration
         payload.writeFloatLE(0,16);             // energy
@@ -962,10 +965,9 @@ class Daum8i  {
         payload.writeInt16LE(0,28);             // deltaWatt
         payload.writeInt16LE(0,30);             // wBits
         payload.writeInt32LE(7,32);             // eppVersion (4) - EPP_CURRENT_VERSION
-        payload.writeInt32LE(epp.length,36);    // eppSize
+        payload.writeInt32LE(eppLength,36);    // eppSize
        
-
-        this.logger.logEvent( {message:'programUploadStart() request'})
+        this.logger.logEvent( {message:'programUploadStart() request', bikeType, length:eppLength})        
         return this.sendReservedDaum8iCommand( ReservedCommands.PROGRAM_LIST_NEW_PROGRAM,'BF', payload)
         .then( (res:any[]) => {
             const buffer = Buffer.from(res);
@@ -1025,24 +1027,34 @@ class Daum8i  {
         })
     }
 
-    async programUpload(bikeType:BikeType, route: Route, onStatusUpdate?:OnDeviceStartCallback): Promise<boolean> {
-        await this.programUploadInit();
-        const epp = await this.programUploadStart(bikeType, route);
-        
-        let success = true;
-        let done = false;
-        let offset = 0;
-        if ( onStatusUpdate )
-            onStatusUpdate(0,epp.length);
-        while (success && !done) {
-            success = await this.programUploadSendBlock(epp,offset);
-            offset += MAX_DATA_BLOCK_SIZE;
-            done = offset >= epp.length;
-            if ( onStatusUpdate )
-                onStatusUpdate(done? epp.length: offset,epp.length);
-        }            
-        if (done) {
-            return await this.programUploadDone()
+    async programUpload(bikeType:string, route: Route, onStatusUpdate?:OnDeviceStartCallback): Promise<boolean> {
+        try {
+            await this.programUploadInit();
+            const epp = await this.programUploadStart(bikeType, route);
+            if ( epp) {
+                let success = true;
+                let done = false;
+                let offset = 0;
+                if ( onStatusUpdate )
+                    onStatusUpdate(0,epp.length);
+                while (success && !done) {
+                    success = await this.programUploadSendBlock(epp,offset);
+                    offset += MAX_DATA_BLOCK_SIZE;
+                    done = offset >= epp.length;
+                    if ( onStatusUpdate )
+                        onStatusUpdate(done? epp.length: offset,epp.length);
+                }            
+                if (done) {
+                    return await this.programUploadDone()
+                }    
+            }
+            else {
+                return await this.programUploadDone()
+            }
+    
+        }
+        catch ( err ) {
+            console.log( '~~~ err',err)
         }
         return false;
         

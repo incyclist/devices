@@ -6,6 +6,7 @@ import DaumClassicCyclingMode from './DaumClassicCyclingMode';
 
 const PROTOCOL_NAME = "Daum Classic"
 
+
 export default class DaumClassicAdapter extends DaumAdapter{
 
     static NAME = PROTOCOL_NAME;
@@ -124,6 +125,13 @@ export default class DaumClassicAdapter extends DaumAdapter{
                     await this.getBike().setPerson(user);
                     startState.setPerson = true;
                 }
+
+                if (!startState.setBikeType) {            
+                    const bikeType = this.getCyclingMode().getSetting('bikeType') || 'race'                    
+                    await this.getBike().setBikeType(bikeType.toLowerCase());                    
+                    startState.setBikeType = true;                    
+                }
+
                 if ( !startState.startProg) {              
                     await this.getBike().startProg();
                     startState.startProg = true;

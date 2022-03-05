@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { ReservedCommands, BikeType } from './utils';
+import { ReservedCommands } from './utils';
 import { Queue } from '../../utils';
 import { EventLogger } from 'gd-eventlog';
 import { User } from "../../types/user";
@@ -96,10 +96,10 @@ declare class Daum8i {
     getPower(power: any): Promise<number>;
     setPerson(person: User): Promise<boolean>;
     programUploadInit(): Promise<boolean>;
-    programUploadStart(bikeType: BikeType, route: Route): Promise<Uint8Array>;
+    programUploadStart(bikeType: string, route?: Route): Promise<Uint8Array>;
     programUploadSendBlock(epp: Uint8Array, offset: number): Promise<boolean>;
     programUploadDone(): Promise<boolean>;
-    programUpload(bikeType: BikeType, route: Route, onStatusUpdate?: OnDeviceStartCallback): Promise<boolean>;
+    programUpload(bikeType: string, route: Route, onStatusUpdate?: OnDeviceStartCallback): Promise<boolean>;
     startProgram(programId?: number): Promise<boolean>;
     setGear(gear: any): Promise<number>;
     getGear(): Promise<number>;

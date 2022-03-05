@@ -102,6 +102,7 @@ export default class DeviceAdapterBase implements DeviceAdapter {
     getProtocolName(): string| undefined {
         return this.protocol ? this.protocol.getName() : undefined;
     }
+    setCyclingMode(mode: CyclingMode|string, settings?:any):void {}
 
     setIgnoreHrm(ignore) {}
     setIgnorePower(ignore) {}

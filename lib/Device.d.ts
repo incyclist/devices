@@ -61,6 +61,7 @@ export default class DeviceAdapterBase implements DeviceAdapter {
     getPort(): string;
     getProtocol(): DeviceProtocol;
     getProtocolName(): string | undefined;
+    setCyclingMode(mode: CyclingMode | string, settings?: any): void;
     setIgnoreHrm(ignore: any): void;
     setIgnorePower(ignore: any): void;
     setIgnoreBike(ignore: any): void;
