@@ -4,6 +4,7 @@ import { Queue } from '../../utils';
 import { EventLogger } from 'gd-eventlog';
 import { User } from "../../types/user";
 import { Route } from "../../types/route";
+import { OnDeviceStartCallback } from "../../Device";
 declare class Daum8i {
     portName: string;
     logger: EventLogger;
@@ -98,7 +99,7 @@ declare class Daum8i {
     programUploadStart(bikeType: BikeType, route: Route): Promise<Uint8Array>;
     programUploadSendBlock(epp: Uint8Array, offset: number): Promise<boolean>;
     programUploadDone(): Promise<boolean>;
-    programUpload(bikeType: BikeType, route: Route): Promise<boolean>;
+    programUpload(bikeType: BikeType, route: Route, onStatusUpdate?: OnDeviceStartCallback): Promise<boolean>;
     startProgram(programId?: number): Promise<boolean>;
     setGear(gear: any): Promise<number>;
     getGear(): Promise<number>;

@@ -20,6 +20,7 @@ export type DeviceData = {
 
 
 export type OnDeviceDataCallback = ( data:DeviceData ) => void;
+export type OnDeviceStartCallback = ( completed:number,total:number  ) => void;
 
 export interface Bike {
     setCyclingMode(mode: CyclingMode|string, settings?:any):void

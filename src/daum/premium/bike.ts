@@ -8,6 +8,7 @@ import {Queue} from '../../utils';
 import {EventLogger} from 'gd-eventlog'
 import { User } from "../../types/user";
 import { Route } from "../../types/route";
+import { OnDeviceStartCallback } from "../../Device";
 
 const nop = ()=>{}
 const MAX_RETRIES = 5;
@@ -1024,17 +1025,21 @@ class Daum8i  {
         })
     }
 
-    async programUpload(bikeType:BikeType, route: Route): Promise<boolean> {
+    async programUpload(bikeType:BikeType, route: Route, onStatusUpdate?:OnDeviceStartCallback): Promise<boolean> {
         await this.programUploadInit();
         const epp = await this.programUploadStart(bikeType, route);
         
         let success = true;
         let done = false;
         let offset = 0;
+        if ( onStatusUpdate )
+            onStatusUpdate(0,epp.length);
         while (success && !done) {
             success = await this.programUploadSendBlock(epp,offset);
             offset += MAX_DATA_BLOCK_SIZE;
             done = offset >= epp.length;
+            if ( onStatusUpdate )
+                onStatusUpdate(done? epp.length: offset,epp.length);
         }            
         if (done) {
             return await this.programUploadDone()

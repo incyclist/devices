@@ -315,6 +315,7 @@ export function parseTrainingData(payload) {
         deviceState: parseInt(vals[11]),
         speedStatus: speedVals[parseInt(vals[12])],
     }
+
     return data;
  
 }
@@ -384,11 +385,11 @@ export function getPersonData(user: User) {
     }
 
     buffer.writeInt32LE( user.sex=== Gender.FEMALE ? 2: 1, offset );offset+=4;
-    buffer.writeInt32LE( user.age!==undefined ? user.age :  DEFAULT_AGE, offset);offset+=4;
-    buffer.writeInt32LE( user.length!==undefined ? user.length :  180, offset);offset+=4;
-    buffer.writeFloatLE( user.weight!==undefined ? user.weight :  DEFAULT_USER_WEIGHT, offset);offset+=4;
+    buffer.writeInt32LE( user.age!==undefined ? user.age :  1, offset);offset+=4;
+    buffer.writeInt32LE( user.length!==undefined ? user.length :  175, offset);offset+=4;
+    buffer.writeFloatLE( user.weight!==undefined ? user.weight :  70, offset);offset+=4;
     buffer.writeFloatLE( 0,offset);offset+=4;               // realisticKJFactor = 0
-    buffer.writeUInt32LE( 0,offset);offset+=4;              // cockpitPerson = 0;
+    buffer.writeUInt32LE( 1,offset);offset+=4;              // cockpitPerson = 1;
     
     return buffer;
 

@@ -72,23 +72,6 @@ export default class DaumPremiumDevice extends DaumAdapter{
 
     }
 
-    async initClassic( route:Route) {
-        if ( !route)
-            return true;
-
-        let res;
-        const bikeType = this.getCyclingMode().getSetting('bikeType')
-
-        res = await this.bike.programUpload( bikeType, route);
-        if (!res)
-            return false;
-
-        res = await this.bike.startProgram( route.programId);
-        if (!res)
-            return false;
-
-
-    }
 
     async start(props) {
         this.logger.logEvent({message:'start()'});        
@@ -107,6 +90,8 @@ export default class DaumPremiumDevice extends DaumAdapter{
             if (this.isStopped())
                 return;
 
+            
+
             try {
                 if(!this.bike.isConnected()) {
                     await this.bike.saveConnect();
@@ -118,19 +103,20 @@ export default class DaumPremiumDevice extends DaumAdapter{
                     info.version = await this.bike.getProtocolVersion();
                 }
 
-                
-                if (!info.init &&  this.getCyclingMode().getModeProperty('setPersonSupport')  ) {
-                    info.init = await this.initClassic(route);
-                }
-                else {
-                    info.init=true;
-                }
+                if ( this.getCyclingMode().getModeProperty('eppSupport') ) {
+                    const bikeType = this.getCyclingMode().getSetting('bikeType')
 
-                if (!info.person && this.getCyclingMode().getModeProperty('eppSupport') ) { 
-                    info.person = await this.bike.setPerson(user);
+                    if (!info.upload) 
+                        info.upload = await this.bike.programUpload( bikeType, route, props.onStatusUpdate);
+                    
+                    if (!info.started)
+                        info.started = await this.bike.startProgram( route.programId);                                   
+
                 }
-                else {
-                    info.person = true;
+                
+
+                if (!info.person && this.getCyclingMode().getModeProperty('setPersonSupport') ) { 
+                    info.person = await this.bike.setPerson(user);
                 }
 
                 if (!this.getCyclingMode().getModeProperty('eppSupport')) {
@@ -144,7 +130,7 @@ export default class DaumPremiumDevice extends DaumAdapter{
                 throw( new Error(`could not start device, reason:${err.message}`));
             }
 
-        }, 5, 1000 )
+        }, 5, 1500 )
         .then ( data => {
             this.startUpdatePull();
             return data;

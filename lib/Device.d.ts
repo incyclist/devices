@@ -12,6 +12,7 @@ export declare type DeviceData = {
     deviceDistanceCounter?: number;
 };
 export declare type OnDeviceDataCallback = (data: DeviceData) => void;
+export declare type OnDeviceStartCallback = (completed: number, total: number) => void;
 export interface Bike {
     setCyclingMode(mode: CyclingMode | string, settings?: any): void;
     getSupportedCyclingModes(): Array<any>;

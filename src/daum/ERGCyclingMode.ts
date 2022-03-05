@@ -220,11 +220,11 @@ export default class ERGCyclingMode extends CyclingModeBase implements CyclingMo
         
             data.speed = parseFloat(speed.toFixed(1));
             data.power = Math.round(power);
-            data.distanceInternal = Math.round(distanceInternal);
+            data.distanceInternal = distanceInternal;
             data.slope = slope;
             data.pedalRpm = rpm;
             data.gear = gear;
-            if ( data.time)
+            if ( data.time!==undefined)
                 data.time+=duration;
             else data.time =0;
             data.heartrate=bikeData.heartrate;

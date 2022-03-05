@@ -354,6 +354,23 @@ describe( 'Daum8i', ()=> {
             expect(res).toBeTruthy()
         })
 
+        test('no response = ACK timeout',async ()=> {
+        
+            MockSerialPort.setResponse( 'V00' , ( command, sendData) => { })            
+
+            bike.sendNAK = jest.fn()
+            bike.getTimeoutValue = jest.fn(()=>100)     // TIMEOUT after 100ms
+
+            let error = undefined;
+            try {
+                const res = await bike.getProtocolVersion();
+                console.log(res)
+            }
+            catch (err) { error = err}
+            
+            expect(error.message).toBe('ACK timeout'); // as simulated server is not sending an ACK
+        })
+
         test('illegal response',async ()=> {
         
             MockSerialPort.setResponse( 'V00' , ( command, sendData) => { 
@@ -375,6 +392,7 @@ describe( 'Daum8i', ()=> {
             expect(bike.sendNAK).toBeCalled();
             expect(error.message).toBe('RESP timeout'); // as simulated server is not sending the correct response
         })
+
 
         test('illegal response, followed by correction',async ()=> {
         
