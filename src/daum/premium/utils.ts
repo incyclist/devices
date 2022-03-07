@@ -13,12 +13,12 @@ export function bin2esc (arr) {
     const res = []
     arr.forEach( v => {
         switch (v) {
-            case 18: res.push(34); res.push(18); break; 
-            case 34: res.push(34); res.push(34); break; 
-            case 1: res.push(34); res.push(17); break; 
-            case 23: res.push(34); res.push(39); break; 
-            case 6: res.push(34); res.push(32); break; 
-            case 21: res.push(34); res.push(37); break; 
+            case 0x12: res.push(0x22); res.push(0x12); break; 
+            case 0x22: res.push(0x22); res.push(0x22); break; 
+            case 0x01: res.push(0x22); res.push(0x11); break; 
+            case 0x17: res.push(0x22); res.push(0x27); break; 
+            case 0x06: res.push(0x22); res.push(0x16); break; 
+            case 0x15: res.push(0x22); res.push(0x25); break; 
             default:
                 res.push(v);
 
@@ -39,17 +39,18 @@ export function esc2bin(arr) {
         if (escaped) {
             escaped = false;
             switch (v) {
-                case 17: res.push(1); return;
-                case 39: res.push(23); return;
-                case 22: res.push(6); return;
-                case 37: res.push(21); return;
-                case 18: res.push(18); return;
+                case 0x11: res.push(0x1); return;
+                case 0x27: res.push(0x17); return;
+                case 0x16: res.push(0x6); return;
+                case 0x25: res.push(0x15); return;
+                case 0x12: res.push(0x12); return;
+                case 0x22: res.push(0x22); return;
                 default: res.push(v);
             }                
             return;
         }
 
-        if ( v===34) {
+        if ( v===0x22) {
             escaped = true;
         }
         else {
@@ -384,10 +385,10 @@ export function getPersonData(user: User) {
         buffer.writeUInt8(0,offset); offset+=1;             // unused1 = 0;
     }
 
-    buffer.writeInt32LE( user.sex=== Gender.FEMALE ? 2: 1, offset );offset+=4;
-    buffer.writeInt32LE( user.age!==undefined ? user.age :  1, offset);offset+=4;
-    buffer.writeInt32LE( user.length!==undefined ? user.length :  175, offset);offset+=4;
-    buffer.writeFloatLE( user.weight!==undefined ? user.weight :  70, offset);offset+=4;
+    buffer.writeInt32LE( 1   /*user.sex=== Gender.FEMALE ? 2: 1*/, offset );offset+=4;
+    buffer.writeInt32LE( 1   /*user.age!==undefined ? user.age :  1*/, offset);offset+=4;
+    buffer.writeInt32LE( 175 /*user.length!==undefined ? user.length :  175*/, offset);offset+=4;
+    buffer.writeFloatLE( 70  /*user.weight!==undefined ? user.weight :  70*/, offset);offset+=4;
     buffer.writeFloatLE( 0,offset);offset+=4;               // realisticKJFactor = 0
     buffer.writeUInt32LE( 1,offset);offset+=4;              // cockpitPerson = 1;
     
