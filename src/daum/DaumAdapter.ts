@@ -198,16 +198,21 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
         if ( this.ignoreBike && this.ignoreHrm && this.ignorePower)
             return;
 
-        this.iv = setInterval( ()=>{
+        const ivSync = setInterval( ()=>{
             this.bikeSync();
             
 
         } ,1000)
 
-        this.iv = setInterval( ()=>{
+        const ivUpdate = setInterval( ()=>{
             this.sendData();
             this.refreshRequests()
         } ,1000)
+
+        this.iv = {
+            sync: ivSync,
+            update: ivUpdate
+        }
 
 
     }
@@ -234,8 +239,9 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
         this.stopped = true;
         return new Promise( (resolve,reject) => {
             try {
-                if ( this.iv) {
-                    clearInterval(this.iv);
+                if ( this.iv ) {
+                    if ( this.iv.sync) clearInterval(this.iv.sync);
+                    if ( this.iv.update) clearInterval(this.iv.update);
                     this.iv=undefined
                 }
                 this.logEvent({message:'stop request completed'});        
