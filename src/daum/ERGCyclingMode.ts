@@ -184,8 +184,8 @@ export default class ERGCyclingMode extends CyclingModeBase implements CyclingMo
         const prevRequest = this.prevRequest || {};
         const data = this.data || {} as any;
 
-        const bikeType = this.getSetting('bikeType');
-
+        const bikeType = this.getSetting('bikeType').toLowerCase();
+        console.log('~~~ bikeType',bikeType)
         delete this.event.gearUpdated;
         delete this.event.rpmUpdated;       
        
