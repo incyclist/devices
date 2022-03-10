@@ -22,6 +22,10 @@ const DAUM_PREMIUM_DEFAULT_PORT= 51955;
 const DAUM_PREMIUM_DEFAULT_HOST= '127.0.0.1';
 const MAX_DATA_BLOCK_SIZE = 512;
 
+const DS_BITS_OFF = 0;
+//const DS_BITS_NO_PROGRAM_ADAPTION = 1;
+const DS_BITS_ENDLESS_RACE = 2;
+
 var __SerialPort = undefined;
 var net = undefined;
 
@@ -951,6 +955,7 @@ class Daum8i  {
         const epp = route ? routeToEpp(route) : undefined;
         const eppLength = epp ? epp.length : 0;
         const bikeTypeVal = getBikeType(bikeType);
+        const wBits = route.lapMode ? DS_BITS_ENDLESS_RACE:  DS_BITS_OFF;
 
         payload.writeInt32LE(0,0);              // pType
         payload.writeInt8(bikeTypeVal,4);          // bikeType       
@@ -963,7 +968,7 @@ class Daum8i  {
         payload.writeInt16LE(0,24);             // startWatt
         payload.writeInt16LE(0,26);             // endWatt
         payload.writeInt16LE(0,28);             // deltaWatt
-        payload.writeInt16LE(0,30);             // wBits
+        payload.writeInt16LE(wBits,30);             // wBits
         payload.writeInt32LE(7,32);             // eppVersion (4) - EPP_CURRENT_VERSION
         payload.writeInt32LE(eppLength,36);    // eppSize
        
