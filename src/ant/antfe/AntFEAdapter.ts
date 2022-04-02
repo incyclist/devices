@@ -221,7 +221,7 @@ export default class AntFEAdapter extends AntAdapter {
 
         this.logger.logEvent({message:'start()',props});        
         const opts = props || {} as any;
-        const {args} = opts;
+        const {args ={}} = opts;
         
         return new Promise( async (resolve,reject) => {
             if(this.ignoreHrm && this.ignoreBike && this.ignorePower) {
@@ -255,6 +255,7 @@ export default class AntFEAdapter extends AntAdapter {
 
                 if (this.isStopped()) {
                     clearInterval(ivAttach);
+                    
                     this.starting = false;                    
                     reject( new Error('stopped'))
                 }
