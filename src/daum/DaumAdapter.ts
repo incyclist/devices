@@ -1,16 +1,11 @@
 import { EventLogger } from 'gd-eventlog';
 import CyclingMode, { IncyclistBikeData } from '../CyclingMode';
-import DeviceAdapterBase,{Bike, DeviceAdapter, DeviceData} from '../Device'
+import DeviceAdapterBase,{Bike, DeviceAdapter, DeviceData,DEFAULT_BIKE_WEIGHT,DEFAULT_USER_WEIGHT } from '../Device'
 import ERGCyclingMode from './ERGCyclingMode';
 import SmartTrainerCyclingMode from './SmartTrainerCyclingMode';
 import PowerMeterCyclingMode from './PowerMeterCyclingMode';
 import {floatVal,intVal} from '../utils'
 import { User } from '../types/user';
-
-const DEFAULT_BIKE_WEIGHT = 10;
-const DEFAULT_USER_WEIGHT = 75;
-
-
 
 interface DaumAdapter  {
     getCurrentBikeData(): Promise<any>;

@@ -1,5 +1,7 @@
 import { DeviceProtocol, Device } from './DeviceProtocol';
 import CyclingMode from './CyclingMode';
+export declare const DEFAULT_BIKE_WEIGHT = 10;
+export declare const DEFAULT_USER_WEIGHT = 75;
 export declare type DeviceData = {
     speed?: number;
     slope?: number;

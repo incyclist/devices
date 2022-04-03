@@ -1,3 +1,4 @@
+import { User } from "./types/user";
 export declare const INTERFACE: {
     SERIAL: string;
     ANT: string;
@@ -16,8 +17,10 @@ export declare type Device = {
 export interface DeviceSettings {
     name: string;
     port: string;
+    userSettings?: User;
+    bikeSettings?: any;
 }
-export declare type DeviceFoundCallback = (device: Device, protocol: DeviceProtocolBase) => void;
+export declare type DeviceFoundCallback = (device: Device, protocol: DeviceProtocol) => void;
 export declare type ScanFinishedCallback = (id: number) => void;
 export declare type ScanProps = {
     id: number;

@@ -1,5 +1,7 @@
 /* istanbul ignore file */
 
+import { User } from "./types/user"
+
 export const INTERFACE = {
     SERIAL: 'serial',
     ANT: 'ant',
@@ -20,9 +22,12 @@ export type Device = {
 export interface DeviceSettings  {
     name: string
     port: string
+    userSettings?: User;
+    bikeSettings?: any;
+
 }
 
-export type DeviceFoundCallback = (device:Device, protocol: DeviceProtocolBase) => void
+export type DeviceFoundCallback = (device:Device, protocol: DeviceProtocol) => void
 export type ScanFinishedCallback = (id: number) => void
 
 export type ScanProps = {
