@@ -182,18 +182,18 @@ export default class KettlerSerialComms< T extends Command > extends EventEmitte
 
     onData(data: string | Buffer)  { 
         this.sendState = SendState.Idle;        
-        this.currentCmd = undefined;
         this.logger.logEvent({message:"sendCommand:receiving:",data:data});
 
         if (typeof data === 'string') {        
-            if (data.length>2) 
-                data = data.trim();
-
-            this.currentCmd.onResponse(data);
+            if ( this.currentCmd.onResponse)
+                this.currentCmd.onResponse(data);
         }
         else  {
-            this.currentCmd.onResponse(data);
+            if ( this.currentCmd.onResponse)
+                this.currentCmd.onResponse(data);
         }
+        this.currentCmd = undefined;
+
     }
 
     write( cmd: Command) { 
@@ -204,7 +204,8 @@ export default class KettlerSerialComms< T extends Command > extends EventEmitte
 
         const onError = (err)=>{ 
             this.logger.logEvent({message:"sendCommand:error:",cmd:logStr,error:err.message,port:this.getPort()});
-            cmd.onError(err)
+            if (cmd.onError)
+                cmd.onError(err)
 
             this.sendState = SendState.Idle;
             this.currentCmd = undefined;
@@ -219,10 +220,11 @@ export default class KettlerSerialComms< T extends Command > extends EventEmitte
             this.sp.write(msg+CRLF, (err: Error) => {
                 this.sendState = SendState.Receiving;
                 this.currentCmd = cmd as T;
+
                 if (timeout) {
                     setTimeout( ()=> {
                         if ( this.sendState===SendState.Receiving ) {
-                            onError( new Error("timeout"));
+                            onError( new Error("response timeout"));
                         }
                     }, timeout)
                 }

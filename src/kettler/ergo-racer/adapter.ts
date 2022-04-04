@@ -126,8 +126,9 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
     // Implementing the actual bike commands
     // -----------------------------------------------------------------
 
-    async setComputerMode() : Promise<boolean> { 
+    setComputerMode() : Promise<boolean> { 
         return  this.send('setComputerMode', 'CP').then(response => {
+            this.logger.logEvent( { response } );
             if ( response === 'ACK' || response==='RUN') {
                 return true;
             } else {
@@ -136,9 +137,11 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
         })                                   
     }
 
-    async setClientMode() : Promise<boolean> { 
+    setClientMode() : Promise<boolean> { 
         return  this.send('setClientMode', 'CM').then(response => {
+            this.logger.logEvent( { response } );
             if ( response === 'ACK' || response==='RUN') {
+            this.logger.logEvent( { response } );
                 return true;
             } else {
                 return false
@@ -146,8 +149,9 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
         })                                   
     }
 
-    async reset() : Promise<boolean> { 
+    reset() : Promise<boolean> { 
         return  this.send('reset', 'RS').then(response => {
+            this.logger.logEvent( { response } );
             if ( response === 'ACK' || response==='RUN') {
                 return true;
             } else {
@@ -156,48 +160,54 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
         })                                   
     }
 
-    async getIdentifier() : Promise<string> { 
+    getIdentifier() : Promise<string> { 
         return  this.send('getIdentifier', 'ID').then ( response => {            
+            this.logger.logEvent( { response } );
             return response.substring(0, 3)
         })
     }
 
     async getInterface() : Promise<string> { 
-        return  this.send('getInterface', 'KI');
+        const res =   await this.send('getInterface', 'KI');
+        this.logger.logEvent( { interface: res } );
+        return res;
+
     }
 
     async getVersion() : Promise<string> { 
-        return  this.send('getVersion', 'VE');
+        const res =   await this.send('getVersion', 'VE');
+        this.logger.logEvent( { version: res } );
+        return res;
     }
 
     async getCalibration() : Promise<string> { 
-        return  this.send('getCalibration', 'CA');
+        return  await this.send('getCalibration', 'CA');
     }
 
     async startTraining() : Promise<string> { 
-        return  this.send('startTraining', 'LB');
+        return  await this.send('startTraining', 'LB');
     }
 
     async unknownSN() : Promise<string> { 
-        return  this.send('SN', 'SN');
+        return  await this.send('SN', 'SN');
     }
 
     async setBaudrate( baudrate: number) : Promise<string> { 
-        return  this.send(`setBaudrate(${baudrate})`, `BR${baudrate}`);
+        return  await this.send(`setBaudrate(${baudrate})`, `BR${baudrate}`);
     }
 
     async setPower( power: number) : Promise<string> { 
-        return  this.send(`setPower(${power})`, `PW${power}`);
+        return  await this.send(`setPower(${power})`, `PW${power}`);
     }
 
-    async getExtendedStatus() : Promise< KettlerExtendedBikeData> { 
+    getExtendedStatus() : Promise< KettlerExtendedBikeData> { 
         return  this.send('getExtendedStatus', 'ES1').then ( response => {                        
             const data = this.parseExtendedStatus(response);
             return data
         })
     }
 
-    async getStatus() : Promise< KettlerBikeData> { 
+    getStatus() : Promise< KettlerBikeData> { 
         return  this.send('getStatus', 'ST').then ( response => {                        
             const data = this.parseStatus(response);
             return data
@@ -205,7 +215,7 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
     }
 
     async getDB() : Promise<string> { 
-        return  this.send('getDB', 'DB');
+        return await this.send('getDB', 'DB');
     }
 
     /**
@@ -219,14 +229,17 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
      * 
      **/
     async send( logStr: string, message:string, timeout? ): Promise<any> {
-        const opened = await this.waitForOpened();
-        if ( !opened ) {
-            throw new Error('connection error')
-        }
 
-        return new Promise( (resolve,reject) => {
-            
-            this.comms.send( {logStr, message, onError:reject, onResponse: resolve, timeout} ) 
+        return new Promise( async (resolve,reject) => {
+            try {
+                const opened = await this.waitForOpened();
+                if ( !opened ) {
+                    reject (new Error('connection error'))
+                }
+            }
+            catch (err) { reject(err) }
+                
+            this.comms.send( {logStr, message, onResponse: resolve, onError:reject,  timeout} ) 
 
         });
     }
@@ -354,30 +367,30 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
                     reject( new Error(`timeout`));
                 },5000)
 
-                try { await this.getVersion() } catch (e) {}
-                try { await this.getInterface() } catch (e) {}
-                try { await this.getIdentifier() } catch (e) {}
-                try { await this.getExtendedStatus() } catch (e) {}
-                try { await this.getStatus() } catch (e) {}
+                try { await this.getVersion() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
+                try { await this.getInterface() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
+                try { await this.getIdentifier() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
+                try { await this.getExtendedStatus() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
+                try { await this.getStatus() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
 
 
-                try { await this.setClientMode() } catch (e) {}
-                try { await this.getVersion() } catch (e) {}
-                try { await this.getInterface() } catch (e) {}
-                try { await this.getIdentifier() } catch (e) {}
-                try { await this.getExtendedStatus() } catch (e) {}
-                try { await this.getStatus() } catch (e) {}
-                try { await this.setPower(100) } catch (e) {}
+                try { await this.setClientMode() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
+                try { await this.getVersion() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
+                try { await this.getInterface() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
+                try { await this.getIdentifier() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
+                try { await this.getExtendedStatus() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
+                try { await this.getStatus() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
+                try { await this.setPower(100) } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
 
-                try { await this.reset() } catch (e) {}
+                try { await this.reset() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
 
-                try { await this.setComputerMode() } catch (e) {}
-                try { await this.getVersion() } catch (e) {}
-                try { await this.getInterface() } catch (e) {}
-                try { await this.getIdentifier() } catch (e) {}
-                try { await this.getExtendedStatus() } catch (e) {}
-                try { await this.getStatus() } catch (e) {}
-                try { await this.setPower(100) } catch (e) {}
+                try { await this.setComputerMode() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
+                try { await this.getVersion() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
+                try { await this.getInterface() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
+                try { await this.getIdentifier() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
+                try { await this.getExtendedStatus() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
+                try { await this.getStatus() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
+                try { await this.setPower(100) } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
 
 
                 /*
