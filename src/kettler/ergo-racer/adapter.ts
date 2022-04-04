@@ -183,11 +183,11 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
     }
 
     async setBaudrate( baudrate: number) : Promise<string> { 
-        return  this.send('startTraining', `BR${baudrate}`);
+        return  this.send(`setBaudrate(${baudrate})`, `BR${baudrate}`);
     }
 
     async setPower( power: number) : Promise<string> { 
-        return  this.send('setPower', `PW${power}`);
+        return  this.send(`setPower(${power})`, `PW${power}`);
     }
 
     async getExtendedStatus() : Promise< KettlerExtendedBikeData> { 
@@ -198,7 +198,7 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
     }
 
     async getStatus() : Promise< KettlerBikeData> { 
-        return  this.send('getExtendedStatus', 'ST').then ( response => {                        
+        return  this.send('getStatus', 'ST').then ( response => {                        
             const data = this.parseStatus(response);
             return data
         })
@@ -354,6 +354,34 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
                     reject( new Error(`timeout`));
                 },5000)
 
+                try { await this.getVersion() } catch (e) {}
+                try { await this.getInterface() } catch (e) {}
+                try { await this.getIdentifier() } catch (e) {}
+                try { await this.getExtendedStatus() } catch (e) {}
+                try { await this.getStatus() } catch (e) {}
+
+
+                try { await this.setClientMode() } catch (e) {}
+                try { await this.getVersion() } catch (e) {}
+                try { await this.getInterface() } catch (e) {}
+                try { await this.getIdentifier() } catch (e) {}
+                try { await this.getExtendedStatus() } catch (e) {}
+                try { await this.getStatus() } catch (e) {}
+                try { await this.setPower(100) } catch (e) {}
+
+                try { await this.reset() } catch (e) {}
+
+                try { await this.setComputerMode() } catch (e) {}
+                try { await this.getVersion() } catch (e) {}
+                try { await this.getInterface() } catch (e) {}
+                try { await this.getIdentifier() } catch (e) {}
+                try { await this.getExtendedStatus() } catch (e) {}
+                try { await this.getStatus() } catch (e) {}
+                try { await this.setPower(100) } catch (e) {}
+
+
+                /*
+
                 if (!info.pcMode)
                     info.pcMode = await this.setComputerMode();
 
@@ -364,6 +392,8 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
                     info.version = await this.getVersion();
                 if (!info.id)
                     info.id = await this.getIdentifier();
+
+                */
 
                 clearTimeout(iv);
                 resolve(info)               
