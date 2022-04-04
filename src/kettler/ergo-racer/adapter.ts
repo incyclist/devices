@@ -367,6 +367,7 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
                     reject( new Error(`timeout`));
                 },5000)
 
+                /*
                 try { await this.getVersion() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
                 try { await this.getInterface() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
                 try { await this.getIdentifier() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
@@ -392,21 +393,21 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
                 try { await this.getStatus() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
                 try { await this.setPower(100) } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
 
+                */
 
-                /*
+                
 
                 if (!info.pcMode)
-                    info.pcMode = await this.setComputerMode();
+                    info.pcMode = await this.setClientMode();
 
-                if (!info.interface)
-                    info.interface = await this.getInterface();
-
-                if (!info.version)
-                    info.version = await this.getVersion();
                 if (!info.id)
                     info.id = await this.getIdentifier();
 
-                */
+                if (!info.version)
+                    info.version = await this.getVersion();
+
+                try { await this.getInterface() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
+              
 
                 clearTimeout(iv);
                 resolve(info)               
@@ -425,12 +426,9 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
     start(props?: any): Promise<any> {
         this.logger.logEvent({message:'start()'});        
         
-        const opts = props || {}
         var info = {} as any
         
         return runWithRetries( async ()=>{
-          
-
             try {
                 if (!info.checkDone) {
                     info.checkDone = await this.check();                    
@@ -439,14 +437,23 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
                 if (!info.started) { 
                     info.started = await this.startTraining();
                 }
+
+                // try to set initial power, ignore errors
+                try { await this.setPower(100) } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
+
+                
                 if (!info.data) { 
-                    info.data = await this.getStatus();
+                    await this.update();
+                    info.data = this.data;
                 }
                 
                 return info.data;
             }
             catch(err) {
+                try { await this.reset() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
+
                 throw( new Error(`could not start device, reason:${err.message}`));
+
             }
 
         }, 5, 1000 )

@@ -4,7 +4,7 @@ import { hexstr, Queue } from "../utils";
 import { Command } from "../types/command";
 import EventEmitter from "events";
 
-const DEFAULT_RCV_TIMEOUT = 500;
+const DEFAULT_RCV_TIMEOUT = 1500;
 
 export type  SerialCommsProps = {
     logger?: EventLogger,
@@ -252,9 +252,6 @@ export default class KettlerSerialComms< T extends Command > extends EventEmitte
     send(cmd: Command) { 
         this.queue.enqueue(cmd as T);
     }
-
-
-
 
 
 }
