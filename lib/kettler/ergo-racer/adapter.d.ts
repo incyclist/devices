@@ -2,6 +2,7 @@ import { DeviceSettings } from "../../DeviceProtocol";
 import DeviceAdapterBase, { DeviceAdapter, DeviceData, Bike } from "../../Device";
 import { DeviceProtocol } from "../../DeviceProtocol";
 import { EventLogger } from "gd-eventlog";
+import SerialComms from "../comms";
 import { Command } from "../../types/command";
 import CyclingMode, { IncyclistBikeData } from "../../CyclingMode";
 import { User } from "../../types/user";
@@ -33,7 +34,6 @@ export default class KettlerRacerAdapter extends DeviceAdapterBase implements De
     private ignorePower;
     private logger;
     private paused;
-    private comms;
     private iv;
     private requests;
     private data;
@@ -41,6 +41,7 @@ export default class KettlerRacerAdapter extends DeviceAdapterBase implements De
     private kettlerData;
     private updateBusy;
     private requestBusy;
+    private comms;
     constructor(protocol: DeviceProtocol, settings: DeviceSettings);
     isBike(): boolean;
     isPower(): boolean;
@@ -52,6 +53,8 @@ export default class KettlerRacerAdapter extends DeviceAdapterBase implements De
     setIgnoreHrm(ignore: boolean): void;
     setIgnorePower(ignore: boolean): void;
     setIgnoreBike(ignore: boolean): void;
+    _getComms(): SerialComms<KettlerRacerCommand>;
+    _setComms(comms: SerialComms<KettlerRacerCommand>): void;
     getLogger(): EventLogger;
     getUserSettings(): User;
     getWeight(): number;
@@ -65,7 +68,7 @@ export default class KettlerRacerAdapter extends DeviceAdapterBase implements De
     startTraining(): Promise<string>;
     unknownSN(): Promise<string>;
     setBaudrate(baudrate: number): Promise<string>;
-    setPower(power: number): Promise<string>;
+    setPower(power: number): Promise<KettlerBikeData>;
     getExtendedStatus(): Promise<KettlerExtendedBikeData>;
     getStatus(): Promise<KettlerBikeData>;
     getDB(): Promise<string>;

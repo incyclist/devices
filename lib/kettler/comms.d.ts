@@ -9,13 +9,18 @@ export declare type SerialCommsProps = {
     port: string;
     settings?: any;
 };
-declare enum SerialCommsState {
+export declare enum SerialCommsState {
     Idle = 0,
     Connecting = 1,
     Connected = 2,
     Disconnecting = 3,
     Disconnected = 4,
     Error = 5
+}
+export declare enum SendState {
+    Idle = 0,
+    Sending = 1,
+    Receiving = 2
 }
 export default class KettlerSerialComms<T extends Command> extends EventEmitter {
     private logger;
@@ -27,12 +32,17 @@ export default class KettlerSerialComms<T extends Command> extends EventEmitter 
     private worker;
     private sendState;
     private currentCmd;
+    private currentTimeout;
     private protocol;
     constructor(opts: SerialCommsProps);
     getPort(): string;
     setPort(port: any): void;
+    getLogger(): EventLogger;
     isConnected(): boolean;
     stateIn: (allowedStates: SerialCommsState[]) => boolean;
+    _setState(state: SerialCommsState): void;
+    _setSendState(state: SendState): void;
+    _setCurrentCmd(cmd: T): void;
     onPortOpen(): void;
     onPortClose(): Promise<void>;
     onPortError(err: any): void;
@@ -40,9 +50,9 @@ export default class KettlerSerialComms<T extends Command> extends EventEmitter 
     close(): void;
     startWorker(): void;
     stopWorker(): void;
+    clearTimeout(): void;
     onData(data: string | Buffer): void;
     write(cmd: Command): void;
     sendNextCommand(): Command | undefined;
     send(cmd: Command): void;
 }
-export {};

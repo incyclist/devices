@@ -17,7 +17,7 @@ export interface ScanDescription {
     state: ScanState;
     props: KettlerRacerScanProps;
 }
-export declare class KettlerRacerProtocol extends DeviceProtocolBase implements DeviceProtocol {
+export default class KettlerRacerProtocol extends DeviceProtocolBase implements DeviceProtocol {
     private state;
     private logger;
     private activeScans;

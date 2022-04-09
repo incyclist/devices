@@ -26,7 +26,7 @@ export interface ScanDescription {
 
 
 
-export class KettlerRacerProtocol extends DeviceProtocolBase implements DeviceProtocol {
+export default class KettlerRacerProtocol extends DeviceProtocolBase implements DeviceProtocol {
 
     private state: ScanState;
     private logger: EventLogger;

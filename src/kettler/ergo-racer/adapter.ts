@@ -44,7 +44,6 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
     private ignorePower: boolean;
     private logger: EventLogger
     private paused: boolean;
-    private comms: SerialComms<KettlerRacerCommand>;
     private iv : { sync: NodeJS.Timeout, update: NodeJS.Timeout };
     private requests: Array<any> = []
     private data: DeviceData;
@@ -52,6 +51,7 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
     private kettlerData: KettlerBikeData;
     private updateBusy: boolean;
     private requestBusy: boolean;
+    private comms: SerialComms<KettlerRacerCommand>;
 
     constructor(protocol: DeviceProtocol, settings: DeviceSettings) {
         super(protocol);
@@ -99,6 +99,14 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
     // -----------------------------------------------------------------
     // getters/setters
     // -----------------------------------------------------------------
+
+    _getComms(): SerialComms<KettlerRacerCommand> { 
+        return this.comms
+    }
+    _setComms(comms: SerialComms<KettlerRacerCommand>) { 
+        this.comms = comms;
+    }
+
     getLogger(): EventLogger {
         return this.logger;
     }
@@ -140,8 +148,7 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
     setClientMode() : Promise<boolean> { 
         return  this.send('setClientMode', 'CM').then(response => {
             this.logger.logEvent( { response } );
-            if ( response === 'ACK' || response==='RUN') {
-            this.logger.logEvent( { response } );
+            if ( response === 'ACK' || response==='RUN') {                
                 return true;
             } else {
                 return false
@@ -196,8 +203,11 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
         return  await this.send(`setBaudrate(${baudrate})`, `BR${baudrate}`);
     }
 
-    async setPower( power: number) : Promise<string> { 
-        return  await this.send(`setPower(${power})`, `PW${power}`);
+    async setPower( power: number) : Promise<KettlerBikeData> { 
+        return  this.send(`setPower(${power})`, `PW${power}`).then( response => { 
+            const data = this.parseStatus(response);
+            return data
+        })
     }
 
     getExtendedStatus() : Promise< KettlerExtendedBikeData> { 
@@ -363,7 +373,8 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
                 if (!info.opened) 
                     info.opened = await this.waitForOpened();
 
-                iv = setTimeout( async () => {
+                iv = setTimeout( () => {
+                    this.logger.logEvent( {message:"check() timeout",port:this.getPort()});
                     reject( new Error(`timeout`));
                 },5000)
 
@@ -395,11 +406,8 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
 
                 */
 
-                
-
                 if (!info.pcMode)
                     info.pcMode = await this.setClientMode();
-
                 if (!info.id)
                     info.id = await this.getIdentifier();
 
@@ -413,7 +421,8 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
                 resolve(info)               
             }
             catch (err) {
-                clearTimeout(iv);
+                this.logger.logEvent( {message:'Error', error:err.message});
+                if (iv) clearTimeout(iv);                    
                 iv = undefined;
                 reject(err)
             }
@@ -434,9 +443,11 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
                     info.checkDone = await this.check();                    
                 }
 
-                if (!info.started) { 
-                    info.started = await this.startTraining();
-                }
+                try { 
+                    if (!info.started) { 
+                        info.started = await this.startTraining();
+                    }
+                } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
 
                 // try to set initial power, ignore errors
                 try { await this.setPower(100) } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
@@ -450,6 +461,7 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
                 return info.data;
             }
             catch(err) {
+                console.log( '~~~ Error',err)
                 try { await this.reset() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
 
                 throw( new Error(`could not start device, reason:${err.message}`));
@@ -464,9 +476,12 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
     }
 
     startUpdatePull() { 
+        
         // ignore if already  started
         if (this.iv)
             return;
+
+        this.logger.logEvent({message:'start regular device update'});
 
         // not neccessary of all device types should be ignored
         if ( this.ignoreBike && this.ignoreHrm && this.ignorePower)

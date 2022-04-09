@@ -18,7 +18,7 @@ const DEBUG_LOGGER = {
     logEvent: (event) => console.log(JSON.stringify(event))
 }
 
-enum SerialCommsState { 
+export enum SerialCommsState { 
     Idle,
     Connecting,
     Connected,
@@ -27,7 +27,7 @@ enum SerialCommsState {
     Error
 }
 
-enum SendState {
+export enum SendState {
     Idle,
     Sending, 
     Receiving
@@ -47,6 +47,7 @@ export default class KettlerSerialComms< T extends Command > extends EventEmitte
     private worker: NodeJS.Timeout;
     private sendState: SendState;
     private currentCmd: T;
+    private currentTimeout: NodeJS.Timeout;
     private protocol: DeviceProtocol;
   
     constructor( opts: SerialCommsProps)  {     
@@ -72,6 +73,10 @@ export default class KettlerSerialComms< T extends Command > extends EventEmitte
         this.port = port;
     }
 
+    getLogger() {
+        return this.logger;
+    }
+
     isConnected(): boolean {
         return this.state===SerialCommsState.Connected;
     }
@@ -79,6 +84,16 @@ export default class KettlerSerialComms< T extends Command > extends EventEmitte
 
     stateIn = ( allowedStates: SerialCommsState[]): boolean => { 
         return allowedStates.indexOf(this.state) >= 0;
+    }
+
+    _setState(state: SerialCommsState) {
+        this.state = state;
+    }
+    _setSendState(state: SendState) {
+        this.sendState = state;
+    }
+    _setCurrentCmd(cmd: T) { 
+        this.currentCmd = cmd;
     }
 
     onPortOpen() {
@@ -179,10 +194,19 @@ export default class KettlerSerialComms< T extends Command > extends EventEmitte
         }    
     }
 
+    clearTimeout() {
+        if (this.currentTimeout) {
+            clearTimeout(this.currentTimeout);
+            this.currentTimeout = undefined;
+        }
+    }
+
 
     onData(data: string | Buffer)  { 
-        this.sendState = SendState.Idle;        
+        this.clearTimeout();
+
         this.logger.logEvent({message:"sendCommand:receiving:",data:data});
+        this.sendState = SendState.Idle;        
 
         if (typeof data === 'string') {        
             if ( this.currentCmd.onResponse)
@@ -222,7 +246,7 @@ export default class KettlerSerialComms< T extends Command > extends EventEmitte
                 this.currentCmd = cmd as T;
 
                 if (timeout) {
-                    setTimeout( ()=> {
+                    this.currentTimeout = setTimeout( ()=> {
                         if ( this.sendState===SendState.Receiving ) {
                             onError( new Error("response timeout"));
                         }
@@ -250,6 +274,7 @@ export default class KettlerSerialComms< T extends Command > extends EventEmitte
     }
 
     send(cmd: Command) { 
+        this.logger.logEvent( {message:'send()', cmd:cmd.logStr, port:this.getPort(), queueSize:this.queue.size()});
         this.queue.enqueue(cmd as T);
     }
 
