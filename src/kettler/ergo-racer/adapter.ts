@@ -594,17 +594,24 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
         this.updateBusy = true;
         this.getStatus()
         .then( (bikeData: KettlerBikeData) => {
-            
-            this.kettlerData = bikeData;
+            if ( !bikeData)
+                return; 
+            try {
+                this.kettlerData = bikeData;
 
-            let data = this.mapData(bikeData);
-            data = this.getCyclingMode().updateData(data);
+                let data = this.mapData(bikeData);
+                data = this.getCyclingMode().updateData(data);
+                this.data = this.transformData(data,bikeData);
+    
+            }
+            catch( err) {
+                this.logger.logEvent({message:'bike update error',error:err.message})
+            }
 
-            this.data = this.transformData(data,bikeData);
             this.updateBusy = false;
         })
         .catch(err => {
-            this.logger.logEvent({message:'bike update error',error:err.message,stack:err.stack })
+            this.logger.logEvent({message:'bike update error',error:err.message})
             this.updateBusy = false;
         })
 
