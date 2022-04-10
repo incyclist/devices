@@ -5,7 +5,7 @@ import { Command } from "../types/command";
 import EventEmitter from "events";
 
 const DEFAULT_RCV_TIMEOUT = 1500;
-const DEFAULT_OPEN_TIMEOUT = 1500;
+const DEFAULT_OPEN_TIMEOUT = 3000;
 
 export type  SerialCommsProps = {
     logger?: EventLogger,
@@ -265,6 +265,7 @@ export default class KettlerSerialComms< T extends Command > extends EventEmitte
 
             this.sendState = SendState.Idle;
             this.currentCmd = undefined;
+            this.stopCurrentTimeoutCheck()
         }
 
         try {
@@ -276,17 +277,19 @@ export default class KettlerSerialComms< T extends Command > extends EventEmitte
             this.sp.write(msg+CRLF, (err: Error) => {
                 this.sendState = SendState.Receiving;
                 this.currentCmd = cmd as T;
-
-                if (timeout) {
-                    this.currentTimeout = setTimeout( ()=> {
-                        if ( this.sendState===SendState.Receiving ) {
-                            onError( new Error("response timeout"));
-                        }
-                    }, timeout)
-                }
                 if (err)
                     onError(err)
             });
+            this.currentTimeout = setTimeout( ()=> {
+                if ( this.sendState===SendState.Sending ) {
+                    onError( new Error("send timeout"));
+                }
+                if ( this.sendState===SendState.Receiving ) {
+                    onError( new Error("response timeout"));
+                }
+            }, timeout)
+
+
 
         }
         catch (err)  {
@@ -306,7 +309,7 @@ export default class KettlerSerialComms< T extends Command > extends EventEmitte
     }
 
     send(cmd: Command) { 
-        this.logger.logEvent( {message:'send()', cmd:cmd.logStr, port:this.getPort(), queueSize:this.queue.size()});
+        this.logger.logEvent( {message:'add command to queue', cmd:cmd.logStr,msg:cmd.message, port:this.getPort(), queueSize:this.queue.size()});
         this.queue.enqueue(cmd as T);
     }
 

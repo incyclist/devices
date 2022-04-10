@@ -461,7 +461,6 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
                 return info.data;
             }
             catch(err) {
-                console.log( '~~~ Error',err)
                 try { await this.reset() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
 
                 throw( new Error(`could not start device, reason:${err.message}`));
