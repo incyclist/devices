@@ -5,6 +5,7 @@ import { Command } from "../types/command";
 import EventEmitter from "events";
 
 const DEFAULT_RCV_TIMEOUT = 1500;
+const DEFAULT_OPEN_TIMEOUT = 1500;
 
 export type  SerialCommsProps = {
     logger?: EventLogger,
@@ -61,6 +62,7 @@ export default class KettlerSerialComms< T extends Command > extends EventEmitte
         this.sendState = SendState.Idle;
         this.settings = opts.settings || {}
         this.currentCmd = undefined;
+        this.currentTimeout = undefined;
         this.protocol = opts.protocol;
         
     }
@@ -96,11 +98,21 @@ export default class KettlerSerialComms< T extends Command > extends EventEmitte
         this.currentCmd = cmd;
     }
 
+    stopCurrentTimeoutCheck() {
+        if (this.currentTimeout) {
+            clearTimeout(this.currentTimeout);
+            this.currentTimeout = undefined;
+        }
+    }
+
     onPortOpen() {
         this.logger.logEvent( {message:'port opened', port:this.getPort()});
         this.state = SerialCommsState.Connected;
         this.sendState = SendState.Idle;
-        this.startWorker();
+
+        this.stopCurrentTimeoutCheck();
+
+        this.startWorker();        
         this.emit('opened');
     }
 
@@ -114,6 +126,7 @@ export default class KettlerSerialComms< T extends Command > extends EventEmitte
 
         this.state = SerialCommsState.Disconnected;
         this.sendState = SendState.Idle;
+        this.stopCurrentTimeoutCheck();
         this.queue.clear();
         this.emit('closed');
 
@@ -122,17 +135,29 @@ export default class KettlerSerialComms< T extends Command > extends EventEmitte
     }
 
     onPortError(err) {
+        let ignore = false;
+
         if ( this.stateIn( [SerialCommsState.Connected, SerialCommsState.Disconnected] )) 
-            return;
+            ignore = true;
 
         if ( this.state===SerialCommsState.Disconnecting && (err.message==='Port is not open' || err.message==='Writing to COM port (GetOverlappedResult): Operation aborted'))
-            return;
+            ignore = true;
 
         if ( this.state===SerialCommsState.Connecting && (err.message==='Port is already open' || err.message==='Port is opening'))
-            return;
+            ignore = true;
 
-        this.logger.logEvent({message:"port error:",port:this.getPort(),error:err.message,stack:err.stack,state: this.state});
-        this.emit('error', err);
+        if ( !ignore ) {
+            this.logger.logEvent({message:"port error:",port:this.getPort(),error:err.message,stack:err.stack,state: this.state});
+            this.emit('error', err);
+            this.stopCurrentTimeoutCheck();
+
+            if ( this.state===SerialCommsState.Connecting || this.state===SerialCommsState.Disconnecting ) {
+                this.state = SerialCommsState.Error;
+                this.sp.removeAllListeners();
+                this.sp = undefined;
+            }
+        }
+
     }
 
 
@@ -160,6 +185,13 @@ export default class KettlerSerialComms< T extends Command > extends EventEmitte
             parser.on('data', (data)=>{this.onData(data)} );
 
             this.sp.open()
+
+            const timeout = this.settings.openTimeout || DEFAULT_OPEN_TIMEOUT;
+            this.currentTimeout = setTimeout(()=>{
+                this.logger.logEvent({message:"open() timeout",port:this.getPort()});
+                this.onPortError(new Error("open() timeout"));
+                
+            }, timeout);
 
         }
         catch (err)  {

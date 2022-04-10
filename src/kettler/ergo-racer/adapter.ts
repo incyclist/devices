@@ -1,5 +1,5 @@
-import DeviceProtocolBase, { DeviceSettings } from "../../DeviceProtocol";
-import DeviceAdapterBase, {DeviceAdapter,OnDeviceDataCallback,DeviceData, Bike,DEFAULT_BIKE_WEIGHT,DEFAULT_USER_WEIGHT } from "../../Device";
+import { DeviceSettings } from "../../DeviceProtocol";
+import DeviceAdapterBase, {DeviceAdapter,DeviceData, Bike,DEFAULT_BIKE_WEIGHT,DEFAULT_USER_WEIGHT } from "../../Device";
 import { DeviceProtocol } from "../../DeviceProtocol";
 import { EventLogger } from "gd-eventlog";
 import SerialComms from "../comms";

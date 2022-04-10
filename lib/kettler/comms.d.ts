@@ -43,6 +43,7 @@ export default class KettlerSerialComms<T extends Command> extends EventEmitter 
     _setState(state: SerialCommsState): void;
     _setSendState(state: SendState): void;
     _setCurrentCmd(cmd: T): void;
+    stopCurrentTimeoutCheck(): void;
     onPortOpen(): void;
     onPortClose(): Promise<void>;
     onPortError(err: any): void;
