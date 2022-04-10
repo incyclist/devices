@@ -8,6 +8,7 @@ import { runWithRetries } from "../../utils";
 import CyclingMode, { IncyclistBikeData } from "../../CyclingMode";
 import { User } from "../../types/user";
 import PowerMeterCyclingMode from "./modes/power-meter";
+import { rejects } from "assert";
 
 export interface KettlerRacerCommand extends Command  {
     
@@ -47,11 +48,12 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
     private iv : { sync: NodeJS.Timeout, update: NodeJS.Timeout };
     private requests: Array<any> = []
     private data: DeviceData;
-    private idata: IncyclistBikeData;
+    private internalData: IncyclistBikeData;
     private kettlerData: KettlerBikeData;
     private updateBusy: boolean;
     private requestBusy: boolean;
     private comms: SerialComms<KettlerRacerCommand>;
+    private prevDistance: number;
 
     constructor(protocol: DeviceProtocol, settings: DeviceSettings) {
         super(protocol);
@@ -321,7 +323,7 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
 
             const distance = parseInt(states[3]);
             if (!isNaN(distance)) { 
-                result.distance = distance;
+                result.distance = distance*100;
             }
 
 			// power in Watt
@@ -332,7 +334,7 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
 
             const energy = parseInt(states[5]);
 			if (!isNaN(energy)) {
-				result.requestedPower = energy;
+				result.energy = energy;
 			}
 
             const timeStr = states[6];
@@ -378,33 +380,6 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
                     reject( new Error(`timeout`));
                 },5000)
 
-                /*
-                try { await this.getVersion() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
-                try { await this.getInterface() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
-                try { await this.getIdentifier() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
-                try { await this.getExtendedStatus() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
-                try { await this.getStatus() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
-
-
-                try { await this.setClientMode() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
-                try { await this.getVersion() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
-                try { await this.getInterface() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
-                try { await this.getIdentifier() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
-                try { await this.getExtendedStatus() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
-                try { await this.getStatus() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
-                try { await this.setPower(100) } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
-
-                try { await this.reset() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
-
-                try { await this.setComputerMode() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
-                try { await this.getVersion() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
-                try { await this.getInterface() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
-                try { await this.getIdentifier() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
-                try { await this.getExtendedStatus() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
-                try { await this.getStatus() } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
-                try { await this.setPower(100) } catch (e) { this.logger.logEvent( {message:'Error', error:e.message})}
-
-                */
 
                 if (!info.pcMode)
                     info.pcMode = await this.setClientMode();
@@ -432,10 +407,12 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
     }
 
     // start a training session
-    start(props?: any): Promise<any> {
+    async start(props?: any): Promise<IncyclistBikeData> {
         this.logger.logEvent({message:'start()'});        
         
         var info = {} as any
+
+        await this.waitForOpened(true);
         
         return runWithRetries( async ()=>{
             try {
@@ -468,7 +445,7 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
             }
 
         }, 5, 1000 )
-        .then ( data => {
+        .then ( (data: IncyclistBikeData)     => {
             this.startUpdatePull();
             return data;
         })        
@@ -563,6 +540,10 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
 
         let data = {} as DeviceData;
 
+        const prevDistance =this.prevDistance || 0;
+        let distance = internalData.distanceInternal - prevDistance
+        if (distance<0) distance = internalData.distanceInternal<100 ? internalData.distanceInternal : 0;
+
         data.heartrate = internalData.heartrate;
         data.timestamp = Date.now();
         data.deviceTime = bikeData.time;
@@ -570,8 +551,10 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
             data.speed = internalData.speed;
             data.power = internalData.power;
             data.cadence = internalData.pedalRpm;
-            data.distance = internalData.distanceInternal;
+            data.distance = distance;
             data.deviceDistanceCounter = bikeData.distance;
+
+            this.prevDistance = internalData.distanceInternal;
         }    
        
         // check if we need to remove certain data
@@ -591,7 +574,8 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
 
     async update(): Promise<void> {
         this.updateBusy = true;
-        this.getStatus()
+
+        return this.getStatus()
         .then( (bikeData: KettlerBikeData) => {
             if ( bikeData) {
                 try {
@@ -599,6 +583,7 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
     
                     let data = this.mapData(bikeData);
                     data = this.getCyclingMode().updateData(data);
+                    this.internalData = data;
                     this.data = this.transformData(data,bikeData);
         
                 }
@@ -747,44 +732,50 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
 
 
 
-    waitForOpened(): Promise<boolean> {
+    waitForOpened( retries: boolean = false): Promise<boolean> {
+
+        const run = (resolve, reject) => {
+            try {
+
+                if ( this.comms.isConnected() ) {
+                    resolve(true);
+                    return;
+                }
+
+                const cleanup = () => { 
+                    this.comms.removeAllListeners();
+                }
+                const onOpen = () => {
+                    resolve(true); 
+                    cleanup();
+                }
+                const onError = (err) => {reject(err); cleanup(); }
+                const onClose = () => { cleanup() }
+
+                this.comms.on('opened', onOpen);
+                this.comms.on('closed', onClose);
+                this.comms.on('error', onError); 
+
+                this.logger.logEvent( {message:'opening',port:this.getPort()})
+                this.comms.open()
+
+        
+                
+            }
+            catch( err ) {
+                this.logger.logEvent( {message:'error',fn:'waitForOpened()',error:err.message||err})
+                reject(err);
+            }
+
+        }
+
+        if (!retries) {
+            return new Promise( (resolve, reject) => run(resolve, reject));
+        }
 
         return  runWithRetries ( () => {
 
-            return new Promise ( (resolve, reject) => {
-                try {
-
-                    if ( this.comms.isConnected() ) {
-                        resolve(true);
-                        return;
-                    }
-
-                    const cleanup = () => { 
-                        this.comms.removeAllListeners();
-                    }
-                    const onOpen = () => {
-                        resolve(true); 
-                        cleanup();
-                    }
-                    const onError = (err) => {reject(err); cleanup(); }
-                    const onClose = () => { cleanup() }
-    
-                    this.comms.on('opened', onOpen);
-                    this.comms.on('closed', onClose);
-                    this.comms.on('error', onError); 
-
-                    this.logger.logEvent( {message:'opening',port:this.getPort()})
-                    this.comms.open()
-
-            
-                    
-                }
-                catch( err ) {
-                    this.logger.logEvent( {message:'error',fn:'waitForOpened()',error:err.message||err})
-                    reject(err);
-                }
-
-            })
+            return new Promise ( (resolve, reject) => run(resolve, reject))
 
         }, 3, 1000) as Promise<boolean>;
 

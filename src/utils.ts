@@ -8,19 +8,23 @@ export function runWithRetries( fn, maxRetries, timeBetween) {
         let retries = 0;
         let tLastFailure = undefined;
         let busy = false;
-        const iv = setInterval ( async ()=> {
+        let iv = setInterval ( async ()=> {
             const tNow =Date.now();
 
             /* istanbul ignore next */
-            if(busy) 
+            if(busy) {
                 return;
+            }
 
             if ( tLastFailure===undefined || tNow-tLastFailure>timeBetween) {
                 try {
                     busy = true;
                     const data = await fn();
-                    busy = false;
                     clearInterval(iv)
+                    iv = undefined
+                    
+                    busy = false;
+
                     return resolve( data )
                 }
                 catch( err) {
@@ -28,7 +32,10 @@ export function runWithRetries( fn, maxRetries, timeBetween) {
                     retries++;
                     if ( retries>=maxRetries) {
                         clearInterval(iv)
+                        iv = undefined
+                        
                         busy = false;
+
                         return reject( err);    
                     }         
                     else {
