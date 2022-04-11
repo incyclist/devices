@@ -22,6 +22,7 @@ export type DeviceData = {
 
     deviceTime?: number;
     deviceDistanceCounter?: number;
+    internalDistanceCounter?: number;
 }
 
 

@@ -8,7 +8,6 @@ import { runWithRetries } from "../../utils";
 import CyclingMode, { IncyclistBikeData } from "../../CyclingMode";
 import { User } from "../../types/user";
 import PowerMeterCyclingMode from "./modes/power-meter";
-import { rejects } from "assert";
 
 export interface KettlerRacerCommand extends Command  {
     
@@ -537,7 +536,6 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
     }
 
     transformData( internalData: IncyclistBikeData, bikeData:KettlerBikeData): DeviceData {
-
         let data = {} as DeviceData;
 
         const prevDistance =this.prevDistance || 0;
@@ -553,6 +551,7 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
             data.cadence = internalData.pedalRpm;
             data.distance = distance;
             data.deviceDistanceCounter = bikeData.distance;
+            data.internalDistanceCounter = internalData.distanceInternal;
 
             this.prevDistance = internalData.distanceInternal;
         }    

@@ -11,6 +11,7 @@ interface CounterHashMap  {
     [msg: string] : number;
 }
 
+let resLookup: CounterHashMap = {}
 const MockComms = ( ad:KettlerRacerAdapter, responseMap ) => {
     const comms = ad._getComms();
     comms.open = jest.fn( ()=> { comms.onPortOpen(); }) 
@@ -20,7 +21,6 @@ const MockComms = ( ad:KettlerRacerAdapter, responseMap ) => {
         comms._setCurrentCmd(cmd);
         const res = responseMap.find ( (r)=> r.cmd===msg );
         comms.getLogger().logEvent({message:"sendCommand:sending:",cmd:cmd.logStr, msg, port:comms.getPort()});                        
-        let resLookup: CounterHashMap = {}
 
         if (res) {
 
@@ -28,11 +28,8 @@ const MockComms = ( ad:KettlerRacerAdapter, responseMap ) => {
             if ( typeof res.data === 'string') 
                 comms.onData(res.data);
             if ( Array.isArray(res.data))  {
-                let cnt = -1;
-                if ( resLookup[res.cmd]) cnt = resLookup[res.cmd]
-
-                cnt++;
-                resLookup[res.cmd] = cnt;
+                let cnt =  resLookup[res.cmd]!==undefined ?  resLookup[res.cmd] : -1;
+                resLookup[res.cmd] = ++cnt;
                 comms.onData( res.data[cnt % res.data.length] );
             }
         }
@@ -99,7 +96,7 @@ describe( 'ErgoRacerAdapter', () => {
     })
 
 
-    describe.skip('start',()=>{
+    describe.skip('integration tests',()=>{
 
         let ad;
         afterEach( ()=>{
@@ -125,8 +122,8 @@ describe( 'ErgoRacerAdapter', () => {
                 {cmd:'ST',data: [
                     '000\t000\t000\t000\t100\t0000\t00:04\t000',
                     '000\t028\t099\t000\t100\t0000\t00:05\t999',
-                    '000\t041\t145\t000\t100\t0001\t00:06\t020',
-                    '000\t045\t159\t000\t100\t0001\t00:07\t035'
+                    '000\t041\t145\t001\t100\t0001\t00:06\t020',
+                    '000\t045\t159\t001\t100\t0001\t00:07\t035'
                 ]},                            
             ]
            
@@ -137,9 +134,25 @@ describe( 'ErgoRacerAdapter', () => {
             expect(ad.startUpdatePull).toHaveBeenCalledTimes(1);
             expect(res).toMatchObject({heartrate:0, speed:0, distance:0, power:0, cadence:0, deviceTime:4, });
 
-            
+            jest.useFakeTimers();
+
+            jest.advanceTimersByTime(1000);
+            await ad.update();
+            expect(ad.data).toMatchObject({heartrate:0, speed:57.6,  power:999, cadence:28, deviceTime:5, deviceDistanceCounter:0 });
+            expect(ad.data.distance).toBeCloseTo(57.6/3.6,0)
+            expect(ad.data.internalDistanceCounter).toBeCloseTo(57.6/3.6,0)
     
-        })
+            jest.advanceTimersByTime(1000);
+            await ad.update();
+            expect(ad.data).toMatchObject({heartrate:0, speed:12.5,  power:20, cadence:41, deviceTime:6, deviceDistanceCounter:100  });
+            expect(ad.data.distance).toBeCloseTo(12.5/3.6,0)
+            expect(ad.data.internalDistanceCounter).toBeCloseTo(57.6/3.6 + 12.5/3.6,0)
+
+
+            await ad.sendData();
+            expect(onData).toHaveBeenLastCalledWith(ad.data);
+
+        },100000)
     
     })
 
