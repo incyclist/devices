@@ -73,6 +73,14 @@ export default class AntFEAdapter extends AntAdapter {
 
     }
 
+    getLogData(data, excludeList) {
+        
+        const logData  = JSON.parse(JSON.stringify(data));
+        excludeList.forEach( (key) => {
+            delete logData[key] })
+        return logData;
+
+    }
 
 
     onDeviceData( deviceData) {
@@ -83,7 +91,8 @@ export default class AntFEAdapter extends AntAdapter {
         try {
             if ( this.onDataFn && !(this.ignoreHrm && this.ignoreBike && this.ignorePower) && !this.paused) {
                 if (!this.lastUpdate || (Date.now()-this.lastUpdate)>this.updateFrequency) {
-                    this.logger.logEvent( {message:'onDeviceData',data:deviceData})
+                    const logData = this.getLogData(deviceData, ['PairedDevices','RawData']);
+                    this.logger.logEvent( {message:'onDeviceData',data:logData})
 
                     this.data = this.updateData(this.data,deviceData)
                     const data = this.transformData(this.data);                    
