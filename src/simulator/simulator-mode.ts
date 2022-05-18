@@ -70,7 +70,7 @@ export default class SimulatorCyclingMode extends CyclingModeBase implements Cyc
         const r = request || { refresh:true} as any
         if ( r.refresh) {
             if (Object.keys(r).length===1)
-                return;
+                return this.prevRequest || {};
             delete r.refresh;
         }
 
@@ -81,7 +81,7 @@ export default class SimulatorCyclingMode extends CyclingModeBase implements Cyc
 
         
 
-        this.prevRequest = JSON.parse(JSON.stringify(request));
+        this.prevRequest = request ? JSON.parse(JSON.stringify(request)) : {} as any;
         return r;
         
     }

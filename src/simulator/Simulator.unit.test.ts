@@ -12,7 +12,7 @@ describe('Simulator',() => {
             expect(s).toMatchObject( { speed:0, power:0, cadence: 90, slope:0 })
             expect(s).toMatchObject( { detected:false, selected:false })
             expect(s.started).toBe(false)
-            expect(s.paused).toBeUndefined()
+            expect(s.paused).toBe(false)
             expect(s.time).toBeUndefined()
             expect(s.iv).toBeUndefined()
             expect(s.getProtocolName()).toBe(SimulatorProtocol.NAME)
@@ -69,7 +69,7 @@ describe('Simulator',() => {
             expect(res.error).toBeUndefined();
             expect(s.iv).toBeDefined();
             expect(s.started).toBe(true)
-            expect(s.paused).toBe(true)
+            expect(s.paused).toBe(false)
         }) 
 
         test('promise: repetative start',async () => {
@@ -80,7 +80,7 @@ describe('Simulator',() => {
             expect(res.error).toBeUndefined();
             expect(s.iv).toEqual(iv);
             expect(s.started).toBe(true)
-            expect(s.paused).toBe(true)
+            expect(s.paused).toBe(false)
         }) 
 
         test('edge case: repetative start, started has been ste to false',async () => {
@@ -214,19 +214,20 @@ describe('Simulator',() => {
         }) 
 
         test('refresh - limits have been set before',() => {
-            s.limit = { targetPower:100 }
+            s.sendUpdate({ targetPower:100 });
+            
             const res = s.sendUpdate({refresh:true});
             expect(res).toEqual({ targetPower:100 })
         }) 
 
         test('refresh and limits - limits have been set before',() => {
-            s.limit = { targetPower:100 }
+            s.sendUpdate({ targetPower:100 });
             const res = s.sendUpdate({refresh:true,targetPower:200});
             expect(res).toEqual({ targetPower:200 })
         }) 
 
         test('new limits - limits have been set before',() => {
-            s.limit = { minPower:100, maxPower:200 }
+            s.sendUpdate( { minPower:100, maxPower:200 });
             const res = s.sendUpdate({targetPower:200});
             expect(res).toEqual({ targetPower:200 })
         }) 

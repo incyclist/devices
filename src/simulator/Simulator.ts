@@ -261,7 +261,7 @@ export class Simulator extends DeviceAdapter {
         if (this.paused)
             return;
 
-        this.getCyclingMode().sendBikeUpdate(request)
+        return this.getCyclingMode().sendBikeUpdate(request)
     }
 
 
