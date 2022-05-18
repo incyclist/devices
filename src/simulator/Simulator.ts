@@ -1,9 +1,18 @@
-import DeviceProtocolBase,{INTERFACE,DeviceSettings} from '../DeviceProtocol';
+import DeviceProtocolBase,{INTERFACE,DeviceSettings, DeviceProtocol} from '../DeviceProtocol';
 import DeviceRegistry from '../DeviceRegistry';
 import DeviceAdapter from '../Device';
 
 import {EventLogger} from 'gd-eventlog'
-import C from '../calculations'
+import CyclingMode, { IncyclistBikeData } from '../CyclingMode';
+import SimulatorCyclingMode from './simulator-mode';
+import { DeviceData } from '../Device';
+
+const DEFAULT_SETTINGS = { name:'Simulator', port: '', isBot:false }
+
+interface SimulatorSettings extends DeviceSettings { 
+    isBot?: boolean,
+    settings?: any ,
+}
 
 export class Simulator extends DeviceAdapter {
     static NAME = 'Simulator';
@@ -19,8 +28,14 @@ export class Simulator extends DeviceAdapter {
     slope: number;
     limit: any
     startProps?: any;
+    cyclingMode: CyclingMode;
+    startTS: number;
+    data: IncyclistBikeData
+    isBot: boolean;
+    ignoreHrm: boolean;
 
-    constructor (protocol?) {
+    constructor (protocol?: DeviceProtocol, props: SimulatorSettings = DEFAULT_SETTINGS) {
+
         const proto = protocol || DeviceRegistry.findByName('Simulator');
         super(proto);
 
@@ -32,8 +47,19 @@ export class Simulator extends DeviceAdapter {
         this.time = undefined;
         this.iv = undefined;
         this.started = false;
+        this.paused = false;
         this.slope = 0;
         this.limit = {};
+        this.startTS = undefined;
+        this.data = { isPedalling: false, power: 0, pedalRpm: 0, speed: 0, heartrate: 0, distanceInternal:0 }
+        this.isBot = props.isBot || false;
+        this.ignoreHrm = false;
+
+        // create a fresh instance of the CycingMode processor
+        const name = this.getCyclingMode().getName();        
+        const modeSettings = this.isBot ? props.settings || {} : this.getCyclingMode().getSettings();
+        this.setCyclingMode(name,modeSettings);
+        
     }
 
     isBike() { return true;}
@@ -44,32 +70,85 @@ export class Simulator extends DeviceAdapter {
     getName() { return Simulator.NAME }
     getPort() { return 'local'}
 
-    start(props?: any)  {
+    setIgnoreHrm(ignore) {
+        this.ignoreHrm = ignore;
+    }
+
+
+    getSupportedCyclingModes() : Array<any> {         
+        const supported = []
+        supported.push(SimulatorCyclingMode);
+        return supported
+    }
+
+    getDefaultCyclingMode():CyclingMode {
+        return new SimulatorCyclingMode(this)        
+    }
+
+    getCyclingMode():CyclingMode {
+        if (!this.cyclingMode)
+            this.setCyclingMode( this.getDefaultCyclingMode());
+        return this.cyclingMode;
+    }
+
+    setCyclingMode(mode: CyclingMode|string, settings?:any) { 
+        let selectedMode :CyclingMode;
+
+        if ( typeof mode === 'string') {
+            const supported = this.getSupportedCyclingModes();
+            const CyclingModeClass = supported.find( M => { const m = new M(this); return m.getName() === mode })
+            if (CyclingModeClass) {
+                this.cyclingMode = new CyclingModeClass(this,settings);    
+                return;
+            }
+            selectedMode = this.getDefaultCyclingMode();
+        }
+        else {
+            selectedMode = mode;
+        }
+        this.cyclingMode = selectedMode;        
+        this.cyclingMode.setSettings(settings);
+    }
+
+
+
+
+    async start(props?: any)  {
         this.startProps = props;
+
+        
+
         return new Promise( (resolve) => {
 
-            this.logger.logEvent({message:'start',iv:this.iv});      
+            if (!this.isBot)
+                this.logger.logEvent({message:'start',iv:this.iv});      
+
             if ( this.started) {
                 return resolve({started:true, error:undefined});  
             }
 
-            this.paused = (this.speed===0);
             this.started = true;
             this.time = Date.now();
+            this.startTS = this.time;
             if ( this.iv!==undefined) {
                 clearInterval(this.iv);
                 this.iv=undefined;
             } 
-            this.speed=30;
+
             this.iv = setInterval( () => this.update(), 1000);
+            if (!this.isBot)
+                this.logger.logEvent({message:'started'});      
             resolve({started:true, error:undefined});    
         })
     }
 
+
+
     stop(): Promise<boolean> {
         return new Promise( (resolve, reject) => {
 
-            this.logger.logEvent({message:'stop',iv:this.iv});      
+            if (!this.isBot)
+                this.logger.logEvent({message:'stop',iv:this.iv});      
             this.started = false;
             clearInterval(this.iv);
             this.iv=undefined
@@ -85,7 +164,8 @@ export class Simulator extends DeviceAdapter {
             if (!this.started)
                 return reject( new Error('illegal state - pause() has been called before start()'));
 
-            this.logger.logEvent({message:'pause',iv:this.iv});      
+            if (!this.isBot)
+                this.logger.logEvent({message:'pause',iv:this.iv});      
             this.paused = true;
             resolve(true)
         })
@@ -97,7 +177,8 @@ export class Simulator extends DeviceAdapter {
             if (!this.started)
                 reject( new Error('illegal state - resume() has been called before start()'));
 
-            this.logger.logEvent({message:'resume',iv:this.iv});      
+            if (!this.isBot)
+                this.logger.logEvent({message:'resume',iv:this.iv});      
             this.paused = false;
             resolve(true)
         })
@@ -140,36 +221,31 @@ export class Simulator extends DeviceAdapter {
     }
 
     update() {
-        //console.log( 'Simulator:update',this.iv)
-        let prevTime = this.time;
-        this.time = Date.now();
-        let timespan = this.time-prevTime; 
 
-        if ( this.limit.slope) {
-            this.slope = this.limit.slope
-        }
-        
-        if ( this.speed===undefined )                 
-            this.speed = 30;
-        this.power = C.calculatePower(75,this.speed/3.6,this.slope);    
+        const startDelay = this.getCyclingMode().getSetting('delay')
+        const timeSinceStart = Date.now() - this.startTS;
 
-        if ( this.limit.targetPower) {
-            this.power = this.limit.targetPower;
-            this.speed = C.calculateSpeed(75, this.power, this.slope)
-        }
-        
-        if ( this.limit.maxPower && this.power>this.limit.maxPower) {
-            this.power = this.limit.maxPower;
-            this.speed = C.calculateSpeed(75, this.power, this.slope)
-        }
-        else if ( this.limit.minPower && this.power<this.limit.minPower) {
-            this.power = this.limit.minPower;
-            this.speed = C.calculateSpeed(75, this.power, this.slope)
-        }
+        if (startDelay && timeSinceStart < startDelay*1000) 
+            return;
 
-        let distance = this.calculateDistance(this.speed, timespan/1000)
+        const prevDist = this.data.distanceInternal;
+        this.data = this.getCyclingMode().updateData(this.data);
+    
+        let data =  {
+            speed: this.data.speed,
+            slope: this.data.slope,
+            power: this.data.power,
+            cadence: this.data.pedalRpm,
+            distance: this.data.distanceInternal-prevDist,
+            heartrate: Math.round(this.data.power-10+Math.random()*20),
+            timestamp: Date.now(),
+            deviceTime: Math.round((Date.now()-this.startTS)/1000),
+            deviceDistanceCounter: this.data.distanceInternal
+        } as DeviceData;
 
-        let data = { speed:this.speed, cadence:Math.round(this.cadence), power:Math.round(this.power),  timespan, distance  }
+        this.paused = (this.data.speed===0);
+
+        if (this.ignoreHrm) delete data.heartrate;
         if( this.onDataFn) {
             this.onDataFn(data )
         }
@@ -182,17 +258,10 @@ export class Simulator extends DeviceAdapter {
 
 
     sendUpdate( request ) {
-        this.logger.logEvent({message:'bike update request',request})
+        if (this.paused)
+            return;
 
-        const r = request || { refresh:true} as any
-        if ( r.refresh) {
-            if (Object.keys(r).length===1)
-                return this.limit;
-            delete r.refresh;
-        }
-
-        this.limit = r;
-        return this.limit;
+        this.getCyclingMode().sendBikeUpdate(request)
     }
 
 
@@ -203,12 +272,13 @@ export default class SimulatorProtocol extends DeviceProtocolBase{
     static NAME = 'Simulator';
 
     constructor () {
-        super();
-
-        this.devices.push( new Simulator(this) );
+        super();        
+        this.devices = []
     }
-    add ( settings: DeviceSettings) {
-        // nothing to do
+    add ( settings: SimulatorSettings) {
+        let device = new Simulator(this,settings)
+        this.devices.push(device)
+        return device
     }
 
     getName() {
