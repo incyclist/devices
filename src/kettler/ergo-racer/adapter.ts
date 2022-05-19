@@ -7,7 +7,7 @@ import { Command } from "../../types/command";
 import { runWithRetries } from "../../utils";
 import CyclingMode, { IncyclistBikeData } from "../../CyclingMode";
 import { User } from "../../types/user";
-import PowerMeterCyclingMode from "./modes/power-meter";
+import PowerMeterCyclingMode from "../../modes/power-meter";
 
 export interface KettlerRacerCommand extends Command  {
     

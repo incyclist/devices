@@ -1,7 +1,7 @@
 import { EventLogger } from 'gd-eventlog';
-import CyclingMode, { CyclingModeProperty, IncyclistBikeData, Settings, UpdateRequest,CyclingModeBase } from '../../../CyclingMode';
-import KettlerRacerAdapter from '../adapter';
-import calc from '../../../calculations'
+import CyclingMode, { CyclingModeProperty, IncyclistBikeData, Settings, UpdateRequest,CyclingModeBase } from '../CyclingMode';
+import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT, DeviceAdapter } from '../Device';
+import calc from '../calculations'
 
 
 const config = {
@@ -19,9 +19,10 @@ export default class PowerMeterCyclingMode extends CyclingModeBase implements Cy
     prevUpdateTS: number = 0;
     hasBikeUpdate: boolean = false;
 
-    constructor(adapter: KettlerRacerAdapter, props?: Settings) {
+    constructor(adapter: DeviceAdapter, props?: Settings) {
         super(adapter,props);
-        this.logger = adapter ? adapter.getLogger() : undefined;
+        const a = adapter as any
+        this.logger = (a && a.getLogger) ? a.getLogger() : undefined;
         if (!this.logger) this.logger = new EventLogger('PowerMeter')      
     }
 
@@ -55,7 +56,7 @@ export default class PowerMeterCyclingMode extends CyclingModeBase implements Cy
     }
 
 
-    updateData(data: IncyclistBikeData) {
+    updateData(data: IncyclistBikeData):IncyclistBikeData {
 
 
         try {
@@ -75,12 +76,27 @@ export default class PowerMeterCyclingMode extends CyclingModeBase implements Cy
                 power = 0;
             }
 
+
             // calculate speed and distance
             let ts = Date.now();
-            const m = (this.adapter as KettlerRacerAdapter).getWeight();
-            speed = calc.calculateSpeed (m, power, slope)
-            let v = speed/3.6;
+            const a = this.adapter as any;            
+            const m = a.getWeight ? a.getWeight() : DEFAULT_BIKE_WEIGHT+ DEFAULT_USER_WEIGHT;
             let duration =  this.prevUpdateTS===0 ? 0: ((ts-this.prevUpdateTS)/1000) ; // sec
+
+
+            const vPrev = (prevData.speed || 0 )/3.6
+            const EkinPrev = 1/2*m*vPrev*vPrev;
+                    
+            let powerRequired = calc.calculatePower(m,vPrev,prevData.slope||0);
+            const powerDelta = powerRequired - power;
+            const Ekin = EkinPrev-powerDelta*duration;
+            const v = Math.sqrt(2*Ekin/m);
+            speed = v*3.6
+
+
+            //speed = calc.calculateSpeed (m, power, slope)
+            //let v = speed/3.6;
+
             distanceInternal += Math.round(v*duration);
             
 

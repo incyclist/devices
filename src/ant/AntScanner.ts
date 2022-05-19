@@ -2,6 +2,7 @@ import { EventLogger } from "gd-eventlog";
 import DeviceProtocolBase,{INTERFACE,DeviceProtocol,DeviceSettings} from "../DeviceProtocol";
 import AntHrmAdapter from './anthrm/AntHrmAdapter'
 import AntAdapter from "./AntAdapter";
+import AntPwrAdapter from './antpwr/pwr-adapter'
 import AntFEAdapter from "./antfe/AntFEAdapter";
 
 const LOGGER_NAME = 'ANT+Scanner'
@@ -113,7 +114,8 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
 
         this.profiles = [
             { name:'Heartrate Monitor', Adapter: AntHrmAdapter },
-            { name:'Smart Trainer', Adapter: AntFEAdapter }
+            { name:'Smart Trainer', Adapter: AntFEAdapter },
+            { name:'Power Meter', Adapter: AntPwrAdapter }
         ]
     }
 
