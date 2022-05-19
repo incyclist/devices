@@ -10,8 +10,8 @@ const config = {
     properties: [
         {key:'mode',name: 'Simulation Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Speed','Power'], default: 'Power'},
         {key:'delay',name: 'Start Delay', description: 'Delay (in s) at start of training', type: CyclingModeProperyType.Integer, default: 2, min:0, max:30},
-        {key:'power',name: 'Power', description: 'Power (in W) at start of training', condition: (s)=> !s.simType || s.simType==='Power', type: CyclingModeProperyType.Integer, default: 150, min:25, max:800},
-        {key:'speed',name: 'Speed', description: 'Speed (in km/h) at start of training', condition: (s)=> s.simType==='Speed', type: CyclingModeProperyType.Integer, default: 30, min:5, max:50},
+        {key:'power',name: 'Power', description: 'Power (in W) at start of training', condition: (s)=> !s.mode || s.mode==='Power', type: CyclingModeProperyType.Integer, default: 150, min:25, max:800},
+        {key:'speed',name: 'Speed', description: 'Speed (in km/h) at start of training', condition: (s)=> s.mode==='Speed', type: CyclingModeProperyType.Integer, default: 30, min:5, max:50},
     ]
 }
 
@@ -102,9 +102,9 @@ export default class SimulatorCyclingMode extends CyclingModeBase implements Cyc
         try {
 
             let rpm = 90;
-            let power = (mode==='Power'|| !mode) ? this.getSetting('power'): bikeData.power || 0;
+            let power = (mode==='Power'|| !mode) ? Number(this.getSetting('power')): bikeData.power || 0;
             let slope = ( prevData.slope!==undefined ? prevData.slope : prevRequest.slope || 0); 
-            let speed = mode==='Speed' ? this.getSetting('speed'): bikeData.speed || 0;
+            let speed = mode==='Speed' ? Number(this.getSetting('speed')): bikeData.speed || 0;
             let m = 75;
 
             let distanceInternal = prevData.distanceInternal || 0;  // meters
