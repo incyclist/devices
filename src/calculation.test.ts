@@ -11,12 +11,12 @@ describe('Calculations', () => {
                 }
 
                 const result = C.calculateSpeed(70, 100,0);
-                expect(result).toBeCloseTo(25.5,1)
+                expect(result).toBeCloseTo(26.3,1)
             })
 
             it('70kg,100W,1% slope', ()=> {
                 const result = C.calculateSpeed(70, 100, 1);
-                expect(result).toBeCloseTo(20.9,1)
+                expect(result).toBeCloseTo(21.4,1)
             })
 
             it('70kg,100W,5% slope', ()=> {
@@ -31,65 +31,56 @@ describe('Calculations', () => {
 
             it('70kg,100W,-1% slope', ()=> {
                 const result = C.calculateSpeed(70, 100, -1);
-                expect(result).toBeCloseTo(30.2,1)
+                expect(result).toBeCloseTo(31.3,1)
             })
 
             it('70kg,100W,-5% slope', ()=> {
                 const result = C.calculateSpeed(70, 100, -5);
-                expect(result).toBeCloseTo(46.9,1)
+                expect(result).toBeCloseTo(49.1,1)
             })
 
-            it('70kg,100W,-10% slope => 63.2km/h', ()=> {
+            it('70kg,100W,-10% slope', ()=> {
                 const result = C.calculateSpeed(70, 100, -10);
-                expect(result).toBeCloseTo(63.2,1)
+                expect(result).toBeCloseTo(66.3,1)
             })
 
             it('100kg,100W,no slope => 27.1km/h', ()=> {
                 const result = C.calculateSpeed(100, 100,0);
-                expect(result).toBeCloseTo(24.8,1)
+                expect(result).toBeCloseTo(25.5,1)
             })
         })
 
         describe( 'props',()=> {
 
-            it('70kg,100W,no slope,cWA=0.4 => 23.7km/h', ()=> {
+            it('70kg,100W,no slope,cWA=0.45', ()=> {
                 const result = C.calculateSpeed(70, 100,0,{cwA:0.45});
-                expect(result).toBeCloseTo(23.7,1)
+                expect(result).toBeCloseTo(24.3,1)
             })
-            it('70kg,100W,10% slope,cWA=0.4 => 5.0km/h', ()=> {
+            it('70kg,100W,10% slope,cWA=0.45', ()=> {
                 const result = C.calculateSpeed(70, 100,10,{cwA:0.45});
                 expect(result).toBeCloseTo(5.0,1)
             })
 
-            it('70kg,100W,no slope,rho=1.2041(20°,350m) => 23.7km/h', ()=> {
-                const result = C.calculateSpeed(70, 100,0,{cwA:0.45});
-                expect(result).toBeCloseTo(23.7,1)
-            })
-            it('70kg,100W,10% slope,cWA=0.4 => 5.0km/h', ()=> {
-                const result = C.calculateSpeed(70, 100,10,{cwA:0.45});
-                expect(result).toBeCloseTo(5.0,1)
-            })
-
-            it('70kg,100W,0% slope,cWA=0.2798, rho = 1,1455 (35°,0m), cRR=0,00330, => 5.0km/h', ()=> {
+            it('70kg,100W,0% slope,cWA=0.2798, rho = 1,1455 (35°,0m), cRR=0,00330', ()=> {
                 const result = C.calculateSpeed(70, 100,0,{cwA:0.2798, rho:1.1455, cRR:0.00330});
-                expect(result).toBeCloseTo(27.7,1)
+                expect(result).toBeCloseTo(28.8,1)
             })
 
-            it('70kg,100W,0% slope ', ()=> {
+            it('70kg,100W,0% slope, unknown bike type ', ()=> {
                 const result = C.calculateSpeed(70, 100,0,{bikeType:'something'});
                 const resultRace = C.calculateSpeed(70, 100,0,{bikeType:'race'});
-                expect(result).toBeCloseTo(resultRace,5)
+                expect(result).toBeCloseTo(resultRace,2)
             })
             it('70kg,100W,0% slope triathlon', ()=> {
                 const result = C.calculateSpeed(70, 100,0,{bikeType:'triathlon'});
                 
-                expect(result).toBeCloseTo(26.9,1)
+                expect(result).toBeCloseTo(27.9,1)
             })
 
             it('70kg,100W,0% slope mountain', ()=> {
                 const result = C.calculateSpeed(70, 100,0,{bikeType:'mountain'});
                 
-                expect(result).toBeCloseTo(22.1,1)
+                expect(result).toBeCloseTo(22.6,1)
             })
 
         })
@@ -116,10 +107,10 @@ describe('Calculations', () => {
             it('empty slope', ()=> {
 
                 const result = C.calculateSpeed(70,100,null);
-                expect(result).toBeCloseTo(25.5,1)
+                expect(result).toBeCloseTo(26.3,1)
 
                 const result1 = C.calculateSpeed(70,100,undefined);
-                expect(result1).toBeCloseTo(25.5,1)
+                expect(result1).toBeCloseTo(26.3,1)
 
             })
 

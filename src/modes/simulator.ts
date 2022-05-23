@@ -1,6 +1,6 @@
 import { EventLogger } from "gd-eventlog";
 import CyclingMode, { CyclingModeBase, CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, Settings, UpdateRequest } from "../CyclingMode";
-import { Simulator } from "./Simulator";
+import { Simulator } from "../simulator/Simulator";
 import calc from '../calculations'
 
 
@@ -161,29 +161,6 @@ export default class SimulatorCyclingMode extends CyclingModeBase implements Cyc
         return data;
 
         
-    }
-
-
-    calculateTargetPower(request, updateMode=true) {       
-        /*
-        const bikeType = this.getSetting('bikeType').toLowerCase();
-        const defaultPower = this.getSetting('startPower');
-
-        let m = (this.adapter as DaumAdapter).getWeight();
-        const prevData = this.data || {} as any;
-        let target;
-
-        if ( prevData.pedalRpm  && prevData.gear  && (!updateMode ||prevData.pedalRpm!==0)  ) {
-            const speed = calc.calculateSpeedDaum(prevData.gear,prevData.pedalRpm,bikeType);
-            var power = calc.calculatePower(m,speed/3.6,0,{bikeType});
-            target = Math.round(power);
-        }
-        else {
-            target = Math.round(request.targetPower || defaultPower);
-        }        
-        
-        return target;
-        */
     }
 
 

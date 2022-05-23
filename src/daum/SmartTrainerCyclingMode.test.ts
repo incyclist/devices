@@ -128,7 +128,7 @@ describe( 'SmartTrainerCyclingMode',()=>{
             const res = cyclingMode.updateData({speed:11,slope:0,power:50,isPedalling:true,pedalRpm:34,heartrate:226,distanceInternal:0,time:2,gear:10})
 
 
-            expect(res.speed).toBeCloseTo(19,1)
+            expect(res.speed).toBeCloseTo(19.5,1)
         })
 
         test('start pedaling',()=>{

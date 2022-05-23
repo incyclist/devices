@@ -8,7 +8,7 @@ const cwABike = {
     triathlon:0.29,
     mountain: 0.57
 }
-const k = 0.01090;					// http://www.radpanther.de/index.php?id=85  -- Shimano Ultegra WH6700 (4)
+//const k = 0.01090;					// http://www.radpanther.de/index.php?id=85  -- Shimano Ultegra WH6700 (4)
 const cRR = 0.0036;					// http://www.radpanther.de/index.php?id=85  -- Conti GP 4000 RS
 	
 
@@ -62,7 +62,7 @@ export default class C {
         const _cwA = props.cwA || cwABike[props.bikeType||'race'] || cwABike.race
 
 		let sl = Math.atan(slope/100);
-		let c1 = 0.5*_rho*_cwA+2*k;
+		let c1 = 0.5*_rho*_cwA//+2 *k;
 		let c2 = (sl +_cRR)*m*g;
 		
 		let p = c2/c1;
@@ -121,7 +121,7 @@ export default class C {
 		 * P = 1/2*rho*cWA*v^3 +2*k v^3 + m*g*sl*v + cRR*m*g*v 
 		 */
 		let sl = Math.sin(Math.atan(slope/100));
-		let P = (0.5*_rho*_cwA+2*k)*Math.pow(v,3.0)+(sl +_cRR)*m*g*v; 
+		let P = (0.5*_rho*_cwA/*+2*k*/)*Math.pow(v,3.0)+(sl +_cRR)*m*g*v; 
 		
 		return P;
     }	

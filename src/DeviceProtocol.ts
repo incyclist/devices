@@ -95,6 +95,7 @@ export default class DeviceProtocolBase {
     stopScan():void { throw new Error('not implemented') }
     isScanning(): boolean { throw new Error('not implemented') } 
 
+    add(props: DeviceSettings) { throw new Error('Method not implemented.') }
     getDevices():Array<Device> { return this.devices}
 
     setAnt(antClass) { DeviceProtocolBase.setAnt(antClass)}

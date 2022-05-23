@@ -4,7 +4,7 @@ import DeviceAdapter from '../Device';
 
 import {EventLogger} from 'gd-eventlog'
 import CyclingMode, { IncyclistBikeData } from '../CyclingMode';
-import SimulatorCyclingMode from './simulator-mode';
+import SimulatorCyclingMode from '../modes/simulator';
 import { DeviceData } from '../Device';
 
 const DEFAULT_SETTINGS = { name:'Simulator', port: '', isBot:false }

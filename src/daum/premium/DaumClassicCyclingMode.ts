@@ -1,7 +1,7 @@
 import { EventLogger } from "gd-eventlog";
 import CyclingMode, { CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, Settings, UpdateRequest } from "../../CyclingMode";
 import DaumAdapter from "../DaumAdapter";
-import PowerMeterCyclingMode from "../PowerMeterCyclingMode";
+import DaumPowerMeterCyclingMode from "../DaumPowerMeterCyclingMode";
 
 
 const config = {
@@ -13,7 +13,7 @@ const config = {
 }
 
 
-export default class DaumClassicCyclingMode extends PowerMeterCyclingMode implements CyclingMode {
+export default class DaumClassicCyclingMode extends DaumPowerMeterCyclingMode implements CyclingMode {
     constructor(adapter: DaumAdapter, props?: Settings) {
         super(adapter,props);
         this.logger = adapter ? adapter.logger : undefined;

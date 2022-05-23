@@ -137,7 +137,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
                     startState.startProg = true;
                 }
                 if ( !startState.setGear) {
-                    await this.bike.setGear( this.daumRunData.gear || ( opts.gear ||10 ));    
+                    await this.bike.setGear( this.cyclingData.gear || ( opts.gear ||10 ));    
                     startState.setGear = true;
                 }
 

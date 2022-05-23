@@ -2,6 +2,7 @@ import { EventLogger } from "gd-eventlog";
 import CyclingMode, { CyclingModeBase, CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, Settings, UpdateRequest } from "../CyclingMode";
 import DaumAdapter from "./DaumAdapter";
 import calc from '../calculations'
+import PowerBasedCyclingModeBase from "../modes/power-base";
 
 
 const config = {
@@ -21,24 +22,17 @@ export type ERGEvent = {
 }
 
 
-export default class ERGCyclingMode extends CyclingModeBase implements CyclingMode {
+export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements CyclingMode {
 
-    logger: EventLogger;
-    data: IncyclistBikeData ;
     prevRequest: UpdateRequest;
-    prevUpdateTS: number = 0;
     hasBikeUpdate: boolean = false;
     chain: number[];
     cassette: number[];
     event: ERGEvent ={};
 
     constructor(adapter: DaumAdapter, props?:any) {
-
         super(adapter,props);
-        this.logger = adapter.logger || new EventLogger('ERGMode')           
-        this.data = {} as any;
-
-        this.logger.logEvent({message:'constructor',props})
+        this.initLogger('ERGMode')
     }
 
 
@@ -185,7 +179,7 @@ export default class ERGCyclingMode extends CyclingModeBase implements CyclingMo
         const data = this.data || {} as any;
 
         const bikeType = this.getSetting('bikeType').toLowerCase();
-        console.log('~~~ bikeType',bikeType)
+        
         delete this.event.gearUpdated;
         delete this.event.rpmUpdated;       
        
@@ -196,36 +190,28 @@ export default class ERGCyclingMode extends CyclingModeBase implements CyclingMo
 
         try {
 
-            let rpm = bikeData.pedalRpm || 0;
-            let gear = bikeData.gear || 0
+            const rpm = bikeData.pedalRpm || 0;
+            const gear = bikeData.gear || 0
             let power = bikeData.power || 0;
-            let slope = ( prevData.slope!==undefined ? prevData.slope : prevRequest.slope || 0); // ignore slope delivered by bike
-            let speed;
-
-            let m = (this.adapter as DaumAdapter).getWeight();
-            let distanceInternal = prevData.distanceInternal || 0;  // meters
-            let ts = Date.now();
-            let duration =  this.prevUpdateTS===0 ? 0: ((ts-this.prevUpdateTS)/1000) ; // sec
-                
-            //let speed = calc.calculateSpeedDaum(gear, rpm, bikeType)
-            if (rpm===0 || bikeData.isPedalling===false) {
-                speed = 0;
+            const slope = ( prevData.slope!==undefined ? prevData.slope : prevRequest.slope || 0); // ignore slope delivered by bike
+            const distanceInternal = prevData.distanceInternal || 0;  // meters
+            if (!bikeData.pedalRpm || bikeData.isPedalling===false) {
                 power = 0;
             }
-            else {
-                speed = calc.calculateSpeed(m,power,slope,{bikeType} ); // km/h
-                let v = speed/3.6;
-                distanceInternal += Math.round(v*duration);
-            }
+
+            // calculate speed and distance
+            const m = this.getWeight();
+            const t =  this.getTimeSinceLastUpdate();
+            const {speed,distance} = this.calculateSpeedAndDistance(power,slope,m,t,{bikeType});
         
             data.speed = parseFloat(speed.toFixed(1));
             data.power = Math.round(power);
-            data.distanceInternal = distanceInternal;
+            data.distanceInternal = Math.round(distanceInternal+distance);
             data.slope = slope;
             data.pedalRpm = rpm;
             data.gear = gear;
-            if ( data.time!==undefined)
-                data.time+=duration;
+            if ( data.time!==undefined && !(this.event.starting && !bikeData.pedalRpm))
+                data.time+=t;
             else data.time =0;
             data.heartrate=bikeData.heartrate;
             data.isPedalling=bikeData.isPedalling;
@@ -236,8 +222,6 @@ export default class ERGCyclingMode extends CyclingModeBase implements CyclingMo
             if (rpm && rpm!==prevData.pedalRpm) {
                 this.event.rpmUpdated = true;
             }
-            
-            this.prevUpdateTS = ts       
     
         }
         catch (err) /* istanbul ignore next */ {
@@ -256,7 +240,7 @@ export default class ERGCyclingMode extends CyclingModeBase implements CyclingMo
         const bikeType = this.getSetting('bikeType').toLowerCase();
         const defaultPower = this.getSetting('startPower');
 
-        let m = (this.adapter as DaumAdapter).getWeight();
+        let m = this.getWeight();
         const prevData = this.data || {} as any;
         let target;
 

@@ -31,7 +31,7 @@ describe( 'DaumAdapter', ()=>{
             const a = new DaumAdapter({},bike)
             expect(a.stopped).toBe(false)
             expect(a.paused).toBe(false)
-            expect(a.daumRunData).toEqual({isPedalling:false,
+            expect(a.cyclingData).toEqual({isPedalling:false,
                 time:0,
                 power:0,
                 pedalRpm:0,
@@ -167,7 +167,7 @@ describe( 'DaumAdapter', ()=>{
             let data = {}
 
             a.updateData(data,{cadence:0, power:25, speed:0, heartrate:0, distance:0, time:0})
-            expect(a.daumRunData).toEqual(cmData)
+            expect(a.cyclingData).toEqual(cmData)
         })
         test('no cycling mode set: uses default cycling mode',()=>{
             a.cyclingMode = undefined;
@@ -184,55 +184,77 @@ describe( 'DaumAdapter', ()=>{
     describe('updateData component test',()=>{
         let a: DaumAdapter;
         let data:any;
+
+        beforeAll( () => {
+            jest.useFakeTimers();
+        })
+        afterAll( () => {
+            jest.useRealTimers();
+        })
     
         beforeEach( async ()=>{
             a = new DaumAdapter( {userSettings:{weight:80}, bikeSettings:{weight:10}},null);
             data={}
-            await a.updateData(data,{cadence:90,slope:0,gear:10, power:100});
+            await a.updateData(data,{cadence:0,power:0,speed:0,slope:0,gear:10});
         })
+
         test('start - no pedalling',()=>{
             let data = {}
+            jest.advanceTimersByTime(1000);
+            data = a.updateData(data,{cadence:0, power:50, speed:0, heartrate:0, distance:0, time:0, gear:10})
+            expect(data).toEqual({isPedalling:false, power:0, pedalRpm:0, speed:0, heartrate:0, distanceInternal:0, time:0,gear:10, slope:0})
             
-            a.updateData(data,{cadence:0, power:50, speed:0, heartrate:0, distance:0, time:0, gear:10})
-            expect(a.daumRunData).toEqual({isPedalling:false, power:0, pedalRpm:0, speed:0, heartrate:0, distanceInternal:0, time:0,gear:10, slope:0})
-            expect(data).toEqual({})
         })
 
         test('start - pedalling',()=>{
-            
-            a.updateData({},{cadence:90, power:50, speed:29.9, heartrate:0, distance:0, time:0, gear:10})
-            expect(a.daumRunData).toEqual({isPedalling:true, power:50, pedalRpm:90, speed:18.8, heartrate:0, distanceInternal:0, time:0,gear:10, slope:0})
+            let data;
+
+            jest.advanceTimersByTime(1000);            
+            data=a.updateData({},{cadence:90, power:50, speed:29.9, heartrate:0, distance:0, time:0, gear:10})
+            expect(data).toEqual({isPedalling:true, power:50, pedalRpm:90, speed:3.8, heartrate:0, distanceInternal:1, time:1,gear:10, slope:0})
         })
 
         test('increase slope: power does not change, speed gets slower',()=>{
-            
-            a.updateData({},{cadence:90, power:50, slope:0, speed:29.9, heartrate:0, time:0, gear:10})
-            expect(a.daumRunData).toEqual({isPedalling:true, power:50, pedalRpm:90, speed:18.8, heartrate:0, distanceInternal:0, time:0,gear:10, slope:0})
+            let data;            
+
+            jest.advanceTimersByTime(1000);            
+            data = a.updateData({},{cadence:90, power:50, slope:0, speed:29.9, heartrate:0, time:0, gear:10})
+            expect(data).toEqual({isPedalling:true, power:50, pedalRpm:90, speed:3.8, heartrate:0, distanceInternal:1, time:1,gear:10, slope:0})
 
             a.sendUpdate({slope:1})
-            a.updateData(a.daumRunData,{cadence:90, power:50, slope:1, speed:29.9, heartrate:0,  time:0, gear:10})
-            expect(a.daumRunData.power).toEqual(50)
-            expect(a.daumRunData.speed).toBeCloseTo(12.2,1)
+            jest.advanceTimersByTime(1000);            
+            data = a.updateData(a.cyclingData,{cadence:90, power:50, slope:1, speed:29.9, heartrate:0,  time:0, gear:10})
+            expect(data.power).toEqual(50)
+            expect(data.speed).toBeCloseTo(5.0,1)
             
             a.sendUpdate({slope:2})
-            a.updateData(a.daumRunData,{cadence:90, power:50, slope:2, speed:29.9, heartrate:0,  time:0, gear:10})
-            expect(a.daumRunData.power).toEqual(50)
-            expect(a.daumRunData.speed).toBeCloseTo(8.2,1)
+            jest.advanceTimersByTime(1000);            
+            data = a.updateData(a.cyclingData,{cadence:90, power:50, slope:2, speed:29.9, heartrate:0,  time:0, gear:10})
+            expect(data.power).toEqual(50)
+            expect(data.speed).toBeCloseTo(5.6,1)
         })
 
         test('slope negative: power does not change, speed increases',()=>{
-            
-            a.updateData({},{cadence:90, power:50, slope:0, speed:29.9, heartrate:0,  time:0, gear:10})
-            expect(a.daumRunData).toEqual({isPedalling:true, power:50, pedalRpm:90, speed:18.8, heartrate:0,  distanceInternal:0, time:0,gear:10, slope:0})
+            let data;
+            jest.advanceTimersByTime(1000);            
+            data = a.updateData({},{cadence:90, power:50, slope:0, speed:29.9, heartrate:0,  time:0, gear:10})
+            expect(data).toEqual({isPedalling:true, power:50, pedalRpm:90, speed:3.8, heartrate:0, distanceInternal:1, time:1,gear:10, slope:0})
             
             a.sendUpdate({slope:-1})
-            a.updateData(data,{cadence:90, power:50, slope:0, speed:29.9, heartrate:0,  time:0, gear:10})
-            expect(a.daumRunData.speed).toBeCloseTo(26.4,1)
+            jest.advanceTimersByTime(1000);            
+            data = a.updateData(data,{cadence:90, power:50, slope:0, speed:29.9, heartrate:0,  time:0, gear:10})
+            expect(data.speed).toBeCloseTo(5.5,1)
+            expect(data.power).toEqual(50)
 
             a.sendUpdate({slope:-2})
-            a.updateData(data,{cadence:90, power:50, slope:-1, speed:29.9, heartrate:0,  time:0, gear:10})
-            expect(a.daumRunData.speed).toBeCloseTo(33.3,1)
+            jest.advanceTimersByTime(1000);            
+            data = a.updateData(data,{cadence:90, power:50, slope:-1, speed:29.9, heartrate:0,  time:0, gear:10})
+            expect(data.speed).toBeCloseTo(7.1,1)
+            expect(data.power).toEqual(50)
+
         })
+
+
 
 
     })
@@ -269,7 +291,7 @@ describe( 'DaumAdapter', ()=>{
 
         test('refresh, on first request: just calculates target Power',async ()=>{
             const res = await a.sendUpdate({refresh:true}) as any;
-            expect(res.targetPower).toBeCloseTo(160,0)
+            expect(res.targetPower).toBeCloseTo(147,0)
             expect(res.slope).toBeUndefined()
         })
         test('refresh,on subsequent request, ERG will not repeat same request',async ()=>{
@@ -284,40 +306,40 @@ describe( 'DaumAdapter', ()=>{
             await a.sendUpdate({reset:true})
             const res = await a.sendUpdate({slope:5}) as any;
             expect(res.slope).toBeUndefined()
-            expect(res.targetPower).toBeCloseTo(160,0)      
+            expect(res.targetPower).toBeCloseTo(147,0)      
         })
 
         test('slope: slope value has no impact',async ()=>{
             let res;
             
             res= await a.sendUpdate({slope:1})
-            expect(res.targetPower).toBeCloseTo(160,0)      
+            expect(res.targetPower).toBeCloseTo(147,0)      
             res = await a.sendUpdate({slope:2})
-            expect(res.targetPower).toBeCloseTo(160,0)      
+            expect(res.targetPower).toBeCloseTo(147,0)      
             res = await a.sendUpdate({slope:12})
-            expect(res.targetPower).toBeCloseTo(160,0)      
+            expect(res.targetPower).toBeCloseTo(147,0)      
 
             await a.updateData(data,{cadence:90,slope:0,gear:20, power:100, speed:30});            
             res = await a.sendUpdate({slope:12})
-            expect(res.targetPower).toBeCloseTo(383,0)      
+            expect(res.targetPower).toBeCloseTo(350,0)      
 
         })
 
         test('rpm changes will enforce recalculation',async ()=>{
             let res;
             res = await a.sendUpdate({slope:1})
-            expect(res.targetPower).toBeCloseTo(160,0)      
+            expect(res.targetPower).toBeCloseTo(147,0)      
 
             await a.updateData(data,{cadence:91,gear:10});
             res = await a.sendUpdate({slope:1})
-            expect(res.targetPower).toBeCloseTo(165,0)      
+            expect(res.targetPower).toBeCloseTo(152,0)      
 
             await a.updateData(data,{cadence:90,gear:10});
             res = await a.sendUpdate({slope:1})
-            expect(res.targetPower).toBeCloseTo(160,0)      
+            expect(res.targetPower).toBeCloseTo(147,0)      
 
             res = await a.sendUpdate({slope:12})
-            expect(res.targetPower).toBeCloseTo(160,0)      
+            expect(res.targetPower).toBeCloseTo(147,0)      
 
         })
 
@@ -344,7 +366,7 @@ describe( 'DaumAdapter', ()=>{
         test('maxPower set, but current power below limit: ',async ()=>{
             //await a.updateData(data,{cadence:90,slope:0,gear:10, power:100});                       
             let res = await a.sendUpdate({maxPower:200}) as any
-            expect(res.targetPower).toBeCloseTo(160,0)      
+            expect(res.targetPower).toBeCloseTo(147,0)      
  
         })
         test('maxPower set, current power above limit: enforces limit',async ()=>{          
@@ -375,7 +397,7 @@ describe( 'DaumAdapter', ()=>{
         test('minPower set, but current power above limit: ',async ()=>{
             //await a.updateData(data,{cadence:90,slope:0,gear:10, power:100});                       
             let res = await a.sendUpdate({minPower:90}) as any
-            expect(res.targetPower).toBeCloseTo(160,0)      
+            expect(res.targetPower).toBeCloseTo(147,0)      
  
         })
         test('min set, current power below limit: enforces limit',async ()=>{          

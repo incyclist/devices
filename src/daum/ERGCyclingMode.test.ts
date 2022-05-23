@@ -156,7 +156,6 @@ describe( 'ERGCyclingMode',()=>{
         test('no slope, first request',()=>{
             const adapter = new DaumAdapter({userWeight:80, bikeWeight:10},null);
             const cyclingMode = new ERGCyclingMode(adapter);
-            cyclingMode.data = undefined
             cyclingMode.prevRequest = undefined
             const res = cyclingMode.updateData({ isPedalling: true,pedalRpm: 100,gear:10, power: 100,distanceInternal: 0,speed: 0,heartrate: 0,time: 100})
             expect(res.slope).toBe(0)
@@ -165,7 +164,7 @@ describe( 'ERGCyclingMode',()=>{
         test('no slope, slope was set before',()=>{
             const adapter = new DaumAdapter({userWeight:80, bikeWeight:10},null);
             const cyclingMode = new ERGCyclingMode(adapter);
-            cyclingMode.data = {slope:2} as any
+            cyclingMode.data.slope = 2;
             cyclingMode.prevRequest = undefined
             const res = cyclingMode.updateData({ isPedalling: true,pedalRpm: 100,gear:10, power: 100,distanceInternal: 0,speed: 0,heartrate: 0,time: 100})
             expect(res.slope).toBe(2)
@@ -174,7 +173,7 @@ describe( 'ERGCyclingMode',()=>{
         test('contains slope, will be ignored',()=>{
             const adapter = new DaumAdapter({userWeight:80, bikeWeight:10},null);
             const cyclingMode = new ERGCyclingMode(adapter);
-            cyclingMode.data = {slope:2} as any
+            cyclingMode.data.slope = 2;
             cyclingMode.prevRequest = undefined
             // ignores slope if provided by bike
             let res=cyclingMode.updateData({ isPedalling: true,pedalRpm: 100,gear:10, slope:1, power: 100,distanceInternal: 0,speed: 0,heartrate: 0,time: 100})
@@ -184,7 +183,6 @@ describe( 'ERGCyclingMode',()=>{
         test('no slope, but previous request on slope',()=>{
             const adapter = new DaumAdapter({userWeight:80, bikeWeight:10},null);
             const cyclingMode = new ERGCyclingMode(adapter);
-            cyclingMode.data = undefined
             cyclingMode.prevRequest = {slope: 2}
             const res = cyclingMode.updateData({ isPedalling: true,pedalRpm: 100,gear:10, power: 100,distanceInternal: 0,speed: 0,heartrate: 0,time: 100})
             expect(res.slope).toBe(2)
@@ -227,30 +225,30 @@ describe( 'ERGCyclingMode',()=>{
                 
                 let res;
                 res = cm.calculateTargetPower({});
-                expect(res  ).toBeCloseTo(158,0);
+                expect(res  ).toBeCloseTo(146,0);
 
                 cm.adapter.getWeight = jest.fn().mockReturnValue(90);
                 res = cm.calculateTargetPower({});
-                expect(res  ).toBeCloseTo(160,0);
+                expect(res  ).toBeCloseTo(147,0);
 
             })
             test('targetPower not set: will set targetPower according to gear and cadence ',()=>{
                 cm.data = {pedalRpm:90, gear:10}
                 const res = cm.calculateTargetPower({slope:5});
-                expect(res  ).toBeCloseTo(158,0);
+                expect(res  ).toBeCloseTo(146,0);
                 
 
 
             })
             
-            test('not pedalling: will set targetPower to "startPower" setting',()=>{
+            test('not pedalling: will set targetPower to initial setting',()=>{
                 cm.data = {pedalRpm:0, gear:10}
                 const res = cm.calculateTargetPower({slope:5});
                 expect(res  ).toBeCloseTo(50,0);
             })
 
 
-            test('no gear: will set targetPower to "startPower" setting',()=>{
+            test('no gear:  will set targetPower to initial setting',()=>{
                 cm.data = {pedalRpm:90, gear:0}
                 
                 const res = cm.calculateTargetPower({slope:5});
@@ -262,6 +260,16 @@ describe( 'ERGCyclingMode',()=>{
 
     describe('sendBikeUpdate',()=>{
         // only edge cases are tested here. The test coverage is achieved in the Adapter test
+
+        beforeAll( () => {
+            jest.useFakeTimers();
+        })
+        afterAll( () => {
+            jest.useRealTimers();
+        })
+
+
+
         test('starting',()=>{
             const adapter = new DaumAdapter({},null);
             const cm = new ERGCyclingMode(adapter);
@@ -276,6 +284,7 @@ describe( 'ERGCyclingMode',()=>{
             res = cm.sendBikeUpdate({ refresh:true})
             expect(res).toEqual({targetPower:100})
 
+            jest.advanceTimersByTime(1000);
             res = cm.updateData({time:0,slope:0,speed:3,isPedalling:true,power:100,distanceInternal:0,pedalRpm:11,heartrate:216,gear:10})
 
             res = cm.sendBikeUpdate({ refresh:true})
@@ -293,23 +302,28 @@ describe( 'ERGCyclingMode',()=>{
                 if (key==='bikeType') return 'race'
             });
 
-            let res;
             cm.prevRequest = {};
             cm.data = {speed:40,slope:0,power:158,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:10,gear:10,time:1220.219};
-            res = cm.updateData({speed:30,slope:0,power:158,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
-            expect(cm.data.speed).toBeCloseTo(29.9,1)
+            cm.prevUpdateTS = Date.now()
+
+            jest.advanceTimersByTime(1000);
+            cm.updateData({speed:30,slope:0,power:158,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
+            expect(cm.data.speed).toBeCloseTo(39.4,1)
             
-            res = cm.sendBikeUpdate({slope:-2.798902988433838})
-            res = cm.updateData({speed:50,slope:0,power:158,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
-            expect(cm.data.speed).toBeGreaterThan(29.9)
+            cm.sendBikeUpdate({slope:-2.798902988433838})
+            jest.advanceTimersByTime(1000);
+            cm.updateData({speed:50,slope:0,power:158,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
+            expect(cm.data.speed).toBeGreaterThan(39.4)
 
-            res = cm.sendBikeUpdate({slope:0})
-            res = cm.updateData({speed:60,slope:0,power:158,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
-            expect(cm.data.speed).toBeCloseTo(29.9,1)
+            cm.sendBikeUpdate({slope:0})
+            jest.advanceTimersByTime(1000);
+            cm.updateData({speed:60,slope:0,power:158,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
+            expect(cm.data.speed).toBeCloseTo(39.2,1)
 
-            res = cm.sendBikeUpdate({slope:1})
-            res = cm.updateData({speed:870,slope:0,power:158,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
-            expect(cm.data.speed).toBeLessThan(29.9)
+            cm.sendBikeUpdate({slope:1})
+            jest.advanceTimersByTime(1000);
+            cm.updateData({speed:870,slope:0,power:158,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
+            expect(cm.data.speed).toBeLessThan(39.4)
         })
 
         test('slope change with triathlon',()=>{
@@ -322,23 +336,31 @@ describe( 'ERGCyclingMode',()=>{
 
             let res;
             cm.prevRequest = {};
-            cm.data = {power:100} as any;
+            cm.data = {speed:30,power:100} as any;
+            cm.prevUpdateTS = Date.now()
+
+            jest.advanceTimersByTime(1000);
             res = cm.updateData({speed:30,slope:0,power:158,isPedalling:false,pedalRpm:0,heartrate:99,distanceInternal:242351,gear:10,time:1626})
+
+
             res = cm.sendBikeUpdate({slope:-2.798902988433838})
-            
+            jest.advanceTimersByTime(1000);
             res = cm.updateData({speed:30,slope:0,power:100,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
             // TODO:understand what should be expected here ( 100W vs 138W -- 26.5km/h vs 31.5km/h)
             //expect(cm.data.speed).toBeCloseTo(26.5,1)
             
             res = cm.sendBikeUpdate({slope:-2.798902988433838})
+            jest.advanceTimersByTime(1000);
             res = cm.updateData({speed:50,slope:0,power:res.targetPower,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
-            expect(cm.data.speed).toBeGreaterThan(31.5)
+            expect(cm.data.speed).toBeGreaterThan(31.2)
 
             res = cm.sendBikeUpdate({slope:0})
+            jest.advanceTimersByTime(1000);
             res = cm.updateData({speed:60,slope:0,power:158,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
-            expect(cm.data.speed).toBeCloseTo(31.5,1)
+            expect(cm.data.speed).toBeCloseTo(31.4,1)
 
             res = cm.sendBikeUpdate({slope:1})
+            jest.advanceTimersByTime(1000);
             res = cm.updateData({speed:870,slope:0,power:158,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
             expect(cm.data.speed).toBeLessThan(31.5)
         })
@@ -357,34 +379,40 @@ describe( 'ERGCyclingMode',()=>{
             cm.prevRequest = {};
             cm.event = {}
             cm.data = {speed:40,slope:0,power:158,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:10,gear:10,time:1220.219};
+            cm.prevUpdateTS = Date.now()
 
             // increase cadence -> target power will increase & speed will increase once bike has adjusted power
+            jest.advanceTimersByTime(1000);
             cm.updateData({speed:30,slope:0,power:158,isPedalling:true,pedalRpm:91,heartrate:99,distanceInternal:242351,gear:10,time:1626} )  
             expect(cm.event.rpmUpdated).toBe(true)         
-            expect(cm.data.speed).toBeCloseTo(29.9,1)
+            expect(cm.data.speed).toBeCloseTo(39.4,1)
             res = cm.sendBikeUpdate({refresh:true})
-            expect(res.targetPower).toBeGreaterThan(158)
+            expect(res.targetPower).toBeCloseTo(150,0)
             
             // back to previous will also reset speed and power
+            jest.advanceTimersByTime(1000);
             cm.updateData({speed:30,slope:0,power:res.targetPower,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626} )  
-            expect(cm.data.speed).toBeGreaterThan(29.9)
+            expect(cm.data.speed).toBeCloseTo(38.8,1)
             expect(cm.event.rpmUpdated).toBe(true)         
             res = cm.sendBikeUpdate({refresh:true})
-            expect(res.targetPower).toBe(158)
+            expect(res.targetPower).toBe(146)
 
             // decrease cadence -> target power will decrease & speed will decrease once bike has adjusted power
+            jest.advanceTimersByTime(1000);
             cm.updateData({speed:30,slope:0,power:158,isPedalling:true, pedalRpm:89,heartrate:99,distanceInternal:242351,gear:10,time:1626} )  
-            expect(cm.data.speed).toBeCloseTo(29.9,1)
+            expect(cm.data.speed).toBeCloseTo(38.3,1)
             expect(cm.event.rpmUpdated).toBe(true)         
             res = cm.sendBikeUpdate({refresh:true})
             expect(res.targetPower).toBeLessThan(158)
+            jest.advanceTimersByTime(1000);
             cm.updateData({speed:30,slope:0,power:res.targetPower,isPedalling:true, pedalRpm:89,heartrate:99,distanceInternal:242351,gear:10,time:1626} )  
-            expect(cm.data.speed).toBeLessThan(29.9)
+            expect(cm.data.speed).toBeCloseTo(37.7,1)
             expect(cm.event.rpmUpdated).toBeUndefined()
 
-            // decrease cadence to zero, speed will be immediately set to zero, sets target to "startPower"
+            // decrease cadence to zero, speed will not be immediately set to zero, sets target to "startPower"
+            jest.advanceTimersByTime(1000);
             cm.updateData({speed:30,slope:0,power:158,isPedalling:false, pedalRpm:0,heartrate:99,distanceInternal:242351,gear:10,time:1626} )  
-            expect(cm.data.speed).toBe(0)
+            expect(cm.data.speed).not.toBe(0)
             res = cm.sendBikeUpdate({refresh:true})
             expect(res.targetPower).toBe( cm.getSetting('startPower') )
         })
