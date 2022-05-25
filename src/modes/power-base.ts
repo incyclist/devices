@@ -58,7 +58,8 @@ export default class PowerBasedCyclingModeBase extends CyclingModeBase  {
 
         const vPrev = (prevData.speed || 0 )/3.6
         const EkinPrev = 1/2*m*vPrev*vPrev;
-        const Ekin = 1/2*m*speed*speed;
+        const vTarget = (speed||0) /3.6;
+        const Ekin = 1/2*m*vTarget*vTarget;
 
         const powerDelta = t!==0 ? (EkinPrev - Ekin)/t : 0;
         const powerToMaintainSpeed = calc.calculatePower(m,vPrev,slope,props);
