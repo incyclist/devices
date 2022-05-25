@@ -1,6 +1,6 @@
 import {ACTUAL_BIKE_TYPE,BIKE_INTERFACE} from "../constants"
 import TcpSocketPort from './tcpserial'
-import {buildMessage,hexstr,ascii,bin2esc, esc2bin,parseTrainingData, checkSum, getAsciiArrayFromStr, getPersonData, ReservedCommands, BikeType, routeToEpp, getBikeType} from './utils'
+import {buildMessage,hexstr,ascii,bin2esc, esc2bin,parseTrainingData, checkSum, getAsciiArrayFromStr, getPersonData, ReservedCommands, routeToEpp, getBikeType} from './utils'
 
 import {Queue} from '../../utils';
 

@@ -1,6 +1,5 @@
 import { Route } from "../../types/route";
-import { Gender, User } from "../../types/user";
-import { DEFAULT_AGE, DEFAULT_USER_WEIGHT } from "../classic/utils";
+import { User } from "../../types/user";
 import FileTime from 'win32filetime'
 
 const sum = (arr) => arr.reduce( (a,b) => a+b,0);

@@ -1,5 +1,4 @@
 import {Device} from "./DeviceProtocol"
-import calc from "./calculations"
 
 export type UpdateRequest = {
     slope?: number;

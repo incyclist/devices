@@ -259,9 +259,6 @@ describe( 'bike',()=> {
 
 
     describe( 'connect',()=> {
-
-        let openFn;
-
         beforeEach( ()=> {
             MockSerialPort.reset();    
             (MockSerialPort as any).list = ()=> { return new Promise( resolve=> resolve([ {path:'COM1'}])) }
@@ -281,7 +278,7 @@ describe( 'bike',()=> {
             MockSerialPort.setOpenTimeout(3000);
 
             const bike = new Bike( {port:'COM1'} )
-            const res = bike.saveConnect();
+            bike.saveConnect();
             expect(bike.connected).toBeFalsy();
             expect(bike.opening).toBeTruthy();
             expect(bike.cmdBusy).toBeTruthy();
@@ -368,10 +365,9 @@ describe( 'bike',()=> {
             MockSerialPort.setResponse( 0x24, ( _command:any, sendData: (msg: number[]) => void) => { sendData([0x24, 0, 0, 30, 2, 170, 85, 0, 0, 3, 32, 0, 0, 0, 0]) } )
 
             let error;
-            let res;
             await bike.saveConnect();
             try {
-                res = await bike.setPerson({weight:75,length:170}) ;
+                await bike.setPerson({weight:75,length:170}) ;
             }                
             catch (err) { error = err; }
 

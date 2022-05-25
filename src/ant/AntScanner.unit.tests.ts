@@ -11,13 +11,6 @@ const TestData = [
     {"busNumber":1,"deviceAddress":1,"deviceDescriptor":{"bLength":18,"bDescriptorType":1,"bcdUSB":0,"bDeviceClass":9,"bDeviceSubClass":0,"bDeviceProtocol":0,"bMaxPacketSize0":0,"idVendor":32902,"idProduct":39985,"bcdDevice":0,"iManufacturer":0,"iProduct":0,"iSerialNumber":0,"bNumConfigurations":1},"inUse":false}
 ]
 
-class MockGarminStick2 {
-
-}
-
-class MockGarminStick3 {
-
-}
 
 class MockAnt {
     static getSticks() { return TestData }

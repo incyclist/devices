@@ -11,7 +11,7 @@ describe('utils',()=>{
             const t=Date.now()
             await sleep(10 );
             const tE = Date.now();
-            expect( (tE-t)>=10 ).toBe(true); 
+            expect( (tE-t) ).toBeGreaterThanOrEqual(10);
         })    
     })
     

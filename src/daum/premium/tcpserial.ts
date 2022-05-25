@@ -1,8 +1,6 @@
 import netClass from 'net'
 import {EventLogger} from 'gd-eventlog'
 
-const TIMEOUT_OPEN = 1000;
-
 var __responses = {}
 
 export default class TcpSocketPort {

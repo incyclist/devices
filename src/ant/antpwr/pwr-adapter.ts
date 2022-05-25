@@ -331,7 +331,7 @@ export default class AntFEAdapter extends AntAdapter {
             
             this.starting = false;
             return resolve(true);
-
+            /*
             this.started = false;
 
             if(this.ignoreHrm)    
@@ -345,7 +345,8 @@ export default class AntFEAdapter extends AntAdapter {
             catch( err) 
             {
                 reject(err);
-            }                
+            } 
+            */               
             
         });
     }

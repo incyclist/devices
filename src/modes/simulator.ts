@@ -1,5 +1,5 @@
 import { EventLogger } from "gd-eventlog";
-import CyclingMode, { CyclingModeBase, CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, Settings, UpdateRequest } from "../CyclingMode";
+import CyclingMode, { CyclingModeBase, CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, UpdateRequest } from "../CyclingMode";
 import { Simulator } from "../simulator/Simulator";
 import calc from '../calculations'
 

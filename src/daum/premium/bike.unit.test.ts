@@ -1,7 +1,7 @@
 import { EventLogger } from 'gd-eventlog';
 import {Daum8iSerial} from './bike'
 import {ACTUAL_BIKE_TYPE} from '../constants'
-import {asciiArrayToString, buildMessage,getAsciiArrayFromStr,ascii,hexstr,append} from './utils'
+import {asciiArrayToString, buildMessage,getAsciiArrayFromStr,hexstr,append} from './utils'
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
@@ -375,10 +375,9 @@ describe( 'Daum8i', ()=> {
         
             MockSerialPort.setResponse( 'V00' , ( command, sendData) => { 
                 sendData( [0x06]); 
-                const data = [0x06];
-                const data1 = [0x31,0x32,0x20,0x10] 
-                data1.push(0x17);
-                sendData( data1)
+                const data = [0x31,0x32,0x20,0x10] 
+                data.push(0x17);
+                sendData( data)
 
             })            
             bike.sendNAK = jest.fn()
@@ -398,10 +397,9 @@ describe( 'Daum8i', ()=> {
         
             MockSerialPort.setResponse( 'V00' , ( command, sendData) => { 
                 sendData( [0x06]); 
-                const data = [0x06];
-                const data1 = [0x31,0x32,0x20,0x10] 
-                data1.push(0x17);
-                sendData( data1)
+                const data = [0x31,0x32,0x20,0x10] 
+                data.push(0x17);
+                sendData( data)
                 sendData( buildMessage( 'V00201' ));
             })            
             bike.sendNAK = jest.fn()
@@ -449,7 +447,7 @@ describe( 'Daum8i', ()=> {
             bike.settings= { tcpip:{timeout:500}};
             let error = undefined;
             try {
-                const res = await bike.getTrainingData();
+                await bike.getTrainingData();
             }
             catch (err) { error = err }
             expect(error).toBeUndefined()

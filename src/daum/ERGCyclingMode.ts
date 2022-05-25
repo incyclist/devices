@@ -1,5 +1,4 @@
-import { EventLogger } from "gd-eventlog";
-import CyclingMode, { CyclingModeBase, CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, Settings, UpdateRequest } from "../CyclingMode";
+import CyclingMode, { CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, UpdateRequest } from "../CyclingMode";
 import DaumAdapter from "./DaumAdapter";
 import calc from '../calculations'
 import PowerBasedCyclingModeBase from "../modes/power-base";

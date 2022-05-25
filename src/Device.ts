@@ -3,13 +3,8 @@
 import {DeviceProtocol,Device} from './DeviceProtocol'
 import CyclingMode from './CyclingMode'
 
-type DeviceAdapterProps = {}
-
 export const DEFAULT_BIKE_WEIGHT = 10;
 export const DEFAULT_USER_WEIGHT = 75;
-
-
-
 
 export type DeviceData = {
     speed?: number;

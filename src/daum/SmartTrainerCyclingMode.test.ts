@@ -179,14 +179,14 @@ describe( 'SmartTrainerCyclingMode',()=>{
             cyclingMode.event={targetNotReached:1}
 
             cyclingMode.updateData({speed:31,slope:0.7999742031097412,power:185,isPedalling:true,pedalRpm:89,heartrate:204,distanceInternal:0.2,time:28,gear:12})         
-            const res0 = cyclingMode.sendBikeUpdate({slope:0.5999895930290222})
+            cyclingMode.sendBikeUpdate({slope:0.5999895930290222})
 
             cyclingMode.updateData({speed:31,slope:0.5999895930290222,power:180,isPedalling:true,pedalRpm:88,heartrate:204,distanceInternal:0.2,time:29,gear:12})         
-            const res1 = cyclingMode.sendBikeUpdate({slope:0.5999886989593506})
+            cyclingMode.sendBikeUpdate({slope:0.5999886989593506})
 
             cyclingMode.event={targetNotReached:1}
             cyclingMode.updateData({speed:31,slope:0.5999886989593506,power:180, isPedalling:true,pedalRpm:88,heartrate:206,distanceInternal:0.2,time:30,gear:12})         
-            const res2 = cyclingMode.sendBikeUpdate({refresh:true})
+            cyclingMode.sendBikeUpdate({refresh:true})
             
 
             
@@ -300,7 +300,7 @@ describe( 'SmartTrainerCyclingMode',()=>{
             // simulate bike response with gear change (incl. prev power and slope)
             cyclingMode.updateData({speed:15.1,slope:0,power:res2.targetPower,isPedalling:true,pedalRpm:81,heartrate:214,distanceInternal:711,time:97,gear:5})
 
-            const res3 = cyclingMode.sendBikeUpdate({refresh:true}) // target:223
+            cyclingMode.sendBikeUpdate({refresh:true}) // target:223
             expect(cyclingMode.event.targetNotReached).toBeUndefined()
         })
 

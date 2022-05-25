@@ -352,17 +352,17 @@ describe( 'ERGCyclingMode',()=>{
             res = cm.sendBikeUpdate({slope:-2.798902988433838})
             jest.advanceTimersByTime(1000);
             res = cm.updateData({speed:50,slope:0,power:res.targetPower,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
-            expect(cm.data.speed).toBeGreaterThan(31.2)
+            expect(res.speed).toBeGreaterThan(31.2)
 
             res = cm.sendBikeUpdate({slope:0})
             jest.advanceTimersByTime(1000);
             res = cm.updateData({speed:60,slope:0,power:158,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
-            expect(cm.data.speed).toBeCloseTo(31.4,1)
+            expect(res.speed).toBeCloseTo(31.4,1)
 
             res = cm.sendBikeUpdate({slope:1})
             jest.advanceTimersByTime(1000);
             res = cm.updateData({speed:870,slope:0,power:158,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
-            expect(cm.data.speed).toBeLessThan(31.5)
+            expect(res.speed).toBeLessThan(31.5)
         })
 
 

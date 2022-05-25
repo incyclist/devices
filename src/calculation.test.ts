@@ -120,22 +120,17 @@ describe('Calculations', () => {
 
                 let m = 80;
                 const durations = []
-                let result;
-                let j;
                 
                 for (let i=0; i<4; i++) {
                     const start = Date.now();
-                    j=0;
                     for ( let power=25; power<=400; power++) 
                         for ( let slope=-10; slope<=10; slope+=0.1) {
-                            result = C.calculateSpeed(m, power,slope,{cwA:0.45});
-                            j++;
-                            
+                            C.calculateSpeed(m, power,slope,{cwA:0.45});                           
                         }
                     durations.push(Date.now()-start)
                 }
             
-            console.log(durations.map (d=>`${d}ms => ${d/j}ms/call`))                
+            
         })
 
 

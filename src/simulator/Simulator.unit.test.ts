@@ -149,7 +149,7 @@ describe('Simulator',() => {
             s.started = false;
             let error = undefined;
             try {
-                const res = await s.pause();                
+                await s.pause();                
             }
             catch (err) {
                 error = err;

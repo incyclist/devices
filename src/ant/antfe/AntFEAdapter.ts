@@ -354,11 +354,6 @@ export default class AntFEAdapter extends AntAdapter {
         this.logger.logEvent({message:'stop()'});        
         this.stopWorker();
 
-        const Messages = this.getProtocol().getAnt().Messages;
-        const stick = this.stick;
-        const channel = this.channel;
-
-
         return new Promise( async (resolve,reject) => {
 
             //Workaround: proper closing does not work -> when trying to re-open, the sensor does not get attached
@@ -368,7 +363,7 @@ export default class AntFEAdapter extends AntAdapter {
             return resolve(true);
 
             
-
+            /*
             if(!this.started && !this.connected) 
                 return resolve(false)
 
@@ -387,7 +382,8 @@ export default class AntFEAdapter extends AntAdapter {
                 this.connected = false;
                 this.logger.logEvent({message:'stop() error',error:err.message});  
                 reject(err);
-            }                
+            } 
+            */               
             
         });
     }

@@ -279,24 +279,26 @@ export class AntProtocol extends DeviceProtocolBase implements DeviceProtocol{
                         // DEBUG CODE - remove once issue is clarified
                         
                         
-                        let detachedKernelDriver = false;
                         while (devices.length) {
                             let device;
                             try {
                                 device = devices.shift();
                                 device.open();
                                 const iface = device.interfaces[0];
+                                let kernelDriverActive = undefined;
+                                let claimRequested = false
                                 try {
-                                    if (iface.isKernelDriverActive()) {
-                                        detachedKernelDriver = true;
+                                    kernelDriverActive = iface.isKernelDriverActive()
+                                    if (kernelDriverActive) {
                                         iface.detachKernelDriver();
                                     }
+                                    claimRequested = true;
+                                    iface.claim();
                                 }
                                 catch (kernelErr) {
                                     // Ignore kernel driver errors;
-                                    this.logger.logEvent({message:'Kernel Error',error:kernelErr.message})
+                                    this.logger.logEvent({message:'Kernel Error',error:kernelErr.message, kernelDriverActive,claimRequested})
                                 }
-                                iface.claim();
                                 break;
                             }
                             catch (deviceErr) {
