@@ -14,6 +14,9 @@ class MockSerialPort {
     path: string;
     outputQueue: Array<any>
     iv: any;
+    to: any;
+
+    static _ports : Array<MockSerialPort> = [];
 
     constructor() {
         this.callbacks= {}
@@ -23,6 +26,7 @@ class MockSerialPort {
         this.outputQueue =  [];
         this.flush =  jest.fn();
         this.iv = undefined;
+        MockSerialPort._ports.push(this);
 
     }
 
@@ -31,7 +35,10 @@ class MockSerialPort {
     }
     
     open() {
-        if ( __openTimeout ) { return setTimeout( ()=> {this._open()}, __openTimeout) }
+        if ( __openTimeout ) { 
+            this.to = setTimeout( ()=> {this._open()}, __openTimeout); 
+            return this.to;
+        }
 
         this._open();
     }
@@ -47,8 +54,15 @@ class MockSerialPort {
         this.isOpen = false;
         this.outputQueue=[];
         if ( this.iv) {
+            this.iv.unref()
+
             clearInterval(this.iv)
             this.iv = undefined;
+        }
+        if (this.to) {
+            this.to.unref()
+            clearTimeout(this.to);
+            this.to = undefined        
         }
         this.emit('close')
     }
@@ -118,6 +132,19 @@ class MockSerialPort {
     static reset() {
         __responses = {};
         __openTimeout = 0;
+        MockSerialPort._ports.forEach( (port)=> {
+            if (port.iv) { 
+                port.iv.unref();
+                clearInterval(port.iv)
+                port.iv = null;
+            }
+            if (port.to) {
+                port.to.unref();
+                clearTimeout(port.to);
+                port.to = null;
+            }
+    
+        } )
     }
 
 }
@@ -132,7 +159,7 @@ describe( 'bike',()=> {
 
     afterAll( ()=> {
         EventLogger.useExternalLogger ( undefined)
-
+        MockSerialPort.reset();    
     })
 
 
@@ -208,6 +235,10 @@ describe( 'bike',()=> {
             (MockSerialPort as any).list = ()=> { return new Promise( resolve=> resolve([ {path:'COM1'}])) }
             Bike.setSerialPort( MockSerialPort);
             bike = new Bike();   
+        })
+
+        afterEach( ()=> {
+            MockSerialPort.reset();    
         })
 
         test('no arguments',async ()=>{
@@ -312,6 +343,10 @@ describe( 'bike',()=> {
             (MockSerialPort as any).list = ()=> { return new Promise( resolve=> resolve([ {path:'COM1'}])) }
             Bike.setSerialPort( MockSerialPort);
             bike = new Bike();   
+        })
+
+        afterEach( ()=> {
+            MockSerialPort.reset();    
         })
 
         test('default user data',async ()=>{

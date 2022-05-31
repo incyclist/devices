@@ -126,7 +126,7 @@ describe('PowerMeterMode', () => {
         test('keep speed at 30km/h,5%, 70kg for 1s', ()=>{
             mode.data.speed = 30;
             const res = mode.calculatePowerAndDistance(30, 5,70, 1)                        
-            expect(res.power).toBeCloseTo(285,0)
+            expect(res.power).toBeCloseTo(428,0)
             expect(res.distance).toBeCloseTo(30/3.6,1)            
         })
 
