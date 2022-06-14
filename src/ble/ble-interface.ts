@@ -31,7 +31,26 @@ export default class BleInterface extends BleInterfaceClass {
     devices: BleDeviceInfo[] = []
     logger: EventLogger
     static deviceClasses: BleDeviceClassInfo[] = []
+    static _instance: BleInterface;
 
+    static getInstance(props: {binding?: BleBinding, log?:boolean, logger?:EventLogger}={}): BleInterface { 
+        if ( !BleInterface._instance) {
+            BleInterface._instance = new BleInterface(props);
+        }
+        else {  
+            if ( props.binding) {
+                BleInterface._instance.setBinding(props.binding)
+            }
+            if ( props.logger) {
+                BleInterface._instance.logger = props.logger
+            }
+            if ( props.log && !BleInterface._instance.logger) { 
+                BleInterface._instance.logger = new EventLogger( 'BLE');
+            }
+        }
+        return BleInterface._instance;
+    }
+    
     constructor(props: {binding?: BleBinding, log?:boolean, logger?:EventLogger}={}) { 
         super(props)
 

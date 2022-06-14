@@ -28,7 +28,7 @@ export default class BleProtocol extends DeviceProtocolBase implements DevicePro
         super();
         const b = binding || BleProtocol._defaultBinding;
         this.logger = new EventLogger('BLE');
-        this.ble = new BleInterface( {binding:b, logger:this.logger});
+        this.ble = BleInterface.getInstance( {binding:b, logger:this.logger});
         BleProtocol._instances.push(this);
     }
 

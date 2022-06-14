@@ -9,7 +9,7 @@ import { EventLogger } from 'gd-eventlog';
 type HrmData = {
     heartrate:number;
     rr:number;
-    raw: Buffer
+    raw: string
 }
 export default class BleHrmDevice extends BleDevice {
     static services =  ['180d'];
@@ -57,7 +57,7 @@ export default class BleHrmDevice extends BleDevice {
         }
         const {heartrate, rr} = this
 
-        return {heartrate, rr,raw:data}
+        return {heartrate, rr,raw:data.toString('hex')}
     }
 
     onData(characteristic:string,data: Buffer) {
