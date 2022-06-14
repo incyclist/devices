@@ -1,0 +1,22 @@
+{
+    "name": "incyclist-ble-sample",
+    "version": "1.0.1",
+    "private": true,
+    "homepage": "./",
+    "dependencies": {
+        "noble": "npm:@abandonware/noble@^1.9.2-15",
+        "gd-eventlog": "^0.1.22",
+        "incyclist-devices": "file:../.."
+    },
+    "scripts": {
+        "start": "node index.js"
+    },
+    "eslintConfig": {
+        "extends": "react-app",
+        "rules": {
+            "jsx-a11y/anchor-is-valid": [
+                "off"
+            ]
+        }
+    }
+}
