@@ -75,7 +75,7 @@ export interface DeviceAdapter extends Device {
     * 
 */
 
-export default class DeviceAdapterBase implements DeviceAdapter {
+export default class IncyclistDevice implements DeviceAdapter {
 
     protocol: DeviceProtocol;
     detected: boolean;
