@@ -127,7 +127,7 @@ export default class BleInterface extends BleInterfaceClass {
                             self.connectState.isOpened = false;
                             self.connectState.isConnected = false;
                             self.connectState.isConnecting = false;
-                            this.logEvent({message:'connect result: error', error:err.message});
+                            self.logEvent({message:'connect result: error', error:err.message});
                             return reject( new Error(err.message)   )
                         }
                     }
