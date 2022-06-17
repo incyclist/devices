@@ -5,7 +5,7 @@ import { BleBinding, BleDeviceClass } from "./ble";
 
 import BleInterface from "./ble-interface";
 import BleHrmDevice, {HrmAdapter} from "./hrm";
-import BleCyclingPowerDevice from "./pwr";
+import BleCyclingPowerDevice, {PwrAdapter} from "./pwr";
 
 const supportedDeviceTypes = [BleHrmDevice,BleCyclingPowerDevice]
 
@@ -60,7 +60,10 @@ export default class BleProtocol extends DeviceProtocolBase implements DevicePro
             case 'hr':
             case 'heartrate monitor':
                 return new HrmAdapter( fromDevice? bleDevice as BleDeviceClass : new BleHrmDevice(props()),this);
-        }
+            case 'cp':
+            case 'power meter':
+                return new PwrAdapter( fromDevice? bleDevice as BleDeviceClass : new BleCyclingPowerDevice(props()),this);
+                }
         
     }
 

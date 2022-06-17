@@ -1,6 +1,6 @@
 import { BleDevice } from './ble-device';
 import BleInterface from './ble-interface';
-import DeviceAdapter, { OnDeviceDataCallback } from '../Device';
+import DeviceAdapter from '../Device';
 import { DeviceProtocol } from '../DeviceProtocol';
 import { BleDeviceClass } from './ble';
 import BleProtocol from './incyclist-protocol';
@@ -96,7 +96,7 @@ export class HrmAdapter extends DeviceAdapter {
         super(protocol);
         this.device = device as BleHrmDevice;
         this.ble = protocol.ble
-        this.logger = new EventLogger('BleHrm')
+        this.logger = new EventLogger('Ble-HR')
         
     }
 
@@ -153,8 +153,4 @@ export class HrmAdapter extends DeviceAdapter {
 
     pause(): Promise<boolean> { this.paused = true; return Promise.resolve(true)}
     resume(): Promise<boolean> { this.paused = false; return Promise.resolve(true)}
-
-    
-
-
 }

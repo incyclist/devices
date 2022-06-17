@@ -1,11 +1,21 @@
 import { BleDevice } from './ble-device';
 import BleInterface from './ble-interface';
+import BleProtocol from './incyclist-protocol';
+import { BleDeviceClass } from './ble';
+import DeviceAdapter,{ DeviceData } from '../Device';
+import { DeviceProtocol } from '../DeviceProtocol';
+import {EventLogger} from 'gd-eventlog';
+import CyclingMode from '../CyclingMode';
+
+import PowerMeterCyclingMode from '../modes/power-meter';
+import { IncyclistBikeData } from '../CyclingMode';
 
 
 type PowerData = {
     instantaneousPower?: number;
     balance?: number;
     accTorque?: number;
+    time: number;
     rpm: number;
     raw?: Buffer
 }
@@ -23,21 +33,15 @@ export default class BleCyclingPowerDevice extends BleDevice {
     instantaneousPower: number = undefined;
     balance: number = undefined;
     accTorque:number = undefined;
+    rpm: number = undefined
+    timeOffset: number = 0
+    time: number = undefined
     currentCrankData: CrankData = undefined
     prevCrankData: CrankData = undefined
-    rpm: number = undefined
     
-
-    /*
-    constructor(props?) {
-        super(props);
-        
-        this.instantaneousPower = undefined;
-        balance: number;
-        accTorque: number;
-    
+    constructor (props?) {
+        super(props)
     }
-    */
 
     getProfile(): string {
         return 'cp';
@@ -47,19 +51,25 @@ export default class BleCyclingPowerDevice extends BleDevice {
         return BleCyclingPowerDevice.services;
     }
 
-    getRpm(crankData) {
+    parseCrankData(crankData) {
         if (!this.prevCrankData) this.prevCrankData= {revolutions:0,time:0, cntUpdateMissing:-1}
 
         const c = this.currentCrankData = crankData
         const p = this.prevCrankData;
         let rpm = this.rpm;
+        
         let hasUpdate = c.time!==p.time;
 
         if ( hasUpdate) { 
             let time = c.time - p.time //+ c.time<p.time ? 0x10000: 0
             let revs = c.revolutions - p.revolutions //+ c.revolutions<p.revolutions ? 0x10000: 0
 
-            if (c.time<p.time) time+=0x10000;
+            if (c.time<p.time) {
+                 time+=0x10000;
+                 this.timeOffset+=0x10000;
+                 
+            }
+
             if (c.revolutions<p.revolutions) revs+=0x10000;
             
             rpm = 1024*60*revs/time
@@ -76,7 +86,7 @@ export default class BleCyclingPowerDevice extends BleDevice {
         else 
             this.prevCrankData.cntUpdateMissing = cntUpdateMissing+1;
 
-        return rpm;
+        return {rpm, time:this.timeOffset+c.time }
     }
 
     parsePower(data: Buffer):PowerData { 
@@ -97,7 +107,9 @@ export default class BleCyclingPowerDevice extends BleDevice {
                     revolutions: data.readUInt16LE(offset),
                     time: data.readUInt16LE(offset+2)
                 }
-                this.rpm = this.getRpm(crankData)                
+                const {rpm,time} = this.parseCrankData(crankData)                
+                this.rpm = rpm;
+                this.time = time;
                 offset+=4
             }
             
@@ -105,8 +117,8 @@ export default class BleCyclingPowerDevice extends BleDevice {
         catch (err) { 
 
         }
-        const {instantaneousPower, balance,accTorque,rpm} = this
-        return {instantaneousPower, balance,accTorque,rpm,raw:data}
+        const {instantaneousPower, balance,accTorque,rpm,time} = this
+        return {instantaneousPower, balance,accTorque,rpm,time,raw:data}
     }
 
     onData(characteristic:string,data: Buffer) {
@@ -126,6 +138,175 @@ export default class BleCyclingPowerDevice extends BleDevice {
         return Promise.resolve(Buffer.from([]));
     }
 
+    reset() {
+        this.instantaneousPower = undefined;
+        this.balance = undefined;
+        this.accTorque = undefined;
+        this.rpm = undefined
+        this.timeOffset = 0
+        this.time = undefined
+        this.currentCrankData = undefined
+        this.prevCrankData = undefined
+    
+    }
+
 }
 BleInterface.register('BleCyclingPowerDevice','cp', BleCyclingPowerDevice,BleCyclingPowerDevice.services)
+
+export class PwrAdapter extends DeviceAdapter {
+
+    
+    device: BleCyclingPowerDevice;
+    ignore: boolean = false;
+    ble:BleInterface
+    protocol: DeviceProtocol;
+    paused: boolean = false;
+    logger: EventLogger;
+    mode: CyclingMode
+    distanceInternal: number = 0;
+
+
+    constructor( device: BleDeviceClass, protocol: BleProtocol) {
+        super(protocol);
+        this.device = device as BleCyclingPowerDevice;
+        this.ble = protocol.ble
+        this.mode = this.getDefaultCyclingMode()
+        this.logger = new EventLogger('Ble-CP')
+        
+    }
+
+    isBike() { return true;}
+    isHrm() { return false;}
+    isPower() { return true; }
+   
+    getProfile() {
+        return 'Power Meter';
+    }
+
+    getName() {
+        return `${this.device.name}`        
+    }
+
+    getDisplayName() {
+        const {name,instantaneousPower: power} = this.device;
+        const powerStr = power ? ` (${power})` : '';
+        return `${name}${powerStr}`
+    }
+    
+    getCyclingMode(): CyclingMode {
+        if (!this.mode)
+            this.mode =  this.getDefaultCyclingMode();
+        return this.mode
+
+    }
+    getDefaultCyclingMode(): CyclingMode {
+        return new PowerMeterCyclingMode(this);
+    }
+
+
+    getPort():string {
+        return 'ble' 
+    }
+    setIgnoreBike(ignore: any): void {
+        this.ignore = ignore;
+    }
+
+    setIgnorePower(ignore: any): void {
+        this.ignore = ignore;
+    }
+
+    onDeviceData(deviceData:PowerData):void {
+        this.logger.logEvent( {message:'onDeviceData',data:deviceData})        
+
+        // transform data into internal structure of Cycling Modes
+        let incyclistData = this.mapData(deviceData)              
+        
+        // let cycling mode process the data
+        incyclistData = this.getCyclingMode().updateData(incyclistData);                    
+
+        // transform data into structure expected by the application
+        const data =  this.transformData(incyclistData);                  
+
+        if (this.onDataFn && !this.ignore && !this.paused)
+            this.onDataFn(data)
+
+    }
+
+    mapData(deviceData:PowerData): IncyclistBikeData{
+        // update data based on information received from ANT+PWR sensor
+        const data = {
+            isPedalling: false,
+            power: 0,
+            pedalRpm: 0,
+            speed: 0,
+            heartrate:0,
+            distanceInternal:0,        // Total Distance in meters             
+            slope:undefined,
+            time:undefined
+        }
+
+        data.power = (deviceData.instantaneousPower!==undefined? deviceData.instantaneousPower :data.power);
+        data.pedalRpm = (deviceData.rpm!==undefined? deviceData.rpm :data.pedalRpm) ;
+        data.time = (deviceData.time!==undefined? deviceData.time :data.time);
+        data.isPedalling = data.pedalRpm>0 || (data.pedalRpm===undefined && data.power>0);
+        return data;
+    }
+
+    transformData( bikeData:IncyclistBikeData): DeviceData {
+        if (this.ignore) {
+            return {};
+        }
+        
+        if ( bikeData===undefined)
+            return;
+    
+        let distance=0;
+        if ( this.distanceInternal!==undefined && bikeData.distanceInternal!==undefined ) {
+            distance = Math.round(bikeData.distanceInternal-this.distanceInternal)
+        }
+
+        if (bikeData.distanceInternal!==undefined)
+            this.distanceInternal = bikeData.distanceInternal;
+        
+        let data =  {
+            speed: bikeData.speed,
+            slope: bikeData.slope,
+            power: bikeData.power!==undefined ? Math.round(bikeData.power) : undefined,
+            cadence: bikeData.pedalRpm!==undefined ? Math.round(bikeData.pedalRpm) : undefined,
+            distance,
+            timestamp: Date.now()
+        } as DeviceData;
+
+        return data;
+    }
+
+
+    async start( props?: any ): Promise<any> {
+        this.logger.logEvent({message: 'start requested', props})
+        try {
+            const bleDevice = await this.ble.connectDevice(this.device) as BleCyclingPowerDevice
+            if (bleDevice) {
+                this.device = bleDevice;
+                bleDevice.on('data', (data)=> {
+                    this.onDeviceData(data)
+                    
+                })
+                return true;
+            }    
+        }
+        catch(err) {
+            this.logger.logEvent({message: 'start result: error', error: err.message})
+            return false;
+        }
+    }
+
+    async stop(): Promise<boolean> { 
+        this.distanceInternal = 0;
+        this.device.reset();
+        return  this.device.disconnect();        
+    }
+
+    pause(): Promise<boolean> { this.paused = true; return Promise.resolve(true)}
+    resume(): Promise<boolean> { this.paused = false; return Promise.resolve(true)}
+}
 

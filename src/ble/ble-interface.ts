@@ -50,11 +50,10 @@ export default class BleInterface extends BleInterfaceClass {
         }
         return BleInterface._instance;
     }
-    
+
     constructor(props: {binding?: BleBinding, log?:boolean, logger?:EventLogger}={}) { 
         super(props)
 
-        console.log('BleInterface constructor', props)
         if ( props.logger ) 
             this.logger = props.logger
         else if ( props.log) {
@@ -73,9 +72,9 @@ export default class BleInterface extends BleInterfaceClass {
         if ( this.logger) {
             this.logger.logEvent(event)
         }
-        //if (process.env.BLE_DEBUG) {
+        if (process.env.BLE_DEBUG) {
             console.log( event)
-        //}
+        }
     }
 
 
@@ -337,7 +336,7 @@ export default class BleInterface extends BleInterfaceClass {
                             // find matching Classes in the set of requested Device Classes
                             DeviceClasses = this.getDevicesFromServices(deviceTypes, peripheral.advertisement.serviceUuids) 
                         }
-                        
+
                         let cntFound = 0;
                         DeviceClasses.forEach( DeviceClass => {
                             if (!DeviceClass)
