@@ -119,6 +119,8 @@ export default class BleInterface extends BleInterfaceClass {
                     const binding_init_original = binding.init.bind(binding);
                     const self = this;
 
+                    binding.on('error', (err) => { this.getBinding().emit('error',err)})
+
                     binding.init = function() { 
                         try {
                             binding_init_original()
