@@ -4,9 +4,11 @@
     "private": true,
     "homepage": "./",
     "dependencies": {
-        "noble": "npm:@abandonware/noble@^1.9.2-15",
+        "chrome-native-messaging": "^0.2.0",
+        "debug": "^4.3.4",
         "gd-eventlog": "^0.1.22",
-        "incyclist-devices": "file:../.."
+        "incyclist-devices": "file:../..",
+        "noble": "npm:@abandonware/noble@^1.9.2-15"
     },
     "scripts": {
         "start": "node index.js"

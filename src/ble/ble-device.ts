@@ -1,5 +1,5 @@
 import { EventLogger } from "gd-eventlog";
-import { BleInterfaceClass,BleDeviceClass,BlePeripheral,BleCharacteristic,BleDeviceProps,ConnectProps } from "./ble";
+import { BleInterfaceClass,BleDeviceClass,BlePeripheral,BleCharacteristic,BleDeviceProps,ConnectProps,uuid } from "./ble";
 
 interface ConnectState  {
     isConnecting: boolean;
@@ -122,7 +122,7 @@ export abstract class BleDevice extends BleDeviceClass  {
                         
     
                         c.on('data', (data, _isNotification) => {
-                            this.onData(c.uuid, data)
+                            this.onData(uuid(c.uuid), data)
                         });
                         
                         c.subscribe((err) => {

@@ -1,6 +1,8 @@
 const { BleInterface, BleHrmDevice,BleCyclingPowerDevice} = require('incyclist-devices')
-const noble = require('noble')
+const {WinrtBindings} = require('./bindings')
+const Noble = require('noble/lib/noble')
 
+const noble = new Noble(new WinrtBindings())
 let ble;
 
 const parseArgs = ()=> {
@@ -19,6 +21,7 @@ const parseArgs = ()=> {
             props.name = device[1]
         else 
             props.name = args[1];
+        console.log(props)
         return props
     }
     if ( args[0]!=='scan') {
@@ -37,12 +40,21 @@ const  main = async(props = {})=> {
     
     ble = new BleInterface()
     ble.setBinding(noble)
-    await ble.connect();
+    //noble.init()
+    //noble.on('discover',(d,a)=> console.log('discver',d,a))
+    console.log('connecting ...')
+    await ble.connect({timeout:5000});
+    console.log('connected')
 
     let device
     if ( !props.command || props.command==='scan') {
         let devices = [];
+        ble.on('discover', (d)=> {
+            //console.log('found',d)
+        })
+        console.log('scanning ...')
         devices = await ble.scan( { deviceTypes:[BleHrmDevice,BleCyclingPowerDevice]} );
+        console.log('scan completed', devices)
         if (devices.length===0) {
             await ble.disconnect();
             process.exit()
@@ -51,6 +63,7 @@ const  main = async(props = {})=> {
         devices.forEach(device => { 
             device.connect()
             device.on('data', (data)=> {
+                
                 console.log( 'device:',device.name,'data:', data)
             })
         
@@ -58,7 +71,8 @@ const  main = async(props = {})=> {
     
     }
     else {
-        device = await this.ble.connectDevice( this )
+        const {name,id, address} = props;
+        device = await ble.connectDevice( {name,id,address}, 5000 )
         device.on('data', (data)=> {
             console.log( 'device:',device.name,'data:', data)
         })

@@ -1,5 +1,5 @@
 import { EventLogger } from 'gd-eventlog';
-import { BleInterfaceClass, ConnectProps, ScanProps, BleDeviceClass,BlePeripheral,BleState,BleBinding} from './ble'
+import { BleInterfaceClass, ConnectProps, ScanProps, BleDeviceClass,BlePeripheral,BleState,BleBinding,uuid} from './ble'
 
 export interface ScanState {
     isScanning: boolean;
@@ -225,10 +225,10 @@ export default class BleInterface extends BleInterfaceClass {
         }
 
         if ( typeof services === 'string') { 
-            return get(deviceTypes, (s)=> s === services)
+            return get(deviceTypes, (s)=> s === uuid(services))
         }
         if ( Array.isArray(services)) {
-            return get(deviceTypes, s => services.includes(s))
+            return get(deviceTypes, s => services.map(uuid).includes(s))
         }
         return []   
     }

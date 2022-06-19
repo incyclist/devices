@@ -129,3 +129,15 @@ export enum BleState  {
     POWERED_OFF = 'poweredOff',
     POWERED_ON = 'poweredOn',
 }
+
+export const uuid = (s) => {
+    //console.log(s)
+    if (s) {
+        if (s.includes('-')) {
+            const parts = s.split('-')
+            const uuidNo = parseInt('0x'+parts[0])
+            return uuidNo.toString(16)
+        }
+        return s;
+    }
+}
