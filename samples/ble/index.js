@@ -12,7 +12,7 @@ const parseArgs = ()=> {
     }
     if ( args.length===2 && args[0]==='connect') { 
         const props = { command: 'connect' }
-        const device = args[1].split(':')
+        const device = args[1].split('=')
         if (device[0].toLocaleLowerCase()==='id')
             props.id = device[1]
         else if (device[0].toLocaleLowerCase()==='address')
@@ -28,7 +28,7 @@ const parseArgs = ()=> {
         console.log('Usage: node index.js <command>')
         console.log('Commands:')
         console.log('  scan')
-        console.log('  connect [id:device id|name:device name|address:device address]')
+        console.log('  connect [id=device id|name=device name|address=device address]')
     }
 
     return 

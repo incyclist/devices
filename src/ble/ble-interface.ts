@@ -297,6 +297,8 @@ export default class BleInterface extends BleInterfaceClass {
         }
 
         const detectedPeripherals: Record<string,BlePeripheral> = {}
+        this.devices = [];
+
         if ( scanForDevice) 
             this.logEvent({message:'search device request',device, deviceTypes});
         else 
@@ -347,15 +349,20 @@ export default class BleInterface extends BleInterfaceClass {
                             const C = DeviceClass as any
                             const d = new C({peripheral});
                             d.setInterface(this)
+
                             if (scanForDevice) { 
-                                if( (device.id && d.id === device.id) || (device.address && d.address===device.address) || (device.name&&d.name===device.name)) 
+                                if( (device.id && device.id!=='' && d.id === device.id) || 
+                                    (device.address && device.address!=='' && d.address===device.address) || 
+                                    (device.name && device.name!=='' && d.name===device.name)) 
                                     cntFound++;
                             }
                             else 
                                 cntFound++;
 
-                            if (cntFound>0) {
-                                this.logEvent({message:'scan: device found', device:d.name, services:d.services.join(',')});
+                            const existing = this.devices.find( i  => i.device.id === d.id)
+
+                            if (cntFound>0 && !existing) {
+                                this.logEvent({message:'scan: device found', device:d.name, address:d.address, services:d.services.join(',')});
                                 this.devices.push( {device:d,isConnected:false} )
                                 this.emit('device', d)
                             }
@@ -383,7 +390,7 @@ export default class BleInterface extends BleInterfaceClass {
 
             this.scanState.timeout = setTimeout( ()=>{               
                 this.scanState.timeout = null;
-                this.logEvent({message:'scan result: devices found', devices:this.devices.map(i=> i.device.name)});
+                this.logEvent({message:'scan result: devices found', devices:this.devices.map(i=> i.device.name+(!i.device.name || i.device.name==='')?`addr=${i.device.address}`:'')});
                 resolve(this.devices.map( i => i.device))
                 bleBinding.stopScanning ( ()=> {
                     this.scanState.isScanning = false;
