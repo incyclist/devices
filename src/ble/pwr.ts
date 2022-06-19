@@ -296,7 +296,8 @@ export class PwrAdapter extends DeviceAdapter {
         }
         catch(err) {
             this.logger.logEvent({message: 'start result: error', error: err.message})
-            return false;
+            throw new Error(`could not start device, reason:${err.message}`)
+
         }
     }
 

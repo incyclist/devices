@@ -31,6 +31,7 @@ export interface BleBinding extends EventEmitter {
     stopScanning(callback?: () => void): void;
 //    open(): {err: Error, opened: boolean}
     _bindings: any;
+    state: string;
 }
 
 

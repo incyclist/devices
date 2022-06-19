@@ -1,4 +1,5 @@
 import { EventLogger } from 'gd-eventlog';
+import { sleep } from '../utils';
 import { BleInterfaceClass, ConnectProps, ScanProps, BleDeviceClass,BlePeripheral,BleState,BleBinding,uuid} from './ble'
 
 export interface ScanState {
@@ -10,7 +11,7 @@ export interface ConnectState {
     isConnecting: boolean;
     isConnected: boolean;
     timeout?: NodeJS.Timeout;
-    isOpened: boolean;
+    isInitSuccess: boolean;
 }
 
 export interface BleDeviceInfo { 
@@ -27,7 +28,7 @@ export interface BleDeviceClassInfo {
 
 export default class BleInterface extends BleInterfaceClass {
     scanState: ScanState = { isScanning: false, timeout: undefined}
-    connectState: ConnectState = { isConnecting: false, isConnected: false,isOpened: false }
+    connectState: ConnectState = { isConnecting: false, isConnected: false,isInitSuccess: false }
     devices: BleDeviceInfo[] = []
     logger: EventLogger
     static deviceClasses: BleDeviceClassInfo[] = []
@@ -102,18 +103,18 @@ export default class BleInterface extends BleInterfaceClass {
             if ( !this.getBinding()) 
                 return Promise.reject(new Error('no binding defined')) 
 
-            if (!this.connectState.isOpened) {
                 
-                this.connectState.timeout = setTimeout( ()=>{
-                    this.connectState.isConnected= false;
-                    this.connectState.isConnecting=false;
-                    this.connectState.timeout= null;                    
-                    this.logEvent( {message:'connect result: timeout'});
-                    reject( new Error('timeout'))
-                }, timeout)
-    
-                try {
+            this.connectState.timeout = setTimeout( ()=>{
+                this.connectState.isConnected= false;
+                this.connectState.isConnecting=false;
+                this.connectState.timeout= null;                    
+                this.logEvent( {message:'connect result: timeout'});
+                reject( new Error('timeout'))
+            }, timeout)
 
+            try {
+
+                if (!this.connectState.isInitSuccess) {
                     const binding = this.getBinding()._bindings
                     const binding_init_original = binding.init.bind(binding);
                     const self = this;
@@ -121,24 +122,41 @@ export default class BleInterface extends BleInterfaceClass {
                     binding.init = function() { 
                         try {
                             binding_init_original()
-                            self.connectState.isOpened = true;
+                            self.connectState.isInitSuccess = true;
                         }
                         catch (err) {
-                            self.connectState.isOpened = false;
+                            self.connectState.isInitSuccess = false;
                             self.connectState.isConnected = false;
                             self.connectState.isConnecting = false;
                             self.logEvent({message:'connect result: error', error:err.message});
                             return reject( new Error(err.message)   )
                         }
                     }
-                    
+
+                }
+
+                const state = this.getBinding().state
+                if(state === BleState.POWERED_ON ){
+                    clearTimeout(this.connectState.timeout)
+                    this.connectState.timeout= null;       
+
+                    this.getBinding().removeAllListeners('stateChange')
+                    this.getBinding().on('stateChange', this.onStateChange.bind(this))
+
+                    this.connectState.isConnected = true;
+                    this.connectState.isConnecting = false;
+                    this.logEvent({message:'connect result: success'});
+                    return resolve(true);
+
+                }
+                else {
                     this.getBinding().once('error', (err) => {                        
                         this.connectState.isConnected = true;
                         this.connectState.isConnecting = false;
                         this.logEvent({message:'connect result: error', error:err.message});
-
+    
                         this.getBinding().on('error', this.onError.bind(this))
-
+    
                         return reject(err)
                     })
     
@@ -146,31 +164,35 @@ export default class BleInterface extends BleInterfaceClass {
                         if(state === BleState.POWERED_ON){
                             clearTimeout(this.connectState.timeout)
                             this.connectState.timeout= null;       
-
+    
                             this.getBinding().removeAllListeners('stateChange')
                             this.getBinding().on('stateChange', this.onStateChange.bind(this))
-
+    
                             this.connectState.isConnected = true;
                             this.connectState.isConnecting = false;
                             this.logEvent({message:'connect result: success'});
                             return resolve(true);
                         }  
-
+                        else {
+                            this.logEvent({message:'BLE state change', state});
+                        }
+    
                     })
-                    
+    
                 }
-                catch (err) {
-                    this.connectState.isConnected= false;
-                    this.connectState.isConnecting=false;
-                    if ( this.connectState.timeout)
-                        clearTimeout(this.connectState.timeout)
-                    this.connectState.timeout= null;                    
-                    this.logEvent({message:'connect result: error', error:err.message});
-                    return reject(new Error('bluetooth unavailable, cause: ' + err.message))
-                }
+                
+                
             }
-
-            
+            catch (err) {
+                this.connectState.isConnected= false;
+                this.connectState.isConnecting=false;
+                if ( this.connectState.timeout)
+                    clearTimeout(this.connectState.timeout)
+                this.connectState.timeout= null;                    
+                this.logEvent({message:'connect result: error', error:err.message});
+                return reject(new Error('bluetooth unavailable, cause: ' + err.message))
+            }
+        
 
 
         })            
@@ -264,9 +286,38 @@ export default class BleInterface extends BleInterfaceClass {
     }
 
     async connectDevice(requested: BleDeviceClass, timeout=2000): Promise<BleDeviceClass> {
-        const devices = await this.scan ( {timeout, device:requested})
+        const {id,name,address} = requested;
+        this.logEvent({message:'connectDevice',id,name,address});
+        let devices = [];
+        let retry = false;
+        let retryCount = 0;
 
-        const {id,address,name} = requested;
+        do {
+            if (retryCount > 0) {
+                this.logEvent({message:'retry connect device' ,retryCount})
+            }
+            try {
+                devices = await this.scan ( {timeout, device:requested})         
+                
+                if (devices.length===0) {
+                    retryCount++;
+                    retry = retryCount<5;
+                }
+            }
+            catch(err) {
+                if (err.message==='scanning already in progress') {   
+                    this.logEvent({message:'scan busy'})
+                            
+                    await sleep(1000)
+                    retryCount++;
+                    retry = retryCount<5;
+                    continue;
+                }
+
+                throw err;
+            }
+        }
+        while (devices.length===0 && retry)
 
         if (devices.length === 0) 
             throw new Error('device not found');
@@ -360,7 +411,13 @@ export default class BleInterface extends BleInterfaceClass {
                                 cntFound++;
 
                             const existing = this.devices.find( i  => i.device.id === d.id)
-
+                            /*
+                            console.log('~~~found', d.name, existing,cntFound, scanForDevice, device,
+                                (device.id && device.id!=='' && d.id === device.id)  ,
+                                (device.address && device.address!=='' && d.address===device.address),
+                                (device.name && device.name!=='' && d.name===device.name)
+                            )
+                            */
                             if (cntFound>0 && !existing) {
                                 this.logEvent({message:'scan: device found', device:d.name, address:d.address, services:d.services.join(',')});
                                 this.devices.push( {device:d,isConnected:false} )
@@ -374,9 +431,13 @@ export default class BleInterface extends BleInterfaceClass {
                                     this.scanState.timeout= null;
                                     bleBinding.stopScanning ( ()=> {
                                         this.scanState.isScanning = false;
+                                        resolve([d])
                                     })                    
                                 }
-                                resolve([d])
+                                else {
+                                    resolve([d])
+                                }
+                                
                             }
     
                         })
@@ -391,9 +452,9 @@ export default class BleInterface extends BleInterfaceClass {
             this.scanState.timeout = setTimeout( ()=>{               
                 this.scanState.timeout = null;
                 this.logEvent({message:'scan result: devices found', devices:this.devices.map(i=> i.device.name+(!i.device.name || i.device.name==='')?`addr=${i.device.address}`:'')});
-                resolve(this.devices.map( i => i.device))
                 bleBinding.stopScanning ( ()=> {
                     this.scanState.isScanning = false;
+                    resolve(this.devices.map( i => i.device))
                 })
             }, timeout)
 
