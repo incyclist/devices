@@ -116,23 +116,28 @@ export default class BleInterface extends BleInterfaceClass {
 
                 if (!this.connectState.isInitSuccess) {
                     const binding = this.getBinding()._bindings
-                    const binding_init_original = binding.init.bind(binding);
-                    const self = this;
-
-                    binding.on('error', (err) => { this.getBinding().emit('error',err)})
-
-                    binding.init = function() { 
-                        try {
-                            binding_init_original()
-                            self.connectState.isInitSuccess = true;
-                        }
-                        catch (err) {
-                            self.connectState.isInitSuccess = false;
-                            self.connectState.isConnected = false;
-                            self.connectState.isConnecting = false;
-                            self.logEvent({message:'connect result: error', error:err.message});
-                            return reject( new Error(err.message)   )
-                        }
+                    if (binding) {
+                        const binding_init_original = binding.init.bind(binding);
+                        const self = this;
+    
+                        binding.on('error', (err) => { this.getBinding().emit('error',err)})
+    
+                        binding.init = function() { 
+                            try {
+                                binding_init_original()
+                                self.connectState.isInitSuccess = true;
+                            }
+                            catch (err) {
+                                self.connectState.isInitSuccess = false;
+                                self.connectState.isConnected = false;
+                                self.connectState.isConnecting = false;
+                                self.logEvent({message:'connect result: error', error:err.message});
+                                return reject( new Error(err.message)   )
+                            }
+                        }    
+                    }
+                    else {
+                        
                     }
 
                 }
@@ -352,8 +357,10 @@ export default class BleInterface extends BleInterfaceClass {
         const detectedPeripherals: Record<string,BlePeripheral> = {}
         this.devices = [];
 
-        if ( scanForDevice) 
-            this.logEvent({message:'search device request',device, deviceTypes});
+        if ( scanForDevice)  {
+            const {id,address,name} = device;
+            this.logEvent({message:'search device request',device:{id,address,name}, deviceTypes});
+        }
         else 
             this.logEvent({message:'scan start', services});
 

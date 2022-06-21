@@ -33,23 +33,23 @@ export default class BleHrmDevice extends BleDevice {
         return BleHrmDevice.services;
     }
 
-    parseHrm(data: Buffer):HrmData { 
-        try {
-            const ab = new Uint8Array(data);
-                            
-            const flags = ab[0]
+    parseHrm(_data: Uint8Array):HrmData { 
+        const data = Buffer.from(_data);
 
-            let offset = 1;
+        try {                         
+            const flags = data.readUInt8(0);
+
+            let offset = 2;
 
             if ( flags % 1 === 0) { 
-                this.heartrate = ab[1]
+                this.heartrate = data.readUInt8(1);
             }
             else {
-                this.heartrate = ab[1] + ab[2] * 256
-                offset = 2
+                this.heartrate = data.readUInt16LE(1);
+                offset = 3
             }
             if ( flags % 0xF) {
-                this.rr = (ab[offset+1] + ab[offset+2] * 256)/1024
+                this.rr = (data.readUInt16LE(offset))/1024
             }
         }
         catch (err) { 

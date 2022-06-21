@@ -102,6 +102,7 @@ export abstract class BleDevice extends BleDeviceClass  {
             }
             catch (err) {
                 this.logEvent({message:'cannot connect', error: err.message||err })
+                
             }
             this.connectState.isConnecting = false;
             this.connectState.isConnected = true;

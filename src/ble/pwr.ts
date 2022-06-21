@@ -17,7 +17,7 @@ type PowerData = {
     accTorque?: number;
     time: number;
     rpm: number;
-    raw?: Buffer
+    raw?: string;
 }
 
 type CrankData = {
@@ -89,13 +89,14 @@ export default class BleCyclingPowerDevice extends BleDevice {
         return {rpm, time:this.timeOffset+c.time }
     }
 
-    parsePower(data: Buffer):PowerData { 
-
+    parsePower(_data: Uint8Array):PowerData { 
+        const data:Buffer = Buffer.from(_data);
         try {
             let offset = 4;
             const flags = data.readUInt16LE(0)
 
             this.instantaneousPower = data.readUInt16LE(2)
+            
             if ( flags&0x1)  
                 this.balance = data.readUInt8(offset++);
             if ( flags&0x4)  {
@@ -118,7 +119,7 @@ export default class BleCyclingPowerDevice extends BleDevice {
 
         }
         const {instantaneousPower, balance,accTorque,rpm,time} = this
-        return {instantaneousPower, balance,accTorque,rpm,time,raw:data}
+        return {instantaneousPower, balance,accTorque,rpm,time,raw:data.toString('hex')}
     }
 
     onData(characteristic:string,data: Buffer) {
@@ -237,7 +238,7 @@ export class PwrAdapter extends DeviceAdapter {
         const data = {
             isPedalling: false,
             power: 0,
-            pedalRpm: 0,
+            pedalRpm: undefined,
             speed: 0,
             heartrate:0,
             distanceInternal:0,        // Total Distance in meters             

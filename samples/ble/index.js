@@ -1,8 +1,10 @@
 const { BleInterface, BleHrmDevice,BleCyclingPowerDevice} = require('incyclist-devices')
+//const noble = require('noble-winrt')
+
 const {WinrtBindings} = require('./bindings')
 const Noble = require('noble/lib/noble')
-
 const noble = new Noble(new WinrtBindings())
+
 let ble;
 
 const parseArgs = ()=> {
