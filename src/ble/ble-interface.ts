@@ -421,7 +421,7 @@ export default class BleInterface extends BleInterfaceClass {
 
                             const C = DeviceClass as any
                             const d = new C({peripheral});
-                            if (device.getProfile && device.getProfile()!==d.getProfile()) 
+                            if (device && device.getProfile && device.getProfile()!==d.getProfile()) 
                             return;
 
                             d.setInterface(this)
