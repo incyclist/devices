@@ -89,6 +89,7 @@ export abstract class BleInterfaceClass extends EventEmitter   {
     abstract isScanning(): boolean
     abstract addConnectedDevice(device: BleDeviceClass):void
     abstract removeConnectedDevice(device: BleDeviceClass):void
+    abstract findConnected(device: BleDeviceClass|BlePeripheral):BleDeviceClass
 
     getBinding(): BleBinding { return this.binding }
     setBinding(binding: BleBinding) { this.binding = binding }

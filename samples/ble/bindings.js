@@ -1,14 +1,22 @@
 // noble-winrt
 // Copyright (C) 2017, Uri Shaked
 // License: MIT
-
 const { spawn } = require('child_process');
 const nativeMessage = require('chrome-native-messaging');
 const events = require('events');
-const debug = require('debug')('noble-winrt');
-const path = require('path');
+const { EventLogger } = require('gd-eventlog');
+const os = require('os')
+const path = require('path')
+const fs = require('fs')
 
 const BLE_SERVER_EXE = path.resolve(__dirname, 'prebuilt', 'BLEServer.exe');
+
+const DEFAULT_UPDATE_SERVER_URL_DEV  = 'http://localhost:4000';
+const DEFAULT_UPDATE_SERVER_URL_PROD = 'https://updates.incyclist.com';
+const DEFAULT_UPDATE_SERVER_URL = process.env.ENVIRONMENT=='dev' ? DEFAULT_UPDATE_SERVER_URL_DEV : DEFAULT_UPDATE_SERVER_URL_PROD;
+
+const server = DEFAULT_UPDATE_SERVER_URL;
+
 
 function toWindowsUuid(uuid) {
     return '{' + uuid + '}';
@@ -22,40 +30,79 @@ function fromWindowsUuid(winUuid) {
 
 
 class WinrtBindings extends events.EventEmitter {
-    init() {
+    static _instance
+    
+    constructor(appDirectory) { 
+        super();
+        this.logger = new EventLogger('BLE');
+        this.app = BLE_SERVER_EXE;
+        this.appDirectory = appDirectory;        
+        
+    }
+
+    static getInstance(appDirectory) {
+        if (!WinrtBindings._instance) {
+            WinrtBindings._instance = new WinrtBindings(appDirectory);
+        }
+        return WinrtBindings._instance;
+    }
+
+
+
+    getName(headers) {
+        if (!headers || !headers['content-disposition'])
+            return undefined;
+
+        let fileName =  headers['content-disposition'].split('filename=')[1];
+        fileName = fileName.replace(/\"/g, '')
+        return fileName
+    }
+
+
+    initBleServer() {
+        this._bleServer.stdout
+        .pipe(new nativeMessage.Input())
+        .on('data', (data) => {
+            this._processMessage(data);
+        });
+        this._bleServer.stderr.on('data', (data) => {
+            console.error('BLEServer:', data);
+        });
+        this._bleServer.on('close', (code) => {
+            this.state = 'poweredOff';
+            this.emit('stateChange', this.state);
+        });
+        this._bleServer.stdin.on('error', (err) => { 
+            console.error('BLEServer:', err);
+        })
+        this._bleServer.stdout.on('error', (err) => { 
+            console.error('BLEServer:', err);
+        })
+    }
+
+    async init() {
+        this.logger.logEvent({message:'init',app:this.app});
+
         try {
             this._prevMessage = '';
             this._deviceMap = {};
             this._requestId = 0;
             this._requests = {};
             this._subscriptions = {};
-            this._bleServer = spawn(BLE_SERVER_EXE, ['']);
-            this._bleServer.stdout
-                .pipe(new nativeMessage.Input())
-                .on('data', (data) => {
-                    this._processMessage(data);
-                });
-            this._bleServer.stderr.on('data', (data) => {
-                console.error('BLEServer:', data);
-            });
-            this._bleServer.on('close', (code) => {
-                this.state = 'poweredOff';
-                this.emit('stateChange', this.state);
-            });
-            this._bleServer.stdin.on('error', (err) => { 
-                console.error('BLEServer:', err);
-            })
-            this._bleServer.stdout.on('error', (err) => { 
-                console.error('BLEServer:', err);
-            })
+            if (this.app) {
+                this._bleServer = spawn(this.app, ['']);
+                this.initBleServer();
+            }    
     
         }
         catch (err) {
-            console.log(err)
+            this.logger.logEvent({message:'error',fn:'init()', err: err.message,stack: err.stack});
+            this.emit('error',err)
         }
     }
 
     startScanning() {
+        this.scanResult = {};
         this._sendMessage({ cmd: 'scan' });
     }
 
@@ -64,17 +111,14 @@ class WinrtBindings extends events.EventEmitter {
     }
 
     connect(address) {
+        if (this._deviceMap[address]) { 
+            this.emit('connect', this._deviceMap[address],null);
+            return;
+        }
         
         this._sendRequest({ cmd: 'connect', 'address': address })
             .then(result => {
-                /*
-                if (result.startsWith('BluetoothLE')) {
-                    const parts = result.split('-');
-
-                    this._deviceMap[address] = parts[parts.length - 1].split(':').reverse().join('');
-                }
-                else */
-                    this._deviceMap[address] = result;
+                this._deviceMap[address] = result;
                 this.emit('connect', address, null);
             })
             .catch(err => this.emit('connect', address, err));
@@ -163,7 +207,7 @@ class WinrtBindings extends events.EventEmitter {
     }
 
     _processMessage(message) {
-        debug('in:', message);
+        this.logger.logEvent( {message:'BLEserver in:', msg:message});
         switch (message._type) {
             case 'Start':
                 this.state = 'poweredOn';
@@ -171,22 +215,53 @@ class WinrtBindings extends events.EventEmitter {
                 break;
 
             case 'scanResult':
-                let advertisement = {
+                const address =   message.bluetoothAddress;
+                const advType = message.advType;
+                const uuid = message.bluetoothAddress.replace(/:/g, '')
+                const advertisement = {
                     localName: message.localName,
                     txPowerLevel: 0,
                     manufacturerData: null,
                     serviceUuids: message.serviceUuids.map(fromWindowsUuid),
                     serviceData: [],
                 };
-                this.emit(
-                    'discover',
-                    message.bluetoothAddress.replace(/:/g, ''),
-                    message.bluetoothAddress,
-                    'public', // TODO address type
-                    true, // TODO connectable
-                    advertisement,
-                    message.rssi);
-                break;
+            
+                switch ( advType) {
+                    case 'NonConnectableUndirected': 
+                        break;
+                    case 'ConnectableUndirected':
+                    case 'ScanableUndirected':
+                        this.scanResult[address] = { uuid, address,advertisement }
+                        break;
+                    case 'ScanResponse':
+                        let d =  this.scanResult[address];
+                        if (!d) 
+                            d = this.scanResult[address] = { uuid, address,advertisement }
+                        else {
+                            if (d.advertisement.localName==='' && advertisement.localName!=='') 
+                                d.advertisement.localName = advertisement.localName
+                            if (advertisement.serviceUuids) 
+                                advertisement.serviceUuids.forEach( sid => { 
+                                    if (!d.advertisement.serviceUuids)
+                                        d.advertisement.serviceUuids = []
+                                    if (!d.advertisement.serviceUuids.find( sid1 => sid1===sid))
+                                        d.advertisement.serviceUuids.push(sid)                                    
+                                }) 
+                        }
+
+                        this.emit(
+                            'discover',
+                            uuid,
+                            address,
+                            'public', // TODO address type
+                            true, // TODO connectable
+                            d.advertisement,
+                            message.rssi);
+                        break;
+        
+                }  
+
+                
 
             case 'response':
                 if (this._requests[message._id]) {
@@ -216,16 +291,19 @@ class WinrtBindings extends events.EventEmitter {
 
             case 'valueChangedNotification':
                
-                const { address, service, characteristic } = this._subscriptions[message.subscriptionId];
+            const subscription  = this._subscriptions[message.subscriptionId]
+            if (subscription) {
+                const { address, service, characteristic } = subscription;
 
                
                 this.emit('read', address, service, characteristic, Buffer.from(message.value), true);
-                break;
+            }
+            break;
         }
     }
 
     _sendMessage(message) {
-        debug('out:', message);
+        this.logger.logEvent({message: 'BLEServer out:', msg:message});
         this._prevMessage = message
         const dataBuf = Buffer.from(JSON.stringify(message), 'utf-8');
         const lenBuf = Buffer.alloc(4);
@@ -244,3 +322,5 @@ class WinrtBindings extends events.EventEmitter {
 }
 
 exports.WinrtBindings = WinrtBindings;
+
+

@@ -12,7 +12,7 @@ const parseArgs = ()=> {
     if ( args.length===0 || args[0]==='scan') { 
         return { command: 'scan' }
     }
-    if ( args.length===2 && args[0]==='connect') { 
+    if ( args.length>=2 && args[0]==='connect') { 
         const props = { command: 'connect' }
         const device = args[1].split('=')
         if (device[0].toLocaleLowerCase()==='id')
@@ -23,6 +23,12 @@ const parseArgs = ()=> {
             props.name = device[1]
         else 
             props.name = args[1];
+
+        if (args.length>2 ) {
+            props.profile = args[2]
+
+        }
+        
         console.log(props)
         return props
     }
@@ -56,25 +62,34 @@ const  main = async(props = {})=> {
         })
         console.log('scanning ...')
         devices = await ble.scan( { deviceTypes:[BleHrmDevice,BleCyclingPowerDevice]} );
-        console.log('scan completed', devices)
+        console.log('scan completed', devices.map(d => ({name:d.name, id:d.id, address:d.address,profile:d.getProfile() })))
         if (devices.length===0) {
             await ble.disconnect();
             process.exit()
         }    
         
-        devices.forEach(device => { 
-            device.connect()
-            device.on('data', (data)=> {
-                
-                console.log( 'device:',device.name,'data:', data)
-            })
+        for (let i=0; i<devices.length; i++) {
+            try {
+                let device = devices[i]
+                console.log( 'connecting to ',{name:device.name, id:device.id, address:device.address,profile:device.getProfile() })
+                await  device.connect()
+                device.on('data', (data)=> {                
+                    console.log( 'device:',device.name,'data:', data)
+                })
+    
+                console.log( 'connected to ',{name:device.name, id:device.id, address:device.address,profile:device.getProfile() })
+            }
+            catch(err) {
+                console.log(err)
+            }
         
-        })
+        }
     
     }
     else {
         const {name,id, address} = props;
         device = await ble.connectDevice( {name,id,address}, 5000 )
+        console.log( 'connected to ',{name:device.name, id:device.id, address:device.address,profile:device.getProfile() })
         device.on('data', (data)=> {
             console.log( 'device:',device.name,'data:', data)
         })

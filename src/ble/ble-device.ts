@@ -1,5 +1,5 @@
 import { EventLogger } from "gd-eventlog";
-import { BleInterfaceClass,BleDeviceClass,BlePeripheral,BleCharacteristic,BleDeviceProps,ConnectProps,uuid } from "./ble";
+import { BleInterfaceClass,BleDeviceClass,BlePeripheral,BleDeviceProps,ConnectProps,uuid } from "./ble";
 
 interface ConnectState  {
     isConnecting: boolean;
@@ -21,7 +21,7 @@ export abstract class BleDevice extends BleDeviceClass  {
     services: string[];
     ble: BleInterfaceClass;
     peripheral?: BlePeripheral;
-    characteristics: BleCharacteristic[] = []
+    characteristics = []
     state?: string;
     connectState: ConnectState = {  isConnecting: false, isConnected: false, isDisconnecting: false }
     logger?: EventLogger;
@@ -97,12 +97,16 @@ export abstract class BleDevice extends BleDeviceClass  {
 
         const connectPeripheral= async (peripheral: BlePeripheral)  => {
             this.connectState.isConnecting = true;
-            try {
-                await  peripheral.connectAsync();
-            }
-            catch (err) {
-                this.logEvent({message:'cannot connect', error: err.message||err })
-                
+
+            const connected = this.ble.findConnected(peripheral);
+            if (!connected) {
+                try {
+                    await  peripheral.connectAsync();
+                }
+                catch (err) {
+                    this.logEvent({message:'cannot connect', error: err.message||err })
+                    
+                }    
             }
             this.connectState.isConnecting = false;
             this.connectState.isConnected = true;
@@ -116,21 +120,28 @@ export abstract class BleDevice extends BleDeviceClass  {
 
 
             try {
-                const {characteristics} = await peripheral.discoverSomeServicesAndCharacteristicsAsync(this.services||[],[]);
+                if (!connected) {
+                    const {characteristics} = await peripheral.discoverSomeServicesAndCharacteristicsAsync(this.services||[],[]);
+                    this.characteristics = characteristics;
+                }
+                else {
+                    this.characteristics = (connected as BleDevice).characteristics;
+                }
                 
-                characteristics.forEach( c=> {
+                this.characteristics.forEach( c=> {
                     if (c.properties.find( p=> p==='notify')) {
                         
     
                         c.on('data', (data, _isNotification) => {
                             this.onData(uuid(c.uuid), data)
                         });
-                        
-                        c.subscribe((err) => {
-                            if (err) 
-                                this.logEvent({message:'cannot subscribe', error: err.message||err })
+                        if (!connected) {
+                            c.subscribe((err) => {
+                                if (err) 
+                                    this.logEvent({message:'cannot subscribe', error: err.message||err })
 
-                        })
+                            })
+                        }
                     }
                 })
         

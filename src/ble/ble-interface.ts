@@ -355,7 +355,6 @@ export default class BleInterface extends BleInterfaceClass {
         }
 
         const detectedPeripherals: Record<string,BlePeripheral> = {}
-        this.devices = [];
 
         if ( scanForDevice)  {
             const {id,address,name} = device;
@@ -371,8 +370,19 @@ export default class BleInterface extends BleInterfaceClass {
             }
             this.scanState.isScanning = true;
 
-            
-            bleBinding.startScanning(services, true, (err) => {
+            if (scanForDevice && device instanceof BleDeviceClass ) {
+                const existing = this.devices.find( i=> i.device.address===device.address && i.isConnected);
+                if (existing) {
+                    device.peripheral = existing.device.peripheral;
+                    this.logEvent({message:'scan: device already connected', device:device.name, address:device.address });         
+                    //this.emit('device', device)    
+                    return resolve([device]);
+                }
+
+                
+            }
+
+            bleBinding.startScanning([], true, (err) => {
                 
                 if (err) {
                     this.logEvent({message:'scan result: error', error:err.message});
@@ -385,8 +395,11 @@ export default class BleInterface extends BleInterfaceClass {
                     //if (!this.peripherals[peripheral.id]) 
                     if ( !peripheral ||!peripheral.advertisement) 
                         return
+                    
 
                     if (!detectedPeripherals[peripheral.id]) {
+                        if (  process.env.BLE_DEBUG)
+                            console.log('discovered' ,peripheral)
                         detectedPeripherals[peripheral.id] = peripheral;
                         let DeviceClasses;
                         if (scanForDevice && (!deviceTypes ||deviceTypes.length===0)) {
@@ -408,18 +421,24 @@ export default class BleInterface extends BleInterfaceClass {
 
                             const C = DeviceClass as any
                             const d = new C({peripheral});
+                            if (device.getProfile && device.getProfile()!==d.getProfile()) 
+                            return;
+
                             d.setInterface(this)
 
                             if (scanForDevice) { 
-                                if( (device.id && device.id!=='' && d.id === device.id) || 
+                                if( 
+                                    (device.id && device.id!=='' && d.id === device.id) || 
                                     (device.address && device.address!=='' && d.address===device.address) || 
-                                    (device.name && device.name!=='' && d.name===device.name)) 
+                                    (device.name && device.name!=='' && d.name===device.name))
+                                    
+                                    
                                     cntFound++;
                             }
                             else 
                                 cntFound++;
 
-                            const existing = this.devices.find( i  => i.device.id === d.id)
+                            const existing = this.devices.find( i  => i.device.id === d.id && i.device.getProfile()===d.getProfile())
                             /*
                             console.log('~~~found', d.name, existing,cntFound, scanForDevice, device,
                                 (device.id && device.id!=='' && d.id === device.id)  ,
@@ -439,6 +458,7 @@ export default class BleInterface extends BleInterfaceClass {
                                     clearTimeout(this.scanState.timeout)
                                     this.scanState.timeout= null;
                                     bleBinding.stopScanning ( ()=> {
+                                        this.getBinding().removeAllListeners('discover');
                                         this.scanState.isScanning = false;
                                         resolve([d])
                                     })                    
@@ -454,6 +474,9 @@ export default class BleInterface extends BleInterfaceClass {
                         
 
                     }
+                    else {
+
+                    }
                     
                 })
             })
@@ -461,6 +484,7 @@ export default class BleInterface extends BleInterfaceClass {
             this.scanState.timeout = setTimeout( ()=>{               
                 this.scanState.timeout = null;
                 this.logEvent({message:'scan result: devices found', devices:this.devices.map(i=> i.device.name+(!i.device.name || i.device.name==='')?`addr=${i.device.address}`:'')});
+                this.getBinding().removeAllListeners('discover');
                 bleBinding.stopScanning ( ()=> {
                     this.scanState.isScanning = false;
                     resolve(this.devices.map( i => i.device))
@@ -477,6 +501,8 @@ export default class BleInterface extends BleInterfaceClass {
         }
         if ( !this.getBinding())
             return Promise.reject(new Error('no binding defined')) 
+
+        this.getBinding().removeAllListeners('discover');
 
         this.logEvent({message:'scan stop request'});
         return new Promise ( resolve=> {
@@ -502,6 +528,14 @@ export default class BleInterface extends BleInterfaceClass {
         }
         this.devices.push( {device,isConnected:true})            
     }
+
+    findConnected(device: BleDeviceClass|BlePeripheral): BleDeviceClass {
+        const connected =  this.devices.find( i => i.device.id===device.id && i.isConnected)
+        if (connected)
+            return connected.device
+        return undefined;
+    }
+
 
     removeConnectedDevice(device: BleDeviceClass):void { 
         const existigDevice = this.devices.find( i => i.device.id === device.id)
