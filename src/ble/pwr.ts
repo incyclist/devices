@@ -44,7 +44,7 @@ export default class BleCyclingPowerDevice extends BleDevice {
     }
 
     getProfile(): string {
-        return 'cp';
+        return 'Power Meter';
     }
 
     getServiceUUids(): string[] {
@@ -165,6 +165,7 @@ export class PwrAdapter extends DeviceAdapter {
     logger: EventLogger;
     mode: CyclingMode
     distanceInternal: number = 0;
+    prevDataTS: number;
 
 
     constructor( device: BleDeviceClass, protocol: BleProtocol) {
@@ -217,6 +218,12 @@ export class PwrAdapter extends DeviceAdapter {
     }
 
     onDeviceData(deviceData:PowerData):void {
+
+        if (this.prevDataTS && Date.now()-this.prevDataTS<1000)
+            return;
+        this.prevDataTS = Date.now()
+        
+
         this.logger.logEvent( {message:'onDeviceData',data:deviceData})        
 
         // transform data into internal structure of Cycling Modes
@@ -283,7 +290,7 @@ export class PwrAdapter extends DeviceAdapter {
 
 
     async start( props?: any ): Promise<any> {
-        this.logger.logEvent({message: 'start requested', props})
+        this.logger.logEvent({message: 'start requested', profile:this.getProfile(),props})
         try {
             const bleDevice = await this.ble.connectDevice(this.device) as BleCyclingPowerDevice
             if (bleDevice) {
@@ -296,13 +303,14 @@ export class PwrAdapter extends DeviceAdapter {
             }    
         }
         catch(err) {
-            this.logger.logEvent({message: 'start result: error', error: err.message})
+            this.logger.logEvent({message: 'start result: error', error: err.message, profile:this.getProfile()})
             throw new Error(`could not start device, reason:${err.message}`)
 
         }
     }
 
     async stop(): Promise<boolean> { 
+        this.logger.logEvent({message: 'stop requested', profile:this.getProfile()})
         this.distanceInternal = 0;
         this.device.reset();
         return  this.device.disconnect();        

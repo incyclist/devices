@@ -128,7 +128,7 @@ export class HrmAdapter extends DeviceAdapter {
 
 
     async start( props?: any ): Promise<any> {
-        this.logger.logEvent({message: 'start requested', props})
+        this.logger.logEvent({message: 'start requested', profile:this.getProfile(),props})
         try {
             const bleDevice = await this.ble.connectDevice(this.device) as BleHrmDevice
             if (bleDevice) {
@@ -142,12 +142,14 @@ export class HrmAdapter extends DeviceAdapter {
             }    
         }
         catch(err) {
-            this.logger.logEvent({message: 'start result: error', error: err.message})
+            this.logger.logEvent({message: 'start result: error', error: err.message, profile:this.getProfile()})
             throw new Error(`could not start device, reason:${err.message}`)
         }
     }
 
     async stop(): Promise<boolean> { 
+        this.logger.logEvent({message: 'stop requested', profile:this.getProfile()})
+
         return  this.device.disconnect();        
     }
 

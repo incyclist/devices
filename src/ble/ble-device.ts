@@ -1,12 +1,7 @@
 import { EventLogger } from "gd-eventlog";
 import { BleInterfaceClass,BleDeviceClass,BlePeripheral,BleDeviceProps,ConnectProps,uuid } from "./ble";
 
-interface ConnectState  {
-    isConnecting: boolean;
-    isConnected: boolean;
-    isDisconnecting: boolean;
-}
-
+const CONNECT_WAIT_TIMEOUT = 10000;
 
 interface BleDeviceConstructProps extends BleDeviceProps {
     log?: boolean;
@@ -23,7 +18,6 @@ export abstract class BleDevice extends BleDeviceClass  {
     peripheral?: BlePeripheral;
     characteristics = []
     state?: string;
-    connectState: ConnectState = {  isConnecting: false, isConnected: false, isDisconnecting: false }
     logger?: EventLogger;
 
     constructor (props?: BleDeviceConstructProps) {
@@ -60,11 +54,9 @@ export abstract class BleDevice extends BleDeviceClass  {
             this.logger.logEvent(event)
         }
         if (process.env.BLE_DEBUG) {
-            console.log( event)
+            console.log( '~~~BLE:', event)
         }
-    }
-
-    
+    }  
 
     setInterface(ble: BleInterfaceClass): void { 
         this.ble = ble;
@@ -76,9 +68,10 @@ export abstract class BleDevice extends BleDeviceClass  {
         }
         else {
             this.characteristics.forEach( c => {
+                c.unsubscribe();
                 c.removeAllListeners('data');
             })
-            this.characteristics = []
+            //this.characteristics = []
         }    
     }
 
@@ -92,6 +85,31 @@ export abstract class BleDevice extends BleDeviceClass  {
         this.emit('disconnected')    
     }
 
+
+    waitForConnectFinished( timeout) {
+        const waitStart = Date.now();
+        const waitTimeout = waitStart + timeout;
+
+        return new Promise( (resolve, reject) => {
+            const waitIv = setInterval( ()=>{
+                try {
+                    if (this.connectState.isConnecting && Date.now()>waitTimeout)  {
+                        clearInterval(waitIv)
+                        return reject(new Error('connection already in progress'))
+                    }
+                    if (!this.connectState.isConnecting) {
+                        clearInterval(waitIv)
+                        return resolve(true)
+                    }
+    
+                }
+                catch( err) { console.log('~~~ error',err)}
+    
+            }, 100)
+    
+        })
+
+    }
 
     async connect(props?: ConnectProps): Promise<boolean> {
 
@@ -108,37 +126,48 @@ export abstract class BleDevice extends BleDeviceClass  {
                     
                 }    
             }
-            this.connectState.isConnecting = false;
-            this.connectState.isConnected = true;
-            
-            this.state = "connected"
-            this.emit('connected')
-            this.cleanupListeners();
-
-            this.ble.addConnectedDevice(this)
-            this.peripheral.once('disconnect', ()=> {this.onDisconnect()})   
-
 
             try {
+                this.cleanupListeners();
+
                 if (!connected) {
-                    const {characteristics} = await peripheral.discoverSomeServicesAndCharacteristicsAsync(this.services||[],[]);
+                    this.logEvent({message:'connect: discover characteristics start'})
+                    const res = await peripheral.discoverSomeServicesAndCharacteristicsAsync(this.services||[],[]);
+                    const {characteristics} = res
+                    this.logEvent({message:'connect: discover characteristics result', 
+                        result: characteristics.map(c =>({ uuid:uuid(c.uuid), properties:c.properties.join(','), service:uuid(c._serviceUuid) }) )
+                    })
+
                     this.characteristics = characteristics;
                 }
                 else {
                     this.characteristics = (connected as BleDevice).characteristics;
                 }
+
+                this.connectState.isConnecting = false;
+                this.connectState.isConnected = true;
+                
+                this.state = "connected"
+                this.emit('connected')
+    
+                this.ble.addConnectedDevice(this)
+                this.peripheral.once('disconnect', ()=> {this.onDisconnect()})   
+    
                 
                 this.characteristics.forEach( c=> {
+                    
                     if (c.properties.find( p=> p==='notify')) {
                         
     
                         c.on('data', (data, _isNotification) => {
                             this.onData(uuid(c.uuid), data)
                         });
+
                         if (!connected) {
+                            this.logEvent({message:'subscribe', device:this.name,address:this.address, service: c._serviceUuid, characteristic:c.uuid})
                             c.subscribe((err) => {
                                 if (err) 
-                                    this.logEvent({message:'cannot subscribe', error: err.message||err })
+                                    this.logEvent({message:'cannot subscribe', device:this.name,address:this.address, service: c._serviceUuid, characteristic:c.uuid, error: err.message||err })
 
                             })
                         }
@@ -148,12 +177,34 @@ export abstract class BleDevice extends BleDeviceClass  {
             }
             catch (err) { 
                 this.logEvent({message:'cannot connect', error: err.message||err })
+                this.connectState.isConnecting = false;
+                this.connectState.isConnected = false;
             }
                         
 
         }
 
+
         try {
+            if (this.connectState.isConnecting) {
+                await this.waitForConnectFinished(CONNECT_WAIT_TIMEOUT)
+            }
+    
+            if ( this.connectState.isConnected) {
+
+                this.characteristics.forEach( c=> {
+                    if (c.properties.find( p=> p==='notify')) {
+                        c.on('data', (data, _isNotification) => {
+                            this.onData(uuid(c.uuid), data)
+                        });
+                    }
+                })
+
+                return true;
+            }
+            this.connectState.isConnecting = true;
+    
+    
             if ( this.peripheral) {
                 const {id,address,advertisement } = this.peripheral;
                 const name = advertisement?.localName;
@@ -164,9 +215,9 @@ export abstract class BleDevice extends BleDeviceClass  {
             }
             else {
                 const {id,name,address } = this;
+                let error;
                 if ( this.address || this.id || this.name) {
                     
-                    this.connectState.isConnecting = true;
                     this.logEvent({message:'connect requested',mode:'device', device: { id, name, address} })
                     
                     try {
@@ -184,12 +235,13 @@ export abstract class BleDevice extends BleDeviceClass  {
         
                     }
                     catch (err) {
-                        // TODO handle error
+                        console.log('~~~ error',err)
+                        error = err;
                     }
                     
     
                 }
-                this.logEvent({message:'connect result: failure',mode:'device', device:  { id, name, address}  })
+                this.logEvent({message:'connect result: failure',mode:'device', device:  { id, name, address} , error:error.message, stack:error.stack })
                 this.connectState.isConnecting = false;
                 this.connectState.isConnected = false;
                 return false;
@@ -209,6 +261,8 @@ export abstract class BleDevice extends BleDeviceClass  {
     async disconnect(): Promise<boolean> {
         const {id,name,address } = this;
         this.logEvent({message:'disconnect requested',device: { id, name, address} })
+
+
         this.connectState.isDisconnecting = true;
 
         if (!this.connectState.isConnecting && !this.connectState.isConnected) {
@@ -230,6 +284,8 @@ export abstract class BleDevice extends BleDeviceClass  {
         if (this.connectState.isConnected) { 
             this.ble.removeConnectedDevice(this)
             this.cleanupListeners();
+
+            // we keep the device connected, so that it can be re-used
 
             // reconnect posible after 1s
             setTimeout(()=> { this.connectState.isDisconnecting = false; }, 1000)

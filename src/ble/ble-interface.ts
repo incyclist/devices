@@ -2,8 +2,12 @@ import { EventLogger } from 'gd-eventlog';
 import { sleep } from '../utils';
 import { BleInterfaceClass, ConnectProps, ScanProps, BleDeviceClass,BlePeripheral,BleState,BleBinding,uuid} from './ble'
 
+const CONNECT_TIMEOUT = 5000;
+
 export interface ScanState {
     isScanning: boolean;
+    isConnecting: boolean;
+    isBackgroundScan: boolean;
     timeout?: NodeJS.Timeout;
 }
 
@@ -27,10 +31,11 @@ export interface BleDeviceClassInfo {
 }
 
 export default class BleInterface extends BleInterfaceClass {
-    scanState: ScanState = { isScanning: false, timeout: undefined}
+    scanState: ScanState = { isScanning: false, isConnecting:false,  timeout: undefined, isBackgroundScan:false}
     connectState: ConnectState = { isConnecting: false, isConnected: false,isInitSuccess: false }
     devices: BleDeviceInfo[] = []
     logger: EventLogger
+    deviceCache = [];
     static deviceClasses: BleDeviceClassInfo[] = []
     static _instance: BleInterface;
 
@@ -74,7 +79,7 @@ export default class BleInterface extends BleInterfaceClass {
             this.logger.logEvent(event)
         }
         if (process.env.BLE_DEBUG) {
-            console.log( event)
+            console.log( '~~BLE:', event)
         }
     }
 
@@ -93,12 +98,23 @@ export default class BleInterface extends BleInterfaceClass {
     connect(props: ConnectProps={}): Promise<boolean> {
         const timeout = props.timeout || 2000;
 
+        const runBackgroundScan = ()=> {
+            // trigger background scan
+            this.scanState.isBackgroundScan = true;
+            this.scan({timeout:5000,isBackgroundScan:true})
+            .then(  ()=> {
+                this.scanState.isBackgroundScan = false;                        
+            })
+            .catch( ()=> {
+                this.scanState.isBackgroundScan = false;                        
+            })
+        }
 
         return new Promise((resolve, reject) => {
             if ( this.connectState.isConnected) {
                 return resolve(true);
             }
-            this.logEvent({message:'connect request'});
+            this.logEvent({message:'connect request',});
             
             if ( !this.getBinding()) 
                 return Promise.reject(new Error('no binding defined')) 
@@ -153,7 +169,10 @@ export default class BleInterface extends BleInterfaceClass {
                     this.connectState.isConnected = true;
                     this.connectState.isConnecting = false;
                     this.logEvent({message:'connect result: success'});
-                    return resolve(true);
+                    resolve(true);
+                    runBackgroundScan()
+                    return;
+                    
 
                 }
                 else {
@@ -178,6 +197,8 @@ export default class BleInterface extends BleInterfaceClass {
                             this.connectState.isConnected = true;
                             this.connectState.isConnecting = false;
                             this.logEvent({message:'connect result: success'});
+                            runBackgroundScan()
+
                             return resolve(true);
                         }  
                         else {
@@ -292,16 +313,46 @@ export default class BleInterface extends BleInterfaceClass {
         return services;             
     }
 
-    async connectDevice(requested: BleDeviceClass, timeout=2000): Promise<BleDeviceClass> {
-        const {id,name,address} = requested;
-        this.logEvent({message:'connectDevice',id,name,address});
+    waitForConnectFinished( timeout) {
+        const waitStart = Date.now();
+        const waitTimeout = waitStart + timeout;
+
+        return new Promise( (resolve, reject) => {
+            const waitIv = setInterval( ()=>{
+                    
+                if (this.scanState.isConnecting && Date.now()>waitTimeout)  {
+                    clearInterval(waitIv)
+                    return reject(new Error('Connecting already in progress'))
+                }
+                if (!this.scanState.isConnecting) {
+                    clearInterval(waitIv)
+                    return resolve(true)
+                }
+    
+            }, 100)
+    
+        })
+
+    }
+
+
+    async connectDevice(requested: BleDeviceClass, timeout=CONNECT_TIMEOUT): Promise<BleDeviceClass> {
+        const {id,name,address,getProfile} = requested;
+        const profile = getProfile && typeof(getProfile)==='function' ? getProfile() : undefined
+        this.logEvent({message:'connectDevice',id,name,address,profile,isbusy:this.scanState.isConnecting});
+
+        if (this.scanState.isConnecting) {
+            await this.waitForConnectFinished(10000)
+        }
+        this.scanState.isConnecting = true;
+
         let devices = [];
         let retry = false;
         let retryCount = 0;
 
         do {
             if (retryCount > 0) {
-                this.logEvent({message:'retry connect device' ,retryCount})
+                this.logEvent({message:'retry connect device',id,name,address,profile, retryCount})
             }
             try {
                 devices = await this.scan ( {timeout, device:requested})         
@@ -312,34 +363,79 @@ export default class BleInterface extends BleInterfaceClass {
                 }
             }
             catch(err) {
-                if (err.message==='scanning already in progress') {   
-                    this.logEvent({message:'scan busy'})
-                            
+                if (err.message==='scanning already in progress') {                              
                     await sleep(1000)
                     retryCount++;
                     retry = retryCount<5;
                     continue;
                 }
-
+                this.scanState.isConnecting = false;
                 throw err;
             }
         }
         while (devices.length===0 && retry)
 
-        if (devices.length === 0) 
+        if (devices.length === 0)  {
+            this.logEvent({message:'connectDevice failure',id,name,address,profile, error:'device not found'});
+            this.scanState.isConnecting = false;
             throw new Error('device not found');
-
+        }
 
         if (devices[0]) {
+            this.logEvent({message:'connectDevice connecting',id,name,address,profile});
             const connected =  await devices[0].connect()
+            this.scanState.isConnecting = false;
             if (connected) {
+                this.logEvent({message:'connectDevice success',id,name,address,profile});
                 return devices[0];
             }
             else {
+                this.logEvent({message:'connectDevice failure',id,name,address,profile});
                 throw new Error('connect failed')
             }
         }
         
+    }
+
+    waitForScanFinished( timeout) {
+        const waitStart = Date.now();
+        const waitTimeout = waitStart + timeout;
+
+        return new Promise( (resolve, reject) => {
+            const waitIv = setInterval( ()=>{
+                    
+                if (this.scanState.isScanning && Date.now()>waitTimeout)  {
+                    clearInterval(waitIv)
+                    return reject(new Error('scanning already in progress'))
+                }
+                if (!this.scanState.isScanning) {
+                    clearInterval(waitIv)
+                    return resolve(true)
+                }
+    
+            }, 100)
+    
+        })
+
+    }
+
+    addPeripheralToCache(peripheral:BlePeripheral):void {
+
+        try {
+            this.logEvent({message:'adding device to cache', device: { address:peripheral.address, name:peripheral.advertisement ? peripheral.advertisement.localName : '' }})
+
+            const existing = this.deviceCache.find( p => p.address === peripheral.address)
+            if (!existing)
+                this.deviceCache.push(peripheral);
+            else {
+                if (peripheral.advertisement && peripheral.advertisement.localName!=='' && existing.advertisement && existing.advertisement.localName==='')
+                    existing.advertisement.localName = peripheral.advertisement.localName;
+            }
+    
+        }
+        catch(err) {
+            console.log('~~~ error', err)
+        }
     }
 
     async scan( props:ScanProps) : Promise<BleDeviceClass[]> {
@@ -354,139 +450,234 @@ export default class BleInterface extends BleInterfaceClass {
             await this.connect();
         }
 
-        const detectedPeripherals: Record<string,BlePeripheral> = {}
+        this.logEvent( {message:'scan()',props, scanState:this.scanState, cache:this.deviceCache.map(p=> ({name:p.advertisement? p.advertisement.localName:'', address:p.address}))})
 
+        if (!props.isBackgroundScan && this.scanState.isBackgroundScan) {
+            await this.stopScan();
+            this.scanState.isBackgroundScan = false;
+        }
+
+        const detectedPeripherals: Record<string,BlePeripheral> = {}
+        let opStr;
         if ( scanForDevice)  {
+            opStr = 'search device';
             const {id,address,name} = device;
             this.logEvent({message:'search device request',device:{id,address,name}, deviceTypes});
         }
-        else 
+        else  {
+            opStr = 'scan'
             this.logEvent({message:'scan start', services});
-
-        return new Promise((resolve, reject) => {
-            if ( this.scanState.isScanning) {
-                this.logEvent({message:'scan result: already scanning'});
-                return reject(new Error('scanning already in progress'))
+        }
+        // if scan is already in progress, wait until previous scan is finished 
+        if ( this.scanState.isScanning) {
+            try {
+                await this.waitForScanFinished(timeout)
             }
+            catch(err) {
+                this.logEvent({message:`${opStr} result: already scanning`});
+                return Promise.reject(err)
+            }
+        }
+
+        return new Promise( (resolve, reject) => {
+
             this.scanState.isScanning = true;
 
             if (scanForDevice && device instanceof BleDeviceClass ) {
-                const existing = this.devices.find( i=> i.device.address===device.address && i.isConnected);
-                if (existing) {
-                    device.peripheral = existing.device.peripheral;
-                    this.logEvent({message:'scan: device already connected', device:device.name, address:device.address });         
-                    //this.emit('device', device)    
-                    return resolve([device]);
+
+                if (this.devices && this.devices.length>0) {
+                    const connectedDevices = this.devices.map( i => ({ name:i.device.name, address:i.device.address, isConnected:i.isConnected, connectState:i.device.getConnectState() }))
+                    const {name, address} = device
+                    this.logEvent({message:`${opStr}: check if already registered`, device:{name, address}, connectedDevices})
+                    const existing = this.devices.find( i=> (i.device.address===device.address || i.device.name===device.name) );
+    
+                    if (existing) {
+                        const d = device as any;
+                        const linkedDevice = existing.device
+                        d.peripheral = existing.device.peripheral;
+                        if (d.setInterface && typeof (d.setInterface)==='function')                    
+                            d.setInterface(this);
+                        
+                        setTimeout( ()=>{
+                            let connectState = linkedDevice.getConnectState();
+                            this.logEvent({message:`${opStr}: device already registered`, device:device.name, address:device.address,connectState });         
+                            
+                            if (connectState.isConnecting) {
+                                const waitStart = Date.now();
+                                const waitTimeout = waitStart + timeout;
+
+                                const waitIv = setInterval( ()=>{
+                                    try {
+    
+                                        connectState = linkedDevice.getConnectState();
+                                        //console.log( '~~~',Date.now()-waitStart, connectState)
+                                        if (connectState.isConnecting && Date.now()>waitTimeout)  {
+                                            clearInterval(waitIv)
+                                            this.scanState.isScanning = false;
+                                            return resolve([])
+                                        }
+                                        if (!connectState.isConnecting) {
+                                            clearInterval(waitIv)
+                                            this.scanState.isScanning = false;
+                                            return resolve([device])
+                                        }
+                        
+                                    }
+                                    catch( err) { console.log('~~~ error',err)}
+                        
+                                }, 100)
+                                
+    
+                            }
+                            else if (connectState.isConnected ) {
+                                this.scanState.isScanning = false;
+                                resolve([device])
+                            }
+                            else {
+                                this.scanState.isScanning = false;
+                                resolve([])
+                            }
+    
+                        }, 100)
+                        
+                    }
+    
                 }
 
                 
             }
 
+            const onPeripheralFound = (peripheral:BlePeripheral, fromCache:boolean=false)  => {
+                //if (!this.peripherals[peripheral.id]) 
+                if (fromCache)
+                    this.logEvent({message:'adding from Cache', peripheral:peripheral.address})
+
+                if ( !peripheral ||!peripheral.advertisement) 
+                    return
+
+
+
+                if (!detectedPeripherals[peripheral.id]) {
+                    if (  process.env.BLE_DEBUG)
+                        console.log('discovered' ,peripheral)
+                    detectedPeripherals[peripheral.id] = peripheral;
+
+                    this.addPeripheralToCache(peripheral)                  
+
+                    let DeviceClasses;
+                    if (scanForDevice && (!deviceTypes ||deviceTypes.length===0)) {
+                        // find matching Classes in the set of all registered Device Classes
+                        const classes = BleInterface.deviceClasses.map( c => c.Class)
+                        DeviceClasses = this.getDevicesFromServices( classes, peripheral.advertisement.serviceUuids) 
+                    }
+                    else {                            
+                        // find matching Classes in the set of requested Device Classes
+                        DeviceClasses = this.getDevicesFromServices(deviceTypes, peripheral.advertisement.serviceUuids) 
+                    }
+
+                    DeviceClasses.forEach( DeviceClass => {
+                        let cntFound = 0;
+                        if (!DeviceClass)
+                            return;
+                        if (scanForDevice && cntFound>0)
+                            return;
+
+                        const C = DeviceClass as any
+                        const d = new C({peripheral});
+                        if (device && device.getProfile && device.getProfile()!==d.getProfile()) 
+                        return;
+
+                        d.setInterface(this)
+
+                        if (scanForDevice) { 
+                            if( 
+                                (device.id && device.id!=='' && d.id === device.id) || 
+                                (device.address && device.address!=='' && d.address===device.address) || 
+                                (device.name && device.name!=='' && d.name===device.name))
+                                
+                                
+                                cntFound++;
+                        }
+                        else 
+                            cntFound++;
+
+                        const existing = this.devices.find( i  => i.device.id === d.id && i.device.getProfile()===d.getProfile())
+                        /*
+                        console.log('~~~found', d.name, existing,cntFound, scanForDevice, device,
+                            (device.id && device.id!=='' && d.id === device.id)  ,
+                            (device.address && device.address!=='' && d.address===device.address),
+                            (device.name && device.name!=='' && d.name===device.name)
+                        )
+                        */
+                        if (!scanForDevice && cntFound>0 && !existing) {                            
+                            this.logEvent({message:`${opStr}: device found`, device:d.name, address:d.address, services:d.services.join(',')});
+                            this.devices.push( {device:d,isConnected:false} )
+                            this.emit('device', d)
+                        }
+
+                        if (scanForDevice&& cntFound>0)  {
+                            if (fromCache) {
+                                resolve([d])
+                                return;
+                            }
+
+                            if (this.scanState.timeout) {
+                                clearTimeout(this.scanState.timeout)
+                                this.scanState.timeout= null;
+                                this.logEvent({message:`${opStr}: stop scanning`, requested: scanForDevice ? {name:device.name, address:device.address}: undefined,})
+
+                                bleBinding.stopScanning ( ()=> {
+                                    this.getBinding().removeAllListeners('discover');
+                                    this.scanState.isScanning = false;
+                                    resolve([d])
+                                })                    
+                            }
+                            else {
+                                resolve([d])
+                            }
+                            
+                        }
+
+                    })
+
+                    
+
+                }
+                else {
+                    // peripheral is already detected in this scan
+                    
+                }
+            }
+                
+            this.logEvent({message:`${opStr}: start scanning`, requested: scanForDevice ? {name:device.name, address:device.address}: undefined,timeout})
+            this.deviceCache.forEach( peripheral => {
+                onPeripheralFound(peripheral, true)
+            })
             bleBinding.startScanning([], true, (err) => {
                 
                 if (err) {
-                    this.logEvent({message:'scan result: error', error:err.message});
+                    this.logEvent({message:`${opStr} result: error`, requested: scanForDevice ? {name:device.name, address:device.address}: undefined,  error:err.message});
                     this.scanState.isScanning = false;
                     return reject(err)
                 }
-                
-                bleBinding.on('discover', (peripheral) => {
-                    
-                    //if (!this.peripherals[peripheral.id]) 
-                    if ( !peripheral ||!peripheral.advertisement) 
-                        return
-                    
-
-                    if (!detectedPeripherals[peripheral.id]) {
-                        if (  process.env.BLE_DEBUG)
-                            console.log('discovered' ,peripheral)
-                        detectedPeripherals[peripheral.id] = peripheral;
-                        let DeviceClasses;
-                        if (scanForDevice && (!deviceTypes ||deviceTypes.length===0)) {
-                            // find matching Classes in the set of all registered Device Classes
-                            const classes = BleInterface.deviceClasses.map( c => c.Class)
-                            DeviceClasses = this.getDevicesFromServices( classes, peripheral.advertisement.serviceUuids) 
-                        }
-                        else {                            
-                            // find matching Classes in the set of requested Device Classes
-                            DeviceClasses = this.getDevicesFromServices(deviceTypes, peripheral.advertisement.serviceUuids) 
-                        }
-
-                        let cntFound = 0;
-                        DeviceClasses.forEach( DeviceClass => {
-                            if (!DeviceClass)
-                                return;
-                            if (scanForDevice && cntFound>0)
-                                return;
-
-                            const C = DeviceClass as any
-                            const d = new C({peripheral});
-                            if (device && device.getProfile && device.getProfile()!==d.getProfile()) 
-                            return;
-
-                            d.setInterface(this)
-
-                            if (scanForDevice) { 
-                                if( 
-                                    (device.id && device.id!=='' && d.id === device.id) || 
-                                    (device.address && device.address!=='' && d.address===device.address) || 
-                                    (device.name && device.name!=='' && d.name===device.name))
-                                    
-                                    
-                                    cntFound++;
-                            }
-                            else 
-                                cntFound++;
-
-                            const existing = this.devices.find( i  => i.device.id === d.id && i.device.getProfile()===d.getProfile())
-                            /*
-                            console.log('~~~found', d.name, existing,cntFound, scanForDevice, device,
-                                (device.id && device.id!=='' && d.id === device.id)  ,
-                                (device.address && device.address!=='' && d.address===device.address),
-                                (device.name && device.name!=='' && d.name===device.name)
-                            )
-                            */
-                            if (cntFound>0 && !existing) {
-                                this.logEvent({message:'scan: device found', device:d.name, address:d.address, services:d.services.join(',')});
-                                this.devices.push( {device:d,isConnected:false} )
-                                this.emit('device', d)
-                            }
-
-
-                            if (scanForDevice&& cntFound>0)  {
-                                if (this.scanState.timeout) {
-                                    clearTimeout(this.scanState.timeout)
-                                    this.scanState.timeout= null;
-                                    bleBinding.stopScanning ( ()=> {
-                                        this.getBinding().removeAllListeners('discover');
-                                        this.scanState.isScanning = false;
-                                        resolve([d])
-                                    })                    
-                                }
-                                else {
-                                    resolve([d])
-                                }
-                                
-                            }
-    
-                        })
-
-                        
-
-                    }
-                    else {
-
-                    }
-                    
+                bleBinding.on('discover', (p )=> {
+                    console.log('~~~ discovered:',p.address, p.advertisement? p.advertisement.localName :'')
+                    onPeripheralFound(p) 
                 })
+
             })
 
             this.scanState.timeout = setTimeout( ()=>{               
                 this.scanState.timeout = null;
-                this.logEvent({message:'scan result: devices found', devices:this.devices.map(i=> i.device.name+(!i.device.name || i.device.name==='')?`addr=${i.device.address}`:'')});
+                this.logEvent({message:`${opStr} result: devices found`, requested: scanForDevice ? {name:device.name, address:device.address}: undefined, devices:this.devices.map(i=> i.device.name+(!i.device.name || i.device.name==='')?`addr=${i.device.address}`:'')});
                 this.getBinding().removeAllListeners('discover');
+                this.logEvent({message:`${opStr}: stop scanning`, requested: scanForDevice ? {name:device.name, address:device.address}: undefined,})
                 bleBinding.stopScanning ( ()=> {
                     this.scanState.isScanning = false;
+                    if (scanForDevice) {
+                        reject( new Error('device not found'))
+                        return 
+                    }
                     resolve(this.devices.map( i => i.device))
                 })
             }, timeout)

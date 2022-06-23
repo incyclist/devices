@@ -10,13 +10,28 @@ export interface BleDeviceIdentifier  {
     name?: string;
 }
 
+export interface ConnectState  {
+    isConnecting: boolean;
+    isConnected: boolean;
+    isDisconnecting: boolean;
+}
+
+
 export abstract class  BleDeviceClass extends EventEmitter { 
     static services: string[] = []
     id?: string;
     address?: string;
     name?: string;
     peripheral?: BlePeripheral;
-    
+    connectState: ConnectState = {  isConnecting: false, isConnected: false, isDisconnecting: false }
+
+    getConnectState() {
+        return this.connectState
+    }
+
+    isConnected() {
+        return this.connectState.isConnected;
+    }
 
     abstract getProfile(): string;
     abstract getServiceUUids(): string[] 
@@ -40,6 +55,7 @@ export type ScanProps ={
     timeout?: number;
     deviceTypes?: (typeof BleDeviceClass)[];
     device?: BleDeviceClass;    
+    isBackgroundScan?: boolean
 }
 
 export class BleBindingWrapper  {
