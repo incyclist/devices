@@ -185,7 +185,7 @@ export class FmAdapter extends DeviceAdapter {
     isPower() { return true; }
    
     getProfile() {
-        return 'Power Meter';
+        return 'Smart Trainer';
     }
 
     getName() {
