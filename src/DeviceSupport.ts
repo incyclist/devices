@@ -17,6 +17,7 @@ import { CyclingModeProperyType } from './CyclingMode'
 import BleInterface from './ble/ble-interface'
 import BleHrmDevice from './ble/hrm'
 import BleCyclingPowerDevice from './ble/pwr'
+import BleFitnessMachineDevice from './ble/fm'
 
 const Protocols = {
     SimulatorProtocol,
@@ -41,7 +42,8 @@ export {
 
     BleInterface,
     BleHrmDevice,
-    BleCyclingPowerDevice
+    BleCyclingPowerDevice,
+    BleFitnessMachineDevice
 
     
 }

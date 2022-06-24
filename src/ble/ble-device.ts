@@ -132,7 +132,7 @@ export abstract class BleDevice extends BleDeviceClass  {
 
                 if (!connected) {
                     this.logEvent({message:'connect: discover characteristics start'})
-                    const res = await peripheral.discoverSomeServicesAndCharacteristicsAsync(this.services||[],[]);
+                    const res = await peripheral.discoverSomeServicesAndCharacteristicsAsync([],[]);
                     const {characteristics} = res
                     this.logEvent({message:'connect: discover characteristics result', 
                         result: characteristics.map(c =>({ uuid:uuid(c.uuid), properties:c.properties.join(','), service:uuid(c._serviceUuid) }) )

@@ -17,6 +17,17 @@ const DEFAULT_UPDATE_SERVER_URL = process.env.ENVIRONMENT=='dev' ? DEFAULT_UPDAT
 
 const server = DEFAULT_UPDATE_SERVER_URL;
 
+const uuid = (s) => {
+    //console.log(s)
+    if (s) {
+        if (s.includes('-')) {
+            const parts = s.split('-')
+            const uuidNo = parseInt('0x'+parts[0])
+            return uuidNo.toString(16)
+        }
+        return s;
+    }
+}
 
 function toWindowsUuid(uuid) {
     return '{' + uuid + '}';
@@ -45,6 +56,13 @@ class WinrtBindings extends events.EventEmitter {
             WinrtBindings._instance = new WinrtBindings(appDirectory);
         }
         return WinrtBindings._instance;
+    }
+
+    logEvent(e) {
+        this.logger.logEvent(e)
+        if (process.env.BLE_DEBUG) {
+            console.log('~~BLEServer:',e)
+        }
     }
 
 
@@ -81,7 +99,7 @@ class WinrtBindings extends events.EventEmitter {
     }
 
     async init() {
-        this.logger.logEvent({message:'init',app:this.app});
+        this.logEvent({message:'init',app:this.app});
 
         try {
             this._prevMessage = '';
@@ -96,7 +114,7 @@ class WinrtBindings extends events.EventEmitter {
     
         }
         catch (err) {
-            this.logger.logEvent({message:'error',fn:'init()', err: err.message,stack: err.stack});
+            this.logEvent({message:'error',fn:'init()', err: err.message,stack: err.stack});
             this.emit('error',err)
         }
     }
@@ -136,8 +154,14 @@ class WinrtBindings extends events.EventEmitter {
     discoverServices(address, filters = []) {
         this._sendRequest({ cmd: 'services', device: this._deviceMap[address] })
             .then(result => {
-                // TODO filters
-                this.emit('servicesDiscover', address, result.map(fromWindowsUuid));
+    
+                const sids = result.map(fromWindowsUuid).map( s => ({uuid:s, uuid_short:uuid(s)}))
+                let services = result.map(fromWindowsUuid)
+                if (filters && filters.length>0) {                       
+                    services = sids.filter( (s) => filters.find(sid => s.uuid_short===sid) ).map(s=>s.uuid)
+                }
+                   
+                this.emit('servicesDiscover', address, services);
             })
             .catch(err => this.emit('servicesDiscover', address, err));
     }
@@ -207,7 +231,7 @@ class WinrtBindings extends events.EventEmitter {
     }
 
     _processMessage(message) {
-        this.logger.logEvent( {message:'BLEserver in:', msg:message});
+        this.logEvent( {message:'BLEserver in:', msg:message});
         switch (message._type) {
             case 'Start':
                 this.state = 'poweredOn';
@@ -303,7 +327,7 @@ class WinrtBindings extends events.EventEmitter {
     }
 
     _sendMessage(message) {
-        this.logger.logEvent({message: 'BLEServer out:', msg:message});
+        this.logEvent({message: 'BLEServer out:', msg:message});
         this._prevMessage = message
         const dataBuf = Buffer.from(JSON.stringify(message), 'utf-8');
         const lenBuf = Buffer.alloc(4);

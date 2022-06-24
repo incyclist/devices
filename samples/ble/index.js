@@ -1,4 +1,4 @@
-const { BleInterface, BleHrmDevice,BleCyclingPowerDevice} = require('incyclist-devices')
+const { BleInterface, BleHrmDevice,BleCyclingPowerDevice,BleFitnessMachineDevice} = require('incyclist-devices')
 //const noble = require('noble-winrt')
 
 const {WinrtBindings} = require('./bindings')
@@ -42,6 +42,15 @@ const parseArgs = ()=> {
     return 
 }
 
+const discover = (device) => {
+    return new Promise( (resolve) => {
+        device.peripheral.discoverServices(['1826','1818','180d'], (err,services) => { 
+            resolve({err,services})
+            console.log(err,services)
+        })
+    })
+}
+
 const  main = async(props = {})=> {
 
     console.log('Device Types:', BleInterface.deviceClasses)
@@ -57,11 +66,23 @@ const  main = async(props = {})=> {
     let device
     if ( !props.command || props.command==='scan') {
         let devices = [];
-        ble.on('discover', (d)=> {
-            //console.log('found',d)
+        ble.on('device', async (d)=> {
+            /*
+            console.log('found',d.address)
+            const p= d.peripheral;
+            p.connect( (err)=>{
+                p.discoverServices(['1826'], (err,services) => {
+                    p.disconnect()
+                    console.log(err,services.map(s => s.uuid))
+                    
+                        //process.exit()
+                })
+            })
+            */
+            
         })
         console.log('scanning ...')
-        devices = await ble.scan( { deviceTypes:[BleHrmDevice,BleCyclingPowerDevice]} );
+        devices = await ble.scan( { deviceTypes:[BleHrmDevice,BleCyclingPowerDevice,BleFitnessMachineDevice], timeout:20000} );
         console.log('scan completed', devices.map(d => ({name:d.name, id:d.id, address:d.address,profile:d.getProfile() })))
         if (devices.length===0) {
             await ble.disconnect();
@@ -71,6 +92,7 @@ const  main = async(props = {})=> {
         for (let i=0; i<devices.length; i++) {
             try {
                 let device = devices[i]
+                await discover(device)
                 console.log( 'connecting to ',{name:device.name, id:device.id, address:device.address,profile:device.getProfile() })
                 await  device.connect()
                 device.on('data', (data)=> {                

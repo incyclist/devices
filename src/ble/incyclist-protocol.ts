@@ -4,10 +4,11 @@ import DeviceRegistry from "../DeviceRegistry";
 import { BleBinding, BleDeviceClass } from "./ble";
 
 import BleInterface from "./ble-interface";
+import BleFitnessMachineDevice,{FmAdapter} from "./fm";
 import BleHrmDevice, {HrmAdapter} from "./hrm";
 import BleCyclingPowerDevice, {PwrAdapter} from "./pwr";
 
-const supportedDeviceTypes = [BleHrmDevice,BleCyclingPowerDevice]
+const supportedDeviceTypes = [BleHrmDevice,BleCyclingPowerDevice,BleFitnessMachineDevice]
 
 interface BleDeviceSettings extends DeviceSettings {
     id?: string;
@@ -60,6 +61,10 @@ export default class BleProtocol extends DeviceProtocolBase implements DevicePro
             case 'hr':
             case 'heartrate monitor':
                 return new HrmAdapter( fromDevice? bleDevice as BleDeviceClass : new BleHrmDevice(props()),this);
+            case 'fm':
+            case 'smart trainer':
+            case 'fitness machine':
+                return new FmAdapter( fromDevice? bleDevice as BleDeviceClass : new BleFitnessMachineDevice(props()),this);
             case 'cp':
             case 'power meter':
                 return new PwrAdapter( fromDevice? bleDevice as BleDeviceClass : new BleCyclingPowerDevice(props()),this);
