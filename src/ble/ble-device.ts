@@ -63,6 +63,7 @@ export abstract class BleDevice extends BleDeviceClass  {
     }
 
     private cleanupListeners():void { 
+        //console.log('~~cleanup', this.characteristics)
         if ( this.characteristics === undefined) {
             this.characteristics = []
         }
@@ -117,7 +118,7 @@ export abstract class BleDevice extends BleDeviceClass  {
             this.connectState.isConnecting = true;
 
             const connected = this.ble.findConnected(peripheral);
-            if (!connected) {
+            if (!connected && peripheral.state!=='connected') {
                 try {
                     await  peripheral.connectAsync();
                 }
@@ -128,18 +129,25 @@ export abstract class BleDevice extends BleDeviceClass  {
             }
 
             try {
-                this.cleanupListeners();
-
-                if (!connected) {
-                    this.logEvent({message:'connect: discover characteristics start'})
-                    const res = await peripheral.discoverSomeServicesAndCharacteristicsAsync([],[]);
-                    const {characteristics} = res
-                    this.logEvent({message:'connect: discover characteristics result', 
-                        result: characteristics.map(c =>({ uuid:uuid(c.uuid), properties:c.properties.join(','), service:uuid(c._serviceUuid) }) )
-                    })
-
-                    this.characteristics = characteristics;
+                //this.cleanupListeners();
+                if (!this.characteristics)
+                    this.characteristics = [];
+                if (!connected ) {
+                    if (!this.characteristics || this.characteristics.length===0) {
+                        this.logEvent({message:'connect: discover characteristics start'})
+                        const res = await peripheral.discoverSomeServicesAndCharacteristicsAsync([],[]);
+                        const {characteristics} = res
+                        this.logEvent({message:'connect: discover characteristics result', 
+                            result: characteristics.map(c =>({ uuid:uuid(c.uuid), properties:c.properties.join(','), service:uuid(c._serviceUuid) }) )
+                        })
+    
+                        this.characteristics = characteristics;    
+                    }
+                    else {
+                        //console.log('~~~ using cached characteristics')
+                    }
                 }
+                
                 else {
                     this.characteristics = (connected as BleDevice).characteristics;
                 }

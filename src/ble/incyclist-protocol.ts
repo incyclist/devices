@@ -96,7 +96,7 @@ export default class BleProtocol extends DeviceProtocolBase implements DevicePro
                 }
             })
             this.logger.logEvent({message:'scan started'})
-            await this.ble.scan( {deviceTypes:supportedDeviceTypes} );
+            await this.ble.scan( {deviceTypes:supportedDeviceTypes, timeout:20000} );
             if (props && props.onScanFinished) {
                 props.onScanFinished(props.id);
             }

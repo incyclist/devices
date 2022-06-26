@@ -86,13 +86,13 @@ export default class BleFitnessMachineDevice extends BleDevice {
             this.data.speed = data.readUInt16LE(offset)/100; offset+=2;
         }
         if (flags & IndoorBikeDataFlag.AverageSpeedPresent) {
-            this.data.averageSpeed = data.readUInt16LE(offset); offset+=2;
+            this.data.averageSpeed = data.readUInt16LE(offset)/100; offset+=2;
         }
         if (flags & IndoorBikeDataFlag.InstantaneousCadence) {
             this.data.cadence = data.readUInt16LE(offset)/2; offset+=2;
         }
         if (flags & IndoorBikeDataFlag.AverageCadencePresent) {
-            this.data.averageCadence = data.readUInt16LE(offset); offset+=2;
+            this.data.averageCadence = data.readUInt16LE(offset)/2; offset+=2;
         }
 
         if (flags & IndoorBikeDataFlag.TotalDistancePresent) {
@@ -115,7 +115,7 @@ export default class BleFitnessMachineDevice extends BleDevice {
             this.data.heartrate = data.readUInt16LE(offset); offset+=2;
         }
         if (flags & IndoorBikeDataFlag.MetabolicEquivalentPresent) {
-            this.data.metabolicEquivalent = data.readUInt16LE(offset); offset+=2;
+            this.data.metabolicEquivalent = data.readUInt16LE(offset)/10; offset+=2;
         }
         if (flags & IndoorBikeDataFlag.ElapsedTimePresent) {
             this.data.time = data.readUInt16LE(offset); offset+=2;

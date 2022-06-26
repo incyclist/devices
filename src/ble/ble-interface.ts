@@ -36,6 +36,7 @@ export default class BleInterface extends BleInterfaceClass {
     devices: BleDeviceInfo[] = []
     logger: EventLogger
     deviceCache = [];
+    peripheralCache = [];
     static deviceClasses: BleDeviceClassInfo[] = []
     static _instance: BleInterface;
 
@@ -450,6 +451,8 @@ export default class BleInterface extends BleInterfaceClass {
             await this.connect();
         }
 
+        const peripheralsProcessed = []
+
         this.logEvent( {message:'scan()',props, scanState:this.scanState, cache:this.deviceCache.map(p=> ({name:p.advertisement? p.advertisement.localName:'', address:p.address}))})
 
         if (!props.isBackgroundScan && this.scanState.isBackgroundScan) {
@@ -457,7 +460,7 @@ export default class BleInterface extends BleInterfaceClass {
             this.scanState.isBackgroundScan = false;
         }
 
-        const detectedPeripherals: Record<string,BlePeripheral> = {}
+        
         let opStr;
         if ( scanForDevice)  {
             opStr = 'search device';
@@ -468,9 +471,11 @@ export default class BleInterface extends BleInterfaceClass {
             opStr = 'scan'
             this.logEvent({message:'scan start', services});
         }
+
         // if scan is already in progress, wait until previous scan is finished 
         if ( this.scanState.isScanning) {
             try {
+                this.logEvent({message:`${opStr}: waiting for previous scan to finish`});
                 await this.waitForScanFinished(timeout)
             }
             catch(err) {
@@ -482,6 +487,7 @@ export default class BleInterface extends BleInterfaceClass {
         return new Promise( (resolve, reject) => {
 
             this.scanState.isScanning = true;
+            if (props.isBackgroundScan) this.scanState.isBackgroundScan = true;
 
             if (scanForDevice && device instanceof BleDeviceClass ) {
 
@@ -547,22 +553,61 @@ export default class BleInterface extends BleInterfaceClass {
                 
             }
 
-            const onPeripheralFound = (peripheral:BlePeripheral, fromCache:boolean=false)  => {
-                //if (!this.peripherals[peripheral.id]) 
+            const onPeripheralFound = async (peripheral:BlePeripheral, fromCache:boolean=false)  => {
+                
                 if (fromCache)
                     this.logEvent({message:'adding from Cache', peripheral:peripheral.address})
 
                 if ( !peripheral ||!peripheral.advertisement) 
                     return
 
+                let existingPeripheral = this.peripheralCache.find( i => i.address===peripheral.address)
 
 
-                if (!detectedPeripherals[peripheral.id]) {
+                if (existingPeripheral &&  Date.now()-existingPeripheral.ts>600000) {
+                    existingPeripheral.ts = Date.now()
+                }                
+                if (!existingPeripheral) {                    
+                    this.peripheralCache.push({address:peripheral.address, ts:Date.now(), peripheral});
+                    existingPeripheral = this.peripheralCache.find( i => i.address===peripheral.address)                    
+                }
+
+                let shouldAddDevice = peripheralsProcessed.find( p => p===peripheral.address)===undefined;
+
+                
+                if (shouldAddDevice) {   
                     if (  process.env.BLE_DEBUG)
-                        console.log('discovered' ,peripheral)
-                    detectedPeripherals[peripheral.id] = peripheral;
+                        console.log('discovered' ,peripheral.id, peripheral.address, peripheral.advertisement.localName)
+                    
+                    peripheralsProcessed.push(peripheral.address)
 
-                    this.addPeripheralToCache(peripheral)                  
+                    let characteristics;
+                    
+                    if ( !existingPeripheral.characteristics) {
+                        try {
+                            if ( existingPeripheral.peripheral && existingPeripheral.peripheral.state!=='connected')
+                                await peripheral.connectAsync();                    
+                            const res = await peripheral.discoverSomeServicesAndCharacteristicsAsync([],[])
+                            this.logEvent( {message:'characteristic info (+):', info:res.characteristics.map(c=>`${peripheral.address} ${c.uuid} ${c.properties}`)})
+
+                            if (peripheral.disconnect && typeof(peripheral.disconnect)==='function')
+                                peripheral.disconnect( ()=>{})
+                            
+                            existingPeripheral.characteristics = res.characteristics
+                            characteristics = res.characteristics;                            
+                        }
+                        catch(err) {
+                            console.log (err)
+                        }
+                    }
+                    else {
+                        characteristics = existingPeripheral.characteristics                        
+                        this.logEvent( {message:'characteristic info (+):', info:characteristics.map(c=>`${peripheral.address} ${c.uuid} ${c.properties}`)})
+
+                    }
+    
+                    if (!fromCache)
+                        this.addPeripheralToCache(peripheral)                  
 
                     let DeviceClasses;
                     if (scanForDevice && (!deviceTypes ||deviceTypes.length===0)) {
@@ -588,6 +633,8 @@ export default class BleInterface extends BleInterfaceClass {
                         return;
 
                         d.setInterface(this)
+                        
+                        d.characteristics= characteristics
 
                         if (scanForDevice) { 
                             if( 
@@ -643,10 +690,7 @@ export default class BleInterface extends BleInterfaceClass {
                     
 
                 }
-                else {
-                    // peripheral is already detected in this scan
-                    
-                }
+
             }
                 
             this.logEvent({message:`${opStr}: start scanning`, requested: scanForDevice ? {name:device.name, address:device.address}: undefined,timeout})
@@ -661,7 +705,6 @@ export default class BleInterface extends BleInterfaceClass {
                     return reject(err)
                 }
                 bleBinding.on('discover', (p )=> {
-                    console.log('~~~ discovered:',p.address, p.advertisement? p.advertisement.localName :'')
                     onPeripheralFound(p) 
                 })
 

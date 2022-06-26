@@ -2,7 +2,8 @@ const { BleInterface, BleHrmDevice,BleCyclingPowerDevice,BleFitnessMachineDevice
 //const noble = require('noble-winrt')
 
 const {WinrtBindings} = require('./bindings')
-const Noble = require('noble/lib/noble')
+const Noble = require('noble/lib/noble');
+const { sleep } = require('../../lib/utils');
 const noble = new Noble(new WinrtBindings())
 
 let ble;
@@ -60,8 +61,10 @@ const  main = async(props = {})=> {
     //noble.init()
     //noble.on('discover',(d,a)=> console.log('discver',d,a))
     console.log('connecting ...')
-    await ble.connect({timeout:5000});
+    await ble.connect({timeout:20000});
     console.log('connected')
+    await sleep(5000)
+    console.log('background scan done')
 
     let device
     if ( !props.command || props.command==='scan') {
@@ -82,8 +85,8 @@ const  main = async(props = {})=> {
             
         })
         console.log('scanning ...')
-        devices = await ble.scan( { deviceTypes:[BleHrmDevice,BleCyclingPowerDevice,BleFitnessMachineDevice], timeout:20000} );
-        console.log('scan completed', devices.map(d => ({name:d.name, id:d.id, address:d.address,profile:d.getProfile() })))
+        devices = await ble.scan( { deviceTypes:[BleHrmDevice,BleCyclingPowerDevice,BleFitnessMachineDevice], timeout:10000 } );
+        console.log('scan completed', devices.map(d => ({name:d.name, id:d.id, address:d.address,profile:d.getProfile(),characteristics:d.characteristics ? d.characteristics.map(c=>c.uuid).join(','):'' })))
         if (devices.length===0) {
             await ble.disconnect();
             process.exit()

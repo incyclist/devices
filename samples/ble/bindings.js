@@ -173,6 +173,7 @@ class WinrtBindings extends events.EventEmitter {
             service: toWindowsUuid(service),
         })
             .then(result => {
+                
                 // TODO filters
                 this.emit('characteristicsDiscover', address, service,
                     result.map(c => ({
