@@ -3,6 +3,8 @@ import { sleep } from '../utils';
 import { BleInterfaceClass, ConnectProps, ScanProps, BleDeviceClass,BlePeripheral,BleState,BleBinding,uuid} from './ble'
 
 const CONNECT_TIMEOUT = 5000;
+const DEFAULT_SCAN_TIMEOUT = 20000;
+const BACKGROUND_SCAN_TIMEOUT = 30000;
 
 export interface ScanState {
     isScanning: boolean;
@@ -102,7 +104,7 @@ export default class BleInterface extends BleInterfaceClass {
         const runBackgroundScan = ()=> {
             // trigger background scan
             this.scanState.isBackgroundScan = true;
-            this.scan({timeout:5000,isBackgroundScan:true})
+            this.scan({timeout:BACKGROUND_SCAN_TIMEOUT,isBackgroundScan:true})
             .then(  ()=> {
                 this.scanState.isBackgroundScan = false;                        
             })
@@ -337,13 +339,13 @@ export default class BleInterface extends BleInterfaceClass {
     }
 
 
-    async connectDevice(requested: BleDeviceClass, timeout=CONNECT_TIMEOUT): Promise<BleDeviceClass> {
+    async connectDevice(requested: BleDeviceClass, timeout=DEFAULT_SCAN_TIMEOUT+CONNECT_TIMEOUT): Promise<BleDeviceClass> {
         const {id,name,address,getProfile} = requested;
         const profile = getProfile && typeof(getProfile)==='function' ? getProfile() : undefined
         this.logEvent({message:'connectDevice',id,name,address,profile,isbusy:this.scanState.isConnecting});
 
         if (this.scanState.isConnecting) {
-            await this.waitForConnectFinished(10000)
+            await this.waitForConnectFinished(CONNECT_TIMEOUT)
         }
         this.scanState.isConnecting = true;
 
@@ -356,7 +358,7 @@ export default class BleInterface extends BleInterfaceClass {
                 this.logEvent({message:'retry connect device',id,name,address,profile, retryCount})
             }
             try {
-                devices = await this.scan ( {timeout, device:requested})         
+                devices = await this.scan ( {timeout:DEFAULT_SCAN_TIMEOUT, device:requested})         
                 
                 if (devices.length===0) {
                     retryCount++;
@@ -440,7 +442,7 @@ export default class BleInterface extends BleInterfaceClass {
     }
 
     async scan( props:ScanProps) : Promise<BleDeviceClass[]> {
-        const {timeout=5000, deviceTypes=[],device } = props;
+        const {timeout=DEFAULT_SCAN_TIMEOUT, deviceTypes=[],device } = props;
         const scanForDevice = (device!==null && device!==undefined)
         const services =  this.getServicesFromDeviceTypes(deviceTypes)
         const bleBinding = this.getBinding()
