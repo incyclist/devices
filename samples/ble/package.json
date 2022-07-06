@@ -8,8 +8,7 @@
         "debug": "^4.3.4",
         "gd-eventlog": "^0.1.22",
         "incyclist-devices": "file:../..",
-        "noble": "npm:@abandonware/noble@^1.9.2-15",
-        "noble-winrt": "file:../../../../open-source/noble-winrt"
+        "noble": "npm:@abandonware/noble@^1.9.2-15"
     },
     "scripts": {
         "start": "node index.js"

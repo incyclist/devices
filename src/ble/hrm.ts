@@ -72,10 +72,6 @@ export default class BleHrmDevice extends BleDevice {
         console.log('write',characteristic, data)
         return Promise.resolve(true);
     }
-    read(characteristic) {
-        console.log('read',characteristic)
-        return Promise.resolve(Buffer.from([]));
-    }
 
 }
 BleInterface.register('BleHrmDevice','hr', BleHrmDevice,BleHrmDevice.services)

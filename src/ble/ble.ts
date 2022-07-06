@@ -15,6 +15,22 @@ export interface ConnectState  {
     isConnected: boolean;
     isDisconnecting: boolean;
 }
+export type BleDeviceInfo = {
+    manufacturer?: string;
+    hwRevision?: string;
+    swRevision?: string;
+    fwRevision?: string;
+    model?:string;
+    serialNo?: string;
+
+}
+
+export interface BleDeviceDescription {
+    id?: string;
+    address: string;
+    name?: string;
+    profile: string;
+}
 
 
 export abstract class  BleDeviceClass extends EventEmitter { 
@@ -37,6 +53,8 @@ export abstract class  BleDeviceClass extends EventEmitter {
     abstract getServiceUUids(): string[] 
     abstract connect( props?:ConnectProps ): Promise<boolean>
     abstract disconnect(): Promise<boolean>
+    abstract getDeviceInfo(): Promise<BleDeviceInfo> 
+
 
 }
 
@@ -54,8 +72,9 @@ export interface BleBinding extends EventEmitter {
 export type ScanProps ={
     timeout?: number;
     deviceTypes?: (typeof BleDeviceClass)[];
-    device?: BleDeviceClass;    
+    requested?: BleDeviceClass|BleDeviceDescription;    
     isBackgroundScan?: boolean
+    
 }
 
 export class BleBindingWrapper  {
@@ -125,7 +144,11 @@ export interface BlePeripheral extends EventEmitter, BleDeviceIdentifier{
 
 }
 
-export interface BleCharacteristic extends EventEmitter {}
+export interface BleCharacteristic extends EventEmitter {
+    subscribe( callback: (err:Error)=>void): void
+    read( callback: (err:Error, data:Buffer)=>void): void
+    write(data:Buffer, withoutResponse:boolean,callback?: (err:Error)=>void): void
+}
 
 export type BleDeviceProps = {
     id?: string;

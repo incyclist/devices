@@ -1,5 +1,5 @@
 import { EventLogger } from "gd-eventlog";
-import { BleInterfaceClass,BleDeviceClass,BlePeripheral,BleDeviceProps,ConnectProps,uuid } from "./ble";
+import { BleInterfaceClass,BleDeviceClass,BlePeripheral,BleDeviceProps,ConnectProps,uuid, BleCharacteristic, BleDeviceInfo } from "./ble";
 
 const CONNECT_WAIT_TIMEOUT = 10000;
 
@@ -7,6 +7,7 @@ interface BleDeviceConstructProps extends BleDeviceProps {
     log?: boolean;
     logger?: EventLogger
 }
+
 
 export abstract class BleDevice extends BleDeviceClass  { 
 
@@ -19,6 +20,8 @@ export abstract class BleDevice extends BleDeviceClass  {
     characteristics = []
     state?: string;
     logger?: EventLogger;
+    deviceInfo: BleDeviceInfo = {}
+    isSubscribed: boolean;
 
     constructor (props?: BleDeviceConstructProps) {
         super()
@@ -29,6 +32,7 @@ export abstract class BleDevice extends BleDeviceClass  {
         this.services = props.services;
         this.ble = props.ble;
         this.characteristics = []
+        this.isSubscribed = false;
 
         if (props.peripheral) {
             const {id,address,advertisement,state } = props.peripheral;
@@ -72,15 +76,18 @@ export abstract class BleDevice extends BleDeviceClass  {
                 c.unsubscribe();
                 c.removeAllListeners('data');
             })
+            this.isSubscribed = false;
             //this.characteristics = []
         }    
     }
 
     private onDisconnect() { 
         this.state = "disconnected"
-        
+
         // reconnect
         if ( !this.connectState.isDisconnecting) {
+            this.peripheral.state= 'disconnected'
+            this.connectState.isConnected = false;
             this.connect( ) 
         }
         this.emit('disconnected')    
@@ -112,13 +119,22 @@ export abstract class BleDevice extends BleDeviceClass  {
 
     }
 
+    hasService( serviceUuid) : boolean {
+        return this.services && this.services.find( s=> s===serviceUuid || uuid(serviceUuid))!==undefined
+    }
+
+    init(): Promise<boolean> {
+        return this.getDeviceInfo().then( ()=>true)    
+    }
+
     async connect(props?: ConnectProps): Promise<boolean> {
 
         const connectPeripheral= async (peripheral: BlePeripheral)  => {
             this.connectState.isConnecting = true;
 
             const connected = this.ble.findConnected(peripheral);
-            if (!connected && peripheral.state!=='connected') {
+            if (peripheral.state!=='connected') {
+                this.isSubscribed = false;
                 try {
                     await  peripheral.connectAsync();
                 }
@@ -152,35 +168,29 @@ export abstract class BleDevice extends BleDeviceClass  {
                     this.characteristics = (connected as BleDevice).characteristics;
                 }
 
+    
+                let device;
+                if (!connected) {
+                    this.ble.addConnectedDevice(this)
+                    device = this;
+                }
+                else {
+                    device = connected;
+                }
+
+                this.peripheral.once('disconnect', ()=> {this.onDisconnect()})   
+                await this.subscribeAll(device);
                 this.connectState.isConnecting = false;
                 this.connectState.isConnected = true;
                 
                 this.state = "connected"
                 this.emit('connected')
-    
-                this.ble.addConnectedDevice(this)
-                this.peripheral.once('disconnect', ()=> {this.onDisconnect()})   
-    
-                
-                this.characteristics.forEach( c=> {
-                    
-                    if (c.properties.find( p=> p==='notify')) {
-                        
-    
-                        c.on('data', (data, _isNotification) => {
-                            this.onData(uuid(c.uuid), data)
-                        });
 
-                        if (!connected) {
-                            this.logEvent({message:'subscribe', device:this.name,address:this.address, service: c._serviceUuid, characteristic:c.uuid})
-                            c.subscribe((err) => {
-                                if (err) 
-                                    this.logEvent({message:'cannot subscribe', device:this.name,address:this.address, service: c._serviceUuid, characteristic:c.uuid, error: err.message||err })
-
-                            })
-                        }
-                    }
+                this.init().then( (isInitialized:boolean ) => {
+                    if (isInitialized)
+                        this.emit('deviceInfo',this.deviceInfo)
                 })
+
         
             }
             catch (err) { 
@@ -200,13 +210,10 @@ export abstract class BleDevice extends BleDeviceClass  {
     
             if ( this.connectState.isConnected) {
 
-                this.characteristics.forEach( c=> {
-                    if (c.properties.find( p=> p==='notify')) {
-                        c.on('data', (data, _isNotification) => {
-                            this.onData(uuid(c.uuid), data)
-                        });
-                    }
-                })
+                if ( !this.isSubscribed) {
+                    await this.subscribeAll();
+    
+                }
 
                 return true;
             }
@@ -233,7 +240,7 @@ export abstract class BleDevice extends BleDeviceClass  {
                             await this.ble.stopScan();
                         }            
         
-                        const devices = await this.ble.scan({device:this});
+                        const devices = await this.ble.scan({requested:this});
                         if ( devices && devices.length > 0) {
                             this.peripheral = devices[0].peripheral;
                             await connectPeripheral(this.peripheral)
@@ -305,10 +312,124 @@ export abstract class BleDevice extends BleDeviceClass  {
 
     abstract getProfile(): string;
     abstract onData(characteristic:string, data: Buffer): void;
-    abstract write( characteristic:string, data:Buffer): Promise<boolean>
-    abstract read( characteristic:string): Promise<Buffer>
 
-    // emits 'data' => (data: any)
+    async subscribeAll(device=this) {
+        if (this.isSubscribed)
+            return;
+
+        const cnt = this.characteristics.length
+        for (let i=0;i<cnt;i++) {
+
+            try {
+                const c = this.characteristics[i]
+                const isNotify = c.properties.find( p=> p==='notify');
+                if (isNotify) {
+                    c.on('data', (data, _isNotification) => {
+                        this.onData(uuid(c.uuid), data)
+                    });
+
+                    if (!device.isSubscribed) {
+                        this.logEvent({message:'subscribe', device:this.name,address:this.address, service: c._serviceUuid, characteristic:c.uuid})
+                        try {
+                            await this.subscribe(c.uuid)
+                        }
+                        catch (err) {
+                            this.logEvent({message:'cannot subscribe', device:this.name,address:this.address, service: c._serviceUuid, characteristic:c.uuid, error: err.message||err })
+                        }
+                    }
+                }
+
+            }
+            catch(err) {
+                console.log('~~~ error',err)
+            }
+        }
+
+        this.isSubscribed = true;
+
+    }
+
+    subscribe( characteristicUuid:string): Promise<boolean> {
+        return new Promise ( (resolve,reject) => {
+            const characteristic: BleCharacteristic = this.characteristics.find( c=> c.uuid===characteristicUuid || uuid(c.uuid)===characteristicUuid );
+            if (!characteristic) {
+                reject(new Error( 'Characteristic not found'))
+                return;
+            }
+            characteristic.subscribe((err) => {
+                if (err)
+                    reject(err)
+                else 
+                    resolve(true)
+            })
+    
+        })
+
+    } 
+
+    write( characteristicUuid:string, data:Buffer, withoutResponse:boolean): Promise<boolean> {
+        return new Promise ( (resolve,reject) => {
+            const characteristic: BleCharacteristic = this.characteristics.find( c=> c.uuid===characteristicUuid || uuid(c.uuid)===characteristicUuid );
+            if (!characteristic) {
+                reject(new Error( 'Characteristic not found'))
+                return;
+            }
+            characteristic.write(data,withoutResponse, (err) => {
+                if (err)
+                    reject(err)
+                else 
+                    resolve(true)
+            })
+    
+        })
+
+    }
+
+    read( characteristicUuid:string): Promise<Buffer> {
+        return new Promise ( (resolve,reject) => {
+            const characteristic: BleCharacteristic = this.characteristics.find( c=> c.uuid===characteristicUuid || uuid(c.uuid)===characteristicUuid );
+            if (!characteristic) {
+                reject(new Error( 'Characteristic not found'))
+                return;
+            }
+            characteristic.read( (err,data) => {
+                if (err && data instanceof Error)
+                    reject(err)
+                else if (data instanceof Error)
+                    reject(data)
+                else 
+                    resolve(data)
+            })
+    
+        })
+    }
+
+    async getDeviceInfo(): Promise<BleDeviceInfo> {
+        const info = this.deviceInfo;
+
+        const readValue = async (c) => {
+            try { 
+                const b = await this.read(c)
+                return b ? b.toString() : undefined;
+            }
+            catch{ 
+                return undefined
+            }    
+        }
+
+        info.model = info.model || await readValue('2a24')
+        info.serialNo = info.serialNo || await readValue('2a25')
+        info.fwRevision = info.fwRevision || await readValue('2a26')
+        info.hwRevision = info.hwRevision ||await readValue('2a27')
+        info.swRevision = info.swRevision ||await readValue('2a28')
+        info.manufacturer = info.manufacturer ||await readValue('2a29')
+
+        this.deviceInfo = info;
+        return info;
+
+    }
+
+    
 
 }
 

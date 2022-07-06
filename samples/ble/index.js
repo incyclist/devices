@@ -53,21 +53,21 @@ const discover = (device) => {
 }
 
 const  main = async(props = {})=> {
-
-    console.log('Device Types:', BleInterface.deviceClasses)
-    
+   
     ble = new BleInterface()
     ble.setBinding(noble)
     //noble.init()
     //noble.on('discover',(d,a)=> console.log('discver',d,a))
     console.log('connecting ...')
     await ble.connect({timeout:20000});
-    console.log('connected')
-    await sleep(5000)
-    console.log('background scan done')
+    
 
     let device
     if ( !props.command || props.command==='scan') {
+        console.log('connected')
+        await sleep(30000)
+        console.log('background scan done')
+    
         let devices = [];
         ble.on('device', async (d)=> {
             /*
@@ -85,7 +85,7 @@ const  main = async(props = {})=> {
             
         })
         console.log('scanning ...')
-        devices = await ble.scan( { deviceTypes:[BleHrmDevice,BleCyclingPowerDevice,BleFitnessMachineDevice], timeout:10000 } );
+        devices = await ble.scan( { deviceTypes:[BleHrmDevice,BleCyclingPowerDevice,BleFitnessMachineDevice], timeout:20000 } );
         console.log('scan completed', devices.map(d => ({name:d.name, id:d.id, address:d.address,profile:d.getProfile(),characteristics:d.characteristics ? d.characteristics.map(c=>c.uuid).join(','):'' })))
         if (devices.length===0) {
             await ble.disconnect();
@@ -98,11 +98,14 @@ const  main = async(props = {})=> {
                 await discover(device)
                 console.log( 'connecting to ',{name:device.name, id:device.id, address:device.address,profile:device.getProfile() })
                 await  device.connect()
+                console.log('get device info...')
+                const info = await device.getDeviceInfo()
+        
                 device.on('data', (data)=> {                
                     console.log( 'device:',device.name,'data:', data)
                 })
     
-                console.log( 'connected to ',{name:device.name, id:device.id, address:device.address,profile:device.getProfile() })
+                console.log( 'connected to ',{name:device.name, id:device.id, address:device.address,profile:device.getProfile(),...info })
             }
             catch(err) {
                 console.log(err)
@@ -112,9 +115,14 @@ const  main = async(props = {})=> {
     
     }
     else {
+        await sleep(10000)
+
         const {name,id, address} = props;
+        console.log('connecting ...')
         device = await ble.connectDevice( {name,id,address}, 5000 )
-        console.log( 'connected to ',{name:device.name, id:device.id, address:device.address,profile:device.getProfile() })
+        console.log('get device info...')
+        const info = await device.getDeviceInfo()
+        console.log( 'connected to ',{name:device.name, id:device.id, address:device.address,profile:device.getProfile(),...info })
         device.on('data', (data)=> {
             console.log( 'device:',device.name,'data:', data)
         })

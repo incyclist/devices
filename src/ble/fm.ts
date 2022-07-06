@@ -1,7 +1,7 @@
 import { BleDevice } from './ble-device';
 import BleInterface from './ble-interface';
 import BleProtocol from './incyclist-protocol';
-import { BleDeviceClass } from './ble';
+import { BleDeviceClass, uuid } from './ble';
 import DeviceAdapter,{ DeviceData } from '../Device';
 import { DeviceProtocol } from '../DeviceProtocol';
 import {EventLogger} from 'gd-eventlog';
@@ -28,6 +28,45 @@ const IndoorBikeDataFlag = {
     RemainingTimePresent: bit(12)           // 0x1000
 }
 
+const FitnessMachineFeatureFlag = {
+    AverageSpeedSupported: bit(0),
+    CadenceSupported: bit(1),
+    TotalDistanceSupported: bit(2),
+    InclinationSupported: bit(3),
+    ElevationGainSupported: bit(4),
+    PaceSupported: bit(5),
+    StepCountSupported: bit(6),
+    ResistanceLevelSupported: bit(7),
+    StrideCountSupported: bit(8),
+    ExpendedEnergySupported: bit(9),
+    HeartRateMeasurementSupported: bit(10),
+    MetabolicEquivalentSupported: bit(11),
+    ElapsedTimeSupported: bit(12),
+    RemainingTimeSupported: bit(13),
+    PowerMeasurementSupported: bit(14),
+    ForceOnBeltAndPowerOutputSupported: bit(15),
+    UserDataRetentionSupported: bit(16)
+}
+
+const TargetSettingFeatureFlag = {
+    SpeedTargetSettingSupported: bit(0),
+    InclinationTargetSettingSupported: bit(1),
+    ResistanceTargetSettingSupported: bit(2),
+    PowerTargetSettingSupported: bit(3),
+    HeartRateTargetSettingSupported: bit(4),
+    TargetedExpendedEnergyConfigurationSupported: bit(5),
+    TargetedStepNumberConfigurationSupported: bit(6),
+    TargetedStrideNumberConfigurationSupported: bit(7),
+    TargetedDistanceConfigurationSupported: bit(8),
+    TargetedTrainingTimeConfigurationSupported: bit(9),
+    TargetedTimeInTwoHeartRateZonesConfigurationSupported: bit(10),
+    TargetedTimeInThreeHeartRateZonesConfigurationSupported: bit(11),
+    TargetedTimeInFiveHeartRateZonesConfigurationSupported: bit(12),
+    IndoorBikeSimulationParametersSupported: bit(13),
+    WheelCircumferenceConfigurationSupported: bit(14),
+    SpinDownControlSupported: bit(15),
+    TargetedCadenceConfigurationSupported: bit(16)
+}
   
 type PowerData = {
     instantaneousPower?: number;
@@ -55,16 +94,33 @@ type IndoorBikeData = {
     raw?: string;
 }
 
+type IndoorBikeFeatures = {
+    fitnessMachine: number;
+    targetSettings: number;
+}
+
 
 export default class BleFitnessMachineDevice extends BleDevice {
     static services =  ['1826'];
     static characteristics =  [ '2acc', '2ad2', '2ad6', '2ad8', '2ad9', '2ada' ];
     
     data: IndoorBikeData
-    
+    features: IndoorBikeFeatures = undefined
+
     constructor (props?) {
         super(props)
         this.data = {}
+    }
+
+    async init(): Promise<boolean> {
+        try {
+            await super.init();
+            await this.getFitnessMachineFeatures();
+            
+        }
+        catch (err) {
+            return Promise.resolve(false)
+        }
     }
 
     getProfile(): string {
@@ -73,6 +129,45 @@ export default class BleFitnessMachineDevice extends BleDevice {
 
     getServiceUUids(): string[] {
         return BleFitnessMachineDevice.services;
+    }
+
+    isBike(): boolean {
+        return this.features!==undefined && 
+            (this.features.targetSettings & TargetSettingFeatureFlag.IndoorBikeSimulationParametersSupported)!==0
+    }
+
+    isPower(): boolean {
+        if (this.hasService('1818'))
+            return true;
+        if (this.features===undefined)
+            return false;
+        const {fitnessMachine} = this.features
+
+        if (fitnessMachine & FitnessMachineFeatureFlag.PowerMeasurementSupported)
+            return true;
+    }
+
+    isHrm(): boolean {
+        return this.hasService('180d')
+    }
+
+    parseHrm(_data: Uint8Array):IndoorBikeData { 
+        const data = Buffer.from(_data);
+
+        try {                         
+            const flags = data.readUInt8(0);
+
+            if ( flags % 1 === 0) { 
+                this.data.heartrate = data.readUInt8(1);
+            }
+            else {
+                this.data.heartrate = data.readUInt16LE(1);
+            }
+        }
+        catch (err) { 
+
+        }
+        return { ...this.data, raw:data.toString('hex')};
     }
 
     parseIndoorBikeData(_data: Uint8Array):IndoorBikeData { 
@@ -127,14 +222,35 @@ export default class BleFitnessMachineDevice extends BleDevice {
         return { ...this.data, raw:data.toString('hex')};
 
     }
+    
+    async getFitnessMachineFeatures() {
+        if (this.features)
+            return this.features;
+        
+        try {
+            const data = await this.read('2acc')  // Fitness Machine Feature
+            this.features.fitnessMachine = data.readUInt32LE(0)
+            this.features.targetSettings = data.readUInt32LE(4)
+    
+        }
+        catch(err) {
+            this.logEvent({message:'could not read FitnessMachineFeatures', error:err.message, stack: err.stack})
+        }
+
+        
+    }
 
     onData(characteristic:string,data: Buffer) {
-        console.log(characteristic.toLocaleLowerCase(), data)
-        
+       
         if (characteristic.toLocaleLowerCase() === '2ad2') { //  name: 'Indoor Bike Data',
             const res = this.parseIndoorBikeData(data)
             this.emit('data', res)
         }
+        if (characteristic.toLocaleLowerCase() === '2a37') { //  name: 'Heart Rate Measurement',
+            const res = this.parseHrm(data)
+            this.emit('data', res)
+        }
+
         
   
     }
@@ -142,11 +258,6 @@ export default class BleFitnessMachineDevice extends BleDevice {
     write(characteristic, data) {
         console.log('write',characteristic, data)
         return Promise.resolve(true);
-    }
-    read(characteristic) {
-        
-        console.log('read',characteristic)
-        return Promise.resolve(Buffer.from([]));
     }
 
     reset() {
@@ -180,9 +291,9 @@ export class FmAdapter extends DeviceAdapter {
         
     }
 
-    isBike() { return true;}
-    isHrm() { return false;}
-    isPower() { return true; }
+    isBike() { return this.device.isBike()}
+    isHrm() { return this.device.isHrm() }
+    isPower() { return this.device.isPower() }
    
     getProfile() {
         return 'Smart Trainer';

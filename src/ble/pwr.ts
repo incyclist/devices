@@ -42,6 +42,14 @@ export default class BleCyclingPowerDevice extends BleDevice {
     constructor (props?) {
         super(props)
     }
+    async init(): Promise<boolean> {
+        try {
+            await super.init();
+        }
+        catch (err) {
+            return Promise.resolve(false)
+        }
+    }
 
     getProfile(): string {
         return 'Power Meter';
@@ -133,10 +141,6 @@ export default class BleCyclingPowerDevice extends BleDevice {
     write(characteristic, data) {
         console.log('write',characteristic, data)
         return Promise.resolve(true);
-    }
-    read(characteristic) {
-        console.log('read',characteristic)
-        return Promise.resolve(Buffer.from([]));
     }
 
     reset() {

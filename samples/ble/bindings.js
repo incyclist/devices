@@ -129,10 +129,7 @@ class WinrtBindings extends events.EventEmitter {
     }
 
     connect(address) {
-        if (this._deviceMap[address]) { 
-            this.emit('connect', this._deviceMap[address],null);
-            return;
-        }
+        
         
         this._sendRequest({ cmd: 'connect', 'address': address })
             .then(result => {
@@ -173,7 +170,9 @@ class WinrtBindings extends events.EventEmitter {
             service: toWindowsUuid(service),
         })
             .then(result => {
-                
+                this.logEvent({message: 'BLEServer characteristics:', info: result.map( c => `${address} ${service} ${fromWindowsUuid(c.uuid)}  ${Object.keys(c.properties).filter(p => c.properties[p])}`)});
+
+
                 // TODO filters
                 this.emit('characteristicsDiscover', address, service,
                     result.map(c => ({
@@ -194,7 +193,10 @@ class WinrtBindings extends events.EventEmitter {
             .then(result => {
                 this.emit('read', address, service, characteristic, Buffer.from(result), false);
             })
-            .catch(err => this.emit('read', address, service, characteristic, err, false));
+            .catch(err => {
+                console.log('~~ read error',toWindowsUuid(characteristic), err )
+                this.emit('read', address, service, characteristic, err, false)
+            });
 
     }
 
@@ -307,6 +309,7 @@ class WinrtBindings extends events.EventEmitter {
                 break;
 
             case 'disconnectEvent':
+                this.logEvent( {message: 'disconnect'})
                 for (let address of Object.keys(this._deviceMap)) {
                     if (this._deviceMap[address] == message.device) {
                         this.emit('disconnect', address);
