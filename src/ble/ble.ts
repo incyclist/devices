@@ -1,4 +1,5 @@
 import EventEmitter from "events";
+import BlePeripheralConnector from "./ble-peripheral";
 
 export type ConnectProps = {
     timeout?: number;
@@ -125,6 +126,8 @@ export abstract class BleInterfaceClass extends EventEmitter   {
     abstract addConnectedDevice(device: BleDeviceClass):void
     abstract removeConnectedDevice(device: BleDeviceClass):void
     abstract findConnected(device: BleDeviceClass|BlePeripheral):BleDeviceClass
+    abstract getConnector(peripheral: BlePeripheral): BlePeripheralConnector
+    abstract findPeripheral(peripheral:BlePeripheral | { id?:string, address?:string, name?:string}): BlePeripheral
 
     getBinding(): BleBinding { return this.binding }
     setBinding(binding: BleBinding) { this.binding = binding }
@@ -145,6 +148,9 @@ export interface BlePeripheral extends EventEmitter, BleDeviceIdentifier{
 }
 
 export interface BleCharacteristic extends EventEmitter {
+    uuid: string;
+    properties: string[]
+
     subscribe( callback: (err:Error)=>void): void
     read( callback: (err:Error, data:Buffer)=>void): void
     write(data:Buffer, withoutResponse:boolean,callback?: (err:Error)=>void): void

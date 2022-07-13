@@ -117,12 +117,16 @@ const  main = async(props = {})=> {
     else {
         await sleep(10000)
 
-        const {name,id, address} = props;
+        const {name,id, address,profile} = props;
         console.log('connecting ...')
-        device = await ble.connectDevice( {name,id,address}, 5000 )
+        device = await ble.connectDevice( {name,id,address,profile}, 5000 )
         console.log('get device info...')
         const info = await device.getDeviceInfo()
         console.log( 'connected to ',{name:device.name, id:device.id, address:device.address,profile:device.getProfile(),...info })
+
+        if  ( device instanceof BleFitnessMachineDevice) {
+            device.setTargetPower(150)
+        }
         device.on('data', (data)=> {
             console.log( 'device:',device.name,'data:', data)
         })

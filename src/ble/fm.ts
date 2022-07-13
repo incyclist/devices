@@ -10,6 +10,35 @@ import CyclingMode from '../CyclingMode';
 import PowerMeterCyclingMode from '../modes/power-meter';
 import { IncyclistBikeData } from '../CyclingMode';
 
+const FTMS_CP = '2ad9'
+
+const enum OpCode   {
+    RequestControl = 0x00,
+    Reset = 0x01,
+    SetTargetSpeed = 0x02,
+    SetTargetInclination = 0x03,
+    SetTargetResistance = 0x04,
+    SetTargetPower = 0x05,
+    SetTargetHeartRate = 0x06,
+    StartOrResume = 0x07,
+    StopOrPause = 0x08,
+    //SetTargetedExpendedEnergy = 0x09,
+    //SetTargetedNumberofSteps = 0x0A,
+    SetIndoorBikeSimulation = 0x11,
+    SetWheelCircumference = 0x12,
+    SpinDownControl = 0x13,
+    SetTargetedCadence = 0x14,
+    ResponseCode = 0x80
+}
+
+const enum OpCodeResut   {
+    Success = 0x01,
+    OpCodeNotSupported = 0x02,
+    InvalidParameter = 0x03,
+    OperationFailed = 0x04,
+    ControlNotPermitted = 0x05
+}
+
 const bit = (nr) => (1 << nr);
 
 const IndoorBikeDataFlag = {
@@ -106,6 +135,8 @@ export default class BleFitnessMachineDevice extends BleDevice {
     
     data: IndoorBikeData
     features: IndoorBikeFeatures = undefined
+    hasControl: boolean = false
+    isCPSubscribed: boolean = false;
 
     constructor (props?) {
         super(props)
@@ -114,13 +145,22 @@ export default class BleFitnessMachineDevice extends BleDevice {
 
     async init(): Promise<boolean> {
         try {
+            this.logEvent({message: 'get device info'})
             await super.init();
             await this.getFitnessMachineFeatures();
+            this.logEvent({message: 'device info', deviceInfo:this.deviceInfo, features:this.features })
+
+            
             
         }
         catch (err) {
             return Promise.resolve(false)
         }
+    }
+
+    onDisconnect() {
+        super.onDisconnect();
+        this.hasControl = false;
     }
 
     getProfile(): string {
@@ -148,7 +188,7 @@ export default class BleFitnessMachineDevice extends BleDevice {
     }
 
     isHrm(): boolean {
-        return this.hasService('180d')
+        return this.hasService('180d') || (this.features && (this.features.fitnessMachine & FitnessMachineFeatureFlag.HeartRateMeasurementSupported)!==0);
     }
 
     parseHrm(_data: Uint8Array):IndoorBikeData { 
@@ -229,8 +269,13 @@ export default class BleFitnessMachineDevice extends BleDevice {
         
         try {
             const data = await this.read('2acc')  // Fitness Machine Feature
-            this.features.fitnessMachine = data.readUInt32LE(0)
-            this.features.targetSettings = data.readUInt32LE(4)
+            const buffer = data ? Buffer.from(data) : undefined
+            
+            if (buffer) {
+                const fitnessMachine = buffer.readUInt32LE(0)
+                const targetSettings = buffer.readUInt32LE(4)
+                this.features = {fitnessMachine, targetSettings}
+            }
     
         }
         catch(err) {
@@ -240,8 +285,7 @@ export default class BleFitnessMachineDevice extends BleDevice {
         
     }
 
-    onData(characteristic:string,data: Buffer) {
-       
+    onData(characteristic:string,data: Buffer) {       
         if (characteristic.toLocaleLowerCase() === '2ad2') { //  name: 'Indoor Bike Data',
             const res = this.parseIndoorBikeData(data)
             this.emit('data', res)
@@ -255,10 +299,31 @@ export default class BleFitnessMachineDevice extends BleDevice {
   
     }
 
-    write(characteristic, data) {
-        console.log('write',characteristic, data)
-        return Promise.resolve(true);
+    async requestControl() {
+        if (this.hasControl)
+            return true;
+
+        const data = Buffer.alloc(1)
+        data.writeUInt8(OpCode.RequestControl,0)
+
+        const success = await this.write( FTMS_CP, data )
+        if (success)
+            this.hasControl = true;
+
+        return this.hasControl;
     }
+
+    async setTargetPower( power: number) {
+        const hasControl = await this.requestControl();
+        if (!hasControl) throw new Error ( 'setTargetPower not possible - control is disabled')
+        
+        const data = Buffer.alloc(3)
+        data.writeUInt8(OpCode.SetTargetPower,0)
+        data.writeInt16LE( Math.round(power), 1)
+
+        const res = await this.write( FTMS_CP, data )
+    }
+
 
     reset() {
         this.data = {}
@@ -294,6 +359,13 @@ export class FmAdapter extends DeviceAdapter {
     isBike() { return this.device.isBike()}
     isHrm() { return this.device.isHrm() }
     isPower() { return this.device.isPower() }
+    isSame(device:DeviceAdapter):boolean {
+        if (!(device instanceof FmAdapter))
+            return false;
+        const adapter = device as FmAdapter;
+        return  (adapter.getName()===this.getName() && adapter.getProfile()===this.getProfile())
+    }
+
    
     getProfile() {
         return 'Smart Trainer';
@@ -330,7 +402,7 @@ export class FmAdapter extends DeviceAdapter {
     }
 
     onDeviceData(deviceData:PowerData):void {
-
+        
         if (this.prevDataTS && Date.now()-this.prevDataTS<1000)
             return;
         this.prevDataTS = Date.now()
@@ -403,6 +475,10 @@ export class FmAdapter extends DeviceAdapter {
 
     async start( props?: any ): Promise<any> {
         this.logger.logEvent({message: 'start requested', profile:this.getProfile(),props})
+
+        if ( this.ble.isScanning())
+            await this.ble.stopScan();
+            
         try {
             const bleDevice = await this.ble.connectDevice(this.device) as BleFitnessMachineDevice
             if (bleDevice) {

@@ -40,6 +40,13 @@ export default class AntAdapter extends DeviceAdapter {
         this.updateFrequency = DEFAULT_UPDATE_FREQUENCY;
     }
 
+    isSame(device:DeviceAdapter):boolean {
+        if (!(device instanceof AntAdapter))
+            return false;
+        const adapter = device as AntAdapter;
+        return  (adapter.getName()===this.getName() && adapter.getProfile()===this.getProfile())
+    }
+
     setSensor(sensor) {
         this.sensor = sensor;
     }

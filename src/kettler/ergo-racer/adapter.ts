@@ -71,6 +71,13 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
     isBike(): boolean { return true; }
     isPower(): boolean { return true; }
     isHrm(): boolean { return true; }
+    isSame(device:DeviceAdapter):boolean {
+        if (!(device instanceof KettlerRacerAdapter))
+            return false;
+        const adapter = device as KettlerRacerAdapter;
+        return  (adapter.getName()===this.getName() && adapter.getPort()===this.getPort())
+    }
+
 
     setID(id) {
         this.id = id;

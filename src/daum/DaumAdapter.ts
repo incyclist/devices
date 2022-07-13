@@ -143,6 +143,13 @@ export default class DaumAdapterBase extends IncyclistDevice implements DeviceAd
         return true;
     }
 
+    isSame(device:DeviceAdapter):boolean {
+        if (!(device instanceof DaumAdapterBase))
+            return false;
+        const adapter = device as DaumAdapterBase;
+        return  (adapter.getName()===this.getName() && adapter.getPort()===this.getPort())
+    }
+
     setIgnoreHrm(ignore) {
         this.ignoreHrm=ignore;
     }

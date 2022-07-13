@@ -1,6 +1,7 @@
 import { EventLogger } from 'gd-eventlog';
 import { sleep } from '../utils';
 import { BleInterfaceClass, ConnectProps, ScanProps, BleDeviceClass,BlePeripheral,BleState,BleBinding,uuid, BleCharacteristic, BleDeviceDescription} from './ble'
+import BlePeripheralConnector from './ble-peripheral';
 
 const CONNECT_TIMEOUT = 5000;
 const DEFAULT_SCAN_TIMEOUT = 20000;
@@ -119,6 +120,7 @@ export default class BleInterface extends BleInterfaceClass {
         const timeout = props.timeout || 2000;
 
         const runBackgroundScan = ()=> {
+            return;
             // trigger background scan
             this.scanState.isBackgroundScan = true;
             this.scan({timeout:BACKGROUND_SCAN_TIMEOUT,isBackgroundScan:true})
@@ -360,7 +362,25 @@ export default class BleInterface extends BleInterfaceClass {
     }
 
     addPeripheralToCache( peripheral, props={}) {        
-        this.peripheralCache.push({address:peripheral.address, ts:Date.now(), peripheral,...props});
+        const info = this.peripheralCache.find( i => i.address===peripheral.address)
+        const connector = info && info.connector ? info.connector : new BlePeripheralConnector(this,peripheral)
+        this.peripheralCache.push({address:peripheral.address, ts:Date.now(), peripheral,connector, ...props});
+    }
+
+    getConnector( peripheral:BlePeripheral) {
+        const info = this.peripheralCache.find( i => i.address===peripheral.address)
+
+        if (!info) {
+            const connector =  new BlePeripheralConnector(this,peripheral)
+            this.peripheralCache.push({address:peripheral.address, ts:Date.now(), peripheral,connector});
+            return connector;
+        }
+        return info.connector;            
+    }
+
+    findPeripheral(peripheral:BlePeripheral | { id?:string, address?:string, name?:string}):BlePeripheral {
+        const info = this.peripheralCache.find( i => i.address===peripheral.address || peripheral.address===i.peripheral.address || peripheral.name===i.peripheral.name || peripheral.id===i.peripheral.id)
+        return info ? info.peripheral : undefined;
     }
 
     async getCharacteristics( peripheral) {
@@ -376,40 +396,21 @@ export default class BleInterface extends BleInterfaceClass {
             chachedPeripheralInfo = this.peripheralCache.find( i => i.address===peripheral.address)                    
         }
 
+        const connector = chachedPeripheralInfo.connector;
+
         if ( !chachedPeripheralInfo.characteristics) {
             try {
                 
                 chachedPeripheralInfo.state = { isConfigured:false, isLoading:true, isInterrupted:false}
+                await connector.connect();
+                peripheral.state = connector.getState();
                 
-                if ( chachedPeripheralInfo.peripheral && chachedPeripheralInfo.peripheral.state!=='connected') {
-                    await peripheral.connectAsync();                    
-                    chachedPeripheralInfo.peripheral.state = peripheral.state;
+                await connector.initialize();
+                characteristics = connector.getCharachteristics();
+                this.logEvent( {message:'characteristic info (+):', info:characteristics.map(c=>`${peripheral.address} ${c.uuid} ${c.properties}`)})
 
-                }
-                else {
-                    peripheral.state = chachedPeripheralInfo.peripheral.state;
-
-                }
-
-                const res = await peripheral.discoverSomeServicesAndCharacteristicsAsync([],[])
-                if ( !chachedPeripheralInfo.state.isInterrupted ) {
-                    this.logEvent( {message:'characteristic info (+):', info:res.characteristics.map(c=>`${peripheral.address} ${c.uuid} ${c.properties}`)})
-
-                    // keep connection open
-                    /*
-                    if (peripheral.disconnect && typeof(peripheral.disconnect)==='function')
-                        peripheral.disconnect( ()=>{})
-                    */
-                    chachedPeripheralInfo.characteristics = res.characteristics
-                    chachedPeripheralInfo.state = { isConfigured:true, isLoading:false, isInterrupted:false}
-                    characteristics = res.characteristics;    
-                }
-                else {
-                    this.logEvent( {message:'characteristic info:', info:'interrupted'})
-                    chachedPeripheralInfo.state = { isConfigured:false, isLoading:false, isInterrupted:false}
-                    throw new Error('interrupted')
-                }
-
+                chachedPeripheralInfo.characteristics = characteristics
+                chachedPeripheralInfo.state = { isConfigured:true, isLoading:false, isInterrupted:false}
 
             }
             catch(err) {
@@ -458,8 +459,14 @@ export default class BleInterface extends BleInterfaceClass {
     createDevice( DeviceClass: (typeof BleDeviceClass), peripheral: BlePeripheral, characteristics?:BleCharacteristic[]) {
         const C = DeviceClass as any; // avoid error "Cannot crate instance of abstract class"
         const device = new C({peripheral});
+
+        const existingDevice = this.devices.find( i => i.device.id === device.id && i.device.getProfile()===device.getProfile())
+        if (existingDevice)
+            return existingDevice;
+        
         device.setInterface(this)                
         device.characteristics= characteristics
+        
         return device;
     }
 
@@ -497,7 +504,7 @@ export default class BleInterface extends BleInterfaceClass {
                     return;
                 const devices = DeviceClasses.map( C=> this.createDevice(C,peripheralInfo.periphal,peripheralInfo.characteristics))                    
                 if (devices && devices.length>0) {
-                    for (let i=0; i<devices.length;i++) {                        
+                    for (let i=0; i<devices.length;i++) {             
                         const idx = this.devices.push( {device:devices[i], isConnected:false})-1;
                         await devices[i].connect();
                         this.devices[idx].isConnected = true;
@@ -753,7 +760,7 @@ export default class BleInterface extends BleInterfaceClass {
                 const DeviceClasses = this.getDeviceClasses(peripheral,{profile});
     
                 let cntFound = 0;
-                DeviceClasses.forEach( DeviceClass => {
+                DeviceClasses.forEach( async DeviceClass => {
                     if (!DeviceClass)
                         return;
                     
@@ -761,6 +768,7 @@ export default class BleInterface extends BleInterfaceClass {
                         return;
 
                     const d = this.createDevice(DeviceClass, peripheral, characteristics)
+                    await d.connect();
 
                     if (scanForDevice) { 
                         if( 
@@ -777,7 +785,8 @@ export default class BleInterface extends BleInterfaceClass {
                      
                     if (!scanForDevice && cntFound>0 && !existing) {                            
                         this.logEvent({message:`${opStr}: device found`, device:d.name, address:d.address, services:d.services.join(',')});
-                        this.devices.push( {device:d,isConnected:peripheral.state==='connected'} )
+                        this.addDeviceToCache( d,peripheral.state==='connected')
+                        
                         devicesProcessed.push(d)
                         this.emit('device', d)
                         return;
@@ -785,7 +794,7 @@ export default class BleInterface extends BleInterfaceClass {
 
                     if (scanForDevice&& cntFound>0)  {
                         this.logEvent({message:`${opStr}: device found`, device:d.name, address:d.address, services:d.services.join(',')});
-                        this.devices.push( {device:d,isConnected:peripheral.state==='connected'} )
+                        this.addDeviceToCache(d,peripheral.state==='connected')
                         devicesProcessed.push(d)
                         this.emit('device', d)
 
@@ -863,7 +872,7 @@ export default class BleInterface extends BleInterfaceClass {
     }
 
     addConnectedDevice(device: BleDeviceClass):void { 
-        const existigDevice = this.devices.find( i => i.device.id === device.id)
+        const existigDevice = this.devices.find( i => i.device.id === device.id && i.device.getProfile()===device.getProfile())
 
         if (existigDevice) {
             existigDevice.isConnected = true;
@@ -872,11 +881,24 @@ export default class BleInterface extends BleInterfaceClass {
         this.devices.push( {device,isConnected:true})            
     }
 
+    addDeviceToCache( device: BleDeviceClass, isConnected:boolean): void {
+        const existigDevice = this.devices.find( i => i.device.id === device.id && i.device.getProfile()===device.getProfile())
+
+        if (existigDevice) {
+            return
+        }
+        this.devices.push( {device,isConnected})                            
+    }
+
     findConnected(device: BleDeviceClass|BlePeripheral): BleDeviceClass {
         const connected =  this.devices.find( i => i.device.id===device.id && i.isConnected)
         if (connected)
             return connected.device
         return undefined;
+    }
+    findDeviceInCache(device: { id?:string, address?:string, name?:string, profile:string}): BleDeviceClass {
+        const existing =  this.devices.find( i => (i.device.id===device.id || i.device.address===device.address || i.device.name===device.name) && i.device.getProfile()===device.profile)
+        return existing ? existing.device : undefined;
     }
 
 

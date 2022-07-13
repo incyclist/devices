@@ -68,11 +68,6 @@ export default class BleHrmDevice extends BleDevice {
   
     }
 
-    write(characteristic, data) {
-        console.log('write',characteristic, data)
-        return Promise.resolve(true);
-    }
-
 }
 BleInterface.register('BleHrmDevice','hr', BleHrmDevice,BleHrmDevice.services)
 
@@ -99,6 +94,14 @@ export class HrmAdapter extends DeviceAdapter {
     isBike() { return false;}
     isHrm() { return true;}
     isPower() { return false; }
+
+    isSame(device:DeviceAdapter):boolean {
+        if (!(device instanceof HrmAdapter))
+            return false;
+        const adapter = device as HrmAdapter;
+        return  (adapter.getName()===this.getName() && adapter.getProfile()===this.getProfile())
+    }
+
    
     getProfile() {
         return 'Heartrate Monitor';

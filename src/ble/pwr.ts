@@ -42,6 +42,7 @@ export default class BleCyclingPowerDevice extends BleDevice {
     constructor (props?) {
         super(props)
     }
+
     async init(): Promise<boolean> {
         try {
             await super.init();
@@ -131,16 +132,12 @@ export default class BleCyclingPowerDevice extends BleDevice {
     }
 
     onData(characteristic:string,data: Buffer) {
+
         if (characteristic.toLocaleLowerCase() === '2a63') { //  name: 'Heart Rate Measurement',
             const res = this.parsePower(data)
             this.emit('data', res)
         }
   
-    }
-
-    write(characteristic, data) {
-        console.log('write',characteristic, data)
-        return Promise.resolve(true);
     }
 
     reset() {
@@ -184,6 +181,12 @@ export class PwrAdapter extends DeviceAdapter {
     isBike() { return true;}
     isHrm() { return false;}
     isPower() { return true; }
+    isSame(device:DeviceAdapter):boolean {
+        if (!(device instanceof PwrAdapter))
+            return false;
+        const adapter = device as PwrAdapter;
+        return  (adapter.getName()===this.getName() && adapter.getProfile()===this.getProfile())
+    }
    
     getProfile() {
         return 'Power Meter';

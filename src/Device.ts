@@ -40,6 +40,8 @@ export interface DeviceAdapter extends Device {
     isPower(): boolean
     isHrm(): boolean
 
+    isSame( device: DeviceAdapter): boolean
+
     getID(): string
     getDisplayName(): string
     getName(): string
@@ -95,6 +97,7 @@ export default class IncyclistDevice implements DeviceAdapter {
     isBike():boolean {throw new Error('not implemented')}
     isPower():boolean {throw new Error('not implemented')}
     isHrm():boolean {throw new Error('not implemented')}
+    isSame(device: DeviceAdapter):boolean  {throw new Error('not implemented')}
 
     getID():string { throw new Error('not implemented')}
     getDisplayName():string { return this.getName() }

@@ -64,7 +64,16 @@ export default class BleProtocol extends DeviceProtocolBase implements DevicePro
             case 'fm':
             case 'smart trainer':
             case 'fitness machine':
-                return new FmAdapter( fromDevice? bleDevice as BleDeviceClass : new BleFitnessMachineDevice(props()),this);
+                let device;
+                if ( fromDevice)
+                    device = bleDevice as BleDeviceClass;
+                else {
+                    device = this.ble.findDeviceInCache( { ...props(), profile:'Smart Trainer' })
+                    if (!device)
+                        device = new BleFitnessMachineDevice(props())
+                }
+
+                return new FmAdapter( device ,this);
             case 'cp':
             case 'power meter':
                 return new PwrAdapter( fromDevice? bleDevice as BleDeviceClass : new BleCyclingPowerDevice(props()),this);

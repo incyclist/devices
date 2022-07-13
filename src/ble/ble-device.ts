@@ -1,11 +1,12 @@
 import { EventLogger } from "gd-eventlog";
 import { BleInterfaceClass,BleDeviceClass,BlePeripheral,BleDeviceProps,ConnectProps,uuid, BleCharacteristic, BleDeviceInfo } from "./ble";
+import BlePeripheralConnector from "./ble-peripheral";
 
 const CONNECT_WAIT_TIMEOUT = 10000;
 
 interface BleDeviceConstructProps extends BleDeviceProps {
     log?: boolean;
-    logger?: EventLogger
+    logger?: EventLogger;
 }
 
 
@@ -21,7 +22,8 @@ export abstract class BleDevice extends BleDeviceClass  {
     state?: string;
     logger?: EventLogger;
     deviceInfo: BleDeviceInfo = {}
-    isSubscribed: boolean;
+    isInitialized: boolean;
+    subscribedCharacteristics: string[]
 
     constructor (props?: BleDeviceConstructProps) {
         super()
@@ -32,16 +34,18 @@ export abstract class BleDevice extends BleDeviceClass  {
         this.services = props.services;
         this.ble = props.ble;
         this.characteristics = []
-        this.isSubscribed = false;
+        this.subscribedCharacteristics = [];
+        this.isInitialized = false;
 
         if (props.peripheral) {
-            const {id,address,advertisement,state } = props.peripheral;
+            const {id,address,advertisement,state} = props.peripheral;
             this.peripheral = props.peripheral
             this.id = id;
             this.address =address;
             this.name = advertisement.localName; 
             this.services = advertisement.serviceUuids;
-            this.state = state                
+            this.state = state      
+                  
         }
 
         if (props.logger) { 
@@ -66,22 +70,23 @@ export abstract class BleDevice extends BleDeviceClass  {
         this.ble = ble;
     }
 
-    private cleanupListeners():void { 
+    cleanupListeners():void { 
         //console.log('~~cleanup', this.characteristics)
         if ( this.characteristics === undefined) {
             this.characteristics = []
         }
         else {
-            this.characteristics.forEach( c => {
-                c.unsubscribe();
-                c.removeAllListeners('data');
+            const connector = this.ble.getConnector(this.peripheral);
+
+            this.characteristics.forEach( c => {            
+                connector.removeAllListeners(uuid(c.uuid));
             })
-            this.isSubscribed = false;
             //this.characteristics = []
         }    
     }
 
-    private onDisconnect() { 
+    onDisconnect() { 
+        this.logEvent( {message:'device disconnected', address:this.address, profile:this.getProfile()})
         this.state = "disconnected"
 
         // reconnect
@@ -124,111 +129,109 @@ export abstract class BleDevice extends BleDeviceClass  {
     }
 
     init(): Promise<boolean> {
-        return this.getDeviceInfo().then( ()=>true)    
+        if (this.isInitialized)
+            return Promise.resolve(true);
+
+        return this.getDeviceInfo().then( ()=> { 
+            this.emit('deviceInfo',this.deviceInfo)
+            this.isInitialized = true;
+
+            return true;
+        })    
+    }
+
+    async connectPeripheral  (peripheral: BlePeripheral)   {
+
+        this.connectState.isConnecting = true;
+
+
+        try {
+            const connector = this.ble.getConnector(peripheral)
+
+            await connector.connect();
+            await connector.initialize();
+            await this.subscribeAll(connector)
+
+            this.connectState.isConnected = true;
+            this.state = "connected"
+            this.emit('connected')
+
+            await this.init();
+
+        }
+        catch (err) {
+            this.logEvent({message:'Error', fn:'connectPeripheral()', error:err.message, stack:err.stack})
+
+        }
+        this.connectState.isConnecting = false;
+                  
+
+    }
+
+    
+
+    async subscribeAll(conn?: BlePeripheralConnector) {
+
+        try {
+            const connector = conn || this.ble.getConnector(this.peripheral)
+            const subscribed = await connector.subscribeAll( (uuid:string,data) => {this.onData(uuid,data)});
+            subscribed.forEach( c => this.subscribedCharacteristics.push(c))
+
+        }
+        catch (err) {
+            this.logEvent({message:'Error', fn:'subscribeAll()', error:err.message, stack:err.stack})
+
+        }
     }
 
     async connect(props?: ConnectProps): Promise<boolean> {
 
-        const connectPeripheral= async (peripheral: BlePeripheral)  => {
-            this.connectState.isConnecting = true;
-
-            const connected = this.ble.findConnected(peripheral);
-            if (peripheral.state!=='connected') {
-                this.isSubscribed = false;
-                try {
-                    await  peripheral.connectAsync();
-                }
-                catch (err) {
-                    this.logEvent({message:'cannot connect', error: err.message||err })
-                    
-                }    
-            }
-
-            try {
-                //this.cleanupListeners();
-                if (!this.characteristics)
-                    this.characteristics = [];
-                if (!connected ) {
-                    if (!this.characteristics || this.characteristics.length===0) {
-                        this.logEvent({message:'connect: discover characteristics start'})
-                        const res = await peripheral.discoverSomeServicesAndCharacteristicsAsync([],[]);
-                        const {characteristics} = res
-                        this.logEvent({message:'connect: discover characteristics result', 
-                            result: characteristics.map(c =>({ uuid:uuid(c.uuid), properties:c.properties.join(','), service:uuid(c._serviceUuid) }) )
-                        })
-    
-                        this.characteristics = characteristics;    
-                    }
-                    else {
-                        //console.log('~~~ using cached characteristics')
-                    }
-                }
-                
-                else {
-                    this.characteristics = (connected as BleDevice).characteristics;
-                }
-
-    
-                let device;
-                if (!connected) {
-                    this.ble.addConnectedDevice(this)
-                    device = this;
-                }
-                else {
-                    device = connected;
-                }
-
-                this.peripheral.once('disconnect', ()=> {this.onDisconnect()})   
-                await this.subscribeAll(device);
-                this.connectState.isConnecting = false;
-                this.connectState.isConnected = true;
-                
-                this.state = "connected"
-                this.emit('connected')
-
-                this.init().then( (isInitialized:boolean ) => {
-                    if (isInitialized)
-                        this.emit('deviceInfo',this.deviceInfo)
-                })
-
-        
-            }
-            catch (err) { 
-                this.logEvent({message:'cannot connect', error: err.message||err })
-                this.connectState.isConnecting = false;
-                this.connectState.isConnected = false;
-            }
-                        
-
-        }
-
-
         try {
+            this.logEvent( {message:'connect',address: this.peripheral? this.peripheral.address: this.address, state:this.connectState})
             if (this.connectState.isConnecting) {
                 await this.waitForConnectFinished(CONNECT_WAIT_TIMEOUT)
             }
     
+            // already connected ? 
             if ( this.connectState.isConnected) {
 
-                if ( !this.isSubscribed) {
+                try {
                     await this.subscribeAll();
-    
+                    await this.init()
+                }
+                catch(err) {
+                    this.logEvent({message:'cannot reconnect', error: err.message||err })
+                    return false;
                 }
 
                 return true;
             }
+
+
             this.connectState.isConnecting = true;
-    
+            if (!this.peripheral) {
+                const {id,name,address } = this;
+                // is there already a peripheral in the cache (from background scan or previous scan)?
+                try {
+                    this.peripheral = this.ble.findPeripheral({id,name,address})
+                }
+                catch(err) {
+                    console.log('~~~ error',err)
+                }
+            }
     
             if ( this.peripheral) {
                 const {id,address,advertisement } = this.peripheral;
                 const name = advertisement?.localName;
                 this.logEvent({message:'connect requested',mode:'peripheral', device: { id, name, address:address} })
-                await connectPeripheral(this.peripheral)
+                await this.connectPeripheral(this.peripheral)
                 this.logEvent({message:'connect result: success',mode:'peripheral', device: { id, name, address} })
                 return true;            
             }
-            else {
+            
+            else {                
+                // we need to scan for the device
+
                 const {id,name,address } = this;
                 let error;
                 if ( this.address || this.id || this.name) {
@@ -243,7 +246,7 @@ export abstract class BleDevice extends BleDeviceClass  {
                         const devices = await this.ble.scan({requested:this});
                         if ( devices && devices.length > 0) {
                             this.peripheral = devices[0].peripheral;
-                            await connectPeripheral(this.peripheral)
+                            await this.connectPeripheral(this.peripheral)
                             this.logEvent({message:'connect result: success',mode:'device', device:  { id, name, address}  })
                             return true;
                         }
@@ -313,67 +316,26 @@ export abstract class BleDevice extends BleDeviceClass  {
     abstract getProfile(): string;
     abstract onData(characteristic:string, data: Buffer): void;
 
-    async subscribeAll(device=this) {
-        if (this.isSubscribed)
-            return;
 
-        const cnt = this.characteristics.length
-        for (let i=0;i<cnt;i++) {
+    async write( characteristicUuid:string, data:Buffer, withoutResponse:boolean=false): Promise<boolean> {
 
-            try {
-                const c = this.characteristics[i]
-                const isNotify = c.properties.find( p=> p==='notify');
-                if (isNotify) {
-                    c.on('data', (data, _isNotification) => {
-                        this.onData(uuid(c.uuid), data)
-                    });
+        if ( this.subscribedCharacteristics.find( c => c===characteristicUuid) === undefined) {
+            const connector = this.ble.getConnector( this.peripheral)
+            connector.on(characteristicUuid, (uuid,data)=>{ 
+                this.onData(uuid,data)
+            })
 
-                    if (!device.isSubscribed) {
-                        this.logEvent({message:'subscribe', device:this.name,address:this.address, service: c._serviceUuid, characteristic:c.uuid})
-                        try {
-                            await this.subscribe(c.uuid)
-                        }
-                        catch (err) {
-                            this.logEvent({message:'cannot subscribe', device:this.name,address:this.address, service: c._serviceUuid, characteristic:c.uuid, error: err.message||err })
-                        }
-                    }
-                }
-
-            }
-            catch(err) {
-                console.log('~~~ error',err)
-            }
+            await connector.subscribe(characteristicUuid)
+            this.subscribedCharacteristics.push(characteristicUuid)
         }
 
-        this.isSubscribed = true;
-
-    }
-
-    subscribe( characteristicUuid:string): Promise<boolean> {
         return new Promise ( (resolve,reject) => {
             const characteristic: BleCharacteristic = this.characteristics.find( c=> c.uuid===characteristicUuid || uuid(c.uuid)===characteristicUuid );
             if (!characteristic) {
                 reject(new Error( 'Characteristic not found'))
                 return;
             }
-            characteristic.subscribe((err) => {
-                if (err)
-                    reject(err)
-                else 
-                    resolve(true)
-            })
-    
-        })
 
-    } 
-
-    write( characteristicUuid:string, data:Buffer, withoutResponse:boolean): Promise<boolean> {
-        return new Promise ( (resolve,reject) => {
-            const characteristic: BleCharacteristic = this.characteristics.find( c=> c.uuid===characteristicUuid || uuid(c.uuid)===characteristicUuid );
-            if (!characteristic) {
-                reject(new Error( 'Characteristic not found'))
-                return;
-            }
             characteristic.write(data,withoutResponse, (err) => {
                 if (err)
                     reject(err)
@@ -385,7 +347,7 @@ export abstract class BleDevice extends BleDeviceClass  {
 
     }
 
-    read( characteristicUuid:string): Promise<Buffer> {
+    read( characteristicUuid:string): Promise<Uint8Array> {
         return new Promise ( (resolve,reject) => {
             const characteristic: BleCharacteristic = this.characteristics.find( c=> c.uuid===characteristicUuid || uuid(c.uuid)===characteristicUuid );
             if (!characteristic) {
@@ -410,7 +372,8 @@ export abstract class BleDevice extends BleDeviceClass  {
         const readValue = async (c) => {
             try { 
                 const b = await this.read(c)
-                return b ? b.toString() : undefined;
+                const buffer = b ? Buffer.from(b): undefined;
+                return buffer ? buffer.toString() : undefined;
             }
             catch{ 
                 return undefined
