@@ -2,6 +2,7 @@ import CyclingMode, { CyclingModeProperty, IncyclistBikeData, Settings, UpdateRe
 import PowerBasedCyclingModeBase from './power-base';
 import { DeviceAdapter } from '../Device';
 
+const MIN_SPEED = 10;
 
 export const config = {
     name: 'PowerMeter',
@@ -67,14 +68,20 @@ export default class PowerMeterCyclingMode extends PowerBasedCyclingModeBase imp
             let t =  this.getTimeSinceLastUpdate();
             const {speed,distance} = this.calculateSpeedAndDistance(power,slope,m,t);
 
-            // update data
-            data.speed = speed;
             data.power = Math.round(power);
-            data.distanceInternal = Math.round(distanceInternal+distance);
             data.slope = slope;
+            if (power===0 && speed<MIN_SPEED) {
+                data.speed = Math.round(prevData.speed-1)<0 ? 0: Math.round(prevData.speed-1)
+                data.distanceInternal = Math.round(distanceInternal+ data.speed/3.6*t);
+            }
+            else {
+                data.speed = (power===0 && speed<MIN_SPEED) ? 0 : speed;
+                data.distanceInternal = (power===0 && speed<MIN_SPEED) ? Math.round(distanceInternal): Math.round(distanceInternal+distance);
+            }
+
 
             if(props.log)
-                this.logger.logEvent( {message:"updateData result",data,bikeData ,prevSpeed:prevData.speed} );
+                this.logger.logEvent( {message:"updateData result",data,bikeData ,prevSpeed:prevData.speed, stopped: speed<MIN_SPEED} );
             this.data = data;
     
         }

@@ -322,6 +322,16 @@ export class PwrAdapter extends DeviceAdapter {
         this.device.reset();
         return  this.device.disconnect();        
     }
+    
+    async sendUpdate(request) {
+        // don't send any commands if we are pausing
+        if( this.paused)
+            return;
+
+        this.getCyclingMode().sendBikeUpdate(request)
+        //this.logger.logEvent({message:'sendUpdate',request});    
+        
+    } 
 
     pause(): Promise<boolean> { this.paused = true; return Promise.resolve(true)}
     resume(): Promise<boolean> { this.paused = false; return Promise.resolve(true)}
