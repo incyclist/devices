@@ -213,10 +213,8 @@ export default class BleFitnessMachineDevice extends BleDevice {
     parseIndoorBikeData(_data: Uint8Array):IndoorBikeData { 
         const data:Buffer = Buffer.from(_data);
         const flags = data.readUInt16LE(0)
-        let offset = 2 ;
-        
+        let offset = 2 ;      
 
-        
         if ((flags & IndoorBikeDataFlag.MoreData)===0) {
             this.data.speed = data.readUInt16LE(offset)/100; offset+=2;
         }
@@ -231,16 +229,18 @@ export default class BleFitnessMachineDevice extends BleDevice {
         }
 
         if (flags & IndoorBikeDataFlag.TotalDistancePresent) {
-            this.data.totalDistance = data.readUInt16LE(offset); offset+=2;
+            const dvLow  = data.readUInt8(offset); offset+=1;
+            const dvHigh = data.readUInt16LE(offset); offset+=2;
+            this.data.totalDistance = dvHigh<<8 +dvLow;
         }
         if (flags & IndoorBikeDataFlag.ResistanceLevelPresent) {
-            this.data.resistanceLevel = data.readUInt16LE(offset); offset+=2;
+            this.data.resistanceLevel = data.readInt16LE(offset); offset+=2;
         }
         if (flags & IndoorBikeDataFlag.InstantaneousPowerPresent) {
-            this.data.instantaneousPower = data.readUInt16LE(offset); offset+=2;
+            this.data.instantaneousPower = data.readInt16LE(offset); offset+=2;
         }
         if (flags & IndoorBikeDataFlag.AveragePowerPresent) {
-            this.data.averagePower = data.readUInt16LE(offset); offset+=2;
+            this.data.averagePower = data.readInt16LE(offset); offset+=2;
         }
         if (flags & IndoorBikeDataFlag.ExpendedEnergyPresent) {
             this.data.expendedEnergy = data.readUInt16LE(offset); offset+=2;
