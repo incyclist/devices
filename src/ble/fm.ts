@@ -425,7 +425,6 @@ export default class BleFitnessMachineDevice extends BleDevice {
         data.writeUInt8(OpCode.RequestControl,0)
 
         const res = await this.writeFtmsMessage(OpCode.RequestControl, data )
-        console.log(res, OpCodeResut.Success, res===OpCodeResut.Success)
         if (res===OpCodeResut.Success) {
             this.hasControl = true
         }
@@ -770,8 +769,6 @@ export class FmAdapter extends DeviceAdapter {
             return;
 
         const requested = this.getCyclingMode().sendBikeUpdate(request)
-
-        console.log( '~~~ sendUpdate', request, requested)
 
         if (requested.slope!==undefined) {
             await this.device.setSlope(requested.slope)

@@ -51,7 +51,6 @@ export default class BleERGCyclingMode extends PowerBasedCyclingModeBase impleme
             const {pedalRpm,slope, power,speed} = this.data;
             return {pedalRpm,slope, power,speed} 
         }
-        console.log('~~~ ERG Mode processing update request',request,this.prevRequest,getData())
         this.logger.logEvent( {message:"processing update request",request,prev:this.prevRequest,data:getData()} );        
 
         let newRequest:UpdateRequest = {}

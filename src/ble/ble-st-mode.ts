@@ -53,8 +53,6 @@ export default class FtmsCyclingMode extends PowerBasedCyclingModeBase implement
         if (request.slope!==undefined && (event.noData || Math.abs(request.slope-this.data.slope)>=0.1 )) event.slopeUpdate  = true;
         if (this.prevRequest===undefined) event.initialCall = true;
 
-        console.log('~~~ FTMS Mode processing update request',request,this.prevRequest,getData())
-
         this.logger.logEvent( {message:"processing update request",request,prev:this.prevRequest,data:getData(),event} );
 
         // prepare request to be sent to device

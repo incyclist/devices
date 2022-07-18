@@ -327,7 +327,6 @@ export abstract class BleDevice extends BleDeviceClass  {
     abstract getProfile(): string;
 
     onData(characteristic:string, data: Buffer): void {
-        console.log( '~~~ data', characteristic, data)
 
         if (this.writeQueue.length>0 ) {
             const writeIdx = this.writeQueue.findIndex( i => i.uuid===characteristic.toLocaleLowerCase());            
