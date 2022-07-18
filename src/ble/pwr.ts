@@ -132,8 +132,9 @@ export default class BleCyclingPowerDevice extends BleDevice {
     }
 
     onData(characteristic:string,data: Buffer) {
+        super.onData(characteristic,data);
 
-        if (characteristic.toLocaleLowerCase() === '2a63') { //  name: 'Heart Rate Measurement',
+        if (characteristic.toLocaleLowerCase() === '2a63') { //  name: 'Cycling Power Measurement',
             const res = this.parsePower(data)
             this.emit('data', res)
         }
@@ -322,7 +323,7 @@ export class PwrAdapter extends DeviceAdapter {
         this.device.reset();
         return  this.device.disconnect();        
     }
-    
+
     async sendUpdate(request) {
         // don't send any commands if we are pausing
         if( this.paused)

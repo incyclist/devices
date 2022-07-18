@@ -7,30 +7,18 @@ const config = {
     name: "Smart Trainer",
     description: "Calculates speed based on power and slope. Slope is set to the device",
     properties: [
-        {key:'bikeType',name: 'Bike Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Race','Mountain','Triathlon'], default: 'Race'},
-        {key:'startPower',name: 'Starting Power', description: 'Initial power in Watts at start of training', type: CyclingModeProperyType.Integer, default: 50, min:25, max:800},
+        {key:'bikeType',name: 'Bike Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Race','Mountain','Triathlon'], default: 'Race'}
     ]
 }
 
-export type ERGEvent = {
-    rpmUpdated?: boolean;
-    gearUpdated?: boolean;
-    starting?: boolean;
-    tsStart?: number;
-}
-
-
-export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements CyclingMode {
+export default class FtmsCyclingMode extends PowerBasedCyclingModeBase implements CyclingMode {
 
     prevRequest: UpdateRequest;
     hasBikeUpdate: boolean = false;
-    chain: number[];
-    cassette: number[];
-    event: ERGEvent ={};
 
     constructor(adapter: FmAdapter, props?:any) {
         super(adapter,props);
-        this.initLogger('ERGMode')
+        this.initLogger('FtmsMode')
     }
 
 
@@ -48,95 +36,41 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
     }
 
     getBikeInitRequest(): UpdateRequest {
-        const startPower = this.getSetting('startPower');
-        return { targetPower: startPower};
+
+        return { slope:0};
     }    
 
     sendBikeUpdate(request: UpdateRequest): UpdateRequest {
+        // log request and context
         const getData= ()=>{
             if (!this.data) return {}
-            const {pedalRpm,slope, power,speed} = this.data;
-            return {pedalRpm,slope, power,speed} 
+            const {gear,pedalRpm,slope, power,speed} = this.data;
+            return {gear,pedalRpm,slope, power,speed} 
         }
-        this.logger.logEvent( {message:"processing update request",request,prev:this.prevRequest,data:getData(),event:this.event} );        
 
-        let newRequest:UpdateRequest = {}
-        try {
+        const event = {} as any
+        if (this.data===undefined) event.noData = true;
+        if (request.slope!==undefined && (event.noData || Math.abs(request.slope-this.data.slope)>=0.1 )) event.slopeUpdate  = true;
+        if (this.prevRequest===undefined) event.initialCall = true;
 
-            if ( !request || request.reset || Object.keys(request).length===0 ) {
-                this.prevRequest = {};
-                return request||{};
-            }
+        console.log('~~~ FTMS Mode processing update request',request,this.prevRequest,getData())
 
-            const prevData = this.data || {} as any;
+        this.logger.logEvent( {message:"processing update request",request,prev:this.prevRequest,data:getData(),event} );
 
-            if (request.targetPower!==undefined) {
-                delete request.slope                
-                delete request.refresh;               
-            }
+        // prepare request to be sent to device
+        // also: update slope in device data
+        let newRequest:UpdateRequest = {};
+        if (request.slope===undefined && request.refresh && this.prevRequest) {
+            return this.prevRequest
+        }
 
-            // don't update below the startPower during the first 5 seconds of a ride or after a pause
-            if (this.event.starting && request.targetPower===undefined) {
-
-                newRequest.targetPower = this.getSetting('startPower');
-                if (this.event.tsStart && Date.now()-this.event.tsStart>5000) {
-                    delete this.event.starting;
-                    delete this.event.tsStart;
-                }                
-            }
-
-            // no slope change or targets change -> refresh
-            if ( request.refresh) {
-                delete request.refresh; 
-                newRequest.targetPower = this.prevRequest.targetPower;
-            } 
-
-            if (request.slope!==undefined) {
-                if (!this.data) this.data = {} as any;
-                this.data.slope = request.slope;
-            }
-                
-            if (request.maxPower!==undefined && request.minPower!==undefined && request.maxPower===request.minPower) {
-                request.targetPower = request.maxPower;                
-            }
-    
-            if (request.targetPower!==undefined) {
-                newRequest.targetPower = request.targetPower;
-            }
-            delete request.slope;
-                
-    
-            if (request.maxPower!==undefined) {
-                if (newRequest.targetPower!==undefined && newRequest.targetPower>request.maxPower) {
-                    newRequest.targetPower = request.maxPower;
-                }
-                newRequest.maxPower = request.maxPower;
-            }
-        
-            if (request.minPower!==undefined) {
-                if (newRequest.targetPower!==undefined && newRequest.targetPower<request.minPower) {
-                    newRequest.targetPower = request.minPower;
-                }
-                newRequest.minPower = request.minPower;
-            }            
-    
-
-            if ( newRequest.targetPower!==undefined && prevData.power!==undefined && newRequest.targetPower===prevData.power) {
-                // no update needed
-                delete newRequest.targetPower;
-            }
-    
-            this.prevRequest = JSON.parse(JSON.stringify(request));
-    
-    
+        if (request.slope!==undefined) {
+            newRequest.slope = parseFloat(request.slope.toFixed(1));
+            this.data.slope = newRequest.slope;
         }
         
-        catch ( err)  /* istanbul ignore next */ {
-            this.logger.logEvent( {message:"error",fn:'sendBikeUpdate()',error:err.message||err,stack:err.stack} );
-
-        }
-        
-        return newRequest;
+        this.prevRequest = JSON.parse(JSON.stringify(newRequest));
+        return newRequest
         
     }
 
@@ -148,13 +82,6 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
         const data = this.data || {} as any;
 
         const bikeType = this.getSetting('bikeType').toLowerCase();
-        
-        delete this.event.rpmUpdated;       
-       
-        if (prevData==={} || prevData.speed===undefined || prevData.speed===0) {
-            this.event.starting = true;
-            this.event.tsStart = Date.now();
-        }
 
         try {
 
@@ -177,15 +104,11 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
             data.slope = slope;
             data.pedalRpm = rpm;
 
-            if ( data.time!==undefined && !(this.event.starting && !bikeData.pedalRpm))
+            if ( data.time!==undefined )
                 data.time+=t;
             else data.time =0;
             data.heartrate=bikeData.heartrate;
             data.isPedalling=bikeData.isPedalling;
-
-            if (rpm && rpm!==prevData.pedalRpm) {
-                this.event.rpmUpdated = true;
-            }
     
         }
         catch (err) /* istanbul ignore next */ {

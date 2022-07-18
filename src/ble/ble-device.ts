@@ -9,6 +9,13 @@ interface BleDeviceConstructProps extends BleDeviceProps {
     logger?: EventLogger;
 }
 
+type CommandQueueItem = {
+    uuid: string,
+    data: Buffer,
+    resolve, 
+    reject,
+    timeout
+}
 
 export abstract class BleDevice extends BleDeviceClass  { 
 
@@ -24,6 +31,7 @@ export abstract class BleDevice extends BleDeviceClass  {
     deviceInfo: BleDeviceInfo = {}
     isInitialized: boolean;
     subscribedCharacteristics: string[]
+    writeQueue: CommandQueueItem[];
 
     constructor (props?: BleDeviceConstructProps) {
         super()
@@ -36,6 +44,7 @@ export abstract class BleDevice extends BleDeviceClass  {
         this.characteristics = []
         this.subscribedCharacteristics = [];
         this.isInitialized = false;
+        this.writeQueue = [];
 
         if (props.peripheral) {
             const {id,address,advertisement,state} = props.peripheral;
@@ -134,6 +143,8 @@ export abstract class BleDevice extends BleDeviceClass  {
 
         return this.getDeviceInfo().then( ()=> { 
             this.emit('deviceInfo',this.deviceInfo)
+
+            this.logEvent({message:'ftms device init done',...this.deviceInfo})
             this.isInitialized = true;
 
             return true;
@@ -314,12 +325,32 @@ export abstract class BleDevice extends BleDeviceClass  {
    
 
     abstract getProfile(): string;
-    abstract onData(characteristic:string, data: Buffer): void;
+
+    onData(characteristic:string, data: Buffer): void {
+        console.log( '~~~ data', characteristic, data)
+
+        if (this.writeQueue.length>0 ) {
+            const writeIdx = this.writeQueue.findIndex( i => i.uuid===characteristic.toLocaleLowerCase());            
+
+            if (writeIdx!==-1) {
+                const writeItem = this.writeQueue[writeIdx];
+
+                this.writeQueue.splice(writeIdx,1);
+                
+                if (writeItem.resolve)
+                    writeItem.resolve(data)
+                
+
+            }
+
+        }
+
+    }
 
 
-    async write( characteristicUuid:string, data:Buffer, withoutResponse:boolean=false): Promise<boolean> {
+    async write( characteristicUuid:string, data:Buffer, withoutResponse:boolean=false): Promise<ArrayBuffer> {
 
-        if ( this.subscribedCharacteristics.find( c => c===characteristicUuid) === undefined) {
+        if ( !withoutResponse && this.subscribedCharacteristics.find( c => c===characteristicUuid) === undefined) {
             const connector = this.ble.getConnector( this.peripheral)
             connector.on(characteristicUuid, (uuid,data)=>{ 
                 this.onData(uuid,data)
@@ -336,11 +367,19 @@ export abstract class BleDevice extends BleDeviceClass  {
                 return;
             }
 
+            if (withoutResponse) {
+                characteristic.write(data,withoutResponse);
+                resolve(new ArrayBuffer(0));
+                return;
+            }
+
+            const writeId = this.writeQueue.length;
+            this.writeQueue.push( {uuid:characteristicUuid.toLocaleLowerCase(), data, resolve, reject,timeout:Date.now()+1000})
             characteristic.write(data,withoutResponse, (err) => {
-                if (err)
+                if (err) {
+                    this.writeQueue.splice(writeId,1)
                     reject(err)
-                else 
-                    resolve(true)
+                }                    
             })
     
         })

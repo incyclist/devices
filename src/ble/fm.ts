@@ -9,8 +9,17 @@ import CyclingMode from '../CyclingMode';
 
 import PowerMeterCyclingMode from '../modes/power-meter';
 import { IncyclistBikeData } from '../CyclingMode';
+import FtmsCyclingMode from './ble-st-mode';
+import BleERGCyclingMode from './ble-erg-mode';
 
 const FTMS_CP = '2ad9'
+
+const cwABike = {
+    race: 0.35,
+    triathlon:0.29,
+    mountain: 0.57
+}
+const cRR = 0.0036;					// http://www.radpanther.de/index.php?id=85  -- Conti GP 4000 RS
 
 const enum OpCode   {
     RequestControl = 0x00,
@@ -29,6 +38,25 @@ const enum OpCode   {
     SpinDownControl = 0x13,
     SetTargetedCadence = 0x14,
     ResponseCode = 0x80
+}
+
+const enum FitnessMachineStatusOpCode   {
+    Reset = 0x01,
+    FitnessMachineStoppedOrPaused = 0x02,
+    FitnessMachineStoppedBySafetyKey = 0x03,
+    FitnessMachineStartedOrResumed = 0x04,
+    TargetSpeedChanged = 0x05,
+    TargetInclineChanged = 0x06,
+    TargetResistanceLevelChanged = 0x07,
+    TargetPowerChanged = 0x08,
+    TargetHeartRateChanged = 0x09,
+    TargetExpendedEnergyChanged = 0x0A,
+    // ignore 0x0B...0x11
+    IndoorBikeSimulationParametersChanged =     0x12,
+    WheelCircumferenceChanged = 0x13,
+    SpinDownStatus = 0x14,
+    TargetedCadenceChanged = 0x15,
+    ControlPermissionLost = 0xFF
 }
 
 const enum OpCodeResut   {
@@ -121,6 +149,10 @@ type IndoorBikeData = {
     time?: number;
     remainingTime?: number;
     raw?: string;
+
+    targetPower?: number;
+    targetInclination?: number;
+    status?: string;
 }
 
 type IndoorBikeFeatures = {
@@ -137,6 +169,11 @@ export default class BleFitnessMachineDevice extends BleDevice {
     features: IndoorBikeFeatures = undefined
     hasControl: boolean = false
     isCPSubscribed: boolean = false;
+
+    crr: number = 0.0033;
+    cw: number = 0.6;
+    windSpeed = 0;
+    wheelSize = 2100;
 
     constructor (props?) {
         super(props)
@@ -157,6 +194,7 @@ export default class BleFitnessMachineDevice extends BleDevice {
             return Promise.resolve(false)
         }
     }
+
 
     onDisconnect() {
         super.onDisconnect();
@@ -210,6 +248,15 @@ export default class BleFitnessMachineDevice extends BleDevice {
         return { ...this.data, raw:data.toString('hex')};
     }
 
+    setCrr(crr:number) { this.crr = crr;}
+    getCrr():number { return this.crr}
+    
+    setCw(cw:number) { this.cw = cw}
+    getCw(): number { return this.cw}
+
+    setWindSpeed(windSpeed:number) {this.windSpeed = windSpeed}
+    getWindSpeed():number { return this.windSpeed}
+
     parseIndoorBikeData(_data: Uint8Array):IndoorBikeData { 
         const data:Buffer = Buffer.from(_data);
         const flags = data.readUInt16LE(0)
@@ -231,7 +278,7 @@ export default class BleFitnessMachineDevice extends BleDevice {
         if (flags & IndoorBikeDataFlag.TotalDistancePresent) {
             const dvLow  = data.readUInt8(offset); offset+=1;
             const dvHigh = data.readUInt16LE(offset); offset+=2;
-            this.data.totalDistance = dvHigh<<8 +dvLow;
+            this.data.totalDistance = (dvHigh<<8) +dvLow;
         }
         if (flags & IndoorBikeDataFlag.ResistanceLevelPresent) {
             this.data.resistanceLevel = data.readInt16LE(offset); offset+=2;
@@ -262,6 +309,39 @@ export default class BleFitnessMachineDevice extends BleDevice {
         return { ...this.data, raw:data.toString('hex')};
 
     }
+
+    parseFitnessMachineStatus(_data: Uint8Array):IndoorBikeData {  
+        const data:Buffer = Buffer.from(_data);
+
+        const OpCode = data.readUInt8(0);
+        switch(OpCode) {
+            case FitnessMachineStatusOpCode.TargetPowerChanged:
+                this.data.targetPower = data.readInt16LE(1);
+                break;
+            case FitnessMachineStatusOpCode.TargetInclineChanged:
+                this.data.targetInclination = data.readInt16LE(1)/10;
+                break;
+            case FitnessMachineStatusOpCode.FitnessMachineStartedOrResumed:
+                this.data.status = "STARTED"
+                break;
+            case FitnessMachineStatusOpCode.FitnessMachineStoppedBySafetyKey:
+            case FitnessMachineStatusOpCode.FitnessMachineStoppedOrPaused:
+                this.data.status = "STOPPED"
+                break;
+            case FitnessMachineStatusOpCode.SpinDownStatus:
+                const spinDownStatus = data.readUInt8(1);
+                switch (spinDownStatus) {
+                    case 1: this.data.status = "SPIN DOWN REQUESTED"; break;
+                    case 2: this.data.status = "SPIN DOWN SUCCESS"; break;
+                    case 3: this.data.status = "SPIN DOWN ERROR"; break;
+                    case 4: this.data.status = "STOP PEDALING"; break;
+                    default: break;
+                }
+            }
+
+        return { ...this.data, raw:data.toString('hex')};
+    }
+
     
     async getFitnessMachineFeatures() {
         if (this.features)
@@ -286,43 +366,184 @@ export default class BleFitnessMachineDevice extends BleDevice {
     }
 
     onData(characteristic:string,data: Buffer) {       
-        if (characteristic.toLocaleLowerCase() === '2ad2') { //  name: 'Indoor Bike Data',
-            const res = this.parseIndoorBikeData(data)
-            this.emit('data', res)
-        }
-        if (characteristic.toLocaleLowerCase() === '2a37') { //  name: 'Heart Rate Measurement',
-            const res = this.parseHrm(data)
-            this.emit('data', res)
-        }
+        super.onData(characteristic,data);
 
-        
+        const uuid = characteristic.toLocaleLowerCase();
+
+        let res = undefined
+        switch(uuid) {
+            case '2ad2':    //  name: 'Indoor Bike Data',
+                res = this.parseIndoorBikeData(data)
+                break;
+            case '2a37':     //  name: 'Heart Rate Measurement',
+                res = this.parseHrm(data)
+                break;
+            case '2ada':     //  name: 'Fitness Machine Status',
+                res = this.parseFitnessMachineStatus(data)
+                break;
+            default:    // ignore
+                break;
+
+        }
+        if (res)
+            this.emit('data', res)
+
+
+        // we might also get: 
+        // '2a63' => Cycling Power Measurement
+        // '2a5b' => CSC Measurement
+        // '347b0011-7635-408b-8918-8ff3949ce592' => Elite 
   
     }
 
-    async requestControl() {
+    async writeFtmsMessage(requestedOpCode, data) {
+        
+        try {
+            const res = await this.write( FTMS_CP, data )
+            const responseData = Buffer.from(res)
+
+            const opCode = responseData.readUInt8(0)
+            const request = responseData.readUInt8(1)
+            const result = responseData.readUInt8(2)
+
+            if (opCode !== OpCode.ResponseCode || request!==requestedOpCode)
+                throw new Error('Illegal response ')
+
+            return result                        
+        }
+        catch(err) {
+            this.logEvent({message:'writeFtmsMessage failed', opCode: requestedOpCode, reason: err.message})
+            return OpCodeResut.OperationFailed
+        } 
+    }
+
+    async requestControl(): Promise<boolean> {
         if (this.hasControl)
             return true;
 
         const data = Buffer.alloc(1)
         data.writeUInt8(OpCode.RequestControl,0)
 
-        const success = await this.write( FTMS_CP, data )
-        if (success)
-            this.hasControl = true;
+        const res = await this.writeFtmsMessage(OpCode.RequestControl, data )
+        console.log(res, OpCodeResut.Success, res===OpCodeResut.Success)
+        if (res===OpCodeResut.Success) {
+            this.hasControl = true
+        }
 
         return this.hasControl;
     }
 
-    async setTargetPower( power: number) {
+    async setTargetPower( power: number): Promise<boolean> {
+        this.logEvent( {message:'setTargetPower', power, skip:(this.data.targetPower!==undefined && this.data.targetPower===power)})
+
+        // avoid repeating the same value
+        if (this.data.targetPower!==undefined && this.data.targetPower===power)
+            return true;
+
         const hasControl = await this.requestControl();
-        if (!hasControl) throw new Error ( 'setTargetPower not possible - control is disabled')
-        
+        if (!hasControl) {
+            this.logEvent({message: 'setTargetPower failed',reason:'control is disabled'})
+            return false;
+        }
+    
         const data = Buffer.alloc(3)
         data.writeUInt8(OpCode.SetTargetPower,0)
         data.writeInt16LE( Math.round(power), 1)
 
-        const res = await this.write( FTMS_CP, data )
+        const res = await this.writeFtmsMessage( OpCode.SetTargetPower, data )
+        return ( res===OpCodeResut.Success)    
     }
+
+    async setSlope(slope) {
+        this.logEvent( {message:'setSlope', slope})
+        const {windSpeed,crr, cw} = this;
+        return await this.setIndoorBikeSimulation( windSpeed, slope, crr, cw)
+    }
+
+    async setTargetInclination( inclination: number): Promise<boolean> {
+        // avoid repeating the same value
+        if (this.data.targetInclination!==undefined && this.data.targetInclination===inclination)
+            return true;
+
+        const hasControl = await this.requestControl();
+        if (!hasControl) {
+            this.logEvent({message: 'setTargetInclination failed',reason:'control is disabled'})
+            return false;
+        }
+    
+        const data = Buffer.alloc(3)
+        data.writeUInt8(OpCode.SetTargetInclination,0)
+        data.writeInt16LE( Math.round(inclination*10), 1)
+
+        const res = await this.writeFtmsMessage( OpCode.SetTargetInclination, data )
+        return ( res===OpCodeResut.Success)    
+    }
+
+
+    async setIndoorBikeSimulation( windSpeed:number, gradient:number, crr:number, cw:number): Promise<boolean> {
+
+        const hasControl = await this.requestControl();
+        if (!hasControl) {
+            this.logEvent({message: 'setTargetInclination failed',reason:'control is disabled'})
+            return false;
+        }
+    
+        const data = Buffer.alloc(7)
+        data.writeUInt8(OpCode.SetIndoorBikeSimulation,0)
+        data.writeInt16LE( Math.round(windSpeed*1000), 1)
+        data.writeInt16LE( Math.round(gradient*100), 3)
+        data.writeUInt8( Math.round(crr*10000), 5)
+        data.writeUInt8( Math.round(cw*100), 6)
+
+        const res = await this.writeFtmsMessage( OpCode.SetIndoorBikeSimulation, data )
+        return ( res===OpCodeResut.Success)    
+    }
+
+
+    async startRequest(): Promise<boolean> {
+        const hasControl = await this.requestControl();
+        if (!hasControl) {
+            this.logEvent({message: 'startRequest failed',reason:'control is disabled'})
+            return false;
+        }
+    
+        const data = Buffer.alloc(1)
+        data.writeUInt8(OpCode.StartOrResume,0)
+
+        const res = await this.writeFtmsMessage( OpCode.StartOrResume, data )
+        return ( res===OpCodeResut.Success)    
+    }
+
+    async stopRequest(): Promise<boolean> {
+        const hasControl = await this.requestControl();
+        if (!hasControl) {
+            this.logEvent({message: 'stopRequest failed',reason:'control is disabled'})
+            return false;
+        }
+    
+        const data = Buffer.alloc(2)
+        data.writeUInt8(OpCode.StopOrPause,0)
+        data.writeUInt8(1,1)
+
+        const res = await this.writeFtmsMessage( OpCode.StopOrPause, data )
+        return ( res===OpCodeResut.Success)    
+    }
+
+    async PauseRequest(): Promise<boolean> {
+        const hasControl = await this.requestControl();
+        if (!hasControl) {
+            this.logEvent({message: 'PauseRequest failed',reason:'control is disabled'})
+            return false;
+        }
+    
+        const data = Buffer.alloc(2)
+        data.writeUInt8(OpCode.StopOrPause,0)
+        data.writeUInt8(2,1)
+
+        const res = await this.writeFtmsMessage( OpCode.StopOrPause, data )
+        return ( res===OpCodeResut.Success)    
+    }
+
 
 
     reset() {
@@ -342,7 +563,7 @@ export class FmAdapter extends DeviceAdapter {
     protocol: DeviceProtocol;
     paused: boolean = false;
     logger: EventLogger;
-    mode: CyclingMode
+    cyclingMode: CyclingMode
     distanceInternal: number = 0;
     prevDataTS: number;
 
@@ -351,7 +572,7 @@ export class FmAdapter extends DeviceAdapter {
         super(protocol);
         this.device = device as BleFitnessMachineDevice;
         this.ble = protocol.ble
-        this.mode = this.getDefaultCyclingMode()
+        this.cyclingMode = this.getDefaultCyclingMode()
         this.logger = new EventLogger('BLE-FM')
         
     }
@@ -378,15 +599,39 @@ export class FmAdapter extends DeviceAdapter {
     getDisplayName() {
         return this.getName();
     }
+
+    getSupportedCyclingModes() : Array<any> {
+        return [FtmsCyclingMode,BleERGCyclingMode, PowerMeterCyclingMode]
+    }
+
+    setCyclingMode(mode: string | CyclingMode, settings?: any): void {
+        let selectedMode :CyclingMode;
+
+        if ( typeof mode === 'string') {
+            const supported = this.getSupportedCyclingModes();
+            const CyclingModeClass = supported.find( M => { const m = new M(this); return m.getName() === mode })
+            if (CyclingModeClass) {
+                this.cyclingMode = new CyclingModeClass(this,settings);    
+                return;
+            }
+            selectedMode = this.getDefaultCyclingMode();
+        }
+        else {
+            selectedMode = mode;
+        }
+        this.cyclingMode = selectedMode;        
+        this.cyclingMode.setSettings(settings);
+        
+    }
     
     getCyclingMode(): CyclingMode {
-        if (!this.mode)
-            this.mode =  this.getDefaultCyclingMode();
-        return this.mode
+        if (!this.cyclingMode)
+            this.cyclingMode =  this.getDefaultCyclingMode();
+        return this.cyclingMode
 
     }
     getDefaultCyclingMode(): CyclingMode {
-        return new PowerMeterCyclingMode(this);
+        return new FtmsCyclingMode(this);
     }
 
 
@@ -481,8 +726,23 @@ export class FmAdapter extends DeviceAdapter {
             
         try {
             const bleDevice = await this.ble.connectDevice(this.device) as BleFitnessMachineDevice
+
             if (bleDevice) {
                 this.device = bleDevice;
+
+                const mode = this.getCyclingMode()
+                if (mode && mode.getSetting('bikeType')) {
+                    const bikeType = mode.getSetting('bikeType').toLowerCase();
+                    this.device.setCrr(cRR);
+                    
+                    switch (bikeType)  {
+                        case 'race': this.device.setCw(cwABike.race); break;
+                        case 'triathlon': this.device.setCw(cwABike.triathlon); break;
+                        case 'mountain': this.device.setCw(cwABike.mountain); break;
+                    }        
+                }
+               
+
                 bleDevice.on('data', (data)=> {
                     this.onDeviceData(data)
                     
@@ -506,10 +766,21 @@ export class FmAdapter extends DeviceAdapter {
 
     async sendUpdate(request) {
         // don't send any commands if we are pausing
-        if( this.paused)
+        if( this.paused ||!this.device)
             return;
 
-        this.getCyclingMode().sendBikeUpdate(request)
+        const requested = this.getCyclingMode().sendBikeUpdate(request)
+
+        console.log( '~~~ sendUpdate', request, requested)
+
+        if (requested.slope!==undefined) {
+            await this.device.setSlope(requested.slope)
+        } 
+
+        if (requested.targetPower!==undefined) {
+            await this.device.setTargetPower(requested.targetPower)
+        } 
+
         //this.logger.logEvent({message:'sendUpdate',request});    
         
     } 
