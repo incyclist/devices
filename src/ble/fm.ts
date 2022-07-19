@@ -443,11 +443,12 @@ export default class BleFitnessMachineDevice extends BleDevice {
         if (this.data.targetPower!==undefined && this.data.targetPower===power)
             return true;
 
-        const hasControl = await this.requestControl();
+        const hasControl = await this.requestControl(); /*
         if (!hasControl) {
             this.logEvent({message: 'setTargetPower failed',reason:'control is disabled'})
             return false;
         }
+        */
     
         const data = Buffer.alloc(3)
         data.writeUInt8(OpCode.SetTargetPower,0)
@@ -485,11 +486,12 @@ export default class BleFitnessMachineDevice extends BleDevice {
 
     async setIndoorBikeSimulation( windSpeed:number, gradient:number, crr:number, cw:number): Promise<boolean> {
 
-        const hasControl = await this.requestControl();
+        const hasControl = await this.requestControl(); /*
         if (!hasControl) {
             this.logEvent({message: 'setTargetInclination failed',reason:'control is disabled'})
             return false;
         }
+        */
     
         const data = Buffer.alloc(7)
         data.writeUInt8(OpCode.SetIndoorBikeSimulation,0)
