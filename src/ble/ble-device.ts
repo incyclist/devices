@@ -60,7 +60,7 @@ export abstract class BleDevice extends BleDeviceClass  {
         if (props.logger) { 
             this.logger = props.logger;
         }
-        else if (props.log) {
+        else if (props.log!==false) {
             this.logger = new EventLogger('BleDevice');
         }
 
@@ -74,6 +74,10 @@ export abstract class BleDevice extends BleDeviceClass  {
             console.log( '~~~BLE:', event)
         }
     }  
+
+    setLogger(logger: EventLogger) {
+        this.logger = logger
+    }
 
     setInterface(ble: BleInterfaceClass): void { 
         this.ble = ble;

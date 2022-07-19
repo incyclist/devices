@@ -421,12 +421,16 @@ export default class BleFitnessMachineDevice extends BleDevice {
         if (this.hasControl)
             return true;
 
+        this.logEvent( {message:'requestControl'})
         const data = Buffer.alloc(1)
         data.writeUInt8(OpCode.RequestControl,0)
 
         const res = await this.writeFtmsMessage(OpCode.RequestControl, data )
         if (res===OpCodeResut.Success) {
             this.hasControl = true
+        }
+        else {
+            this.logEvent( {message:'requestControl failed'})
         }
 
         return this.hasControl;
@@ -573,6 +577,9 @@ export class FmAdapter extends DeviceAdapter {
         this.ble = protocol.ble
         this.cyclingMode = this.getDefaultCyclingMode()
         this.logger = new EventLogger('BLE-FM')
+
+        if (this.device)
+            this.device.setLogger(this.logger)
         
     }
 
@@ -725,6 +732,7 @@ export class FmAdapter extends DeviceAdapter {
             
         try {
             const bleDevice = await this.ble.connectDevice(this.device) as BleFitnessMachineDevice
+            bleDevice.setLogger(this.logger);
 
             if (bleDevice) {
                 this.device = bleDevice;
@@ -768,14 +776,15 @@ export class FmAdapter extends DeviceAdapter {
         if( this.paused ||!this.device)
             return;
 
-        const requested = this.getCyclingMode().sendBikeUpdate(request)
+        const update = this.getCyclingMode().sendBikeUpdate(request)
+        this.logger.logEvent({message: 'send bike update requested', profile:this.getProfile(), update, request})
 
-        if (requested.slope!==undefined) {
-            await this.device.setSlope(requested.slope)
+        if (update.slope!==undefined) {
+            await this.device.setSlope(update.slope)
         } 
 
-        if (requested.targetPower!==undefined) {
-            await this.device.setTargetPower(requested.targetPower)
+        if (update.targetPower!==undefined) {
+            await this.device.setTargetPower(update.targetPower)
         } 
 
         //this.logger.logEvent({message:'sendUpdate',request});    
