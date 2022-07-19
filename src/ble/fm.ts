@@ -751,6 +751,8 @@ export class FmAdapter extends DeviceAdapter {
                     }        
                 }
                
+                const startRequest = this.getCyclingMode().getBikeInitRequest()
+                await this.sendUpdate(startRequest);
 
                 bleDevice.on('data', (data)=> {
                     this.onDeviceData(data)

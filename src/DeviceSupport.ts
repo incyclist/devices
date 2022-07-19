@@ -18,6 +18,7 @@ import BleInterface from './ble/ble-interface'
 import BleHrmDevice from './ble/hrm'
 import BleCyclingPowerDevice from './ble/pwr'
 import BleFitnessMachineDevice from './ble/fm'
+import WahooAdvancedFitnessMachineDevice from './ble/wahoo-kickr'
 
 const Protocols = {
     SimulatorProtocol,
@@ -43,7 +44,8 @@ export {
     BleInterface,
     BleHrmDevice,
     BleCyclingPowerDevice,
-    BleFitnessMachineDevice
+    BleFitnessMachineDevice,
+    WahooAdvancedFitnessMachineDevice
 
     
 }
