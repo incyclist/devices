@@ -10,6 +10,7 @@ const config = {
         {key:'bikeType',name: 'Bike Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Race','Mountain','Triathlon'], default: 'Race'}
     ]
 }
+const MIN_SPEED = 10;
 
 export default class FtmsCyclingMode extends PowerBasedCyclingModeBase implements CyclingMode {
 
@@ -83,11 +84,11 @@ export default class FtmsCyclingMode extends PowerBasedCyclingModeBase implement
 
         try {
 
-            const rpm = bikeData.pedalRpm || 0;
             let power = bikeData.power || 0;
             const slope = ( prevData.slope!==undefined ? prevData.slope : prevRequest.slope || 0); // ignore slope delivered by bike
             const distanceInternal = prevData.distanceInternal || 0;  // meters
-            if (!bikeData.pedalRpm || bikeData.isPedalling===false) {
+            
+            if (bikeData.pedalRpm===0  || bikeData.isPedalling===false) {
                 power = 0;
             }
 
@@ -95,12 +96,18 @@ export default class FtmsCyclingMode extends PowerBasedCyclingModeBase implement
             const m = this.getWeight();
             const t =  this.getTimeSinceLastUpdate();
             const {speed,distance} = this.calculateSpeedAndDistance(power,slope,m,t,{bikeType});
-        
-            data.speed = parseFloat(speed.toFixed(1));
+
+            if (power===0 && speed<MIN_SPEED) {
+                data.speed = Math.round(prevData.speed-1)<0 ? 0: Math.round(prevData.speed-1)
+                data.distanceInternal = Math.round(distanceInternal+ data.speed/3.6*t);
+            }
+            else {
+                data.speed = (power===0 && speed<MIN_SPEED) ? 0 : speed;
+                data.distanceInternal = (power===0 && speed<MIN_SPEED) ? Math.round(distanceInternal): Math.round(distanceInternal+distance);
+            }
             data.power = Math.round(power);
-            data.distanceInternal = Math.round(distanceInternal+distance);
             data.slope = slope;
-            data.pedalRpm = rpm;
+            data.pedalRpm =  bikeData.pedalRpm || 0;
 
             if ( data.time!==undefined )
                 data.time+=t;

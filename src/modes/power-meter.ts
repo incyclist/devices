@@ -65,7 +65,7 @@ export default class PowerMeterCyclingMode extends PowerBasedCyclingModeBase imp
 
             // calculate speed and distance
             const m = this.getWeight();
-            let t =  this.getTimeSinceLastUpdate();
+            const t =  this.getTimeSinceLastUpdate();
             const {speed,distance} = this.calculateSpeedAndDistance(power,slope,m,t);
 
             data.power = Math.round(power);
