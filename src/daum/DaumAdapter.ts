@@ -1,6 +1,6 @@
 import { EventLogger } from 'gd-eventlog';
 import CyclingMode, { IncyclistBikeData } from '../CyclingMode';
-import DeviceAdapterBase,{Bike, DeviceAdapter, DeviceData,DEFAULT_BIKE_WEIGHT,DEFAULT_USER_WEIGHT } from '../Device'
+import IncyclistDevice,{Bike, DeviceAdapter, DeviceData,DEFAULT_BIKE_WEIGHT,DEFAULT_USER_WEIGHT } from '../Device'
 import ERGCyclingMode from './ERGCyclingMode';
 import SmartTrainerCyclingMode from './SmartTrainerCyclingMode';
 import PowerMeterCyclingMode from './DaumPowerMeterCyclingMode';
@@ -11,7 +11,7 @@ interface DaumAdapter  {
     getCurrentBikeData(): Promise<any>;
 }
 
-export default class DaumAdapterBase extends DeviceAdapterBase implements DeviceAdapter,DaumAdapter,Bike  {
+export default class DaumAdapterBase extends IncyclistDevice implements DeviceAdapter,DaumAdapter,Bike  {
 
     bike;
     ignoreHrm: boolean;
@@ -141,6 +141,13 @@ export default class DaumAdapterBase extends DeviceAdapterBase implements Device
 
     isHrm() {
         return true;
+    }
+
+    isSame(device:DeviceAdapter):boolean {
+        if (!(device instanceof DaumAdapterBase))
+            return false;
+        const adapter = device as DaumAdapterBase;
+        return  (adapter.getName()===this.getName() && adapter.getPort()===this.getPort())
     }
 
     setIgnoreHrm(ignore) {

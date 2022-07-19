@@ -21,7 +21,7 @@ export type Device = {
 
 export interface DeviceSettings  {
     name: string
-    port: string
+    port?: string
     userSettings?: User;
     bikeSettings?: any;
 
@@ -104,11 +104,14 @@ export default class DeviceProtocolBase {
     getSerialPort() {DeviceProtocolBase.getSerialPort()}
     setNetImpl(netClass) { DeviceProtocolBase.setNetImpl(netClass)}
     getNetImpl() {return DeviceProtocolBase.getNetImpl()}
-
+   
+    setBinding(_bindingClass) { }
+    
     static setAnt(antClass) { _ant = antClass}
     static getAnt() {return _ant}
     static setSerialPort(serialClass) { _serial = serialClass}
     static getSerialPort() {return _serial}
     static setNetImpl(netClass) { _net = netClass}
     static getNetImpl() {return _net}
+
 }

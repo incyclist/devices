@@ -1,8 +1,8 @@
-import DeviceAdapterBase from '../Device';
+import IncyclistDevice from '../Device';
 import DeviceProtocolBase from '../DeviceProtocol';
 import PowerMeterMode from './power-base'
 
-class MockAdapter extends DeviceAdapterBase {
+class MockAdapter extends IncyclistDevice {
     constructor() {
         super( new DeviceProtocolBase())
     }
@@ -89,6 +89,55 @@ describe('PowerMeterMode', () => {
             expect(values[values.length-1].speed).toBeCloseTo(52,0)
 
         })
+
+        test('accelerate from 30km/h with 307W ,0%, 70kg within 1s', ()=>{
+            mode.data.speed = 30;
+            const res = mode.calculateSpeedAndDistance(307, 0,70, 1)                        
+            expect(res.speed).toBeCloseTo(31,0)
+            expect(res.distance).toBeCloseTo(31/3.6,1)
+            
+        })
+
+
+    })
+    describe ( 'calculatePowerAndDistance', () => { 
+
+        beforeEach( ()=> {
+            mode = new PowerMeterMode( new MockAdapter());
+        })
+
+
+        test('keep speed at 30km/h,0%, 70kg, 1s since last update', ()=>{
+            mode.data.speed = 30;
+            const res = mode.calculatePowerAndDistance(30, 0,70, 1)                        
+            expect(res.power).toBeCloseTo(143,0)
+            expect(res.distance).toBeCloseTo(30/3.6,1)
+            
+        })
+
+        test('keep speed at 30km/h,0%, 70kg, 0s since last update', ()=>{
+            mode.data.speed = 30;
+            const res = mode.calculatePowerAndDistance(30, 0,70, 0)                        
+            expect(res.power).toBeCloseTo(143,0)
+            expect(res.distance).toBe(0)
+            
+        })
+
+        test('keep speed at 30km/h,5%, 70kg for 1s', ()=>{
+            mode.data.speed = 30;
+            const res = mode.calculatePowerAndDistance(30, 5,70, 1)                        
+            expect(res.power).toBeCloseTo(428,0)
+            expect(res.distance).toBeCloseTo(30/3.6,1)            
+        })
+
+        test('accelerate to 31km/h,0%, 70kg within 1s', ()=>{
+            mode.data.speed = 30;
+            const res = mode.calculatePowerAndDistance(31, 0,70, 1)                        
+            expect(res.power).toBeCloseTo(307,0)
+            expect(res.distance).toBeCloseTo(31/3.6,1)
+            
+        })
+
 
     })
 })

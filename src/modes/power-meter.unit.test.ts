@@ -6,6 +6,9 @@ class MockAdapter extends DeviceAdapterBase {
     constructor() {
         super( new DeviceProtocolBase())
     }
+    getProtocolName(): string {
+        return ('mock')
+    }
 }
 
 describe('PowerMeterMode', () => {

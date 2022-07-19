@@ -417,6 +417,30 @@ describe( 'ERGCyclingMode',()=>{
             expect(res.targetPower).toBe( cm.getSetting('startPower') )
         })
 
+
+
+        test('bug: NaN in display for speed',()=>{
+            const adapter = new DaumAdapter({},null);
+            const cm = new ERGCyclingMode(adapter);
+            cm.getSetting = jest.fn( (key) => { 
+                if (key==='startPower') return 100
+                if (key==='bikeType') return 'Mountain'
+            });
+
+            let res;
+            cm.prevRequest = {maxPower:400};
+            cm.event = {}
+            cm.data = {speed:4.5,power:68,distanceInternal:1,pedalRpm:62.2,isPedalling:true,heartrate:0,slope:42.973320188763346,gear:13,time:66.10100000000001};
+            cm.prevUpdateTS = Date.now()
+
+            // increase cadence -> target power will increase & speed will increase once bike has adjusted power
+            jest.advanceTimersByTime(971);
+            res = cm.updateData({isPedalling:true,power:58,pedalRpm:63.2,speed:15.515999999999998,heartrate:0,distanceInternal:290,gear:13,time:72} )  
+            expect(res.speed).toBeDefined()
+            
+        })
+
+
     })
 
 })

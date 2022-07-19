@@ -65,6 +65,12 @@ export class Simulator extends DeviceAdapter {
     isBike() { return true;}
     isHrm() { return false;}
     isPower() { return true;}
+    isSame(device:DeviceAdapter):boolean {
+        if (!(device instanceof Simulator))
+            return false;
+        return true;
+    }
+
 
     getID() { return Simulator.NAME }
     getName() { return Simulator.NAME }
