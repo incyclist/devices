@@ -443,6 +443,9 @@ export default class BleFitnessMachineDevice extends BleDevice {
         if (this.data.targetPower!==undefined && this.data.targetPower===power)
             return true;
 
+        if (!this.hasControl)
+            return;
+
         const hasControl = await this.requestControl(); /*
         if (!hasControl) {
             this.logEvent({message: 'setTargetPower failed',reason:'control is disabled'})
@@ -460,6 +463,10 @@ export default class BleFitnessMachineDevice extends BleDevice {
 
     async setSlope(slope) {
         this.logEvent( {message:'setSlope', slope})
+
+        if (!this.hasControl)
+            return;
+
         const {windSpeed,crr, cw} = this;
         return await this.setIndoorBikeSimulation( windSpeed, slope, crr, cw)
     }
@@ -468,6 +475,9 @@ export default class BleFitnessMachineDevice extends BleDevice {
         // avoid repeating the same value
         if (this.data.targetInclination!==undefined && this.data.targetInclination===inclination)
             return true;
+
+        if (!this.hasControl)
+        return;
 
         const hasControl = await this.requestControl();
         if (!hasControl) {
@@ -485,6 +495,8 @@ export default class BleFitnessMachineDevice extends BleDevice {
 
 
     async setIndoorBikeSimulation( windSpeed:number, gradient:number, crr:number, cw:number): Promise<boolean> {
+        if (!this.hasControl)
+            return;
 
         const hasControl = await this.requestControl(); /*
         if (!hasControl) {
@@ -750,6 +762,8 @@ export class FmAdapter extends DeviceAdapter {
                         case 'mountain': this.device.setCw(cwABike.mountain); break;
                     }        
                 }
+
+                this.device.requestControl();
                
                 const startRequest = this.getCyclingMode().getBikeInitRequest()
                 await this.sendUpdate(startRequest);
