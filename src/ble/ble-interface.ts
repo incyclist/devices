@@ -457,6 +457,7 @@ export default class BleInterface extends BleInterfaceClass {
     }
 
     createDevice( DeviceClass: (typeof BleDeviceClass), peripheral: BlePeripheral, characteristics?:BleCharacteristic[]) {
+        this.logEvent({message:'trying to create device',peripheral: peripheral.address,characteristics })
         const C = DeviceClass as any; // avoid error "Cannot crate instance of abstract class"
         const device = new C({peripheral});
 

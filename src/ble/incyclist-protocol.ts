@@ -63,6 +63,7 @@ export default class BleProtocol extends DeviceProtocolBase implements DevicePro
                 return new HrmAdapter( fromDevice? bleDevice as BleDeviceClass : new BleHrmDevice(props()),this);
             case 'fm':
             case 'smart trainer':
+            case 'wahoo smart trainer':
             case 'fitness machine':
                 let device;
                 if ( fromDevice)
