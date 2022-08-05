@@ -15,7 +15,8 @@ const TIMEOUT_ACK = 5000;
 const TIMEOUT_START = 10000;
 const TIMEOUT_ATTACH = 3000;
 const DEFAULT_USER_WEIGHT = 75;
-const DEFAULT_BIKE_WEIGHT = 12.75;
+const DEFAULT_BIKE_WEIGHT = 10;
+const DEFAULT_BIKE_WEIGHT_MOUNTAIN = 14.5;
 
 /*
 class MockLogger {
@@ -353,7 +354,7 @@ export default class AntFEAdapter extends AntAdapter {
 
         this.logger.logEvent({message:'start()',props});        
         const opts = props || {} as any;
-        const {args ={}} = opts;
+        const {args ={}, user={}} = opts;
         
         return new Promise( async (resolve,reject) => {
             if(this.ignoreHrm && this.ignoreBike && this.ignorePower) {
@@ -421,8 +422,16 @@ export default class AntFEAdapter extends AntAdapter {
                                     await this.sendTrackResistance(0.0);
                                     status.trackResistanceSent = true;
                                 }
+                                const mode = this.getCyclingMode()
+                                
+                
+                                const bikeType = mode ? mode.getSetting('bikeType').toLowerCase() : 'race';
+                                const defaultBikeWeight = bikeType==='mountain' ? DEFAULT_BIKE_WEIGHT_MOUNTAIN : DEFAULT_BIKE_WEIGHT; 
+
                                 if (!status.userSent) {
-                                    await this.sendUserConfiguration( args.userWeight||DEFAULT_USER_WEIGHT, args.bikeWeight||DEFAULT_BIKE_WEIGHT, args.wheelDiameter, args.gearRatio);
+                                    const userWeight = args.userWeight || user.weight ||DEFAULT_USER_WEIGHT;
+                                    const bikeWeight = args.bikeWeight||defaultBikeWeight;
+                                    await this.sendUserConfiguration( userWeight, bikeWeight, args.wheelDiameter, args.gearRatio);
                                     status.userSent = true;
                                 }
 
