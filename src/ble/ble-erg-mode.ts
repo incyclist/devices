@@ -1,6 +1,6 @@
 import CyclingMode, { CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, UpdateRequest } from "../CyclingMode";
+import { DeviceAdapter } from "../Device";
 import PowerBasedCyclingModeBase from "../modes/power-base";
-import { FmAdapter } from "./fm";
 
 
 const config = {
@@ -21,7 +21,7 @@ export default class BleERGCyclingMode extends PowerBasedCyclingModeBase impleme
     chain: number[];
     cassette: number[];
 
-    constructor(adapter: FmAdapter, props?:any) {
+    constructor(adapter: DeviceAdapter, props?:any) {
         super(adapter,props);
         this.initLogger('ERGMode')
     }

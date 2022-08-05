@@ -3,6 +3,9 @@ import AntAdapter from '../AntAdapter';
 import { AntProtocol } from '../AntScanner';
 import {getBrand} from '../utils'
 import {Queue,hexstr, runWithRetries} from '../../utils'
+import CyclingMode, { IncyclistBikeData } from '../../CyclingMode';
+import AntStCyclingMode from './ant-fe-st-mode';
+import AntFeERGCyclingMode from './ant-fe-erg-mode';
 
 const floatVal = (d) => d ? parseFloat(d) :d
 const intVal = (d) => d ? parseInt(d) :d
@@ -20,6 +23,49 @@ class MockLogger {
     logEvent(event) { console.log('~~~~~Ant:'+event.message, event)}
 }
 */
+
+export type AntFEDeviceData = {
+	DeviceID: number;
+	Temperature?: number;
+	ZeroOffset?: number;
+	SpinDownTime?: number;
+
+	EquipmentType?: 'Treadmill' | 'Elliptical' | 'StationaryBike' | 'Rower' | 'Climber' | 'NordicSkier' | 'Trainer' | 'General';
+	ElapsedTime?: number;
+	Distance?: number;
+	RealSpeed?: number;
+	VirtualSpeed?: number;
+	HeartRate?: number;
+	HeartRateSource?: 'HandContact' | 'EM' | 'ANT+';
+	State?: 'OFF' | 'READY' | 'IN_USE' | 'FINISHED';
+
+	CycleLength?: number;
+	Incline?: number;
+	Resistance?: number;
+
+	METs?: number;
+	CaloricBurnRate?: number;
+	Calories?: number;
+
+	_EventCount0x19?: number;
+	Cadence?: number;
+	AccumulatedPower?: number;
+	InstantaneousPower?: number;
+	AveragePower?: number;
+	TrainerStatus?: number;
+	TargetStatus?: 'OnTarget' | 'LowSpeed' | 'HighSpeed';
+
+	HwVersion?: number;
+	ManId?: number;
+	ModelNum?: number;
+
+	SwVersion?: number;
+	SerialNumber?: number;
+
+	PairedDevices?: any[];
+	RawData : Buffer;
+}
+
 export default class AntFEAdapter extends AntAdapter {
 
     started: boolean;
@@ -29,6 +75,7 @@ export default class AntFEAdapter extends AntAdapter {
     queue?: Queue<any>;
     workerId?: any;
     currentCmd?: any;
+    cyclingMode: CyclingMode;
 
     constructor( DeviceID,port,stick, protocol) {
         super(protocol)
@@ -67,6 +114,42 @@ export default class AntFEAdapter extends AntAdapter {
         return `${getBrand(ManId)} FE ${DeviceID}${hrmStr}`
     }
 
+
+    getSupportedCyclingModes() : Array<any> {
+        return [AntStCyclingMode,AntFeERGCyclingMode]
+    }
+
+    setCyclingMode(mode: string | CyclingMode, settings?: any): void {
+        let selectedMode :CyclingMode;
+
+        if ( typeof mode === 'string') {
+            const supported = this.getSupportedCyclingModes();
+            const CyclingModeClass = supported.find( M => { const m = new M(this); return m.getName() === mode })
+            if (CyclingModeClass) {
+                this.cyclingMode = new CyclingModeClass(this,settings);    
+                return;
+            }
+            selectedMode = this.getDefaultCyclingMode();
+        }
+        else {
+            selectedMode = mode;
+        }
+        this.cyclingMode = selectedMode;        
+        this.cyclingMode.setSettings(settings);
+        
+    }
+    
+    getCyclingMode(): CyclingMode {
+        if (!this.cyclingMode)
+            this.cyclingMode =  this.getDefaultCyclingMode();
+        return this.cyclingMode
+
+    }
+    getDefaultCyclingMode(): CyclingMode {
+        return new AntStCyclingMode(this);
+    }
+
+
     onAttached() {
         this.logger.logEvent( {message:'Device connected'})
         this.connected = true;
@@ -83,19 +166,34 @@ export default class AntFEAdapter extends AntAdapter {
     }
 
 
-    onDeviceData( deviceData) {
+    onDeviceData( deviceData: AntFEDeviceData) {
         if (!this.started || this.isStopped())
             return;
+
         this.deviceData = deviceData;
         
+        
+
         try {
             if ( this.onDataFn && !(this.ignoreHrm && this.ignoreBike && this.ignorePower) && !this.paused) {
                 if (!this.lastUpdate || (Date.now()-this.lastUpdate)>this.updateFrequency) {
                     const logData = this.getLogData(deviceData, ['PairedDevices','RawData']);
                     this.logger.logEvent( {message:'onDeviceData',data:logData})
 
+                    // transform data into internal structure of Cycling Modes
+                    let incyclistData = this.mapData(deviceData)      
+
+                    // let cycling mode process the data
+                    incyclistData = this.getCyclingMode().updateData(incyclistData);   
+
+                    // transform data into structure expected by the application
+                    const data =  this.transformData(incyclistData);                          
+
+                    /*
                     this.data = this.updateData(this.data,deviceData)
-                    const data = this.transformData(this.data);                    
+                    const data = this.transformData(this.data);   
+                    */
+
                     this.onDataFn(data)
                     this.lastUpdate = Date.now();
                 }
@@ -103,6 +201,29 @@ export default class AntFEAdapter extends AntAdapter {
         }
         catch ( err) {
         }
+    }
+
+    mapData(deviceData: AntFEDeviceData) : IncyclistBikeData {
+        // update data based on information received from ANT+FE sensor
+        const data = {
+            isPedalling: false,
+            power: 0,
+            pedalRpm: undefined,
+            speed: 0,
+            heartrate:0,
+            distanceInternal:0,        // Total Distance in meters             
+            slope:undefined,
+            time:undefined
+        }
+
+        data.speed = (deviceData.VirtualSpeed!==undefined ? deviceData.VirtualSpeed : (deviceData.RealSpeed||0))*3.6;
+        data.slope = (deviceData.Incline!==undefined? deviceData.Incline :data.slope);
+        data.power = (deviceData.InstantaneousPower!==undefined? deviceData.InstantaneousPower :data.power);
+        data.time  = (deviceData.ElapsedTime!==undefined ? deviceData.ElapsedTime : data.time)
+        data.pedalRpm = (deviceData.Cadence!==undefined? deviceData.Cadence :data.pedalRpm) ;
+        data.isPedalling = data.pedalRpm>0 || (data.pedalRpm===undefined && data.power>0);
+
+        return data;
     }
 
     onDeviceEvent(data) {
@@ -158,6 +279,7 @@ export default class AntFEAdapter extends AntAdapter {
     }
 
 
+    /*
     updateData( data,deviceData) {
         // update data based on information received from ANT+FE sensor
         if (data.distanceOffs===undefined) data.distanceOffs=0;
@@ -184,6 +306,7 @@ export default class AntFEAdapter extends AntAdapter {
 
         return data;
     }
+    */
 
 
     transformData( bikeData) {
@@ -193,18 +316,18 @@ export default class AntFEAdapter extends AntAdapter {
     
         let distance=0;
         if ( this.distanceInternal!==undefined && bikeData.distanceInternal!==undefined ) {
-            distance = intVal(bikeData.distanceInternal-this.distanceInternal)
+            distance =  Math.round(bikeData.distanceInternal-this.distanceInternal)
         }
         if (bikeData.distanceInternal!==undefined)
             this.distanceInternal = bikeData.distanceInternal;
         
 
         let data =  {
-            speed: floatVal(bikeData.speed),
-            slope: floatVal(bikeData.slope),
-            power: intVal(bikeData.power),
-            cadence: intVal(bikeData.pedalRpm),
-            heartrate: intVal(bikeData.heartrate),
+            speed: bikeData.speed,
+            slope: bikeData.slope,
+            power: bikeData.power!==undefined ? Math.round(bikeData.power) : undefined,
+            cadence: bikeData.pedalRpm!==undefined ? Math.round(bikeData.pedalRpm) : undefined,
+            heartrate: bikeData.heartrate!==undefined ?  Math.round(bikeData.heartrate) : undefined,
             distance,
             timestamp: Date.now()
         } as any;
@@ -389,19 +512,26 @@ export default class AntFEAdapter extends AntAdapter {
     }
 
     async sendUpdate(request) {
-        this.logger.logEvent({message:"sendBikeUpdate():",request}) ;
+
+        // don't send any commands if we are pausing
+        if( this.paused)
+            return;
+
+        const update = this.getCyclingMode().sendBikeUpdate(request)
+        this.logger.logEvent({message: 'send bike update requested', update, request})
+
 
         try {
 
             const isReset = ( !request || request.reset || Object.keys(request).length===0 );
             // TODO: handle reset
             
-            if (request.slope!==undefined) {
-                await  runWithRetries( async ()=>{ return await this.sendTrackResistance(request.slope) }, 2, 100 );
+            if (update.slope!==undefined) {
+                await  runWithRetries( async ()=>{ return await this.sendTrackResistance(update.slope) }, 2, 100 );
             }
     
-            if (request.targetPower!==undefined) {
-                await  runWithRetries( async ()=>{ return await this.sendTargetPower(request.targetPower)},2,100);
+            if (update.targetPower!==undefined) {
+                await  runWithRetries( async ()=>{ return await this.sendTargetPower(update.targetPower)},2,100);
             }
             else if (request.maxPower!==undefined) {
                 if ( this.data.power && this.data.power>request.maxPower)
