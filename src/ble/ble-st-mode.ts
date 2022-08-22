@@ -99,11 +99,11 @@ export default class FtmsCyclingMode extends PowerBasedCyclingModeBase implement
 
             if (power===0 && speed<MIN_SPEED) {
                 data.speed = Math.round(prevData.speed-1)<0 ? 0: Math.round(prevData.speed-1)
-                data.distanceInternal = Math.round(distanceInternal+ data.speed/3.6*t);
+                data.distanceInternal = distanceInternal+ data.speed/3.6*t;
             }
             else {
                 data.speed = (power===0 && speed<MIN_SPEED) ? 0 : speed;
-                data.distanceInternal = (power===0 && speed<MIN_SPEED) ? Math.round(distanceInternal): Math.round(distanceInternal+distance);
+                data.distanceInternal = (power===0 && speed<MIN_SPEED) ? distanceInternal: distanceInternal+distance;
             }
             data.power = Math.round(power);
             data.slope = slope;

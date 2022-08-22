@@ -88,7 +88,7 @@ export default class DaumClassicCyclingMode extends SmartTrainerCyclingMode impl
             else {
                 const duration =  this.prevUpdateTS===0 ? 0: ((ts-this.prevUpdateTS)/1000) ; // sec
                 let v = speed/3.6;
-                distanceInternal += Math.round(v*duration);
+                distanceInternal += (v*duration);
             }
         
 

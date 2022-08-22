@@ -134,7 +134,7 @@ export default class SimulatorCyclingMode extends CyclingModeBase implements Cyc
             }
 
             let v = speed/3.6;
-            distanceInternal += Math.round(v*duration);
+            distanceInternal += (v*duration);
 
     
             data.speed = parseFloat(speed.toFixed(1));

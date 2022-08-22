@@ -205,7 +205,7 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
         
             data.speed = parseFloat(speed.toFixed(1));
             data.power = Math.round(power);
-            data.distanceInternal = Math.round(distanceInternal+distance);
+            data.distanceInternal = distanceInternal+distance;
             data.slope = slope;
             data.pedalRpm = rpm;
             data.gear = gear;

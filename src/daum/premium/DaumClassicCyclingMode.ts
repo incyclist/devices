@@ -75,12 +75,12 @@ export default class DaumClassicCyclingMode extends DaumPowerMeterCyclingMode im
                 // calculate speed and distance
                 let v = speed/3.6;
                 let duration =  this.prevUpdateTS===0 ? 0: ((ts-this.prevUpdateTS)/1000) ; // sec
-                distanceInternal = distancePrev + Math.round(v*duration);                                
+                distanceInternal = distancePrev + v*duration;                                
             }
 
             data.speed = parseFloat(speed.toFixed(1));
             data.power = Math.round(power);
-            data.distanceInternal = Math.round(distanceInternal);
+            data.distanceInternal = distanceInternal;
             data.slope = slope;
 
             this.logger.logEvent( {message:"updateData result",data,bikeData,prevRequest:{},prevSpeed:prevData.speed} );

@@ -310,7 +310,7 @@ export default class SmartTrainerCyclingMode extends CyclingModeBase implements 
 
             let m = (this.adapter as DaumAdapter).getWeight();
             let distanceInternal = prevData.distanceInternal || 0;  // meters
-            let distance = Math.round(distanceInternal/100);
+            let distance = (distanceInternal/100);
             let ts = Date.now();
             let duration =  this.prevUpdateTS===0 ? 0: ((ts-this.prevUpdateTS)/1000) ; // sec
 
@@ -346,7 +346,7 @@ export default class SmartTrainerCyclingMode extends CyclingModeBase implements 
                     */
                 }                        
                 const v = speed /3.6;
-                distanceInternal += Math.round(v*duration);                
+                distanceInternal += (v*duration);                
             }
         
             data.speed = parseFloat(speed.toFixed(1));
