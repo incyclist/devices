@@ -4,7 +4,7 @@ import IncyclistDevice,{Bike, DeviceAdapter, DeviceData,DEFAULT_BIKE_WEIGHT,DEFA
 import ERGCyclingMode from './ERGCyclingMode';
 import SmartTrainerCyclingMode from './SmartTrainerCyclingMode';
 import PowerMeterCyclingMode from './DaumPowerMeterCyclingMode';
-import {floatVal,intVal} from '../utils'
+import {intVal} from '../utils'
 import { User } from '../types/user';
 
 interface DaumAdapter  {
@@ -117,8 +117,8 @@ export default class DaumAdapterBase extends IncyclistDevice implements DeviceAd
     } 
 
     getWeight():number {
-        const userWeight = this.userSettings.weight || DEFAULT_USER_WEIGHT;
-        const bikeWeight = this.bikeSettings.weight ||  DEFAULT_BIKE_WEIGHT;
+        const userWeight = Number(this.userSettings.weight || DEFAULT_USER_WEIGHT);
+        const bikeWeight = Number(this.bikeSettings.weight ||  DEFAULT_BIKE_WEIGHT);
         return bikeWeight+userWeight;
     }
 
@@ -285,7 +285,7 @@ export default class DaumAdapterBase extends IncyclistDevice implements DeviceAd
     } 
 
     sendData() {
-        if ( this.onDataFn) 
+        if ( this.onDataFn)
             this.onDataFn(this.deviceData)
     }
 
@@ -403,15 +403,15 @@ export default class DaumAdapterBase extends IncyclistDevice implements DeviceAd
     
         let distance=0;
         if ( this.distanceInternal!==undefined && this.cyclingData.distanceInternal!==undefined ) {
-            distance = intVal(this.cyclingData.distanceInternal-this.distanceInternal)
+            distance = this.cyclingData.distanceInternal-this.distanceInternal
         }
         if (this.cyclingData.distanceInternal!==undefined)
             this.distanceInternal = this.cyclingData.distanceInternal;
         
 
         let data =  {
-            speed: floatVal(this.cyclingData.speed),
-            slope: floatVal(this.cyclingData.slope),
+            speed: this.cyclingData.speed,
+            slope: this.cyclingData.slope,
             power: intVal(this.cyclingData.power),
             cadence: intVal(this.cyclingData.pedalRpm),
             heartrate: intVal(this.cyclingData.heartrate),
@@ -457,7 +457,7 @@ export default class DaumAdapterBase extends IncyclistDevice implements DeviceAd
         }
         catch (err) {
             this.requestBusy = false;
-            this.logEvent( {message:'error',fn:'sendRequest()',error:err.message||err})            
+            this.logEvent( {message:'sendRequest error',error:err.message||err})            
             return;
         }
 

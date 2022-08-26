@@ -202,8 +202,9 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
             const m = this.getWeight();
             const t =  this.getTimeSinceLastUpdate();
             const {speed,distance} = this.calculateSpeedAndDistance(power,slope,m,t,{bikeType});
+            //console.log( '~~~ERGMode.calculateSpeedAndDistance', distanceInternal,data.time, {power, slope,m,t,bikeType}, speed,distance)
         
-            data.speed = parseFloat(speed.toFixed(1));
+            data.speed = speed;
             data.power = Math.round(power);
             data.distanceInternal = distanceInternal+distance;
             data.slope = slope;

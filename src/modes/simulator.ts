@@ -1,7 +1,8 @@
 import { EventLogger } from "gd-eventlog";
-import CyclingMode, { CyclingModeBase, CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, UpdateRequest } from "../CyclingMode";
+
+import { CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, UpdateRequest } from "../CyclingMode";
 import { Simulator } from "../simulator/Simulator";
-import calc from '../calculations'
+import PowerBasedCyclingModeBase from "./power-base";
 
 
 const config = {
@@ -12,6 +13,7 @@ const config = {
         {key:'delay',name: 'Start Delay', description: 'Delay (in s) at start of training', type: CyclingModeProperyType.Integer, default: 2, min:0, max:30},
         {key:'power',name: 'Power', description: 'Power (in W) at start of training', condition: (s)=> !s.mode || s.mode==='Power', type: CyclingModeProperyType.Integer, default: 150, min:25, max:800},
         {key:'speed',name: 'Speed', description: 'Speed (in km/h) at start of training', condition: (s)=> s.mode==='Speed', type: CyclingModeProperyType.Integer, default: 30, min:5, max:50},
+        {key:'bikeType',name: 'Bike Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Race','Mountain','Triathlon'], default: 'Race'}
     ]
 }
 
@@ -23,7 +25,7 @@ export type ERGEvent = {
 }
 
 
-export default class SimulatorCyclingMode extends CyclingModeBase implements CyclingMode { 
+export default class SimulatorCyclingMode extends PowerBasedCyclingModeBase { 
 
 
     logger: EventLogger;
@@ -93,6 +95,7 @@ export default class SimulatorCyclingMode extends CyclingModeBase implements Cyc
         const prevSpeed = prevData.speed;        
         const prevRequest = this.prevRequest || {};
         const data = this.data || {} as any;
+        const bikeType = (this.getSetting('bikeType')||'Race').toLowerCase();
 
         const mode = this.getSetting( 'mode' )
         delete this.event.gearUpdated;
@@ -102,44 +105,59 @@ export default class SimulatorCyclingMode extends CyclingModeBase implements Cyc
         try {
 
             let rpm = 90;
-            let power = (mode==='Power'|| !mode) ? Number(this.getSetting('power')): bikeData.power || 0;
+            let power = (!mode || mode.toLowerCase()==='power' ) ? Number(this.getSetting('power')): bikeData.power || 0;
             let slope = ( prevData.slope!==undefined ? prevData.slope : prevRequest.slope || 0); 
-            let speed = mode==='Speed' ? Number(this.getSetting('speed')): bikeData.speed || 0;
-            let m = 75;
+            let speed = mode.toLowerCase()==='speed' ? Number(this.getSetting('speed')): bikeData.speed || 0;
+            let m = this.getWeight();
 
             let distanceInternal = prevData.distanceInternal || 0;  // meters
             let ts = Date.now();
             let duration =  this.prevUpdateTS===0 ? 0: ((ts-this.prevUpdateTS)/1000) ; // sec
-                
+            const t =  this.getTimeSinceLastUpdate();
+            let distance=0;
+
             //let speed = calc.calculateSpeedDaum(gear, rpm, bikeType)
-            if (mode==='Power' || !mode)  { 
-                speed = calc.calculateSpeed(m,power,slope,{bikeType:'race'} ); // km/h
+            if (!mode || mode.toLowerCase()==='power' )  { 
+                const res = this.calculateSpeedAndDistance(power,slope,m,t,{bikeType});
+                //console.log( '~~~Simulator.calculateSpeedAndDistance', distanceInternal,data.time, {power, slope,m,t,bikeType}, res.speed,res.distance)
+
+                speed = res.speed;
+                distance = res.distance;
+                
             }
-            else if (mode==='Speed') {
-                power = calc.calculatePower(m,speed/3.6,slope,{bikeType:'race'})
+            else if (mode.toLowerCase()==='speed') {
+                const res = this.calculatePowerAndDistance(speed,slope,m,t,{bikeType});
+                //console.log( '~~~Simulator.calculatePowerAndDistance', distanceInternal,data.time, {speed, slope,m,t,bikeType}, res.power,res.distance)
+                power = res.power;
+                distance = res.distance;
             }
+
 
             if ( prevRequest.targetPower) {
                 power = prevRequest.targetPower;
-                speed = calc.calculateSpeed(m,power,slope,{bikeType:'race'} )
+                const res = this.calculateSpeedAndDistance(power,slope,m,t,{bikeType});
+                speed = res.speed;
+                distance = res.distance;
+                
             }
             
             if ( prevRequest.maxPower && power>prevRequest.maxPower) {
                 power = prevRequest.maxPower;
-                speed = calc.calculateSpeed(m,power,slope,{bikeType:'race'} )
+                const res = this.calculateSpeedAndDistance(power,slope,m,t,{bikeType});
+                speed = res.speed;
+                distance = res.distance;
             }
             else if ( prevRequest.minPower && power<prevRequest.minPower) {
                 power = prevRequest.minPower;
-                speed = calc.calculateSpeed(m,power,slope,{bikeType:'race'} )
+                const res = this.calculateSpeedAndDistance(power,slope,m,t,{bikeType});
+                speed = res.speed;
+                distance = res.distance;
             }
 
-            let v = speed/3.6;
-            distanceInternal += (v*duration);
-
     
-            data.speed = parseFloat(speed.toFixed(1));
+            data.speed = speed;
             data.power = Math.round(power);
-            data.distanceInternal = distanceInternal;
+            data.distanceInternal = distanceInternal+distance;
             data.slope = slope;
             data.pedalRpm = rpm;
             if ( data.time!==undefined)

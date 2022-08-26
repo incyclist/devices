@@ -6,6 +6,7 @@ import {EventLogger} from 'gd-eventlog'
 import CyclingMode, { IncyclistBikeData } from '../CyclingMode';
 import SimulatorCyclingMode from '../modes/simulator';
 import { DeviceData } from '../Device';
+import { DEFAULT_USER_WEIGHT, DEFAULT_BIKE_WEIGHT } from '../Device';
 
 const DEFAULT_SETTINGS = { name:'Simulator', port: '', isBot:false }
 
@@ -33,6 +34,8 @@ export class Simulator extends DeviceAdapter {
     data: IncyclistBikeData
     isBot: boolean;
     ignoreHrm: boolean;
+    userSettings: { weight?:number};
+    bikeSettings: { weight?:number};
 
     constructor (protocol?: DeviceProtocol, props: SimulatorSettings = DEFAULT_SETTINGS) {
 
@@ -76,6 +79,21 @@ export class Simulator extends DeviceAdapter {
     getName() { return Simulator.NAME }
     getPort() { return 'local'}
 
+    getWeight(): number { 
+        let userWeight = DEFAULT_USER_WEIGHT;
+        let bikeWeight = DEFAULT_BIKE_WEIGHT;
+
+        if ( this.userSettings && this.userSettings.weight) {
+            userWeight = Number(this.userSettings.weight);
+        }
+        if ( this.bikeSettings && this.bikeSettings.weight) {
+            bikeWeight = Number(this.bikeSettings.weight);
+        }        
+        return bikeWeight+userWeight;
+
+    }
+
+
     setIgnoreHrm(ignore) {
         this.ignoreHrm = ignore;
     }
@@ -98,6 +116,7 @@ export class Simulator extends DeviceAdapter {
     }
 
     setCyclingMode(mode: CyclingMode|string, settings?:any) { 
+
         let selectedMode :CyclingMode;
 
         if ( typeof mode === 'string') {
@@ -114,6 +133,7 @@ export class Simulator extends DeviceAdapter {
         }
         this.cyclingMode = selectedMode;        
         this.cyclingMode.setSettings(settings);
+        //console.log('~~~ Simulator.setCyclingMode',mode, settings, this.cyclingMode)
     }
 
 
@@ -122,13 +142,17 @@ export class Simulator extends DeviceAdapter {
     async start(props?: any)  {
         this.startProps = props;
 
+        if ( props && props.user)
+            this.userSettings = props.user;
+        if ( props && props.bikeSettings)
+            this.bikeSettings = props.bikeSettings;
         
 
         return new Promise( (resolve) => {
 
             if (!this.isBot)
-                this.logger.logEvent({message:'start',iv:this.iv});      
-
+                this.logger.logEvent({message:'start',iv:this.iv});    
+             
             if ( this.started) {
                 return resolve({started:true, error:undefined});  
             }
@@ -136,6 +160,12 @@ export class Simulator extends DeviceAdapter {
             this.started = true;
             this.time = Date.now();
             this.startTS = this.time;
+            if ( this.isBot) {
+                this.startTS = props.activity ? Date.parse(props.activity.startTime) : this.startTS-1500;
+                const sm = this.getCyclingMode() as SimulatorCyclingMode;
+                sm.prevUpdateTS = this.startTS;
+                this.update()
+            }
             if ( this.iv!==undefined) {
                 clearInterval(this.iv);
                 this.iv=undefined;
@@ -231,8 +261,10 @@ export class Simulator extends DeviceAdapter {
         const startDelay = this.getCyclingMode().getSetting('delay')
         const timeSinceStart = Date.now() - this.startTS;
 
-        if (startDelay && timeSinceStart < startDelay*1000) 
+        if (!this.isBot && startDelay && timeSinceStart < startDelay*1000) {
             return;
+        }
+
 
         const prevDist = this.data.distanceInternal;
         this.data = this.getCyclingMode().updateData(this.data);
@@ -245,7 +277,7 @@ export class Simulator extends DeviceAdapter {
             distance: this.data.distanceInternal-prevDist,
             heartrate: Math.round(this.data.power-10+Math.random()*20),
             timestamp: Date.now(),
-            deviceTime: Math.round((Date.now()-this.startTS)/1000),
+            deviceTime: (Date.now()-this.startTS)/1000,
             deviceDistanceCounter: this.data.distanceInternal
         } as DeviceData;
 

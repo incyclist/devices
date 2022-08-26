@@ -2,7 +2,7 @@ import { BleDevice } from './ble-device';
 import BleInterface from './ble-interface';
 import BleProtocol from './incyclist-protocol';
 import { BleDeviceClass } from './ble';
-import DeviceAdapter,{ DeviceData } from '../Device';
+import DeviceAdapter,{ DeviceData,DEFAULT_USER_WEIGHT, DEFAULT_BIKE_WEIGHT } from '../Device';
 import { DeviceProtocol } from '../DeviceProtocol';
 import {EventLogger} from 'gd-eventlog';
 import CyclingMode from '../CyclingMode';
@@ -168,6 +168,9 @@ export class PwrAdapter extends DeviceAdapter {
     mode: CyclingMode
     distanceInternal: number = 0;
     prevDataTS: number;
+    userSettings: { weight?:number};
+    bikeSettings: { weight?:number};
+
 
 
     constructor( device: BleDeviceClass, protocol: BleProtocol) {
@@ -217,6 +220,21 @@ export class PwrAdapter extends DeviceAdapter {
     getPort():string {
         return 'ble' 
     }
+
+    getWeight(): number { 
+        let userWeight = DEFAULT_USER_WEIGHT;
+        let bikeWeight = DEFAULT_BIKE_WEIGHT;
+
+        if ( this.userSettings && this.userSettings.weight) {
+            userWeight = Number(this.userSettings.weight);
+        }
+        if ( this.bikeSettings && this.bikeSettings.weight) {
+            bikeWeight = Number(this.bikeSettings.weight);
+        }        
+        return bikeWeight+userWeight;
+
+    }
+
     setIgnoreBike(ignore: any): void {
         this.ignore = ignore;
     }
@@ -298,6 +316,11 @@ export class PwrAdapter extends DeviceAdapter {
 
 
     async start( props?: any ): Promise<any> {
+        if ( props && props.user)
+            this.userSettings = props.user;
+        if ( props && props.bikeSettings)
+            this.bikeSettings = props.bikeSettings;
+
         this.logger.logEvent({message: 'start requested', profile:this.getProfile(),props})
         try {
             const bleDevice = await this.ble.connectDevice(this.device) as BleCyclingPowerDevice

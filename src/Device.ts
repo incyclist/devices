@@ -47,7 +47,7 @@ export interface DeviceAdapter extends Device {
     getName(): string
     getPort(): string
     getProtocol(): DeviceProtocol
-    getProtocolName(): string
+    getProtocolName(): string| undefined 
 
     setIgnoreHrm(ignore: boolean): void 
     setIgnorePower(ignore:boolean): void 

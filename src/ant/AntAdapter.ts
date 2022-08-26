@@ -1,5 +1,6 @@
 import DeviceAdapter from "../Device";
 import {EventLogger} from 'gd-eventlog'
+import { DEFAULT_USER_WEIGHT, DEFAULT_BIKE_WEIGHT } from "../Device";
 
 export const DEFAULT_UPDATE_FREQUENCY  = 1000;
 
@@ -22,6 +23,8 @@ export default class AntAdapter extends DeviceAdapter {
     logger: EventLogger
     lastUpdate?: number;
     updateFrequency: number;
+    userSettings: { weight?:number};
+    bikeSettings: { weight?:number};
 
 
     constructor(protocol) {
@@ -75,6 +78,21 @@ export default class AntAdapter extends DeviceAdapter {
         return this.port;
     }
 
+    getWeight(): number { 
+        let userWeight = DEFAULT_USER_WEIGHT;
+        let bikeWeight = DEFAULT_BIKE_WEIGHT;
+
+        if ( this.userSettings && this.userSettings.weight) {
+            userWeight = Number(this.userSettings.weight);
+        }
+        if ( this.bikeSettings && this.bikeSettings.weight) {
+            bikeWeight = Number(this.bikeSettings.weight);
+        }        
+        return bikeWeight+userWeight;
+
+    }
+
+
     setChannel(channel) {
         this.channel = channel;
     }
@@ -118,6 +136,11 @@ export default class AntAdapter extends DeviceAdapter {
     }
 
     start( props?: any ): Promise<any> {
+        if ( props && props.user)
+            this.userSettings = props.user;
+        if ( props && props.bikeSettings)
+            this.bikeSettings = props.bikeSettings;
+
         return new Promise ( resolve => {
             this.stopped = false;
             resolve(true)

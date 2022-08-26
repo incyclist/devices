@@ -103,7 +103,11 @@ export default class DaumClassicAdapter extends DaumAdapter{
 
         const opts = props || {}
 
-        const {user} = props;
+        const {user,bikeSettings} = opts;
+        if (user && user.weight)
+            this.userSettings.weight = user.weight;
+        if (bikeSettings && bikeSettings.weight)
+            this.bikeSettings.weight = bikeSettings.weight;
 
         this.initData();        
         let startState = { } as any;

@@ -57,9 +57,15 @@ describe('PowerMeterMode', () => {
             mode = new PowerMeterMode( new MockAdapter());
         })
 
+        type TestData = {
+            t: number,
+            speed: number,
+            distance: number
+        }
+
 
         test('150W,0%, 70kg', ()=>{
-            const values = [];
+            const values:TestData[] = [];
             for (let i=0; i<30; i++) {
                 values.push({t:i+1, ...mode.calculateSpeedAndDistance(150, 0,78.5, 1)});
             }
@@ -69,7 +75,7 @@ describe('PowerMeterMode', () => {
 
         test('0W, 45km/h, 0%', ()=>{
             mode.data.speed = 45;
-            const values = [];
+            const values:TestData[] = [];
             for (let i=0; i<30; i++) {
                 values.push({t:i+1, ...mode.calculateSpeedAndDistance(0, 0,80, 1)});
             }
@@ -82,7 +88,7 @@ describe('PowerMeterMode', () => {
             // maximum speed that can be achieved with 0W and -7% is 52km/h
             // loop could be exended to >1000 but that would not change the result
             mode.data.speed = 45;
-            const values = [];
+            const values:TestData[] = [];
             for (let i=0; i<100; i++) {
                 values.push({t:i+1, ...mode.calculateSpeedAndDistance(0, -7,72, 1,{cwA:0.3784, cRR:0.005, rho:1.18})});
             }
@@ -97,7 +103,6 @@ describe('PowerMeterMode', () => {
             expect(res.distance).toBeCloseTo(31/3.6,1)
             
         })
-
 
     })
     describe ( 'calculatePowerAndDistance', () => { 

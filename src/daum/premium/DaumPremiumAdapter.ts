@@ -81,6 +81,12 @@ export default class DaumPremiumDevice extends DaumAdapter{
 
         const opts = props || {}
 
+        if (opts.user && opts.user.weight)
+            this.userSettings.weight = opts.user.weight;
+        if (opts.bikeSettings && opts.bikeSettings.weight)
+            this.bikeSettings.weight = opts.bikeSettings.weight;
+
+
         const user: User = opts.user || this.userSettings
         const route: Route = opts.route;
 
