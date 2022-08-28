@@ -616,7 +616,7 @@ export default class BleInterface extends BleInterfaceClass {
 
 
     async scan( props:ScanProps) : Promise<BleDeviceClass[]> {
-        const {timeout=DEFAULT_SCAN_TIMEOUT, deviceTypes=[],requested } = props;
+        const {timeout=DEFAULT_SCAN_TIMEOUT, deviceTypes=[],requested,isBackgroundScan } = props;
         let profile;
         if (requested)
             profile = requested instanceof  BleDeviceClass  ? 
@@ -638,7 +638,8 @@ export default class BleInterface extends BleInterfaceClass {
         const peripheralsProcessed = []
         const devicesProcessed = []
 
-        this.logEvent( {message:'scan()',props, scanState:this.scanState, 
+        
+        this.logEvent( {message:'scan()',props:{ timeout, isBackgroundScan}, scanState:this.scanState, 
                         peripheralCache:this.peripheralCache.map(i=> ({address:i.address, ts:i.ts, name:i.peripheral? i.peripheral.advertisement.localName : ''})),
                         deviceCache: this.devices.map( i=> ({ address:i.device.address, profile:i.device.getProfile(),isConnected:i.isConnected }))
                     })
