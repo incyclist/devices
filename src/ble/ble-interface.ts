@@ -744,9 +744,18 @@ export default class BleInterface extends BleInterfaceClass {
             const onPeripheralFound = async (peripheral:BlePeripheral, fromCache:boolean=false)  => {                
                 if (fromCache)
                     this.logEvent({message:'adding from Cache', peripheral:peripheral.address})
+                else {
+                    const {id,name,address} = peripheral;
+                    
+                    this.logEvent({message:'BLE scan: found device',peripheral:{id,name,address}})
+                }
 
                 if ( !peripheral ||!peripheral.advertisement || !peripheral.advertisement.serviceUuids || peripheral.advertisement.serviceUuids.length===0) 
                     return
+
+                // I found some scans (on Mac) where address was not set
+                if (peripheral.address===undefined || peripheral.address==='')
+                    peripheral.address = peripheral.id;
 
                 // check if same device was already processed in current scan
                 const isPeripheralProcessed = peripheralsProcessed.find( p => p===peripheral.address)!==undefined;
