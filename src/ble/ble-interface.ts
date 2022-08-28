@@ -5,8 +5,6 @@ import BlePeripheralConnector from './ble-peripheral';
 
 const CONNECT_TIMEOUT = 5000;
 const DEFAULT_SCAN_TIMEOUT = 20000;
-const BACKGROUND_SCAN_TIMEOUT = 30000;
-const DEFAULT_SERVICES = ['1818','180d','1826']
 
 export interface ScanState {
     isScanning: boolean;
@@ -122,6 +120,7 @@ export default class BleInterface extends BleInterfaceClass {
         const runBackgroundScan = ()=> {
             return;
             // trigger background scan
+            /*
             this.scanState.isBackgroundScan = true;
             this.scan({timeout:BACKGROUND_SCAN_TIMEOUT,isBackgroundScan:true})
             .then(  ()=> {
@@ -130,6 +129,7 @@ export default class BleInterface extends BleInterfaceClass {
             .catch( ()=> {
                 this.scanState.isBackgroundScan = false;                        
             })
+            */
         }
 
         return new Promise((resolve, reject) => {
@@ -303,6 +303,31 @@ export default class BleInterface extends BleInterfaceClass {
             return get(deviceTypes, s => services.map(uuid).includes(s))
         }
         return []   
+    }
+
+    getAllSupportedServices() {
+        const supported = BleInterface.deviceClasses;
+        const res = [];
+
+        if (supported && supported.length>0) {
+            supported.forEach( dc => {
+                if (dc && dc.services) {
+                    dc.services.forEach( s => {
+                        if ( !res.includes(s))
+                            res.push(s)
+                    })
+                }
+
+            })
+        }
+
+        return res;
+        
+    }
+
+    getAllSupportedDeviceTypes() {
+        const supported = BleInterface.deviceClasses;
+        return supported.map( dc => dc.Class)
     }
 
     getServicesFromDeviceTypes(deviceTypes:(typeof BleDeviceClass)[]): string[] {
@@ -489,7 +514,7 @@ export default class BleInterface extends BleInterfaceClass {
         // Device already registered? Then we only need to connect
         const existing = this.devices.find( i => (!profile|| i.device.getProfile()===profile) && (i.device.address === requested.address || i.device.id === requested.id || i.device.name === requested.name))
         if (existing) {
-            const connected = await existing.device.connect();
+            await existing.device.connect();
             this.scanState.isConnecting = false;
             return existing.device;
         }
@@ -600,7 +625,7 @@ export default class BleInterface extends BleInterfaceClass {
         const {id,address,name} = requested || {};
         
         const scanForDevice = (requested!==null && requested!==undefined)
-        const services =  (props.isBackgroundScan || !deviceTypes || deviceTypes.length===0) ? DEFAULT_SERVICES : this.getServicesFromDeviceTypes(deviceTypes)
+        const services =  (props.isBackgroundScan || !deviceTypes || deviceTypes.length===0) ? this.getAllSupportedServices() : this.getServicesFromDeviceTypes(deviceTypes)
         const bleBinding = this.getBinding()
         if ( !bleBinding) 
             return Promise.reject(new Error('no binding defined')) 
@@ -632,7 +657,8 @@ export default class BleInterface extends BleInterfaceClass {
         }
         else  {
             opStr = 'scan'
-            this.logEvent({message:'scan start', services});
+            const supported = BleInterface.deviceClasses.map(dc => ({id:dc.id, type:dc.type,services:dc.services }))
+            this.logEvent({message:'scan start', services,supported});
         }
 
         // if scan is already in progress, wait until previous scan is finished 
@@ -661,7 +687,8 @@ export default class BleInterface extends BleInterfaceClass {
                     
                     // are there already existing devices ?!?
                     const existing = this.devices.find( i=> (i.device.address===address || i.device.name===name || i.device.id===id ) );
-
+                    if (existing)
+                        this.logEvent( {message: `${opStr}: device already registered`, device:{name, address}})
                     
                     /*
                     if (existing) {
@@ -763,8 +790,6 @@ export default class BleInterface extends BleInterfaceClass {
                     return;
 
                 peripheralsProcessed.push(peripheral.address)
-                let chachedPeripheralInfo = this.peripheralCache.find( i => i.address===peripheral.address)
-                const str = fromCache ? 'added' : 'detected';
               
                 const characteristics = await this.getCharacteristics(peripheral)
                 const DeviceClasses = this.getDeviceClasses(peripheral,{profile});

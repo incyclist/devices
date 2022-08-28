@@ -7,8 +7,8 @@ import BleInterface from "./ble-interface";
 import BleFitnessMachineDevice,{FmAdapter} from "./fm";
 import BleHrmDevice, {HrmAdapter} from "./hrm";
 import BleCyclingPowerDevice, {PwrAdapter} from "./pwr";
+import WahooAdvancedFitnessMachineDevice from "./wahoo-kickr";
 
-const supportedDeviceTypes = [BleHrmDevice,BleCyclingPowerDevice,BleFitnessMachineDevice]
 
 interface BleDeviceSettings extends DeviceSettings {
     id?: string;
@@ -69,9 +69,13 @@ export default class BleProtocol extends DeviceProtocolBase implements DevicePro
                 if ( fromDevice)
                     device = bleDevice as BleDeviceClass;
                 else {
-                    device = this.ble.findDeviceInCache( { ...props(), profile:'Smart Trainer' })
-                    if (!device)
-                        device = new BleFitnessMachineDevice(props())
+                    device = this.ble.findDeviceInCache( { ...props(), profile })
+                    if (!device) {
+                        if ( profile.toLocaleLowerCase()==='wahoo smart trainer')
+                            device = new WahooAdvancedFitnessMachineDevice(props())
+                        else
+                            device = new BleFitnessMachineDevice(props())
+                    }
                 }
 
                 return new FmAdapter( device ,this);
@@ -106,6 +110,7 @@ export default class BleProtocol extends DeviceProtocolBase implements DevicePro
                 }
             })
             this.logger.logEvent({message:'scan started'})
+            const supportedDeviceTypes = this.ble.getAllSupportedDeviceTypes();
             await this.ble.scan( {deviceTypes:supportedDeviceTypes, timeout:20000} );
             if (props && props.onScanFinished) {
                 props.onScanFinished(props.id);
