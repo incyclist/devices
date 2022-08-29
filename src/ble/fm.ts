@@ -245,7 +245,7 @@ export default class BleFitnessMachineDevice extends BleDevice {
         catch (err) { 
 
         }
-        return { ...this.data, raw:data.toString('hex')};
+        return { ...this.data, raw:`2a37:${data.toString('hex')}`};
     }
 
     setCrr(crr:number) { this.crr = crr;}
@@ -306,7 +306,7 @@ export default class BleFitnessMachineDevice extends BleDevice {
             this.data.remainingTime = data.readUInt16LE(offset); offset+=2;
         }
 
-        return { ...this.data, raw:data.toString('hex')};
+        return { ...this.data, raw:`2ad2:${data.toString('hex')}`};
 
     }
 
@@ -339,7 +339,7 @@ export default class BleFitnessMachineDevice extends BleDevice {
                 }
             }
 
-        return { ...this.data, raw:data.toString('hex')};
+        return { ...this.data, raw:`2ada:${data.toString('hex')}`};
     }
 
     
@@ -381,6 +381,12 @@ export default class BleFitnessMachineDevice extends BleDevice {
             case '2ada':     //  name: 'Fitness Machine Status',
                 res = this.parseFitnessMachineStatus(data)
                 break;
+            case '2a63':
+            case '2a5b':
+            case '347b0011-7635-408b-8918-8ff3949ce592':
+                this.logger.logEvent( {message:'onBleData',raw:`uuid:${data.toString('hex')}`})        
+                break;
+
             default:    // ignore
                 break;
 

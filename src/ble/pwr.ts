@@ -112,7 +112,11 @@ export default class BleCyclingPowerDevice extends BleDevice {
                 this.accTorque = data.readUInt16LE(offset);
                 offset+=2;
             }
-            if ( flags&0x20)  {
+
+            if ( flags&0x10)  {  // wheel revolutions
+
+            }
+            if ( flags&0x20)  {  // crank revolutions
                 const crankData = { 
                     revolutions: data.readUInt16LE(offset),
                     time: data.readUInt16LE(offset+2)
@@ -128,7 +132,7 @@ export default class BleCyclingPowerDevice extends BleDevice {
 
         }
         const {instantaneousPower, balance,accTorque,rpm,time} = this
-        return {instantaneousPower, balance,accTorque,rpm,time,raw:data.toString('hex')}
+        return {instantaneousPower, balance,accTorque,rpm,time,raw:`2a63:${data.toString('hex')}`}
     }
 
     onData(characteristic:string,data: Buffer) {

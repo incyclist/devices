@@ -135,11 +135,12 @@ export default class BlePeripheralConnector {
                     c.on('data', (data, _isNotification) => {
                         this.onData(uuid(c.uuid), data)
                     });
-                    if (callback)
+                    if (callback) {
                         this.on(uuid(c.uuid), callback)
+                    }
 
 
-                    this.logEvent({message:'subscribe', peripheral:this.peripheral.address, characteristic:c.uuid})
+                    this.logEvent({message:'subscribe', peripheral:this.peripheral.address, characteristic:c.uuid,uuid:uuid(c.uuid)})
 
                     // don't resubscribe 
                     if ( this.state.subscribed.find( uuid => uuid===c.uuid)===undefined) {
@@ -157,7 +158,7 @@ export default class BlePeripheralConnector {
 
             }
             catch(err) {
-                console.log('~~~ error',err)
+                this.logEvent({message:'error', fn:'subscribeAll()',error:err.message||err, stack:err.stack})
             }
         }
 

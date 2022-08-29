@@ -58,10 +58,10 @@ export default class PowerMeterCyclingMode extends PowerBasedCyclingModeBase imp
             const slope = prevData.slope || 0; 
             const distanceInternal = prevData.distanceInternal || 0;  // meters
             
-            if (bikeData.pedalRpm===0 || bikeData.isPedalling===false) {
-                power = 0;
+            if (power>0) {
+                data.isPedalling = true;
             }
-            
+           
 
             // calculate speed and distance
             const m = this.getWeight();
