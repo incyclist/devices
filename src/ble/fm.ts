@@ -134,7 +134,7 @@ type PowerData = {
     raw?: string;
 }
 
-type IndoorBikeData = {
+export type IndoorBikeData = {
     speed?: number;
     averageSpeed?: number;
     cadence?: number;
