@@ -267,6 +267,9 @@ export class Simulator extends DeviceAdapter {
 
 
         const prevDist = this.data.distanceInternal;
+        const d = this.data as DeviceData;
+        const prevTime = d.deviceTime;
+
         this.data = this.getCyclingMode().updateData(this.data);
     
         let data =  {
@@ -280,6 +283,10 @@ export class Simulator extends DeviceAdapter {
             deviceTime: (Date.now()-this.startTS)/1000,
             deviceDistanceCounter: this.data.distanceInternal
         } as DeviceData;
+
+        if (this.isBot) {
+            this.logger.logEvent( {message:'Coach update',prevDist, prevTime, ...data})    
+        }
 
         this.paused = (this.data.speed===0);
 
