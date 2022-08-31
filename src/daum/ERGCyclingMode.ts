@@ -3,6 +3,7 @@ import DaumAdapter from "./DaumAdapter";
 import calc from '../calculations'
 import PowerBasedCyclingModeBase from "../modes/power-base";
 
+const MIN_SPEED = 10;
 
 const config = {
     name: "ERG",
@@ -203,10 +204,17 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
             const t =  this.getTimeSinceLastUpdate();
             const {speed,distance} = this.calculateSpeedAndDistance(power,slope,m,t,{bikeType});
             //console.log( '~~~ERGMode.calculateSpeedAndDistance', distanceInternal,data.time, {power, slope,m,t,bikeType}, speed,distance)
-        
-            data.speed = speed;
+
+            if (power===0 && speed<MIN_SPEED) {
+                data.speed = Math.round(prevData.speed-1)<0 ? 0: Math.round(prevData.speed-1)
+                data.distanceInternal = distanceInternal+ data.speed/3.6*t;
+            }
+            else {
+                data.speed = speed;
+                data.distanceInternal = distanceInternal+distance;
+            }        
+            
             data.power = Math.round(power);
-            data.distanceInternal = distanceInternal+distance;
             data.slope = slope;
             data.pedalRpm = rpm;
             data.gear = gear;

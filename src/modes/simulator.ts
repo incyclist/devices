@@ -4,6 +4,7 @@ import { CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, UpdateR
 import { Simulator } from "../simulator/Simulator";
 import PowerBasedCyclingModeBase from "./power-base";
 
+const MIN_SPEED = 10;
 
 const config = {
     name: "Simulator",
@@ -154,6 +155,14 @@ export default class SimulatorCyclingMode extends PowerBasedCyclingModeBase {
                 distance = res.distance;
             }
 
+            if (power===0 && speed<MIN_SPEED) {
+                data.speed = Math.round(prevData.speed-1)<0 ? 0: Math.round(prevData.speed-1)
+                data.distanceInternal = distanceInternal+ data.speed/3.6*t;
+            }
+            else {
+                data.speed = speed;
+                data.distanceInternal = distanceInternal+distance;
+            } 
     
             data.speed = speed;
             data.power = Math.round(power);

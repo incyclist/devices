@@ -75,8 +75,8 @@ export default class PowerMeterCyclingMode extends PowerBasedCyclingModeBase imp
                 data.distanceInternal = distanceInternal+ data.speed/3.6*t;
             }
             else {
-                data.speed = (power===0 && speed<MIN_SPEED) ? 0 : speed;
-                data.distanceInternal = (power===0 && speed<MIN_SPEED) ? distanceInternal: distanceInternal+distance;
+                data.speed =  speed;
+                data.distanceInternal = distanceInternal+distance;
             }
 
 
