@@ -168,6 +168,7 @@ export default class BleFitnessMachineDevice extends BleDevice {
     data: IndoorBikeData
     features: IndoorBikeFeatures = undefined
     hasControl: boolean = false
+    isCheckingControl: boolean = false;
     isCPSubscribed: boolean = false;
 
     crr: number = 0.0033;
@@ -405,7 +406,10 @@ export default class BleFitnessMachineDevice extends BleDevice {
     async writeFtmsMessage(requestedOpCode, data) {
         
         try {
+
+            this.logEvent({message:'fmts:write', data:data.toString('hex')})
             const res = await this.write( FTMS_CP, data )
+
             const responseData = Buffer.from(res)
 
             const opCode = responseData.readUInt8(0)
@@ -415,19 +419,29 @@ export default class BleFitnessMachineDevice extends BleDevice {
             if (opCode !== OpCode.ResponseCode || request!==requestedOpCode)
                 throw new Error('Illegal response ')
 
+
+            this.logEvent({message:'fmts:write result', res,result})
+                
             return result                        
         }
         catch(err) {
-            this.logEvent({message:'writeFtmsMessage failed', opCode: requestedOpCode, reason: err.message})
+            this.logEvent({message:'fmts:write failed', opCode: requestedOpCode, reason: err.message})
             return OpCodeResut.OperationFailed
         } 
     }
 
     async requestControl(): Promise<boolean> {
+        
+        let to = undefined;
+        if (this.isCheckingControl) {
+            to = setTimeout( ()=>{}, 3500)
+        }
+
         if (this.hasControl)
             return true;
 
         this.logEvent( {message:'requestControl'})
+        this.isCheckingControl = true;
         const data = Buffer.alloc(1)
         data.writeUInt8(OpCode.RequestControl,0)
 
@@ -438,6 +452,8 @@ export default class BleFitnessMachineDevice extends BleDevice {
         else {
             this.logEvent( {message:'requestControl failed'})
         }
+        this.isCheckingControl = false;
+        if (to) clearTimeout(to)
 
         return this.hasControl;
     }
@@ -452,13 +468,13 @@ export default class BleFitnessMachineDevice extends BleDevice {
         if (!this.hasControl)
             return;
 
-        const hasControl = await this.requestControl(); /*
+        const hasControl = await this.requestControl(); 
         if (!hasControl) {
             this.logEvent({message: 'setTargetPower failed',reason:'control is disabled'})
-            return false;
+            return true;
         }
-        */
-    
+        
+   
         const data = Buffer.alloc(3)
         data.writeUInt8(OpCode.SetTargetPower,0)
         data.writeInt16LE( Math.round(power), 1)
@@ -470,7 +486,8 @@ export default class BleFitnessMachineDevice extends BleDevice {
     async setSlope(slope) {
         this.logEvent( {message:'setSlope', slope})
 
-        if (!this.hasControl)
+        const hasControl = await this.requestControl(); 
+        if (!hasControl)
             return;
 
         const {windSpeed,crr, cw} = this;
@@ -769,7 +786,7 @@ export class FmAdapter extends DeviceAdapter {
                     }        
                 }
 
-                this.device.requestControl();
+                await this.device.requestControl();
                
                 const startRequest = this.getCyclingMode().getBikeInitRequest()
                 await this.sendUpdate(startRequest);

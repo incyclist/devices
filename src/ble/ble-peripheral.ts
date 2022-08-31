@@ -40,9 +40,9 @@ export default class BlePeripheralConnector {
         if ( this.logger) {
             this.logger.logEvent(event)
         }
-        if (process.env.BLE_DEBUG) {
+        //if (process.env.BLE_DEBUG) {
             console.log( '~~~BLE:', event)
-        }
+        //}
     }  
 
 
@@ -107,6 +107,9 @@ export default class BlePeripheralConnector {
         this.state.isInitialized = this.characteristics!==undefined && this.services!==undefined
     }
 
+    isSubscribed( characteristicUuid:string):boolean {
+        return this.state.subscribed.find( c=> c===characteristicUuid || uuid(c)===characteristicUuid || c===uuid(characteristicUuid) )!==undefined
+    }
 
     async subscribeAll( callback:(characteristicUuid:string, data)=>void): Promise<string[]> {
 
@@ -123,6 +126,7 @@ export default class BlePeripheralConnector {
         const subscribed = []
         if (!this.state.subscribed)
             this.state.subscribed=[];
+        
 
         for (let i=0;i<cnt;i++) {
 
@@ -168,24 +172,43 @@ export default class BlePeripheralConnector {
     }
 
     subscribe( characteristicUuid:string): Promise<boolean> {
+        
+        this.logEvent({message:'subscribe',characteristic:characteristicUuid,characteristics: this.characteristics.map(c=>({characteristic:c.uuid,uuid:uuid(c.uuid)}))})
         return new Promise ( (resolve,reject) => {
-            const characteristic: BleCharacteristic = this.characteristics.find( c=> c.uuid===characteristicUuid || uuid(c.uuid)===characteristicUuid );
-            if (!characteristic) {
-                reject(new Error( 'Characteristic not found'))
-                return;
-            }
-
-            characteristic.on('data', (data, _isNotification) => {
-                this.onData(characteristicUuid, data)
-            });
-
-            characteristic.subscribe((err) => {
-                if (err)
-                    reject(err)
-                else 
-                    resolve(true)
-            })
     
+            try {
+                const characteristic: BleCharacteristic = this.characteristics.find( c=> c.uuid===characteristicUuid || uuid(c.uuid)===characteristicUuid );
+                this.logEvent({message:'subscribe', peripheral:this.peripheral.address, characteristic:characteristic.uuid,uuid:uuid(characteristic.uuid)})
+
+                if (!characteristic) {
+                    reject(new Error( 'Characteristic not found'))
+                    return;
+                }
+    
+                characteristic.on('data', (data, _isNotification) => {
+                    this.onData(characteristicUuid, data)
+                });
+
+                const to = setTimeout( ()=>{ 
+                    this.logEvent({message:'subscribe result',characteristic:characteristicUuid,error:'timeout'})
+                    reject( new Error('timeout'));
+                },3000)
+    
+                characteristic.subscribe((err) => {
+                    clearTimeout(to)
+                    this.logEvent({message:'subscribe result',characteristic:characteristicUuid, error:err})
+                    
+                    if (err)
+                        reject(err)
+                    else 
+                        resolve(true)
+                })
+        
+    
+            }
+            catch(err) {
+                this.logEvent({message:'error',error:err.message||err, stack:err.stack})
+            }
         })
     } 
 

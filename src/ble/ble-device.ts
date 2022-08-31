@@ -13,8 +13,7 @@ type CommandQueueItem = {
     uuid: string,
     data: Buffer,
     resolve, 
-    reject,
-    timeout
+    reject
 }
 
 export abstract class BleDevice extends BleDeviceClass  { 
@@ -70,9 +69,9 @@ export abstract class BleDevice extends BleDeviceClass  {
         if ( this.logger) {
             this.logger.logEvent(event)
         }
-        if (process.env.BLE_DEBUG) {
+        //if (process.env.BLE_DEBUG) {
             console.log( '~~~BLE:', event)
-        }
+        //}
     }  
 
     setLogger(logger: EventLogger) {
@@ -338,8 +337,9 @@ export abstract class BleDevice extends BleDeviceClass  {
             if (writeIdx!==-1) {
                 const writeItem = this.writeQueue[writeIdx];
 
-                this.writeQueue.splice(writeIdx,1);
                 
+                this.writeQueue.splice(writeIdx,1);
+                console.log('~~~ write queue', this.writeQueue)
                 if (writeItem.resolve)
                     writeItem.resolve(data)
                 
@@ -352,40 +352,67 @@ export abstract class BleDevice extends BleDeviceClass  {
 
 
     async write( characteristicUuid:string, data:Buffer, withoutResponse:boolean=false): Promise<ArrayBuffer> {
-
-        if ( !withoutResponse && this.subscribedCharacteristics.find( c => c===characteristicUuid) === undefined) {
+        try {
             const connector = this.ble.getConnector( this.peripheral)
-            connector.on(characteristicUuid, (uuid,data)=>{ 
-                this.onData(uuid,data)
-            })
+            const isAlreadySubscribed = connector.isSubscribed(characteristicUuid)
+            console.log('~~~ write ',characteristicUuid, data.toString('hex'), isAlreadySubscribed, this.subscribedCharacteristics)
+            if ( !withoutResponse && !isAlreadySubscribed) {
+                const connector = this.ble.getConnector( this.peripheral)
+                connector.on(characteristicUuid, (uuid,data)=>{ 
+                    this.onData(uuid,data)
+                })
 
-            await connector.subscribe(characteristicUuid)
-            this.subscribedCharacteristics.push(characteristicUuid)
-        }
-
-        return new Promise ( (resolve,reject) => {
-            const characteristic: BleCharacteristic = this.characteristics.find( c=> c.uuid===characteristicUuid || uuid(c.uuid)===characteristicUuid );
-            if (!characteristic) {
-                reject(new Error( 'Characteristic not found'))
-                return;
+                this.logEvent({message:'write:subscribing ', characteristic:characteristicUuid})
+                await connector.subscribe(characteristicUuid)
+                this.subscribedCharacteristics.push(characteristicUuid)
             }
 
-            if (withoutResponse) {
-                characteristic.write(data,withoutResponse);
-                resolve(new ArrayBuffer(0));
-                return;
-            }
+            return new Promise ( (resolve,reject) => {
+                const characteristic: BleCharacteristic = this.characteristics.find( c=> c.uuid===characteristicUuid || uuid(c.uuid)===characteristicUuid );
+                if (!characteristic) {
+                    reject(new Error( 'Characteristic not found'))
+                    return;
+                }
 
-            const writeId = this.writeQueue.length;
-            this.writeQueue.push( {uuid:characteristicUuid.toLocaleLowerCase(), data, resolve, reject,timeout:Date.now()+1000})
-            characteristic.write(data,withoutResponse, (err) => {
-                if (err) {
-                    this.writeQueue.splice(writeId,1)
-                    reject(err)
-                }                    
-            })
+                if (withoutResponse) {
+                    this.logEvent({message:'writing'})
+                    characteristic.write(data,withoutResponse);
+                    resolve(new ArrayBuffer(0));
+                    return;
+                }
+                else {
+                    const writeId = this.writeQueue.length;
+                    let messageDeleted = false;                    
+                    this.writeQueue.push( {uuid:characteristicUuid.toLocaleLowerCase(), data, resolve, reject})
+                    const to = setTimeout( ()=>{ 
+                        console.log('~~~ write timeout')
+                        if ( this.writeQueue.length>writeId && !messageDeleted)
+                            this.writeQueue.splice(writeId,1);
+                        this.logEvent({message:'writing response',err:'timeout'})
+                        reject (new Error('timeout'))
+                    },1000)
+
+                    this.logEvent({message:'writing'})
+                    characteristic.write(data,withoutResponse, (err) => {
+                        clearTimeout(to);
+                        this.logEvent({message:'writing response',err})
+                        
+                        if (err) {
+                            this.writeQueue.splice(writeId,1);
+                            messageDeleted = true;
+                            reject(err)
+                        }                    
+                    })
     
-        })
+                }
+
+        
+            })
+
+        }
+        catch(err) {
+            this.logEvent({message:'error',fn:'',error:err.message||err, stack:err.stack})
+        }
 
     }
 
