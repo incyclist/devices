@@ -243,6 +243,10 @@ export default class BlePeripheralConnector {
         return this.services
     }
 
+    getPeripheral(): BlePeripheral {
+        return this.peripheral;
+    }
+
 
 
 

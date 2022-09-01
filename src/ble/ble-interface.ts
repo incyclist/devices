@@ -97,9 +97,9 @@ export default class BleInterface extends BleInterfaceClass {
         if ( this.logger) {
             this.logger.logEvent(event)
         }
-        if (process.env.BLE_DEBUG) {
+        //if (process.env.BLE_DEBUG) {
             console.log( '~~BLE:', event)
-        }
+        //}
     }
 
 
@@ -773,9 +773,9 @@ export default class BleInterface extends BleInterfaceClass {
                 if (fromCache)
                     this.logEvent({message:'adding from Cache', peripheral:peripheral.address})
                 else {
-                    const {id,name,address} = peripheral;
+                    const {id,name,address,advertisement={}} = peripheral;                    
                     
-                    this.logEvent({message:'BLE scan: found device',peripheral:{id,name,address}})
+                    this.logEvent({message:'BLE scan: found device',peripheral:{id,name,address,services:advertisement.serviceUuids}})
                 }
 
                 if ( !peripheral ||!peripheral.advertisement || !peripheral.advertisement.serviceUuids || peripheral.advertisement.serviceUuids.length===0) 
@@ -793,7 +793,12 @@ export default class BleInterface extends BleInterfaceClass {
                 peripheralsProcessed.push(peripheral.address)
               
                 const characteristics = await this.getCharacteristics(peripheral)
-                const DeviceClasses = this.getDeviceClasses(peripheral,{profile});
+                const connector = this.getConnector(peripheral);
+                const connectedPeripheral = connector.getPeripheral();
+                const {id,name,address,advertisement={}} = connectedPeripheral;  
+                const DeviceClasses = this.getDeviceClasses(connectedPeripheral,{profile});
+                
+                this.logEvent({message:'BLE scan: device connected',peripheral:{id,name,address,services:advertisement.serviceUuids,classes:DeviceClasses.map(c=>c.prototype.constructor.name) }})                
     
                 let cntFound = 0;
                 DeviceClasses.forEach( async DeviceClass => {
