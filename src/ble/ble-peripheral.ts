@@ -40,9 +40,9 @@ export default class BlePeripheralConnector {
         if ( this.logger) {
             this.logger.logEvent(event)
         }
-        //if (process.env.BLE_DEBUG) {
+        if (process.env.BLE_DEBUG) {
             console.log( '~~~BLE:', event)
-        //}
+        }
     }  
 
 
@@ -151,7 +151,6 @@ export default class BlePeripheralConnector {
                         try {
                             await this.subscribe(c.uuid)
                             subscribed.push(c.uuid)
-                            this.state.subscribed.push(c.uuid)
                         }
                         catch (err) {
                             this.logEvent({message:'cannot subscribe', peripheral:this.peripheral.address, characteristic:c.uuid, error: err.message||err })
@@ -185,6 +184,7 @@ export default class BlePeripheralConnector {
                     return;
                 }
     
+                characteristic.removeAllListeners('data');
                 characteristic.on('data', (data, _isNotification) => {
                     this.onData(characteristicUuid, data)
                 });
@@ -200,8 +200,10 @@ export default class BlePeripheralConnector {
                     
                     if (err)
                         reject(err)
-                    else 
+                    else {
+                        this.state.subscribed.push(characteristicUuid)
                         resolve(true)
+                    }
                 })
         
     

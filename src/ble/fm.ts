@@ -183,6 +183,36 @@ export default class BleFitnessMachineDevice extends BleDevice {
 
     async init(): Promise<boolean> {
         try {
+
+            
+            const connector = this.ble.getConnector( this.peripheral)
+
+            const isAlreadySubscribed = connector.isSubscribed(FTMS_CP)            
+            if ( !isAlreadySubscribed) {   
+                connector.removeAllListeners(FTMS_CP);
+
+                let prev= undefined;
+                let prevTS = undefined;
+                connector.on(FTMS_CP, (uuid,data)=>{  
+
+                    // Workaround App Verion 0.8.0
+                    // This app release will send all events twice
+                    // Therefore we need to filter out duplicate messages
+                    const message = data.toString('hex');
+
+                    if (prevTS && prev &&message===prev && Date.now()-prevTS<500) {
+                        return;
+                    }
+                    prevTS = Date.now();
+                    prev = message
+                    // END Workouround
+                    
+                    
+                    this.onData(uuid,data)
+                })
+                await connector.subscribe(FTMS_CP)
+            }
+                
             this.logEvent({message: 'get device info'})
             await super.init();
             await this.getFitnessMachineFeatures();

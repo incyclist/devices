@@ -69,9 +69,9 @@ export abstract class BleDevice extends BleDeviceClass  {
         if ( this.logger) {
             this.logger.logEvent(event)
         }
-        //if (process.env.BLE_DEBUG) {
+        if (process.env.BLE_DEBUG) {
             console.log( '~~~BLE:', event)
-        //}
+        }
     }  
 
     setLogger(logger: EventLogger) {
@@ -339,7 +339,7 @@ export abstract class BleDevice extends BleDeviceClass  {
 
                 
                 this.writeQueue.splice(writeIdx,1);
-                console.log('~~~ write queue', this.writeQueue)
+                //console.log('~~~ write queue', this.writeQueue)
                 if (writeItem.resolve)
                     writeItem.resolve(data)
                 
@@ -355,9 +355,10 @@ export abstract class BleDevice extends BleDeviceClass  {
         try {
             const connector = this.ble.getConnector( this.peripheral)
             const isAlreadySubscribed = connector.isSubscribed(characteristicUuid)
-            console.log('~~~ write ',characteristicUuid, data.toString('hex'), isAlreadySubscribed, this.subscribedCharacteristics)
+            //console.log('~~~ write ',characteristicUuid, data.toString('hex'), isAlreadySubscribed, this.subscribedCharacteristics)
             if ( !withoutResponse && !isAlreadySubscribed) {
                 const connector = this.ble.getConnector( this.peripheral)
+                connector.removeAllListeners(characteristicUuid)
                 connector.on(characteristicUuid, (uuid,data)=>{ 
                     this.onData(uuid,data)
                 })
@@ -390,7 +391,7 @@ export abstract class BleDevice extends BleDeviceClass  {
                             this.writeQueue.splice(writeId,1);
                         this.logEvent({message:'writing response',err:'timeout'})
                         reject (new Error('timeout'))
-                    },1000)
+                    },5000)
 
                     this.logEvent({message:'writing'})
                     characteristic.write(data,withoutResponse, (err) => {
