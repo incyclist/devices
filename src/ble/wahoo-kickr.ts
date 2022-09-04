@@ -5,7 +5,7 @@ import DeviceAdapter, { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from '../Devi
 import {EventLogger} from 'gd-eventlog';
 import BleFitnessMachineDevice, { FmAdapter } from './fm';
 
-const WAHOO_ADVANCED_FTMS =  'a026e005' 
+const WAHOO_ADVANCED_FTMS =  'a026e00b' 
 const WAHOO_ADVANCED_TRAINER_CP =  'a026e037'
 
 const cwABike = {
@@ -76,6 +76,36 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
 
     async init(): Promise<boolean> {
         try {
+
+            const connector = this.ble.getConnector( this.peripheral)
+            const isAlreadySubscribed = connector.isSubscribed(WAHOO_ADVANCED_TRAINER_CP)
+            if ( !isAlreadySubscribed) {   
+                connector.removeAllListeners(WAHOO_ADVANCED_TRAINER_CP);
+
+                let prev= undefined;
+                let prevTS = undefined;
+                connector.on(WAHOO_ADVANCED_TRAINER_CP, (uuid,data)=>{  
+
+                    // Workaround App Verion 0.8.0
+                    // This app release will send all events twice
+                    // Therefore we need to filter out duplicate messages
+                    const message = data.toString('hex');
+
+                    if (prevTS && prev &&message===prev && Date.now()-prevTS<500) {
+                        return;
+                    }
+                    prevTS = Date.now();
+                    prev = message
+                    // END Workouround
+                    
+                    
+                    this.onData(uuid,data)
+                })
+                await connector.subscribe(WAHOO_ADVANCED_TRAINER_CP)
+            }
+
+
+
             this.logEvent({message: 'get device info'})
             await super.init();
             this.logEvent({message: 'device info', deviceInfo:this.deviceInfo, features:this.features })
