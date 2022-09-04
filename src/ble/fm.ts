@@ -12,7 +12,9 @@ import { IncyclistBikeData } from '../CyclingMode';
 import FtmsCyclingMode from './ble-st-mode';
 import BleERGCyclingMode from './ble-erg-mode';
 
-const FTMS_CP = '2ad9'
+const FTMS_CP           = '2ad9'
+const FTMS_STATUS       = '2ada'
+const INDOOR_BIKE_DATA  = '2ad2'
 
 const cwABike = {
     race: 0.35,
@@ -163,7 +165,7 @@ type IndoorBikeFeatures = {
 
 export default class BleFitnessMachineDevice extends BleDevice {
     static services =  ['1826'];
-    static characteristics =  [ '2acc', '2ad2', '2ad6', '2ad8', '2ad9', '2ada' ];
+    static characteristics =  [ '2acc', INDOOR_BIKE_DATA, '2ad6', '2ad8', FTMS_CP, FTMS_STATUS ];
     
     data: IndoorBikeData
     features: IndoorBikeFeatures = undefined
@@ -179,6 +181,17 @@ export default class BleFitnessMachineDevice extends BleDevice {
     constructor (props?) {
         super(props)
         this.data = {}
+    }
+
+    isMatching(characteristics: string[]): boolean {
+        if (!characteristics)
+            return false;
+
+        const hasStatus =  characteristics.find( c => c===FTMS_STATUS)!==undefined
+        const hasCP = characteristics.find( c => c===FTMS_CP)!==undefined
+        const hasIndoorBike = characteristics.find( c => c===INDOOR_BIKE_DATA)!==undefined
+
+        return hasStatus && hasCP && hasIndoorBike;
     }
 
     async init(): Promise<boolean> {
@@ -403,13 +416,13 @@ export default class BleFitnessMachineDevice extends BleDevice {
 
         let res = undefined
         switch(uuid) {
-            case '2ad2':    //  name: 'Indoor Bike Data',
+            case INDOOR_BIKE_DATA:    //  name: 'Indoor Bike Data',
                 res = this.parseIndoorBikeData(data)
                 break;
             case '2a37':     //  name: 'Heart Rate Measurement',
                 res = this.parseHrm(data)
                 break;
-            case '2ada':     //  name: 'Fitness Machine Status',
+            case FTMS_STATUS:     //  name: 'Fitness Machine Status',
                 res = this.parseFitnessMachineStatus(data)
                 break;
             case '2a63':

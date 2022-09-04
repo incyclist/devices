@@ -82,6 +82,10 @@ export abstract class BleDevice extends BleDeviceClass  {
         this.ble = ble;
     }
 
+    isMatching(characteristics: string[]) {
+        return true;
+    }
+
     cleanupListeners():void { 
         //console.log('~~cleanup', this.characteristics)
         if ( this.characteristics === undefined) {
@@ -386,7 +390,6 @@ export abstract class BleDevice extends BleDeviceClass  {
                     let messageDeleted = false;                    
                     this.writeQueue.push( {uuid:characteristicUuid.toLocaleLowerCase(), data, resolve, reject})
                     const to = setTimeout( ()=>{ 
-                        console.log('~~~ write timeout')
                         if ( this.writeQueue.length>writeId && !messageDeleted)
                             this.writeQueue.splice(writeId,1);
                         this.logEvent({message:'writing response',err:'timeout'})

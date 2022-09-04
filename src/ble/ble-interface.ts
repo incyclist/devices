@@ -97,9 +97,9 @@ export default class BleInterface extends BleInterfaceClass {
         if ( this.logger) {
             this.logger.logEvent(event)
         }
-        //if (process.env.BLE_DEBUG) {
+        if (process.env.BLE_DEBUG) {
             console.log( '~~BLE:', event)
-        //}
+        }
     }
 
 
@@ -456,17 +456,20 @@ export default class BleInterface extends BleInterfaceClass {
     }
 
 
-    getDeviceClasses (peripheral, props:{ deviceTypes?: (typeof BleDeviceClass)[], profile?: string } = {}): (typeof BleDeviceClass)[] {
+    getDeviceClasses (peripheral, props:{ deviceTypes?: (typeof BleDeviceClass)[], profile?: string, services?: string[] } = {}): (typeof BleDeviceClass)[] {
         let DeviceClasses;
-        const {deviceTypes,profile}  = props;
+        const {deviceTypes,profile,services=peripheral.advertisement.serviceUuids}  = props;
+
+
         if ((!deviceTypes ||deviceTypes.length===0)) {
             // find matching Classes in the set of all registered Device Classes
             const classes = BleInterface.deviceClasses.map( c => c.Class)
-            DeviceClasses = this.getDevicesFromServices( classes, peripheral.advertisement.serviceUuids) 
+
+            DeviceClasses = this.getDevicesFromServices( classes, services) 
         }
         else {                            
             // find matching Classes in the set of requested Device Classes
-            DeviceClasses = this.getDevicesFromServices(deviceTypes, peripheral.advertisement.serviceUuids) 
+            DeviceClasses = this.getDevicesFromServices(deviceTypes, services) 
         }
 
         if (profile && DeviceClasses && DeviceClasses.length>0) {
@@ -482,18 +485,35 @@ export default class BleInterface extends BleInterfaceClass {
     }
 
     createDevice( DeviceClass: (typeof BleDeviceClass), peripheral: BlePeripheral, characteristics?:BleCharacteristic[]) {
-        this.logEvent({message:'trying to create device',peripheral: peripheral.address,characteristics })
-        const C = DeviceClass as any; // avoid error "Cannot crate instance of abstract class"
-        const device = new C({peripheral});
 
-        const existingDevice = this.devices.find( i => i.device.id === device.id && i.device.getProfile()===device.getProfile())
-        if (existingDevice)
-            return existingDevice;
+        try {
+            const C = DeviceClass as any; // avoid error "Cannot crate instance of abstract class"
+            const device = new C({peripheral});
+            const cids = characteristics ?  characteristics.map(c=> uuid(c.uuid) ) : [];
+            
+            this.logEvent({message:'trying to create device',peripheral: peripheral.address,characteristics:cids, profile:device.getProfile() })
+
+            const existingDevice = this.devices.find( i => i.device.id === device.id && i.device.getProfile()===device.getProfile())
+            if (existingDevice)
+                return existingDevice;
+            
+            device.setInterface(this)     
+            if ( characteristics && device.isMatching(cids)) {
+                device.characteristics= characteristics
+    
+                return device;    
+            }
+            else {
+                this.logEvent({message:'failed to create device',peripheral: peripheral.address,profile:device.getProfile() })
+
+            }
+            
+        }
+        catch(err) {
+            this.logEvent({message:'error',fn:'',error:err.message||err, stack:err.stack })
+
+        }
         
-        device.setInterface(this)                
-        device.characteristics= characteristics
-        
-        return device;
     }
 
 
@@ -794,11 +814,14 @@ export default class BleInterface extends BleInterfaceClass {
               
                 const characteristics = await this.getCharacteristics(peripheral)
                 const connector = this.getConnector(peripheral);
+                const connectedServices = connector.getServices();
+                const services = connectedServices ? connectedServices.map(cs=>cs.uuid) : undefined;
+
                 const connectedPeripheral = connector.getPeripheral();
                 const {id,name,address,advertisement={}} = connectedPeripheral;  
-                const DeviceClasses = this.getDeviceClasses(connectedPeripheral,{profile});
+                const DeviceClasses = this.getDeviceClasses(connectedPeripheral,{profile,services});
                 
-                this.logEvent({message:'BLE scan: device connected',peripheral:{id,name,address,services:advertisement.serviceUuids,classes:DeviceClasses.map(c=>c.prototype.constructor.name) }})                
+                this.logEvent({message:'BLE scan: device connected',peripheral:{id,name,address,services:advertisement.serviceUuids},services, classes:DeviceClasses.map(c=>c.prototype.constructor.name) })                
     
                 let cntFound = 0;
                 DeviceClasses.forEach( async DeviceClass => {
@@ -809,6 +832,8 @@ export default class BleInterface extends BleInterfaceClass {
                         return;
 
                     const d = this.createDevice(DeviceClass, peripheral, characteristics)
+                    if (!d)
+                        return;
                     await d.connect();
 
                     if (scanForDevice) { 

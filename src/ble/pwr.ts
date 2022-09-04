@@ -10,6 +10,8 @@ import CyclingMode from '../CyclingMode';
 import PowerMeterCyclingMode from '../modes/power-meter';
 import { IncyclistBikeData } from '../CyclingMode';
 
+const CP_MEASUREMENT = '2a63';
+const CP_FEATURE = '2a65'
 
 type PowerData = {
     instantaneousPower?: number;
@@ -28,7 +30,7 @@ type CrankData = {
 
 export default class BleCyclingPowerDevice extends BleDevice {
     static services =  ['1818'];
-    static characteristics =  [ '2a63', '2a65', '2a5d', '2a3c' ];
+    static characteristics =  [ CP_MEASUREMENT, CP_FEATURE, '2a5d', '2a3c' ];
     
     instantaneousPower: number = undefined;
     balance: number = undefined;
@@ -42,6 +44,17 @@ export default class BleCyclingPowerDevice extends BleDevice {
     constructor (props?) {
         super(props)
     }
+
+    isMatching(characteristics: string[]): boolean {
+        if (!characteristics)
+            return false;
+
+        const hasCPMeasurement =  characteristics.find( c => c===CP_MEASUREMENT)!==undefined
+        const hasCPFeature = characteristics.find( c => c===CP_FEATURE)!==undefined
+        
+        return hasCPMeasurement && hasCPFeature
+    }
+
 
     async init(): Promise<boolean> {
         try {
@@ -138,7 +151,7 @@ export default class BleCyclingPowerDevice extends BleDevice {
     onData(characteristic:string,data: Buffer) {
         super.onData(characteristic,data);
 
-        if (characteristic.toLocaleLowerCase() === '2a63') { //  name: 'Cycling Power Measurement',
+        if (characteristic.toLocaleLowerCase() === CP_MEASUREMENT) { //  name: 'Cycling Power Measurement',
             const res = this.parsePower(data)
             this.emit('data', res)
         }

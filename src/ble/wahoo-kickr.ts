@@ -62,7 +62,7 @@ const ErgWriteDelay = 2000 //ms
 
 export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachineDevice {
     static services =  ['a026ee0b'];
-    static characteristics =  [ '2acc', '2ad2', '2ad6', '2ad8', '2ad9', '2ada', WAHOO_ADVANCED_FTMS, WAHOO_ADVANCED_TRAINER_CP];
+    static characteristics =  [ '2acc', '2ad2', '2ad6', '2ad8', '2ad9', '2ada', WAHOO_ADVANCED_TRAINER_CP];
 
     prevCrankData: CrankData = undefined
     currentCrankData: CrankData = undefined
@@ -72,6 +72,15 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
     constructor (props?) {
         super(props)
         this.data = {}
+    }
+
+    isMatching(characteristics: string[]): boolean {
+        if (!characteristics)
+            return false;
+
+        const hasWahooCP = characteristics.find( c => c===WAHOO_ADVANCED_TRAINER_CP)!==undefined
+
+        return   hasWahooCP;
     }
 
     async init(): Promise<boolean> {
