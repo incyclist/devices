@@ -148,8 +148,8 @@ export abstract class BleDevice extends BleDeviceClass  {
     }
 
     async init(): Promise<boolean> {
-        if (this.isInitialized)
-            return Promise.resolve(true);
+        //if (this.isInitialized)
+        //    return Promise.resolve(true);
 
         return await this.initDevice()
     }
@@ -374,7 +374,7 @@ export abstract class BleDevice extends BleDeviceClass  {
         let hasTimeout = false;
 
         this.writeQueue.forEach( writeItem => {
-            if (writeItem.timeout && writeItem.timeout>now) {
+            if (writeItem.timeout && writeItem.timeout<now) {
                 if ( writeItem.reject) {
                     hasTimeout = true;
                     writeItem.reject( new Error('timeout'))
@@ -443,7 +443,7 @@ export abstract class BleDevice extends BleDeviceClass  {
                 else {
                     const writeId = this.writeQueue.length;
                     let messageDeleted = false;                    
-                    this.writeQueue.push( {uuid:characteristicUuid.toLocaleLowerCase(), data, timeout:Date.now()+1000, resolve, reject})
+                    this.writeQueue.push( {uuid:characteristicUuid.toLocaleLowerCase(), data, timeout:Date.now()+2500, resolve, reject})
                     const to = setTimeout( ()=>{ 
                         if ( this.writeQueue.length>writeId && !messageDeleted)
                             this.writeQueue.splice(writeId,1);

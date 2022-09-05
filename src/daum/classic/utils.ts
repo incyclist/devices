@@ -22,6 +22,8 @@ export function getCockpit( c) {
             return "8008 TRS Pro";
         case 160: 
             return "8008 TRS3";
+        case 0x8D: // 141
+            return "ergo_lyps Cardio Pro"
         default:
             return "Unknown";
     }
