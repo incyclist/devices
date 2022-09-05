@@ -572,8 +572,8 @@ export default class BleFitnessMachineDevice extends BleDevice {
 
         const hasControl = await this.requestControl(); 
         if (!hasControl) {
-            this.logEvent({message: 'setTargetInclination failed',reason:'control is disabled'})
-            return;
+            this.logEvent({message: 'setIndoorBikeSimulation failed',reason:'control is disabled'})
+            return false;
         }
     
     

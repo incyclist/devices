@@ -6,7 +6,7 @@ import {EventLogger} from 'gd-eventlog';
 import BleFitnessMachineDevice, { FmAdapter } from './fm';
 
 const WAHOO_ADVANCED_FTMS =  'a026e00b' 
-const WAHOO_ADVANCED_TRAINER_CP =  'a026e037'
+const WAHOO_ADVANCED_TRAINER_CP =  'a026e005'
 
 const cwABike = {
     race: 0.35,
@@ -61,13 +61,14 @@ type CrankData = {
 const ErgWriteDelay = 2000 //ms
 
 export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachineDevice {
-    static services =  ['a026ee0b'];
+    static services =  ['1818'];
     static characteristics =  [ '2acc', '2ad2', '2ad6', '2ad8', '2ad9', '2ada', WAHOO_ADVANCED_TRAINER_CP];
 
     prevCrankData: CrankData = undefined
     currentCrankData: CrankData = undefined
     timeOffset: number = 0
     tsPrevWrite = undefined;  
+    prevSlope = undefined;
     
     constructor (props?) {
         super(props)
@@ -364,9 +365,30 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
     }
 
     async setSlope(slope) {
+
         this.logEvent( {message:'setSlope', slope})
-        const {windSpeed,crr, cw} = this;
-        return await this.setIndoorBikeSimulation( windSpeed, slope, crr, cw)
+
+        if (this.prevSlope!==undefined && slope===this.prevSlope)
+            return;
+
+        //const {windSpeed,crr, cw} = this;
+        try {
+            const hasControl = await this.requestControl(); 
+            if (!hasControl) {
+                this.logEvent({message: 'setTargetPower failed',reason:'control is disabled'})
+                return false;
+            }
+    
+            const res = await this.setSimGrade( slope)
+            this.logEvent( {message:'setSlope result', res})
+            this.prevSlope = slope;
+            return res;
+        }
+        catch( err) {
+            this.logEvent( {message:'setSlope failed',reason:err.message||err})
+            this.prevSlope = undefined;
+        }
+        
     }
 
 
