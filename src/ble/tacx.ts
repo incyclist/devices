@@ -12,7 +12,7 @@ const TACX_FE_C_TX  = '6e40fec3';
 const SYNC_BYTE = 0xA4;
 const DEFAULT_CHANNEL = 5;
 const ACKNOWLEDGED_DATA = 0x4F;
-const PROFILE_ID = 'Tacx FE-C over BLE'
+const PROFILE_ID = 'Tacx SmartTrainer'
 
 const cwABike = {
     race: 0.35,
@@ -82,13 +82,12 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 
     async init(): Promise<boolean> {
         try {
-            this.logEvent({message: 'get device info'})
-            await super.init();
-            this.logEvent({message: 'device info', deviceInfo:this.deviceInfo, features:this.features })
-            
+            await super.initDevice();            
+            return true;
         }
         catch (err) {
-            return Promise.resolve(false)
+            this.logEvent( {message:'error',fn:'TacxAdvancedFitnessMachineDevice.init()',error:err.message||err, stack:err.stack})                        
+            return false;
         }
     }
 

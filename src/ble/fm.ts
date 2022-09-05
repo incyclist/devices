@@ -194,19 +194,17 @@ export default class BleFitnessMachineDevice extends BleDevice {
         return hasStatus && hasCP && hasIndoorBike;
     }
 
-    async init(): Promise<boolean> {
-        try {
 
-            
-            const connector = this.ble.getConnector( this.peripheral)
+    async subscribeWriteResponse(cuuid: string) {
+        const connector = this.ble.getConnector( this.peripheral)
 
-            const isAlreadySubscribed = connector.isSubscribed(FTMS_CP)            
+            const isAlreadySubscribed = connector.isSubscribed(cuuid)            
             if ( !isAlreadySubscribed) {   
-                connector.removeAllListeners(FTMS_CP);
+                connector.removeAllListeners(cuuid);
 
                 let prev= undefined;
                 let prevTS = undefined;
-                connector.on(FTMS_CP, (uuid,data)=>{  
+                connector.on(cuuid, (uuid,data)=>{  
 
                     // Workaround App Verion 0.8.0
                     // This app release will send all events twice
@@ -223,11 +221,17 @@ export default class BleFitnessMachineDevice extends BleDevice {
                     
                     this.onData(uuid,data)
                 })
-                await connector.subscribe(FTMS_CP)
+                await connector.subscribe(cuuid)
             }
-                
-            this.logEvent({message: 'get device info'})
-            await super.init();
+            
+    }
+
+    async init(): Promise<boolean> {
+        try {
+
+            
+            await this.subscribeWriteResponse(FTMS_CP)            
+            await super.initDevice();
             await this.getFitnessMachineFeatures();
             this.logEvent({message: 'device info', deviceInfo:this.deviceInfo, features:this.features })
 
@@ -235,6 +239,8 @@ export default class BleFitnessMachineDevice extends BleDevice {
             
         }
         catch (err) {
+            this.logEvent( {message:'error',fn:'BleFitnessMachineDevice.init()',error:err.message||err, stack:err.stack})
+
             return Promise.resolve(false)
         }
     }
@@ -675,7 +681,8 @@ export class FmAdapter extends DeviceAdapter {
 
    
     getProfile() {
-        return 'Smart Trainer';
+        const profile = this.device ? this.device.getProfile() : undefined;
+        return profile || 'Smart Trainer'
     }
 
     getName() {

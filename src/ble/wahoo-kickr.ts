@@ -85,43 +85,14 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
 
     async init(): Promise<boolean> {
         try {
-
-            const connector = this.ble.getConnector( this.peripheral)
-            const isAlreadySubscribed = connector.isSubscribed(WAHOO_ADVANCED_TRAINER_CP)
-            if ( !isAlreadySubscribed) {   
-                connector.removeAllListeners(WAHOO_ADVANCED_TRAINER_CP);
-
-                let prev= undefined;
-                let prevTS = undefined;
-                connector.on(WAHOO_ADVANCED_TRAINER_CP, (uuid,data)=>{  
-
-                    // Workaround App Verion 0.8.0
-                    // This app release will send all events twice
-                    // Therefore we need to filter out duplicate messages
-                    const message = data.toString('hex');
-
-                    if (prevTS && prev &&message===prev && Date.now()-prevTS<500) {
-                        return;
-                    }
-                    prevTS = Date.now();
-                    prev = message
-                    // END Workouround
-                    
-                    
-                    this.onData(uuid,data)
-                })
-                await connector.subscribe(WAHOO_ADVANCED_TRAINER_CP)
-            }
-
-
-
-            this.logEvent({message: 'get device info'})
-            await super.init();
-            this.logEvent({message: 'device info', deviceInfo:this.deviceInfo, features:this.features })
+            await this.subscribeWriteResponse(WAHOO_ADVANCED_TRAINER_CP)            
+            await super.initDevice();
+            return true;
             
         }
         catch (err) {
-            return Promise.resolve(false)
+            this.logEvent( {message:'error',fn:'WahooAdvancedFitnessMachineDevice.init()',error:err.message||err, stack:err.stack})
+            return false;
         }
     }
 
@@ -256,7 +227,10 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
             const opcode = Buffer.alloc(1)
             opcode.writeUInt8(requestedOpCode,0)
             const message = Buffer.concat( [opcode,data])
-            const res = await this.write( WAHOO_ADVANCED_FTMS, message )
+
+            
+            const res = await this.write( WAHOO_ADVANCED_TRAINER_CP, message )
+
 
             const responseData = Buffer.from(res)
 

@@ -12,6 +12,7 @@ interface BleDeviceConstructProps extends BleDeviceProps {
 type CommandQueueItem = {
     uuid: string,
     data: Buffer,
+    timeout: number,
     resolve, 
     reject
 }
@@ -31,6 +32,7 @@ export abstract class BleDevice extends BleDeviceClass  {
     isInitialized: boolean;
     subscribedCharacteristics: string[]
     writeQueue: CommandQueueItem[];
+    workerIv: NodeJS.Timeout;
 
     constructor (props?: BleDeviceConstructProps) {
         super()
@@ -44,6 +46,7 @@ export abstract class BleDevice extends BleDeviceClass  {
         this.subscribedCharacteristics = [];
         this.isInitialized = false;
         this.writeQueue = [];
+        this.workerIv = null;
 
         if (props.peripheral) {
             const {id,address,advertisement,state} = props.peripheral;
@@ -144,18 +147,25 @@ export abstract class BleDevice extends BleDeviceClass  {
         return this.services && this.services.find( s=> s===serviceUuid || uuid(serviceUuid))!==undefined
     }
 
-    init(): Promise<boolean> {
+    async init(): Promise<boolean> {
         if (this.isInitialized)
             return Promise.resolve(true);
+
+        return await this.initDevice()
+    }
+
+    initDevice(): Promise<boolean> {
+        this.logEvent({message: 'get device info'})
 
         return this.getDeviceInfo().then( ()=> { 
             this.emit('deviceInfo',this.deviceInfo)
 
-            this.logEvent({message:'ftms device init done',...this.deviceInfo})
+            this.logEvent({message:'device init done',...this.deviceInfo})
             this.isInitialized = true;
 
             return true;
         })    
+
     }
 
     async connectPeripheral  (peripheral: BlePeripheral)   {
@@ -301,6 +311,10 @@ export abstract class BleDevice extends BleDeviceClass  {
 
         this.connectState.isDisconnecting = true;
 
+        if (this.workerIv) {
+            this.stopWorker();
+        }
+
         if (!this.connectState.isConnecting && !this.connectState.isConnected) {
             this.connectState.isDisconnecting = false;
             this.logEvent({message:'disconnect result: success',device: { id, name, address} })
@@ -354,11 +368,52 @@ export abstract class BleDevice extends BleDeviceClass  {
 
     }
 
+    timeoutCheck() {
+        const now = Date.now();
+        const updatedQueue = [];
+        let hasTimeout = false;
+
+        this.writeQueue.forEach( writeItem => {
+            if (writeItem.timeout && writeItem.timeout>now) {
+                if ( writeItem.reject) {
+                    hasTimeout = true;
+                    writeItem.reject( new Error('timeout'))
+                }
+            }
+            else {
+                updatedQueue.push(writeItem)
+            }
+        })
+
+        if (hasTimeout)
+            this.writeQueue = updatedQueue;
+    }
+
+    startWorker() {
+        if (this.workerIv)
+            return;
+        this.workerIv = setInterval( ()=>{this.timeoutCheck()}, 100) 
+    }
+
+    stopWorker() {
+        if (!this.workerIv)
+            return;
+
+        clearInterval(this.workerIv)
+        this.workerIv = null;
+    }
+
 
     async write( characteristicUuid:string, data:Buffer, withoutResponse:boolean=false): Promise<ArrayBuffer> {
         try {
+
             const connector = this.ble.getConnector( this.peripheral)
             const isAlreadySubscribed = connector.isSubscribed(characteristicUuid)
+
+            if (!withoutResponse && !this.workerIv) {                
+                this.startWorker();
+            }
+
             //console.log('~~~ write ',characteristicUuid, data.toString('hex'), isAlreadySubscribed, this.subscribedCharacteristics)
             if ( !withoutResponse && !isAlreadySubscribed) {
                 const connector = this.ble.getConnector( this.peripheral)
@@ -388,7 +443,7 @@ export abstract class BleDevice extends BleDeviceClass  {
                 else {
                     const writeId = this.writeQueue.length;
                     let messageDeleted = false;                    
-                    this.writeQueue.push( {uuid:characteristicUuid.toLocaleLowerCase(), data, resolve, reject})
+                    this.writeQueue.push( {uuid:characteristicUuid.toLocaleLowerCase(), data, timeout:Date.now()+1000, resolve, reject})
                     const to = setTimeout( ()=>{ 
                         if ( this.writeQueue.length>writeId && !messageDeleted)
                             this.writeQueue.splice(writeId,1);

@@ -848,9 +848,9 @@ export default class BleInterface extends BleInterfaceClass {
                 
 
                     const existing = devicesProcessed.find( device  => device.id === d.id && device.getProfile()===d.getProfile())
-                     
+                    
                     if (!scanForDevice && cntFound>0 && !existing) {                            
-                        this.logEvent({message:`${opStr}: device found`, device:d.name, address:d.address, services:d.services.join(',')});
+                        this.logEvent({message:`${opStr}: device found`, device:d.name, profile:d.getProfile(), address:d.address, services:d.services.join(',')});
                         this.addDeviceToCache( d,peripheral.state==='connected')
                         
                         devicesProcessed.push(d)
@@ -859,7 +859,7 @@ export default class BleInterface extends BleInterfaceClass {
                     }
 
                     if (scanForDevice&& cntFound>0)  {
-                        this.logEvent({message:`${opStr}: device found`, device:d.name, address:d.address, services:d.services.join(',')});
+                        this.logEvent({message:`${opStr}: device found`, device:d.name, profile:d.getProfile(), address:d.address, services:d.services.join(',')});
                         this.addDeviceToCache(d,peripheral.state==='connected')
                         devicesProcessed.push(d)
                         this.emit('device', d)
