@@ -253,6 +253,11 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
             return true;
 
         this.logEvent( {message:'requestControl'})
+
+        this.hasControl = true;
+        return;
+
+
         const data = Buffer.alloc(2)
         data.writeUInt8(0xEE,0)
         data.writeUInt8(0xFC,1)
