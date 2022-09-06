@@ -333,9 +333,10 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
 
     async setSimGrade( slope: number):Promise<boolean> {        
         const value = (Math.min(1, Math.max(-1, slope)) + 1.0) * 65535 / 2.0
+        const slopeVal = Math.floor(value)
 
         const data = Buffer.alloc(2)
-        data.writeInt16LE( Math.round(value), 0)
+        data.writeInt16LE( slopeVal, 0)
         
         const res = await this.writeWahooFtmsMessage(OpCode.setSimGrade, data )
         return res;            
