@@ -12,9 +12,9 @@ import { IncyclistBikeData } from '../CyclingMode';
 import FtmsCyclingMode from './ble-st-mode';
 import BleERGCyclingMode from './ble-erg-mode';
 
-const FTMS_CP           = '2ad9'
-const FTMS_STATUS       = '2ada'
-const INDOOR_BIKE_DATA  = '2ad2'
+export const FTMS_CP           = '2ad9'
+export const FTMS_STATUS       = '2ada'
+export const INDOOR_BIKE_DATA  = '2ad2'
 
 const cwABike = {
     race: 0.35,

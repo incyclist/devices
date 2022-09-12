@@ -288,19 +288,27 @@ export default class BleInterface extends BleInterfaceClass {
         }
 
         const get = (deviceTypes: (typeof BleDeviceClass)[], fnCompare: (s:string)=>boolean ) => {
-            return deviceTypes.filter( DeviceType  => { 
+            const types =  deviceTypes.filter( DeviceType  => { 
                 const C = DeviceType as any
-                if (!C.services)
-                    return false
-                return C.services.find( (s:string) => fnCompare(s) )
-            })    
-        }
 
+                let found = false;
+                if (C.services)
+                    found = C.services.find( (s:string) => fnCompare(s) )
+
+                return found;
+            })    
+            return types;
+
+        }
         if ( typeof services === 'string') { 
-            return get(deviceTypes, (s)=> s === uuid(services))
+            return get(deviceTypes, (s)=> uuid(s) === uuid(services))
         }
         if ( Array.isArray(services)) {
-            return get(deviceTypes, s => services.map(uuid).includes(s))
+            const sids = services.map(uuid);
+            return get(deviceTypes, s => { 
+                const res = sids.includes(uuid(s)) 
+                return res;
+            })
         }
         return []   
     }
@@ -834,7 +842,13 @@ export default class BleInterface extends BleInterfaceClass {
                     const d = this.createDevice(DeviceClass, peripheral, characteristics)
                     if (!d)
                         return;
-                    await d.connect();
+                    
+                    try {
+                        await d.connect();
+                    }
+                    catch(err) {
+                        this.logEvent({message:'error', fn:'onPeripheralFound()',error:err.message||err, stack:err.stack})
+                    }
 
                     if (scanForDevice) { 
                         if( 

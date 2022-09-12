@@ -3,9 +3,9 @@ import BleProtocol from './incyclist-protocol';
 import { BleDeviceClass } from './ble';
 import DeviceAdapter, { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from '../Device';
 import {EventLogger} from 'gd-eventlog';
-import BleFitnessMachineDevice, { FmAdapter } from './fm';
+import BleFitnessMachineDevice, { FmAdapter, FTMS_CP } from './fm';
 
-const WAHOO_ADVANCED_FTMS =  'a026e00b' 
+const WAHOO_ADVANCED_FTMS =  'a026ee0b'  
 const WAHOO_ADVANCED_TRAINER_CP =  'a026e005'
 
 const cwABike = {
@@ -79,9 +79,9 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
         if (!characteristics)
             return false;
 
-        const hasWahooCP = characteristics.find( c => c===WAHOO_ADVANCED_TRAINER_CP)!==undefined
-
-        return   hasWahooCP;
+        const hasWahooCP = characteristics.find( c => c===WAHOO_ADVANCED_TRAINER_CP)!==undefined 
+        const hasFTMS = characteristics.find( c => c===FTMS_CP)!==undefined 
+        return   hasWahooCP //&& !hasFTMS;
     }
 
     async init(): Promise<boolean> {

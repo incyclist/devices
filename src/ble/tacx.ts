@@ -3,7 +3,7 @@ import BleProtocol from './incyclist-protocol';
 import { BleDeviceClass } from './ble';
 import DeviceAdapter, { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from '../Device';
 import {EventLogger} from 'gd-eventlog';
-import BleFitnessMachineDevice, { FmAdapter,IndoorBikeData } from './fm';
+import BleFitnessMachineDevice, { FmAdapter,FTMS_CP,IndoorBikeData } from './fm';
 
 const TACX_FE_C_BLE =  '6e40fec1' 
 const TACX_FE_C_RX  = '6e40fec2';
@@ -78,6 +78,17 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         super(props)
         this.data = {}
         this.hasFECData = false;
+    }
+
+    
+    isMatching(characteristics: string[]): boolean {
+        if (!characteristics)
+            return false;
+
+        const hasTacxCP = characteristics.find( c => c===TACX_FE_C_RX)!==undefined  && characteristics.find( c => c===TACX_FE_C_TX)!==undefined
+        const hasFTMS = characteristics.find( c => c===FTMS_CP)!==undefined 
+
+        return   hasTacxCP && !hasFTMS;
     }
 
     async init(): Promise<boolean> {
