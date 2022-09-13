@@ -81,7 +81,7 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
 
         const hasWahooCP = characteristics.find( c => c===WAHOO_ADVANCED_TRAINER_CP)!==undefined 
         const hasFTMS = characteristics.find( c => c===FTMS_CP)!==undefined 
-        return   hasWahooCP //&& !hasFTMS;
+        return   hasWahooCP && !hasFTMS;
     }
 
     async init(): Promise<boolean> {
