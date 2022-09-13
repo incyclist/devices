@@ -9,9 +9,9 @@ const TACX_FE_C_BLE =  '6e40fec1'
 const TACX_FE_C_RX  = '6e40fec2';
 const TACX_FE_C_TX  = '6e40fec3';
 
-const SYNC_BYTE = 0xA4;
+const SYNC_BYTE = 0xA4; //164
 const DEFAULT_CHANNEL = 5;
-const ACKNOWLEDGED_DATA = 0x4F;
+const ACKNOWLEDGED_DATA = 0x4F; //79
 const PROFILE_ID = 'Tacx SmartTrainer'
 
 const cwABike = {
@@ -52,6 +52,13 @@ interface BleFeBikeData extends IndoorBikeData  {
 	AccumulatedPower?: number;
 	TrainerStatus?: number;
 	TargetStatus?: 'OnTarget' | 'LowSpeed' | 'HighSpeed';
+
+    HwVersion?: number;
+	ManId?: number;
+	ModelNum?: number;
+
+	SwVersion?: number;
+	SerialNumber?: number;
 }
 
 
@@ -121,6 +128,9 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 
     isHrm(): boolean {
         return this.hasService('180d');
+    }
+    async requestControl(): Promise<boolean> {
+        return true;
     }
 
     parseCrankData(crankData) {
@@ -353,8 +363,28 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 
     }
 
+    parseProductInformation(data:Buffer):BleFeBikeData {
+        const swRevSup = data.readUInt8(2);
+        const swRevMain = data.readUInt8(3);
+        const serial = data.readInt32LE(4);
+
+        this.data.SwVersion = swRevMain;
+
+        if (swRevSup !== 0xFF) {
+            this.data.SwVersion += swRevSup / 1000;
+        }
+
+        if (serial !== 0xFFFFFFFF) {
+            this.data.SerialNumber = serial;
+        }
+        return this.data
+    }
+
+
     parseFECMessage( _data:Buffer):BleFeBikeData {
         const data:Buffer = Buffer.from(_data);
+
+        this.logEvent({message:'FE-C message',data:data.toString('hex')});
 
         // message format
         // 0            UINT8      SYNC_BYTE
@@ -377,12 +407,15 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         let res;
         switch (messageId) {
             case ANTMessages.generalFE:
-                res = this.parseGeneralFE(data.slice(4,len+2))
+                res = this.parseGeneralFE(data.slice(4,len+3))
                 break;
             case ANTMessages.trainerData:
-                res = this.parseTrainerData(data.slice(4,len+2))
+                res = this.parseTrainerData(data.slice(4,len+3))
                 break;
-
+            case ANTMessages.productInformation:
+                res = this.parseProductInformation(data.slice(4,len+3))
+                break;
+    
         }
 
         res.raw = data.toString('hex')
@@ -391,41 +424,48 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 
 
 
-    onData(characteristic:string,data: Buffer) {       
-        super.onData(characteristic,data);
+    onData(characteristic:string,data: Buffer) {     
+        try {
+            super.onData(characteristic,data);
 
-        const uuid = characteristic.toLocaleLowerCase();
-
-        let res = undefined
-        if (uuid && uuid.startsWith(TACX_FE_C_RX)) {
-            res = this.parseFECMessage(data)
-        }
-        else {
-            switch(uuid) {
-                case '2a63': 
-                    if (!this.hasFECData)
-                        res = this.parsePower(data)
-                    break;
-                case '2ad2':    //  name: 'Indoor Bike Data',
-                    if (!this.hasFECData)
-                        res = this.parseIndoorBikeData(data)
-                    break;
-                case '2a37':     //  name: 'Heart Rate Measurement',
-                    res = this.parseHrm(data)
-                    break;
-                case '2ada':     //  name: 'Fitness Machine Status',
-                    if (!this.hasFECData)
-                        res = this.parseFitnessMachineStatus(data)
-                    break;
-                default:    // ignore
-                    break;
+            const uuid = characteristic.toLocaleLowerCase();
     
+            let res = undefined
+            if (uuid && uuid.startsWith(TACX_FE_C_RX)) {
+                res = this.parseFECMessage(data)
             }
-    
-        }
+            else {
+                switch(uuid) {
+                    case '2a63': 
+                        if (!this.hasFECData)
+                            res = this.parsePower(data)
+                        break;
+                    case '2ad2':    //  name: 'Indoor Bike Data',
+                        if (!this.hasFECData)
+                            res = this.parseIndoorBikeData(data)
+                        break;
+                    case '2a37':     //  name: 'Heart Rate Measurement',
+                        res = this.parseHrm(data)
+                        break;
+                    case '2ada':     //  name: 'Fitness Machine Status',
+                        if (!this.hasFECData)
+                            res = this.parseFitnessMachineStatus(data)
+                        break;
+                    default:    // ignore
+                        break;
         
-        if (res)
-            this.emit('data', res)
+                }
+        
+            }
+            
+            if (res)
+                this.emit('data', res)
+            return res;
+    
+        }  
+        catch (err) {
+            this.logEvent({message:'error',fn:'tacx.onData()',error:err.message||err, stack:err.stack})
+        }
  
     }
     
