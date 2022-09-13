@@ -503,7 +503,7 @@ export default class BleInterface extends BleInterfaceClass {
 
             const existingDevice = this.devices.find( i => i.device.id === device.id && i.device.getProfile()===device.getProfile())
             if (existingDevice)
-                return existingDevice;
+                return existingDevice.device;
             
             device.setInterface(this)     
             if ( characteristics && device.isMatching(cids)) {
