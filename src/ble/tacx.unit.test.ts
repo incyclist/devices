@@ -51,6 +51,18 @@ describe ('onData',()=>{
     }) 
 
 
+    test('repeated message',()=>{
+        const tacx = new TacxAdvancedFitnessMachineDevice({id:'4711',logger:new MockLogger()});
+
+        tacx.logEvent = jest.fn();
+
+        tacx.onData('2a5b',Buffer.from([3,119,1,0,0,195,176,48,0,0,32]));
+        tacx.onData('2a5b',Buffer.from([3,119,1,0,0,195,176,48,0,0,32]));
+        tacx.onData('2a5b',Buffer.from([3,119,1,0,0,195,176,48,0,0,32]));
+        tacx.onData('2a5b',Buffer.from([3,119,1,0,0,195,176,48,0,0,32]));
+        expect(tacx.messageCnt).toBe(1)
+    }) 
+
 
     
 

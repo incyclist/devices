@@ -68,6 +68,16 @@ type CrankData = {
     cntUpdateMissing?: number,
 }
 
+type MessageInfo = {
+    message: string,
+    ts: number,
+    uuid: string
+}
+
+type MessageLog = {
+    [uuid:string]: MessageInfo;
+}
+
 
 export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineDevice {
     static services =  [TACX_FE_C_BLE];
@@ -80,11 +90,16 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
     tsPrevWrite = undefined;  
     data: BleFeBikeData;
     hasFECData: boolean
+    prevMessages:  MessageLog;
+    messageCnt: number
 
     constructor (props?) {
         super(props)
         this.data = {}
         this.hasFECData = false;
+        this.messageCnt = 0;
+        this.prevMessages ={}
+
     }
 
     
@@ -134,7 +149,10 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
     }
 
     parseCrankData(crankData) {
-        if (!this.prevCrankData) this.prevCrankData= {revolutions:0,time:0, cntUpdateMissing:-1}
+        if (!this.prevCrankData) {
+            this.prevCrankData= {...crankData, cntUpdateMissing:-1}
+            return {}
+        }
 
         const c = this.currentCrankData = crankData
         const p = this.prevCrankData;
@@ -388,6 +406,8 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         }
         this.parseFEState(flagStateBF);
 
+        if ( power!==undefined && cadence!==undefined )
+            this.hasFECData = true;
 
         return this.data;
 
@@ -464,6 +484,18 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
            
 
             const uuid = characteristic.toLocaleLowerCase();
+            
+            // workaround to avoid duplicate messages
+            const message = data.toString('hex')
+            const ts = Date.now();
+            if (this.prevMessages[uuid]) {
+                const prev = this.prevMessages[uuid];
+                if (prev.message===message && prev.ts>ts-500) {
+                    return;
+                }
+            }
+            this.prevMessages[uuid] = { uuid,ts,message}
+            this.messageCnt++;
     
             let res = undefined
             if (uuid && uuid.startsWith(TACX_FE_C_RX)) {
@@ -483,7 +515,8 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
                         res = this.parseHrm(data)
                         break;
                     case '2a5b':     //  name: 'CSC Measurement',
-                        res = this.parseCSC(data)
+                        if (!this.hasFECData)
+                            res = this.parseCSC(data)
                         break;
                     case '2ada':     //  name: 'Fitness Machine Status',
                         if (!this.hasFECData)

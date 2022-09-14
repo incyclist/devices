@@ -435,7 +435,7 @@ export abstract class BleDevice extends BleDeviceClass  {
                 }
 
                 if (withoutResponse) {
-                    this.logEvent({message:'writing'})
+                    this.logEvent({message:'writing', data:data.toString('hex'),withoutResponse})
                     characteristic.write(data,withoutResponse);
                     resolve(new ArrayBuffer(0));
                     return;
