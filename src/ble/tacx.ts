@@ -171,7 +171,35 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         return {rpm, time:this.timeOffset+c.time }
     }
 
+    parseCSC( _data:Buffer):IndoorBikeData {
+        this.logEvent({message:'BLE CSC message',data:_data.toString('hex')});
+
+        const data:Buffer = Buffer.from(_data);
+        let offset = 0;
+
+        const flags = data.readUInt8(offset); offset++;
+        if (flags & 0x01) {  // wheel revolutions
+            offset+=6;
+        }
+        if (flags & 0x02) {  // crank revolutions
+            const crankData = { 
+                revolutions: data.readUInt16LE(offset),
+                time: data.readUInt16LE(offset+2)
+            }
+            const {rpm,time} = this.parseCrankData(crankData)                
+            this.data.cadence = rpm;
+            this.data.time = time;
+            offset+=4
+
+        }
+
+
+        return this.data;
+    }
+
     parsePower( _data:Buffer):IndoorBikeData {
+        this.logEvent({message:'BLE CSP message',data:_data.toString('hex')});
+
         const data:Buffer = Buffer.from(_data);
         try {
             let offset = 4;
@@ -198,7 +226,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
             
         }
         catch (err) { 
-
+            this.logEvent( {message:'error',fn:'parsePower()',error:err.message||err, stack:err.stack})
         }
         const {instantaneousPower, cadence,time} = this.data
         return {instantaneousPower, cadence,time,raw:data.toString('hex')}
@@ -324,6 +352,8 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         const trainerStatus = data.readUInt8(6) >> 4;
         const flagStateBF = data.readUInt8(7);
 
+        
+
         if (eventCount !== oldEventCount) {
             this.data.EventCount= eventCount;
             if (oldEventCount > eventCount) { //Hit rollover value
@@ -403,22 +433,27 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         const len = data.readUInt8(1);
         const messageId = data.readUInt8(4);
 
-        this.hasFECData = true;
         let res;
-        switch (messageId) {
-            case ANTMessages.generalFE:
-                res = this.parseGeneralFE(data.slice(4,len+3))
-                break;
-            case ANTMessages.trainerData:
-                res = this.parseTrainerData(data.slice(4,len+3))
-                break;
-            case ANTMessages.productInformation:
-                res = this.parseProductInformation(data.slice(4,len+3))
-                break;
+        try {
+            switch (messageId) {
+                case ANTMessages.generalFE:
+                    res = this.parseGeneralFE(data.slice(4,len+3))
+                    break;
+                case ANTMessages.trainerData:
+                    res = this.parseTrainerData(data.slice(4,len+3))
+                    break;
+                case ANTMessages.productInformation:
+                    res = this.parseProductInformation(data.slice(4,len+3))
+                    break;
+        
+            }
+            if (res)
+                res.raw = data.toString('hex')
     
         }
-
-        res.raw = data.toString('hex')
+        catch (err) {
+            this.logEvent( {message:'error',fn:'parseFECMessage()',error:err.message||err, stack:err.stack})
+        }
         return res;
     }
 
@@ -426,7 +461,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 
     onData(characteristic:string,data: Buffer) {     
         try {
-            super.onData(characteristic,data);
+           
 
             const uuid = characteristic.toLocaleLowerCase();
     
@@ -446,6 +481,9 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
                         break;
                     case '2a37':     //  name: 'Heart Rate Measurement',
                         res = this.parseHrm(data)
+                        break;
+                    case '2a5b':     //  name: 'CSC Measurement',
+                        res = this.parseCSC(data)
                         break;
                     case '2ada':     //  name: 'Fitness Machine Status',
                         if (!this.hasFECData)

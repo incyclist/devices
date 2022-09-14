@@ -97,9 +97,9 @@ export default class BleInterface extends BleInterfaceClass {
         if ( this.logger) {
             this.logger.logEvent(event)
         }
-        if (process.env.BLE_DEBUG) {
+//        if (process.env.BLE_DEBUG) {
             console.log( '~~BLE:', event)
-        }
+//        }
     }
 
 
@@ -840,10 +840,13 @@ export default class BleInterface extends BleInterfaceClass {
                         return;
 
                     const d = this.createDevice(DeviceClass, peripheral, characteristics)
-                    if (!d)
+                    if (!d) {
+                        this.logEvent({message:`${opStr}: could not create device `,DeviceClass})
                         return;
+                    }
                     
                     try {
+                        this.logEvent({message:`${opStr}: connecting `,device:d.name, profile:d.getProfile(), address:d.address })
                         await d.connect();
                     }
                     catch(err) {

@@ -40,9 +40,9 @@ export default class BlePeripheralConnector {
         if ( this.logger) {
             this.logger.logEvent(event)
         }
-        if (process.env.BLE_DEBUG) {
+//        if (process.env.BLE_DEBUG) {
             console.log( '~~~BLE:', event)
-        }
+//        }
     }  
 
 
@@ -176,17 +176,17 @@ export default class BlePeripheralConnector {
         return new Promise ( (resolve,reject) => {
     
             try {
-                const characteristic: BleCharacteristic = this.characteristics.find( c=> c.uuid===characteristicUuid || uuid(c.uuid)===characteristicUuid );
-                this.logEvent({message:'subscribe', peripheral:this.peripheral.address, characteristic:characteristic.uuid,uuid:uuid(characteristic.uuid)})
+                const characteristic: BleCharacteristic = this.characteristics.find( c=> uuid(c.uuid)===uuid(characteristicUuid) || uuid(c.uuid)===uuid(characteristicUuid) );
 
                 if (!characteristic) {
                     reject(new Error( 'Characteristic not found'))
                     return;
                 }
+                this.logEvent({message:'subscribe', peripheral:this.peripheral.address, characteristic:characteristic.uuid,uuid:uuid(characteristic.uuid)})
     
                 characteristic.removeAllListeners('data');
                 characteristic.on('data', (data, _isNotification) => {
-                    this.onData(characteristicUuid, data)
+                    this.onData(uuid(characteristicUuid), data)
                 });
 
                 const to = setTimeout( ()=>{ 
@@ -215,21 +215,21 @@ export default class BlePeripheralConnector {
     } 
 
     onData( characteristicUuid:string, data) {
-        this.emitter.emit(characteristicUuid, characteristicUuid,data)
+        this.emitter.emit(uuid(characteristicUuid), characteristicUuid,data)
     }
 
     on( characteristicUuid:string, callback:(characteristicUuid:string, data)=>void)  {
         if (callback)
-            this.emitter.on(characteristicUuid,callback)
+            this.emitter.on(uuid(characteristicUuid),callback)
     } 
 
     off( characteristicUuid:string, callback:(characteristicUuid:string, data)=>void)  {
         if (callback)
-            this.emitter.off(characteristicUuid,callback)
+            this.emitter.off(uuid(characteristicUuid),callback)
     } 
 
     removeAllListeners(characteristicUuid:string) {
-        this.emitter.removeAllListeners(characteristicUuid)
+        this.emitter.removeAllListeners(uuid(characteristicUuid))
     }
 
 
