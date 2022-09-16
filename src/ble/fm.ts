@@ -1,7 +1,7 @@
 import { BleDevice } from './ble-device';
 import BleInterface from './ble-interface';
 import BleProtocol from './incyclist-protocol';
-import { BleDeviceClass, uuid } from './ble';
+import { BleDeviceClass } from './ble';
 import DeviceAdapter,{ DeviceData } from '../Device';
 import { DeviceProtocol } from '../DeviceProtocol';
 import {EventLogger} from 'gd-eventlog';
@@ -11,10 +11,7 @@ import PowerMeterCyclingMode from '../modes/power-meter';
 import { IncyclistBikeData } from '../CyclingMode';
 import FtmsCyclingMode from './ble-st-mode';
 import BleERGCyclingMode from './ble-erg-mode';
-
-export const FTMS_CP           = '2ad9'
-export const FTMS_STATUS       = '2ada'
-export const INDOOR_BIKE_DATA  = '2ad2'
+import {FTMS, FTMS_CP,FTMS_STATUS,INDOOR_BIKE_DATA, TACX_FE_C_RX, TACX_FE_C_TX} from './consts'
 
 const cwABike = {
     race: 0.35,
@@ -164,7 +161,7 @@ type IndoorBikeFeatures = {
 
 
 export default class BleFitnessMachineDevice extends BleDevice {
-    static services =  ['1826'];
+    static services =  [FTMS];
     static characteristics =  [ '2acc', INDOOR_BIKE_DATA, '2ad6', '2ad8', FTMS_CP, FTMS_STATUS ];
     
     data: IndoorBikeData
@@ -190,8 +187,9 @@ export default class BleFitnessMachineDevice extends BleDevice {
         const hasStatus =  characteristics.find( c => c===FTMS_STATUS)!==undefined
         const hasCP = characteristics.find( c => c===FTMS_CP)!==undefined
         const hasIndoorBike = characteristics.find( c => c===INDOOR_BIKE_DATA)!==undefined
+        const hasTacx = characteristics.find( c => c===TACX_FE_C_RX)!==undefined  && characteristics.find( c => c===TACX_FE_C_TX)!==undefined
 
-        return hasStatus && hasCP && hasIndoorBike;
+        return hasStatus && hasCP && hasIndoorBike /*&& !hasTacx*/;
     }
 
 

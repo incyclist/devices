@@ -3,7 +3,8 @@ import BleProtocol from './incyclist-protocol';
 import { BleDeviceClass } from './ble';
 import DeviceAdapter, { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from '../Device';
 import {EventLogger} from 'gd-eventlog';
-import BleFitnessMachineDevice, { FmAdapter, FTMS_CP } from './fm';
+import BleFitnessMachineDevice, { FmAdapter } from './fm';
+import { FTMS_CP } from './consts';
 
 const WAHOO_ADVANCED_FTMS =  'a026ee0b'  
 const WAHOO_ADVANCED_TRAINER_CP =  'a026e005'
