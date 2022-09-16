@@ -104,7 +104,8 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         if (!characteristics)
             return false;
 
-        const hasTacxCP = characteristics.find( c => c===TACX_FE_C_RX)!==undefined  && characteristics.find( c => c===TACX_FE_C_TX)!==undefined
+        const hasTacxCP = characteristics.find( c => c===TACX_FE_C_RX || c.startsWith(TACX_FE_C_RX) )!==undefined  && 
+                          characteristics.find( c => c===TACX_FE_C_TX || c.startsWith(TACX_FE_C_TX))!==undefined
         const hasFTMS = characteristics.find( c => c===FTMS_CP)!==undefined 
 
         return   hasTacxCP;
