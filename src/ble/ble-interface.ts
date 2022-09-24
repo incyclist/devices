@@ -1,6 +1,8 @@
 import { EventLogger } from 'gd-eventlog';
 import { sleep } from '../utils';
 import { BleInterfaceClass, ConnectProps, ScanProps, BleDeviceClass,BlePeripheral,BleState,BleBinding,uuid, BleCharacteristic, BleDeviceDescription} from './ble'
+import { BleDevice } from './ble-device';
+import {matches} from './ble'
 import BlePeripheralConnector from './ble-peripheral';
 
 const CONNECT_TIMEOUT = 5000;
@@ -301,13 +303,13 @@ export default class BleInterface extends BleInterfaceClass {
 
         }
         if ( typeof services === 'string') { 
-            return get(deviceTypes, (s)=> uuid(s) === uuid(services))
+            return get(deviceTypes, (s)=> matches(s,services) )
         }
         if ( Array.isArray(services)) {
             const sids = services.map(uuid);
             return get(deviceTypes, s => { 
-                const res = sids.includes(uuid(s)) 
-                return res;
+                const res = sids.find( (s)=> matches(s,services)) 
+                return res!==undefined;
             })
         }
         return []   
@@ -496,7 +498,7 @@ export default class BleInterface extends BleInterfaceClass {
 
         try {
             const C = DeviceClass as any; // avoid error "Cannot crate instance of abstract class"
-            const device = new C({peripheral});
+            const device = new C({peripheral}) as BleDevice;
             const cids = characteristics ?  characteristics.map(c=> uuid(c.uuid) ) : [];
             
             this.logEvent({message:'trying to create device',peripheral: peripheral.address,characteristics:cids, profile:device.getProfile() })
@@ -507,7 +509,8 @@ export default class BleInterface extends BleInterfaceClass {
             
             device.setInterface(this)     
             if ( characteristics && device.isMatching(cids)) {
-                device.characteristics= characteristics
+                device.characteristics= characteristics;
+                device.setCharacteristicUUIDs(characteristics.map(c => c.uuid));
     
                 return device;    
             }
@@ -839,7 +842,7 @@ export default class BleInterface extends BleInterfaceClass {
                     if (scanForDevice && cntFound>0)
                         return;
 
-                    const d = this.createDevice(DeviceClass, peripheral, characteristics)
+                    const d = this.createDevice(DeviceClass, peripheral, characteristics) as BleDevice
                     if (!d) {
                         this.logEvent({message:`${opStr}: could not create device `,DeviceClass})
                         return;

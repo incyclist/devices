@@ -151,6 +151,11 @@ export default class BleCyclingPowerDevice extends BleDevice {
     onData(characteristic:string,data: Buffer) {
         super.onData(characteristic,data);
 
+        const isDuplicate = this.checkForDuplicate(characteristic,data)
+        if (isDuplicate)
+            return;
+
+
         if (characteristic.toLocaleLowerCase() === CP_MEASUREMENT) { //  name: 'Cycling Power Measurement',
             const res = this.parsePower(data)
             this.emit('data', res)

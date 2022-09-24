@@ -56,6 +56,8 @@ export abstract class  BleDeviceClass extends EventEmitter {
     abstract disconnect(): Promise<boolean>
     abstract getDeviceInfo(): Promise<BleDeviceInfo> 
 
+    setCharacteristicUUIDs( uuids: string[]) {}
+
 
 }
 
@@ -187,4 +189,19 @@ export const uuid = (s) => {
         }
         return s;
     }
+}
+
+export const matches = (uuid1,uuid2) => {
+    if (uuid(uuid1)===uuid(uuid2))
+        return true;
+    const ul1 = uuid1.toLowerCase()
+    const ul2 = uuid2.toLowerCase()
+ 
+    if (ul1.length<ul2.length && ul2.startsWith(ul1))
+        return true
+    if (ul1.length>ul2.length && ul1.startsWith(ul2))
+        return true
+
+    return false;
+
 }

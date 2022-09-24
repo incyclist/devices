@@ -63,6 +63,11 @@ export default class BleHrmDevice extends BleDevice {
     onData(characteristic:string,data: Buffer) {
         super.onData(characteristic,data);
 
+        const isDuplicate = this.checkForDuplicate(characteristic,data)
+        if (isDuplicate)
+            return;
+
+
         if (characteristic.toLocaleLowerCase() === '2a37') { //  name: 'Heart Rate Measurement',
             const res = this.parseHrm(data)
             this.emit('data', res)

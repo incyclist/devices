@@ -1,6 +1,6 @@
 import BleInterface from './ble-interface';
 import BleProtocol from './incyclist-protocol';
-import { BleDeviceClass } from './ble';
+import { BleDeviceClass,matches } from './ble';
 import DeviceAdapter, { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from '../Device';
 import {EventLogger} from 'gd-eventlog';
 import BleFitnessMachineDevice, { FmAdapter,IndoorBikeData } from './fm';
@@ -87,15 +87,18 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
     tsPrevWrite = undefined;  
     data: BleFeBikeData;
     hasFECData: boolean
-    prevMessages:  MessageLog;
     messageCnt: number
+
+    tacxRx: string;
+    tacxTx: string
 
     constructor (props?) {
         super(props)
         this.data = {}
         this.hasFECData = false;
         this.messageCnt = 0;
-        this.prevMessages ={}
+        this.tacxRx = TACX_FE_C_RX;
+        this.tacxTx = TACX_FE_C_TX
 
     }
 
@@ -104,12 +107,22 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         if (!characteristics)
             return false;
 
-        const hasTacxCP = characteristics.find( c => c===TACX_FE_C_RX || c.startsWith(TACX_FE_C_RX) )!==undefined  && 
-                          characteristics.find( c => c===TACX_FE_C_TX || c.startsWith(TACX_FE_C_TX))!==undefined
-        const hasFTMS = characteristics.find( c => c===FTMS_CP)!==undefined 
+        const hasTacxCP = characteristics.find( c => matches(c,TACX_FE_C_RX) )!==undefined  && 
+                          characteristics.find( c => matches(c,TACX_FE_C_TX) )!==undefined
+        const hasFTMS = characteristics.find( c => matches(c,FTMS_CP) )!==undefined 
 
         return   hasTacxCP;
     }
+
+    setCharacteristicUUIDs(uuids: string[]): void {
+        uuids.forEach( c => {
+            if (matches(c,TACX_FE_C_RX))
+                this.tacxRx = c;
+            if (matches(c,TACX_FE_C_TX))
+                this.tacxTx = c;
+        })
+    }
+
 
     async init(): Promise<boolean> {
         try {
@@ -478,25 +491,18 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 
 
     onData(characteristic:string,data: Buffer) {     
+
+        const isDuplicate = this.checkForDuplicate(characteristic,data)
+        if (isDuplicate)
+            return;
+
         try {
            
 
-            const uuid = characteristic.toLocaleLowerCase();
-            
-            // workaround to avoid duplicate messages
-            const message = data.toString('hex')
-            const ts = Date.now();
-            if (this.prevMessages[uuid]) {
-                const prev = this.prevMessages[uuid];
-                if (prev.message===message && prev.ts>ts-500) {
-                    return;
-                }
-            }
-            this.prevMessages[uuid] = { uuid,ts,message}
-            this.messageCnt++;
+            const uuid = characteristic.toLocaleLowerCase();          
     
             let res = undefined
-            if (uuid && uuid.startsWith(TACX_FE_C_RX)) {
+            if (uuid && matches(uuid,this.tacxRx)) {
                 res = this.parseFECMessage(data)
             }
             else {
@@ -559,7 +565,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 	}
 
     async sendMessage(message:Buffer):Promise<boolean> {
-        await this.write( TACX_FE_C_TX, message,true )
+        await this.write( this.tacxTx, message,true )
         return true;
     }
 

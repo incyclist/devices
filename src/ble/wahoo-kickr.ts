@@ -1,6 +1,6 @@
 import BleInterface from './ble-interface';
 import BleProtocol from './incyclist-protocol';
-import { BleDeviceClass } from './ble';
+import { BleDeviceClass, matches } from './ble';
 import DeviceAdapter, { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from '../Device';
 import {EventLogger} from 'gd-eventlog';
 import BleFitnessMachineDevice, { FmAdapter } from './fm';
@@ -70,24 +70,27 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
     timeOffset: number = 0
     tsPrevWrite = undefined;  
     prevSlope = undefined;
+    wahooCP:string;
     
     constructor (props?) {
         super(props)
         this.data = {}
+        this.wahooCP = WAHOO_ADVANCED_TRAINER_CP;
     }
 
     isMatching(characteristics: string[]): boolean {
         if (!characteristics)
             return false;
 
-        const hasWahooCP = characteristics.find( c => c===WAHOO_ADVANCED_TRAINER_CP)!==undefined 
-        const hasFTMS = characteristics.find( c => c===FTMS_CP)!==undefined 
+        const hasWahooCP = characteristics.find( c => matches(c,WAHOO_ADVANCED_TRAINER_CP))!==undefined 
+        const hasFTMS = characteristics.find( c => matches(c,FTMS_CP))!==undefined 
+
         return   hasWahooCP && !hasFTMS;
     }
 
     async init(): Promise<boolean> {
         try {
-            await this.subscribeWriteResponse(WAHOO_ADVANCED_TRAINER_CP)            
+            await this.subscribeWriteResponse(this.wahooCP);         
             await super.initDevice();
             return true;
             
@@ -96,6 +99,13 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
             this.logEvent( {message:'error',fn:'WahooAdvancedFitnessMachineDevice.init()',error:err.message||err, stack:err.stack})
             return false;
         }
+    }
+
+    setCharacteristicUUIDs(uuids: string[]): void {
+        uuids.forEach( c => {
+            if (matches(c,WAHOO_ADVANCED_TRAINER_CP))
+                this.wahooCP = c;
+        })
     }
 
 
@@ -196,6 +206,10 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
     onData(characteristic:string,data: Buffer) {       
         super.onData(characteristic,data);
 
+        const isDuplicate = this.checkForDuplicate(characteristic,data)
+        if (isDuplicate)
+            return;
+
         const uuid = characteristic.toLocaleLowerCase();
 
         let res = undefined
@@ -231,7 +245,7 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
             const message = Buffer.concat( [opcode,data])
 
             
-            const res = await this.write( WAHOO_ADVANCED_TRAINER_CP, message )
+            const res = await this.write( this.wahooCP, message )
 
 
             const responseData = Buffer.from(res)

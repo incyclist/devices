@@ -17,6 +17,13 @@ type CommandQueueItem = {
     reject
 }
 
+export interface MessageLog {
+    uuid: string, 
+    timestamp,
+    data: string
+}
+
+
 export abstract class BleDevice extends BleDeviceClass  { 
 
     id: string;
@@ -33,6 +40,7 @@ export abstract class BleDevice extends BleDeviceClass  {
     subscribedCharacteristics: string[]
     writeQueue: CommandQueueItem[];
     workerIv: NodeJS.Timeout;
+    prevMessages: MessageLog[] 
 
     constructor (props?: BleDeviceConstructProps) {
         super()
@@ -47,6 +55,7 @@ export abstract class BleDevice extends BleDeviceClass  {
         this.isInitialized = false;
         this.writeQueue = [];
         this.workerIv = null;
+        this.prevMessages = []
 
         if (props.peripheral) {
             const {id,address,advertisement,state} = props.peripheral;
@@ -347,7 +356,30 @@ export abstract class BleDevice extends BleDeviceClass  {
 
     abstract getProfile(): string;
 
+    checkForDuplicate(characteristic:string, data: Buffer) {
+        // don't process duplicate messages
+        const prev = this.prevMessages.find( i => i.uuid===characteristic);
+        if (prev) {
+            if ( prev.data === data.toString('hex') && prev.timestamp>Date.now()-500) {
+                prev.timestamp = Date.now();
+                return true;
+            }
+            else {
+                prev.data = data.toString('hex')
+                prev.timestamp = Date.now();
+            }
+        }
+        else {
+            this.prevMessages.push( {uuid:characteristic, timestamp:Date.now(), data:data.toString('hex')})
+            
+        }
+        return false;
+
+    }
+
     onData(characteristic:string, data: Buffer): void {
+
+
 
         if (this.writeQueue.length>0 ) {
             const writeIdx = this.writeQueue.findIndex( i => i.uuid===characteristic.toLocaleLowerCase());            

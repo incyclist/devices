@@ -178,6 +178,7 @@ export default class BleFitnessMachineDevice extends BleDevice {
     constructor (props?) {
         super(props)
         this.data = {}
+        
     }
 
     isMatching(characteristics: string[]): boolean {
@@ -415,8 +416,14 @@ export default class BleFitnessMachineDevice extends BleDevice {
 
     onData(characteristic:string,data: Buffer) {       
         super.onData(characteristic,data);
+        const isDuplicate = this.checkForDuplicate(characteristic,data)
+        if (isDuplicate)
+            return;
 
         const uuid = characteristic.toLocaleLowerCase();
+
+
+
 
         let res = undefined
         switch(uuid) {
@@ -432,7 +439,7 @@ export default class BleFitnessMachineDevice extends BleDevice {
             case '2a63':
             case '2a5b':
             case '347b0011-7635-408b-8918-8ff3949ce592':
-                this.logger.logEvent( {message:'onBleData',raw:`uuid:${data.toString('hex')}`})        
+                //this.logger.logEvent( {message:'onBleData',raw:`${uuid}:${data.toString('hex')}`})        
                 break;
 
             default:    // ignore
