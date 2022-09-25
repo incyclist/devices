@@ -308,7 +308,7 @@ export default class BleInterface extends BleInterfaceClass {
         if ( Array.isArray(services)) {
             const sids = services.map(uuid);
             return get(deviceTypes, s => { 
-                const res = sids.find( (s)=> matches(s,services)) 
+                const res = sids.find( (service)=> matches(s,service)) 
                 return res!==undefined;
             })
         }

@@ -4,10 +4,9 @@ import { BleDeviceClass, matches } from './ble';
 import DeviceAdapter, { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from '../Device';
 import {EventLogger} from 'gd-eventlog';
 import BleFitnessMachineDevice, { FmAdapter } from './fm';
-import { FTMS_CP } from './consts';
+import { CSP,FTMS_CP,WAHOO_ADVANCED_TRAINER_CP  } from './consts';
 
 const WAHOO_ADVANCED_FTMS =  'a026ee0b'  
-const WAHOO_ADVANCED_TRAINER_CP =  'a026e005'
 
 const cwABike = {
     race: 0.35,
@@ -62,7 +61,7 @@ type CrankData = {
 const ErgWriteDelay = 2000 //ms
 
 export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachineDevice {
-    static services =  ['1818'];
+    static services =  [CSP];
     static characteristics =  [ '2acc', '2ad2', '2ad6', '2ad8', '2ad9', '2ada', WAHOO_ADVANCED_TRAINER_CP];
 
     prevCrankData: CrankData = undefined

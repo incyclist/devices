@@ -192,10 +192,11 @@ export const uuid = (s) => {
 }
 
 export const matches = (uuid1,uuid2) => {
-    if (uuid(uuid1)===uuid(uuid2))
-        return true;
     const ul1 = uuid1.toLowerCase()
     const ul2 = uuid2.toLowerCase()
+
+    if (uuid(ul1)===uuid(ul2))
+        return true;
  
     if (ul1.length<ul2.length && ul2.startsWith(ul1))
         return true

@@ -6,12 +6,11 @@ import DeviceAdapter,{ DeviceData,DEFAULT_USER_WEIGHT, DEFAULT_BIKE_WEIGHT } fro
 import { DeviceProtocol } from '../DeviceProtocol';
 import {EventLogger} from 'gd-eventlog';
 import CyclingMode from '../CyclingMode';
+import {CSP, CSP_MEASUREMENT,CSP_FEATURE}  from './consts'
 
 import PowerMeterCyclingMode from '../modes/power-meter';
 import { IncyclistBikeData } from '../CyclingMode';
 
-const CP_MEASUREMENT = '2a63';
-const CP_FEATURE = '2a65'
 
 type PowerData = {
     instantaneousPower?: number;
@@ -29,8 +28,8 @@ type CrankData = {
 }
 
 export default class BleCyclingPowerDevice extends BleDevice {
-    static services =  ['1818'];
-    static characteristics =  [ CP_MEASUREMENT, CP_FEATURE, '2a5d', '2a3c' ];
+    static services =  [CSP];
+    static characteristics =  [ CSP_MEASUREMENT, CSP_FEATURE, '2a5d', '2a3c' ];
     
     instantaneousPower: number = undefined;
     balance: number = undefined;
@@ -49,8 +48,8 @@ export default class BleCyclingPowerDevice extends BleDevice {
         if (!characteristics)
             return false;
 
-        const hasCPMeasurement =  characteristics.find( c => c===CP_MEASUREMENT)!==undefined
-        const hasCPFeature = characteristics.find( c => c===CP_FEATURE)!==undefined
+        const hasCPMeasurement =  characteristics.find( c => c===CSP_MEASUREMENT)!==undefined
+        const hasCPFeature = characteristics.find( c => c===CSP_FEATURE)!==undefined
         
         return hasCPMeasurement && hasCPFeature
     }
@@ -156,7 +155,7 @@ export default class BleCyclingPowerDevice extends BleDevice {
             return;
 
 
-        if (characteristic.toLocaleLowerCase() === CP_MEASUREMENT) { //  name: 'Cycling Power Measurement',
+        if (characteristic.toLocaleLowerCase() === CSP_MEASUREMENT) { //  name: 'Cycling Power Measurement',
             const res = this.parsePower(data)
             this.emit('data', res)
         }
