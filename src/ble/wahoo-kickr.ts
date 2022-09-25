@@ -71,6 +71,11 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
     prevSlope = undefined;
     wahooCP:string;
     isSimMode: boolean;
+    simModeSettings: { 
+        weight:number, 
+        crr: number,
+        cw: number
+    }
     
     constructor (props?) {
         super(props)
@@ -327,6 +332,7 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
                 this.setPowerAdjusting();
                 this.data.targetPower = power;
                 this.isSimMode = false;
+                this.simModeSettings = undefined;
             }
 
             return res;            
@@ -341,13 +347,19 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
         this.logger.logEvent( {message:'setSimMode',weight,crr,cw})     
 
         try {
-            /*
+            
+            if (this.isSimMode && this.simModeSettings) {
+                if ( weight===this.simModeSettings.weight &&
+                     crr === this.simModeSettings.crr && 
+                     cw === this.simModeSettings.cw)
+                     return true;
+            }
             const hasControl = await this.requestControl(); 
             if (!hasControl) {
                 this.logEvent({message: 'setSimMode failed',reason:'control is disabled'})
                 return false;
             }
-            */
+            
 
             const data = Buffer.alloc(6)
             data.writeInt16LE( Math.round(weight*100), 0)
@@ -356,6 +368,7 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
             
             const res = await this.writeWahooFtmsMessage(OpCode.setSimMode, data )
             this.isSimMode = true;
+            this.simModeSettings={weight,crr,cw}
             return res;            
         }
         catch(err) {
@@ -483,6 +496,7 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
     reset() {
         this.data = {}
         this.isSimMode = undefined;
+        this.simModeSettings = undefined
     
     }
 
