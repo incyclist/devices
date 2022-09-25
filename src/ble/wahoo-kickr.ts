@@ -238,6 +238,7 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
     async writeWahooFtmsMessage(requestedOpCode:number, data:Buffer) {
         
         try {
+            this.logEvent({message:'wahoo cp:write', data:data.toString('hex')})
 
             const opcode = Buffer.alloc(1)
             opcode.writeUInt8(requestedOpCode,0)
@@ -251,13 +252,13 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
 
             const result = responseData.readUInt8(0)
             //const opCode = responseData.readUInt8(1)
-            this.logEvent( {message: 'response',opCode: requestedOpCode, response:responseData.toString('hex') })
+            this.logEvent( {message: 'wahoo cp:response',opCode: requestedOpCode, response:responseData.toString('hex') })
             return result===1;
 
             
         }
         catch(err) {
-            this.logEvent({message:'writeWahooFtmsMessage failed', opCode: requestedOpCode, reason: err.message})
+            this.logEvent({message:'wahoo cp:write failed', opCode: requestedOpCode, reason: err.message})
             return false
         } 
     }
@@ -267,10 +268,6 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
             return true;
 
         this.logEvent( {message:'requestControl'})
-
-        this.hasControl = true;
-        return;
-
 
         const data = Buffer.alloc(2)
         data.writeUInt8(0xEE,0)
