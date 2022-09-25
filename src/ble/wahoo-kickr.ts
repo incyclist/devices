@@ -420,7 +420,8 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
     async setSimGrade( slope: number):Promise<boolean> {  
         this.logger.logEvent( {message:'setSimGrade',slope})                 
         try {
-            const value = (Math.min(1, Math.max(-1, slope)) + 1.0) * 65535 / 2.0
+            //const value = (Math.min(1, Math.max(-1, slope)) + 1.0) * 65535 / 2.0
+            const value =  (slope / 100.0 + 1.0) * 32768;
             const slopeVal = Math.floor(value)
 
             const data = Buffer.alloc(2)
@@ -482,7 +483,9 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
             if (!this.isSimMode) {
                 const {weight,crr, cw} = this;
 
-                await this.setSimMode(weight,crr,cw)
+                const hasSimMode = await this.setSimMode(weight,crr,cw)
+                if (!hasSimMode)
+                    throw new Error( 'Sim Mode not enabled')
             }
     
             const res = await this.setSimGrade( slope)
@@ -493,6 +496,7 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
         catch( err) {
             this.logEvent( {message:'setSlope failed',reason:err.message||err})
             this.prevSlope = undefined;
+            return false;
         }
         
     }
