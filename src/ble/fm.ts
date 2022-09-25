@@ -195,6 +195,7 @@ export default class BleFitnessMachineDevice extends BleDevice {
 
 
     async subscribeWriteResponse(cuuid: string) {
+        this.logEvent({message:'subscribe to CP response',characteristics:cuuid})
         const connector = this.ble.getConnector( this.peripheral)
 
             const isAlreadySubscribed = connector.isSubscribed(cuuid)            
@@ -817,7 +818,7 @@ export class FmAdapter extends DeviceAdapter {
 
 
     async start( props?: any ): Promise<any> {
-        this.logger.logEvent({message: 'start requested', profile:this.getProfile(),props})
+        this.logger.logEvent({message: 'ftms: start requested', profile:this.getProfile(),props})
 
         if ( this.ble.isScanning())
             await this.ble.stopScan();

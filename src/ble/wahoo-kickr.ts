@@ -4,7 +4,7 @@ import { BleDeviceClass, matches } from './ble';
 import DeviceAdapter, { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from '../Device';
 import {EventLogger} from 'gd-eventlog';
 import BleFitnessMachineDevice, { FmAdapter } from './fm';
-import { CSP,FTMS_CP,WAHOO_ADVANCED_TRAINER_CP  } from './consts';
+import { CSP,FTMS_CP,WAHOO_ADVANCED_TRAINER_CP, WAHOO_ADVANCED_TRAINER_CP_FULL  } from './consts';
 
 const WAHOO_ADVANCED_FTMS =  'a026ee0b'  
 
@@ -70,6 +70,7 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
     tsPrevWrite = undefined;  
     prevSlope = undefined;
     wahooCP:string;
+    isSimMode: boolean;
     
     constructor (props?) {
         super(props)
@@ -90,6 +91,13 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
     async init(): Promise<boolean> {
         try {
             await this.subscribeWriteResponse(this.wahooCP);         
+            try {
+                await this.subscribeWriteResponse(WAHOO_ADVANCED_TRAINER_CP_FULL.toLowerCase())
+            }
+            catch(err) {
+
+            }
+
             await super.initDevice();
             return true;
             
@@ -101,6 +109,8 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
     }
 
     setCharacteristicUUIDs(uuids: string[]): void {
+
+        this.logEvent({message:'set uuids',uuids})
         uuids.forEach( c => {
             if (matches(c,WAHOO_ADVANCED_TRAINER_CP))
                 this.wahooCP = c;
@@ -206,10 +216,14 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
         super.onData(characteristic,data);
 
         const isDuplicate = this.checkForDuplicate(characteristic,data)
-        if (isDuplicate)
+        /*
+        if (isDuplicate) {
+            console.log('~~~ duplicate')
             return;
+        }
+        */
 
-        const uuid = characteristic.toLocaleLowerCase();
+        const uuid = characteristic.toLowerCase();
 
         let res = undefined
         switch(uuid) {
@@ -226,6 +240,7 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
                 res = this.parseFitnessMachineStatus(data)
                 break;
             default:    // ignore
+                this.logEvent({message:'data',uuid,data:data.toString('hex')})
                 break;
 
         }
@@ -238,21 +253,18 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
     async writeWahooFtmsMessage(requestedOpCode:number, data:Buffer) {
         
         try {
-            this.logEvent({message:'wahoo cp:write', data:data.toString('hex')})
 
             const opcode = Buffer.alloc(1)
             opcode.writeUInt8(requestedOpCode,0)
             const message = Buffer.concat( [opcode,data])
-
-            
+            this.logEvent({message:'wahoo cp:write', data:message.toString('hex')})
+           
             const res = await this.write( this.wahooCP, message )
 
 
             const responseData = Buffer.from(res)
-
             const result = responseData.readUInt8(0)
             //const opCode = responseData.readUInt8(1)
-            this.logEvent( {message: 'wahoo cp:response',opCode: requestedOpCode, response:responseData.toString('hex') })
             return result===1;
 
             
@@ -301,67 +313,126 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
 
 
     async setErgMode( power:number):Promise<boolean> {
-        if (this.isPowerAdjusting())
-            return false;
-        
-        const data = Buffer.alloc(2)
-        data.writeInt16LE( Math.round(power), 0)
-        
-        const res = await this.writeWahooFtmsMessage(OpCode.setErgMode, data )
-        if (res===true) {
-            this.setPowerAdjusting();
-            this.data.targetPower = power;
-        }
+        this.logger.logEvent( {message:'setErgMode',power})     
 
-        return res;            
+        try {
+            if (this.isPowerAdjusting())
+                return false;
+
+            const data = Buffer.alloc(2)
+            data.writeInt16LE( Math.round(power), 0)
+            
+            const res = await this.writeWahooFtmsMessage(OpCode.setErgMode, data )
+            if (res===true) {
+                this.setPowerAdjusting();
+                this.data.targetPower = power;
+                this.isSimMode = false;
+            }
+
+            return res;            
+        }
+        catch(err) {
+            this.logEvent({message:'error',fn:'setErgMode', error:err.message||err, stack:err.stack})
+            return false;
+        }
     }
 
-    async setSimMode( weight:number, crr: number, cw:number):Promise<boolean> {        
-        const data = Buffer.alloc(6)
-        data.writeInt16LE( Math.round(weight*100), 0)
-        data.writeInt16LE( Math.round(crr*10000), 2)
-        data.writeInt16LE( Math.round(cw*1000), 4)
-        
-        const res = await this.writeWahooFtmsMessage(OpCode.setSimMode, data )
-        return res;            
+    async setSimMode( weight:number, crr: number, cw:number):Promise<boolean> {   
+        this.logger.logEvent( {message:'setSimMode',weight,crr,cw})     
+
+        try {
+            /*
+            const hasControl = await this.requestControl(); 
+            if (!hasControl) {
+                this.logEvent({message: 'setSimMode failed',reason:'control is disabled'})
+                return false;
+            }
+            */
+
+            const data = Buffer.alloc(6)
+            data.writeInt16LE( Math.round(weight*100), 0)
+            data.writeInt16LE( Math.round(crr*10000), 2)
+            data.writeInt16LE( Math.round(cw*1000), 4)
+            
+            const res = await this.writeWahooFtmsMessage(OpCode.setSimMode, data )
+            this.isSimMode = true;
+            return res;            
+        }
+        catch(err) {
+            this.logEvent({message:'error',fn:'setSimMode', error:err.message||err, stack:err.stack})
+            return false;
+        }
     }
 
     async setSimCRR( crr: number):Promise<boolean> {        
-        const data = Buffer.alloc(2)
-        data.writeInt16LE( Math.round(crr*10000), 0)
-        
-        const res = await this.writeWahooFtmsMessage(OpCode.setSimCRR, data )
-        return res;            
+        this.logger.logEvent( {message:'setSimCRR',crr})     
+
+        try {
+            const data = Buffer.alloc(2)
+            data.writeInt16LE( Math.round(crr*10000), 0)
+            
+            const res = await this.writeWahooFtmsMessage(OpCode.setSimCRR, data )
+            return res;            
+        }
+        catch(err) {
+            this.logEvent({message:'error',fn:'setSimCRR', error:err.message||err, stack:err.stack})
+            return false;
+        }
+
     }
 
     async setSimWindResistance( cw: number):Promise<boolean> {        
-        const data = Buffer.alloc(2)
-        data.writeInt16LE( Math.round(cw*1000), 0)
+        this.logger.logEvent( {message:'setSimWindResistance',cw})     
         
-        const res = await this.writeWahooFtmsMessage(OpCode.setSimWindResistance, data )
-        return res;            
+        try {
+            const data = Buffer.alloc(2)
+            data.writeInt16LE( Math.round(cw*1000), 0)
+            
+            const res = await this.writeWahooFtmsMessage(OpCode.setSimWindResistance, data )
+            return res;            
+        }
+        catch(err) {
+            this.logEvent({message:'error',fn:'setSimWindResistance', error:err.message||err, stack:err.stack})
+            return false;
+        }
+
     }
 
-    async setSimGrade( slope: number):Promise<boolean> {        
-        const value = (Math.min(1, Math.max(-1, slope)) + 1.0) * 65535 / 2.0
-        const slopeVal = Math.floor(value)
+    async setSimGrade( slope: number):Promise<boolean> {  
+        this.logger.logEvent( {message:'setSimGrade',slope})                 
+        try {
+            const value = (Math.min(1, Math.max(-1, slope)) + 1.0) * 65535 / 2.0
+            const slopeVal = Math.floor(value)
 
-        const data = Buffer.alloc(2)
-        data.writeInt16LE( slopeVal, 0)
-        
-        const res = await this.writeWahooFtmsMessage(OpCode.setSimGrade, data )
-        return res;            
+            const data = Buffer.alloc(2)
+            data.writeInt16LE( slopeVal, 0)
+            
+            const res = await this.writeWahooFtmsMessage(OpCode.setSimGrade, data )
+            return res;            
+        }
+        catch(err) {
+            this.logEvent({message:'error',fn:'setSimGrade', error:err.message||err, stack:err.stack})
+            return false;
+        }
+
     }
 
     async setSimWindSpeed( v: number):Promise<boolean> {         // m/s 
+        this.logger.logEvent( {message:'setSimWindSpeed',v})     
+        try {
+            const value = (Math.max(-32.767, Math.min(32.767, v)) + 32.767) * 1000
 
-        const value = (Math.max(-32.767, Math.min(32.767, v)) + 32.767) * 1000
+            const data = Buffer.alloc(2)
+            data.writeInt16LE( Math.round(value), 0)
+            
+            const res = await this.writeWahooFtmsMessage(OpCode.setSimWindSpeed, data )
+            return res;            
+        }
+        catch(err) {
+            this.logEvent({message:'error',fn:'setSimWindSpeed', error:err.message||err, stack:err.stack})
+            return false;
+        }
 
-        const data = Buffer.alloc(2)
-        data.writeInt16LE( Math.round(value), 0)
-        
-        const res = await this.writeWahooFtmsMessage(OpCode.setSimWindSpeed, data )
-        return res;            
     }
 
 
@@ -392,7 +463,7 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
         try {
             const hasControl = await this.requestControl(); 
             if (!hasControl) {
-                this.logEvent({message: 'setTargetPower failed',reason:'control is disabled'})
+                this.logEvent({message: 'setSlope failed',reason:'control is disabled'})
                 return false;
             }
     
@@ -411,6 +482,7 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
 
     reset() {
         this.data = {}
+        this.isSimMode = undefined;
     
     }
 
@@ -427,6 +499,7 @@ export class WahooAdvancedFmAdapter extends FmAdapter {
         this.device = device as WahooAdvancedFitnessMachineDevice;
         this.ble = protocol.ble
         this.cyclingMode = this.getDefaultCyclingMode()
+
         this.logger = new EventLogger('BLE-WahooFM')
 
         if (this.device)
@@ -448,16 +521,22 @@ export class WahooAdvancedFmAdapter extends FmAdapter {
 
 
     async start( props?: any ): Promise<any> {
-        this.logger.logEvent({message: 'start requested', profile:this.getProfile(),props})
+        this.logger.logEvent({message: 'wahoo: start requested', profile:this.getProfile(),props,isScanning:this.ble.isScanning()})
 
 
 
-        if ( this.ble.isScanning())
-            await this.ble.stopScan();
             
         try {
+            this.logger.logEvent({message:'wahoo: stop previous scan',isScanning:this.ble.isScanning()})
+
+            if ( this.ble.isScanning())
+                await this.ble.stopScan();
+
+
+            this.logger.logEvent({message:'wahoo trying device connect'})
             const bleDevice = await this.ble.connectDevice(this.device) as WahooAdvancedFitnessMachineDevice
-            bleDevice.setLogger(this.logger);
+            
+            this.logger.logEvent({message:'wahoo device connected', connected:(bleDevice!==null && bleDevice!==undefined)})
 
             if (bleDevice) {
                 this.device = bleDevice;
@@ -474,8 +553,8 @@ export class WahooAdvancedFmAdapter extends FmAdapter {
                     }        
                 }
                 const {user} = props || {}
-                const weight = (user && user.weight ? user.weight : DEFAULT_USER_WEIGHT) +  DEFAULT_BIKE_WEIGHT;
-                this.device.setSimMode(weight, this.device.getCrr(), this.device.getCw())
+                const weight = (user && user.weight ? Number(user.weight) : DEFAULT_USER_WEIGHT) +  DEFAULT_BIKE_WEIGHT;
+                await this.device.setSimMode(weight, this.device.getCrr(), this.device.getCw())
 
                 const startRequest = this.getCyclingMode().getBikeInitRequest()
                 await this.sendUpdate(startRequest);

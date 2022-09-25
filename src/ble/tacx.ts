@@ -771,7 +771,7 @@ export class TacxBleFEAdapter extends FmAdapter {
 
 
     async start( props?: any ): Promise<any> {
-        this.logger.logEvent({message: 'start requested', profile:this.getProfile(),props})
+        this.logger.logEvent({message: 'tacx: start requested', profile:this.getProfile(),props})
 
 
 

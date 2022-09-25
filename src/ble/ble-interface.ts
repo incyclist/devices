@@ -545,6 +545,7 @@ export default class BleInterface extends BleInterfaceClass {
         // Device already registered? Then we only need to connect
         const existing = this.devices.find( i => (!profile|| i.device.getProfile()===profile) && (i.device.address === requested.address || i.device.id === requested.id || i.device.name === requested.name))
         if (existing) {
+            this.logEvent({message:'connect existing device'});
             await existing.device.connect();
             this.scanState.isConnecting = false;
             return existing.device;
@@ -568,8 +569,13 @@ export default class BleInterface extends BleInterfaceClass {
                     }                    
                 }                                
             }
-            
+
+            const connectedDevice = this.devices.find( d => d.isConnected)
+            if (connectedDevice)
+                return connectedDevice.device
+                
         }
+
         
 
         let devices = [];
@@ -581,6 +587,7 @@ export default class BleInterface extends BleInterfaceClass {
                 this.logEvent({message:'retry connect device',id,name,address,profile, retryCount})
             }
             try {
+                
                 devices = await this.scan ( {timeout:DEFAULT_SCAN_TIMEOUT, requested:requested})         
                 
                 if (devices.length===0) {
@@ -929,12 +936,16 @@ export default class BleInterface extends BleInterfaceClass {
     
     }
     
-    stopScan() : Promise<boolean> {
+    async stopScan() : Promise<boolean> {
+        this.logEvent({message:'scan stop request'});
+
         if ( !this.scanState.isScanning) {
-            return Promise.resolve(true)
+            this.logEvent({message:'scan stop result: not scanning'});
+            return true;
         }
+
         if ( !this.getBinding())
-            return Promise.reject(new Error('no binding defined')) 
+            throw new Error('no binding defined') 
 
         this.getBinding().removeAllListeners('discover');
 
@@ -942,19 +953,18 @@ export default class BleInterface extends BleInterfaceClass {
         if (ongoing)
             ongoing.forEach( i => {i.isInterrupted = true;})
 
-        this.logEvent({message:'scan stop request'});
-        return new Promise ( resolve=> {
-            this.getBinding().stopScanning( ()=> {
-                this.scanState.isScanning = false;
-                this.logEvent({message:'scan stop result: success'});
-                resolve(true)
-            })
-        })
+        
+        await this.getBinding().stopScanning();
+        this.scanState.isScanning = false;
+        this.logEvent({message:'scan stop result: success'});
+        return true;
+            
+        
     }
 
 
     isScanning(): boolean {
-        return this.scanState.isScanning
+        return this.scanState.isScanning===true
     }
 
     addConnectedDevice(device: BleDeviceClass):void { 

@@ -285,6 +285,11 @@ export abstract class BleDevice extends BleDeviceClass  {
                             this.peripheral = devices[0].peripheral;
                             await this.connectPeripheral(this.peripheral)
                             this.logEvent({message:'connect result: success',mode:'device', device:  { id, name, address}  })
+
+                            this.connectState.isConnecting = false;
+                            this.connectState.isConnected = true;
+            
+
                             return true;
                         }
         
@@ -382,6 +387,7 @@ export abstract class BleDevice extends BleDeviceClass  {
 
 
         if (this.writeQueue.length>0 ) {
+//            console.log('~~~ onData',characteristic,data.toString('hex'))
             const writeIdx = this.writeQueue.findIndex( i => i.uuid===characteristic.toLocaleLowerCase());            
 
             if (writeIdx!==-1) {

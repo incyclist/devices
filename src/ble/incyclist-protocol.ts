@@ -7,8 +7,8 @@ import BleInterface from "./ble-interface";
 import BleFitnessMachineDevice,{FmAdapter} from "./fm";
 import BleHrmDevice, {HrmAdapter} from "./hrm";
 import BleCyclingPowerDevice, {PwrAdapter} from "./pwr";
-import WahooAdvancedFitnessMachineDevice from "./wahoo-kickr";
-import TacxBleFEDevice from './tacx';
+import WahooAdvancedFitnessMachineDevice, { WahooAdvancedFmAdapter } from "./wahoo-kickr";
+import TacxBleFEDevice, { TacxBleFEAdapter } from './tacx';
 
 interface BleDeviceSettings extends DeviceSettings {
     id?: string;
@@ -67,21 +67,27 @@ export default class BleProtocol extends DeviceProtocolBase implements DevicePro
             case 'fitness machine':
             case TacxBleFEDevice.PROFILE.toLowerCase():
                 let device;
+
                 if ( fromDevice)
                     device = bleDevice as BleDeviceClass;
                 else {
                     device = this.ble.findDeviceInCache( { ...props(), profile })
-                    if (!device) {
-                        if ( profile.toLowerCase()==='wahoo smart trainer')
-                            device = new WahooAdvancedFitnessMachineDevice(props())
-                        else  if (profile===TacxBleFEDevice.PROFILE)
-                            device = new TacxBleFEDevice(props())
-                        else
-                            device = new BleFitnessMachineDevice(props())
-                    }
                 }
+                    
+                if ( profile.toLowerCase()==='wahoo smart trainer') {
+                    device = device || new WahooAdvancedFitnessMachineDevice(props())
+                    return new WahooAdvancedFmAdapter(device,this)
+                }
+                else  if (profile===TacxBleFEDevice.PROFILE) {
+                    device = device || new TacxBleFEDevice(props())
+                    return new TacxBleFEAdapter(device,this)
+                }
+                else {
+                    device = device || new BleFitnessMachineDevice(props())
+                    return new FmAdapter( device ,this);
+                }                
                
-                return new FmAdapter( device ,this);
+
             case 'cp':
             case 'power meter':
                 return new PwrAdapter( fromDevice? bleDevice as BleDeviceClass : new BleCyclingPowerDevice(props()),this);

@@ -134,7 +134,7 @@ export class HrmAdapter extends DeviceAdapter {
 
 
     async start( props?: any ): Promise<any> {
-        this.logger.logEvent({message: 'start requested', profile:this.getProfile(),props})
+        this.logger.logEvent({message: 'hrm: start requested', profile:this.getProfile(),props})
         try {
             const bleDevice = await this.ble.connectDevice(this.device) as BleHrmDevice
             if (bleDevice) {

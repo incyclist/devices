@@ -342,7 +342,7 @@ export class PwrAdapter extends DeviceAdapter {
         if ( props && props.bikeSettings)
             this.bikeSettings = props.bikeSettings;
 
-        this.logger.logEvent({message: 'start requested', profile:this.getProfile(),props})
+        this.logger.logEvent({message: 'csp: start requested', profile:this.getProfile(),props})
         try {
             const bleDevice = await this.ble.connectDevice(this.device) as BleCyclingPowerDevice
             if (bleDevice) {
