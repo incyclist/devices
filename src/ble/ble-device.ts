@@ -3,6 +3,7 @@ import { BleInterfaceClass,BleDeviceClass,BlePeripheral,BleDeviceProps,ConnectPr
 import BlePeripheralConnector from "./ble-peripheral";
 
 const CONNECT_WAIT_TIMEOUT = 10000;
+const BLE_TIMEOUT = 1000;
 
 interface BleDeviceConstructProps extends BleDeviceProps {
     log?: boolean;
@@ -481,7 +482,7 @@ export abstract class BleDevice extends BleDeviceClass  {
                 else {
                     const writeId = this.writeQueue.length;
                     let messageDeleted = false;                    
-                    this.writeQueue.push( {uuid:characteristicUuid.toLocaleLowerCase(), data, timeout:Date.now()+2500, resolve, reject})
+                    this.writeQueue.push( {uuid:characteristicUuid.toLocaleLowerCase(), data, timeout:Date.now()+BLE_TIMEOUT, resolve, reject})
                     const to = setTimeout( ()=>{ 
                         if ( this.writeQueue.length>writeId && !messageDeleted)
                             this.writeQueue.splice(writeId,1);

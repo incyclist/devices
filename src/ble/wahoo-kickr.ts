@@ -71,6 +71,8 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
     prevSlope = undefined;
     wahooCP:string;
     isSimMode: boolean;
+    weight: number = DEFAULT_BIKE_WEIGHT+DEFAULT_USER_WEIGHT;
+
     simModeSettings: { 
         weight:number, 
         crr: number,
@@ -360,6 +362,9 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
                 return false;
             }
             
+            this.weight = weight;
+            this.crr = crr;
+            this.cw = cw;
 
             const data = Buffer.alloc(6)
             data.writeInt16LE( Math.round(weight*100), 0)
@@ -367,6 +372,7 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
             data.writeInt16LE( Math.round(cw*1000), 4)
             
             const res = await this.writeWahooFtmsMessage(OpCode.setSimMode, data )
+
             this.isSimMode = true;
             this.simModeSettings={weight,crr,cw}
             return res;            
@@ -472,12 +478,11 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
         if (this.prevSlope!==undefined && slope===this.prevSlope)
             return;
 
-        //const {windSpeed,crr, cw} = this;
         try {
-            const hasControl = await this.requestControl(); 
-            if (!hasControl) {
-                this.logEvent({message: 'setSlope failed',reason:'control is disabled'})
-                return false;
+            if (!this.isSimMode) {
+                const {weight,crr, cw} = this;
+
+                await this.setSimMode(weight,crr,cw)
             }
     
             const res = await this.setSimGrade( slope)
