@@ -28,6 +28,32 @@ const Protocols = {
     BleProtocol
 }
 
+export interface FeatureList {
+    [key: string] : boolean;
+} 
+
+
+export default class DeviceSupport {
+    static _features: FeatureList = {}
+
+    static init( props:{ features?:FeatureList }={}):void {
+        if (props.features) {
+            this._features = props.features;
+        }
+    }
+
+    static hasFeature(feature: string): boolean {
+        const featureVal =  this._features[feature];
+        if (featureVal===undefined)
+            return false;
+        return featureVal
+    }
+
+    static setFeature(key:string, value:boolean) {
+        this._features[key] = value;
+    }
+}
+
 export {
     DeviceProtocolBase,
     DeviceProtocol,
