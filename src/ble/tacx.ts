@@ -565,7 +565,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 	}
 
     async sendMessage(message:Buffer):Promise<boolean> {
-        await this.write( this.tacxTx, message,true )
+        await this.write( this.tacxTx, message, {withoutResponse:true} )
         return true;
     }
 

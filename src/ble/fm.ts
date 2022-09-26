@@ -1,7 +1,7 @@
 import { BleDevice } from './ble-device';
 import BleInterface from './ble-interface';
 import BleProtocol from './incyclist-protocol';
-import { BleDeviceClass } from './ble';
+import { BleDeviceClass, BleWriteProps } from './ble';
 import DeviceAdapter,{ DeviceData } from '../Device';
 import { DeviceProtocol } from '../DeviceProtocol';
 import {EventLogger} from 'gd-eventlog';
@@ -458,12 +458,12 @@ export default class BleFitnessMachineDevice extends BleDevice {
   
     }
 
-    async writeFtmsMessage(requestedOpCode, data) {
+    async writeFtmsMessage(requestedOpCode, data, props?:BleWriteProps) {
         
         try {
 
             this.logEvent({message:'fmts:write', data:data.toString('hex')})
-            const res = await this.write( FTMS_CP, data )
+            const res = await this.write( FTMS_CP, data, props )
 
             const responseData = Buffer.from(res)
 
@@ -500,7 +500,7 @@ export default class BleFitnessMachineDevice extends BleDevice {
         const data = Buffer.alloc(1)
         data.writeUInt8(OpCode.RequestControl,0)
 
-        const res = await this.writeFtmsMessage(OpCode.RequestControl, data )
+        const res = await this.writeFtmsMessage(OpCode.RequestControl, data , {timeout:5000})
         if (res===OpCodeResut.Success) {
             this.hasControl = true
         }

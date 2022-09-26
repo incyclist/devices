@@ -1,6 +1,7 @@
 import { EventLogger } from "gd-eventlog";
-import { BleInterfaceClass,BleDeviceClass,BlePeripheral,BleDeviceProps,ConnectProps,uuid, BleCharacteristic, BleDeviceInfo } from "./ble";
+import { BleInterfaceClass,BleDeviceClass,BlePeripheral,BleDeviceProps,ConnectProps,uuid, BleCharacteristic, BleDeviceInfo, BleWriteProps } from "./ble";
 import BlePeripheralConnector from "./ble-peripheral";
+import {matches} from './ble'
 
 const CONNECT_WAIT_TIMEOUT = 10000;
 const BLE_TIMEOUT = 1000;
@@ -386,10 +387,11 @@ export abstract class BleDevice extends BleDeviceClass  {
     onData(characteristic:string, data: Buffer): void {
 
 
+        this.logEvent({message:'ble data', characteristic, data:data.toString('hex'), writeQueue:this.writeQueue.length})
 
         if (this.writeQueue.length>0 ) {
 //            console.log('~~~ onData',characteristic,data.toString('hex'))
-            const writeIdx = this.writeQueue.findIndex( i => i.uuid===characteristic.toLocaleLowerCase());            
+            const writeIdx = this.writeQueue.findIndex( i => matches(i.uuid,characteristic));            
 
             if (writeIdx!==-1) {
                 const writeItem = this.writeQueue[writeIdx];
@@ -443,8 +445,10 @@ export abstract class BleDevice extends BleDeviceClass  {
     }
 
 
-    async write( characteristicUuid:string, data:Buffer, withoutResponse:boolean=false): Promise<ArrayBuffer> {
+    async write( characteristicUuid:string, data:Buffer,props?:BleWriteProps): Promise<ArrayBuffer> {
         try {
+
+            const {withoutResponse,timeout} = props||{};
 
             const connector = this.ble.getConnector( this.peripheral)
             const isAlreadySubscribed = connector.isSubscribed(characteristicUuid)
@@ -482,7 +486,8 @@ export abstract class BleDevice extends BleDeviceClass  {
                 else {
                     const writeId = this.writeQueue.length;
                     let messageDeleted = false;                    
-                    this.writeQueue.push( {uuid:characteristicUuid.toLocaleLowerCase(), data, timeout:Date.now()+BLE_TIMEOUT, resolve, reject})
+                    const writeTimeout = timeout!==undefined ? timeout: BLE_TIMEOUT;
+                    this.writeQueue.push( {uuid:characteristicUuid.toLocaleLowerCase(), data, timeout:Date.now()+writeTimeout, resolve, reject})
                     const to = setTimeout( ()=>{ 
                         if ( this.writeQueue.length>writeId && !messageDeleted)
                             this.writeQueue.splice(writeId,1);

@@ -134,10 +134,6 @@ export default class BleERGCyclingMode extends PowerBasedCyclingModeBase impleme
             const slope = ( prevData.slope!==undefined ? prevData.slope : prevRequest.slope || 0); // ignore slope delivered by bike
             const distanceInternal = prevData.distanceInternal || 0;  // meters
 
-            if (bikeData.pedalRpm===0 || bikeData.isPedalling===false) {
-                power = 0;
-            }
-
             // calculate speed and distance
             const m = this.getWeight();
             const t =  this.getTimeSinceLastUpdate();

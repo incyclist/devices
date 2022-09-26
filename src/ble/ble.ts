@@ -61,6 +61,10 @@ export abstract class  BleDeviceClass extends EventEmitter {
 
 }
 
+export interface BleWriteProps {
+    withoutResponse?: boolean;
+    timeout?: number
+}
 
 export interface BleBinding extends EventEmitter {
     startScanning(serviceUUIDs?: string[], allowDuplicates?: boolean, callback?: (error?: Error) => void): void;

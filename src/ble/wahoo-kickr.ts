@@ -1,6 +1,6 @@
 import BleInterface from './ble-interface';
 import BleProtocol from './incyclist-protocol';
-import { BleDeviceClass, matches } from './ble';
+import { BleDeviceClass, BleWriteProps, matches } from './ble';
 import DeviceAdapter, { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from '../Device';
 import {EventLogger} from 'gd-eventlog';
 import BleFitnessMachineDevice, { FmAdapter } from './fm';
@@ -71,6 +71,7 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
     prevSlope = undefined;
     wahooCP:string;
     isSimMode: boolean;
+    isRequestControlBusy: boolean = false;
     weight: number = DEFAULT_BIKE_WEIGHT+DEFAULT_USER_WEIGHT;
 
     simModeSettings: { 
@@ -99,7 +100,8 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
         try {
             await this.subscribeWriteResponse(this.wahooCP);         
             try {
-                await this.subscribeWriteResponse(WAHOO_ADVANCED_TRAINER_CP_FULL.toLowerCase())
+                if ( this.wahooCP!==WAHOO_ADVANCED_TRAINER_CP_FULL.toLowerCase())
+                    await this.subscribeWriteResponse(WAHOO_ADVANCED_TRAINER_CP_FULL.toLowerCase())
             }
             catch(err) {
 
@@ -257,7 +259,7 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
  
     }
 
-    async writeWahooFtmsMessage(requestedOpCode:number, data:Buffer) {
+    async writeWahooFtmsMessage(requestedOpCode:number, data:Buffer,props?:BleWriteProps) {
         
         try {
 
@@ -266,7 +268,7 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
             const message = Buffer.concat( [opcode,data])
             this.logEvent({message:'wahoo cp:write', data:message.toString('hex')})
            
-            const res = await this.write( this.wahooCP, message )
+            const res = await this.write( this.wahooCP, message,props )
 
 
             const responseData = Buffer.from(res)
@@ -285,20 +287,32 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
     async requestControl(): Promise<boolean> {
         if (this.hasControl)
             return true;
-
         this.logEvent( {message:'requestControl'})
 
-        const data = Buffer.alloc(2)
-        data.writeUInt8(0xEE,0)
-        data.writeUInt8(0xFC,1)
+        if (this.isRequestControlBusy)
+            return false;
 
-        const res = await this.writeWahooFtmsMessage(OpCode.unlock, data )
-        if (res===true) {
-            this.hasControl = true
+        this.isRequestControlBusy = true;
+        try 
+        { 
+
+            const data = Buffer.alloc(2)
+            data.writeUInt8(0xEE,0)
+            data.writeUInt8(0xFC,1)
+    
+            const res = await this.writeWahooFtmsMessage(OpCode.unlock, data, {timeout:10000} )
+            if (res===true) {
+                this.hasControl = true
+            }
+            else {
+                this.logEvent( {message:'requestControl failed'})
+            }
+    
         }
-        else {
-            this.logEvent( {message:'requestControl failed'})
+        catch(err) {
+            this.logEvent({message:'error', fn:'requestControl()', error:err.message||err, stack:err.stack})
         }
+        this.isRequestControlBusy = false;
 
         return this.hasControl;
     }
