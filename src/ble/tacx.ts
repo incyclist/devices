@@ -4,7 +4,7 @@ import { BleDeviceClass,matches } from './ble';
 import DeviceAdapter, { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from '../Device';
 import {EventLogger} from 'gd-eventlog';
 import BleFitnessMachineDevice, { FmAdapter,IndoorBikeData } from './fm';
-import {FTMS_CP,TACX_FE_C_BLE,TACX_FE_C_RX,TACX_FE_C_TX} from './consts'
+import {CSC_MEASUREMENT, CSP_MEASUREMENT, FTMS_CP,INDOOR_BIKE_DATA,TACX_FE_C_BLE,TACX_FE_C_RX,TACX_FE_C_TX} from './consts'
 
 const SYNC_BYTE = 0xA4; //164
 const DEFAULT_CHANNEL = 5;
@@ -200,8 +200,10 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         return {rpm, time:this.timeOffset+c.time }
     }
 
-    parseCSC( _data:Buffer):IndoorBikeData {
+    parseCSC( _data:Buffer,logOnly:boolean=false):IndoorBikeData {
         this.logEvent({message:'BLE CSC message',data:_data.toString('hex')});
+        if(logOnly)
+            return this.data
 
         const data:Buffer = Buffer.from(_data);
         let offset = 0;
@@ -226,8 +228,10 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         return this.data;
     }
 
-    parsePower( _data:Buffer):IndoorBikeData {
+    parsePower( _data:Buffer,logOnly:boolean=false):IndoorBikeData {
         this.logEvent({message:'BLE CSP message',data:_data.toString('hex')});
+        if (logOnly)
+            return this.data;
 
         const data:Buffer = Buffer.from(_data);
         try {
@@ -260,6 +264,15 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         const {instantaneousPower, cadence,time} = this.data
         return {instantaneousPower, cadence,time,raw:data.toString('hex')}
 
+    }
+
+    parseIndoorBikeData(_data: Buffer, logOnly?: boolean): IndoorBikeData {
+        this.logEvent({message:'BLE INDOOR_BIKE_DATA message',data:_data.toString('hex')});
+        if (logOnly)
+            return this.data;
+
+        return super.parseIndoorBikeData(_data)
+        
     }
 
     resetState() {
@@ -507,20 +520,18 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
             }
             else {
                 switch(uuid) {
-                    case '2a63': 
-                        if (!this.hasFECData)
-                            res = this.parsePower(data)
+                    case CSP_MEASUREMENT:                         
+                        res = this.parsePower(data,this.hasFECData )                        
                         break;
-                    case '2ad2':    //  name: 'Indoor Bike Data',
-                        if (!this.hasFECData)
-                            res = this.parseIndoorBikeData(data)
+
+                    case INDOOR_BIKE_DATA:                        
+                        res = this.parseIndoorBikeData(data,this.hasFECData)
                         break;
                     case '2a37':     //  name: 'Heart Rate Measurement',
                         res = this.parseHrm(data)
                         break;
-                    case '2a5b':     //  name: 'CSC Measurement',
-                        if (!this.hasFECData)
-                            res = this.parseCSC(data)
+                    case CSC_MEASUREMENT:                        
+                        res = this.parseCSC(data,this.hasFECData)
                         break;
                     case '2ada':     //  name: 'Fitness Machine Status',
                         if (!this.hasFECData)

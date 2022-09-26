@@ -12,6 +12,8 @@ export const CSP               = '1818'
 export const CSP_MEASUREMENT   = '2a63';
 export const CSP_FEATURE       = '2a65'
 
+export const CSC               = '1816'
+export const CSC_MEASUREMENT   = '2a5b';
 
 export const WAHOO_ADVANCED_TRAINER_CP =  'a026e005'
 export const WAHOO_ADVANCED_TRAINER_CP_FULL = 'A026E005-0A7D-4AB3-97FA-F1500F9FEB8B'
