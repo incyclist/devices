@@ -416,10 +416,8 @@ export default class BleFitnessMachineDevice extends BleDevice {
     }
 
     onData(characteristic:string,data: Buffer) {       
+           
         super.onData(characteristic,data);
-        const isDuplicate = this.checkForDuplicate(characteristic,data)
-        if (isDuplicate)
-            return;
 
         const uuid = characteristic.toLocaleLowerCase();
 

@@ -15,7 +15,7 @@ const cwABike = {
 }
 const cRR = 0.0036;					// http://www.radpanther.de/index.php?id=85  -- Conti GP 4000 RS
 
-const enum OpCode   {
+export const enum OpCode   {
     unlock                     = 32,
     setResistanceMode          = 64,
     setStandardMode            = 65,
@@ -224,14 +224,6 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
     onData(characteristic:string,data: Buffer) {       
         super.onData(characteristic,data);
 
-        const isDuplicate = this.checkForDuplicate(characteristic,data)
-        /*
-        if (isDuplicate) {
-            console.log('~~~ duplicate')
-            return;
-        }
-        */
-
         const uuid = characteristic.toLowerCase();
 
         let res = undefined
@@ -434,9 +426,13 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
     async setSimGrade( slope: number):Promise<boolean> {  
         this.logger.logEvent( {message:'setSimGrade',slope})                 
         try {
-            //const value = (Math.min(1, Math.max(-1, slope)) + 1.0) * 65535 / 2.0
-            const value =  (slope / 100.0 + 1.0) * 32768;
-            const slopeVal = Math.floor(value)
+
+            let s = slope;
+            if (s<-100) s=-100;
+            if (s>100) s=100
+
+
+            const slopeVal = Math.min( Math.floor(327.68*s), 32767)
 
             const data = Buffer.alloc(2)
             data.writeInt16LE( slopeVal, 0)

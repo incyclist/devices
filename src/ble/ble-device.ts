@@ -385,9 +385,14 @@ export abstract class BleDevice extends BleDeviceClass  {
     }
 
     onData(characteristic:string, data: Buffer): void {
+        const isDuplicate = this.checkForDuplicate(characteristic,data)
+        if (isDuplicate) {
+            //console.log('~~~ duplicate data',characteristic,data.toString('hex'))
+            return;
+        }
 
 
-        this.logEvent({message:'ble data', characteristic, data:data.toString('hex'), writeQueue:this.writeQueue.length})
+        this.logEvent({message:'got data', characteristic, data:data.toString('hex'), writeQueue:this.writeQueue.length})
 
         if (this.writeQueue.length>0 ) {
 //            console.log('~~~ onData',characteristic,data.toString('hex'))
