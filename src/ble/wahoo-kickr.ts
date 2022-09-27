@@ -432,11 +432,11 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
             if (s>100) s=100
 
 
-            const slopeVal = Math.min( Math.floor(327.68*s), 32767)
+            const slopeVal = Math.min( Math.round((1+s/100)*65535/2.0)  , 65535)
 
             const data = Buffer.alloc(2)
-            data.writeInt16LE( slopeVal, 0)
-            
+            data.writeUInt16LE( slopeVal, 0)
+
             const res = await this.writeWahooFtmsMessage(OpCode.setSimGrade, data )
             return res;            
         }
