@@ -3,6 +3,7 @@ import { EventLogger } from 'gd-eventlog';
 import ErgoRacerProtocol from './protocol';
 import { SendState, SerialCommsState } from '../comms';
 import { Command } from '../../types/command';
+import {MockLogger} from '../../../test/logger'
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
@@ -54,7 +55,7 @@ describe( 'ErgoRacerAdapter', () => {
     })
 
     afterAll( ()=> {
-        EventLogger.useExternalLogger ( undefined)
+        EventLogger.useExternalLogger ( MockLogger)
         jest.useRealTimers();
     })
 

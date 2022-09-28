@@ -83,15 +83,17 @@ export default class IncyclistDevice implements DeviceAdapter {
     detected: boolean;
     selected: boolean;
     onDataFn: OnDeviceDataCallback;
+    settings;
 
     /**
         * @param {DeviceProtocol} proto The DeviceProtocol implementation that should be used to detect this type of device
     */
-    constructor( proto: DeviceProtocol) {
+    constructor( proto: DeviceProtocol, settings?) {
         this.protocol= proto;
         this.detected = false;
         this.selected = false;
         this.onDataFn = undefined;
+        this.settings = settings;
     }
 
     isBike():boolean {throw new Error('not implemented')}
@@ -107,7 +109,41 @@ export default class IncyclistDevice implements DeviceAdapter {
     getProtocolName(): string| undefined {
         return this.protocol ? this.protocol.getName() : undefined;
     }
-    setCyclingMode(mode: CyclingMode|string, settings?:any):void {}
+
+
+    getSupportedCyclingModes(): any[] {throw new Error('not implemented')}
+    getDefaultCyclingMode(): CyclingMode {throw new Error('not implemented')}
+
+    setCyclingMode(mode: CyclingMode|string, settings?:any):void  { 
+        let selectedMode :CyclingMode;
+
+        if ( typeof mode === 'string') {
+            const supported = this.getSupportedCyclingModes();
+            const CyclingModeClass = supported.find( M => { const m = new M(this); return m.getName() === mode })
+            if (CyclingModeClass) {
+                this.settings.cyclingMode = new CyclingModeClass(this,settings);    
+                return;
+            }
+            selectedMode = this.getDefaultCyclingMode();
+        }
+        else {
+            selectedMode = mode;
+        }
+        this.settings.cyclingMode = selectedMode;        
+        this.settings.cyclingMode.setSettings(settings);
+    }
+
+
+
+    getCyclingMode(): CyclingMode {
+        if (!this.settings.cyclingMode)
+            this.setCyclingMode( this.getDefaultCyclingMode());
+        return this.settings.cyclingMode;
+
+    }
+
+
+
 
     setIgnoreHrm(ignore) {}
     setIgnorePower(ignore) {}

@@ -8,6 +8,7 @@ import { runWithRetries } from "../../utils";
 import CyclingMode, { IncyclistBikeData } from "../../CyclingMode";
 import { User } from "../../types/user";
 import PowerMeterCyclingMode from "../../modes/power-meter";
+import ERGCyclingMode from "./ERGCyclingMode";
 
 export interface KettlerRacerCommand extends Command  {
     
@@ -38,7 +39,6 @@ export interface KettlerDeviceSettings extends DeviceSettings {
 
 export default class KettlerRacerAdapter   extends DeviceAdapterBase implements DeviceAdapter, Bike {
     private id: string;
-    private settings;
     private ignoreHrm: boolean;
     private ignoreBike: boolean;
     private ignorePower: boolean;
@@ -54,11 +54,10 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
     private comms: SerialComms<KettlerRacerCommand>;
     private prevDistance: number;
 
-    constructor(protocol: DeviceProtocol, settings: DeviceSettings) {
-        super(protocol);
+    constructor(protocol: DeviceProtocol, settings: KettlerDeviceSettings) {
+        super(protocol,settings);
         this.logger = new EventLogger('KettlerRacer');
 
-        this.settings = settings;
         this.ignoreHrm = false;
         this.ignorePower = false;
         this.ignoreBike = false;
@@ -832,39 +831,13 @@ export default class KettlerRacerAdapter   extends DeviceAdapterBase implements 
     // -----------------------------------------------------------------
 
     getSupportedCyclingModes(): any[] {
-        return [ PowerMeterCyclingMode]
+        return [ PowerMeterCyclingMode, ERGCyclingMode]
     }
 
-    setCyclingMode(mode: CyclingMode|string, settings?:any) { 
-        let selectedMode :CyclingMode;
-
-        if ( typeof mode === 'string') {
-            const supported = this.getSupportedCyclingModes();
-            const CyclingModeClass = supported.find( M => { const m = new M(this); return m.getName() === mode })
-            if (CyclingModeClass) {
-                this.settings.cyclingMode = new CyclingModeClass(this,settings);    
-                return;
-            }
-            selectedMode = this.getDefaultCyclingMode();
-        }
-        else {
-            selectedMode = mode;
-        }
-        this.settings.cyclingMode = selectedMode;        
-        this.settings.cyclingMode.setSettings(settings);
-    }
-
-
-
-    getCyclingMode(): CyclingMode {
-        if (!this.settings.cyclingMode)
-            this.setCyclingMode( this.getDefaultCyclingMode());
-        return this.settings.cyclingMode;
-
-    }
     getDefaultCyclingMode(): CyclingMode {
-        return new PowerMeterCyclingMode(this);
+        return new ERGCyclingMode(this);
     }
+
 
     setUserSettings(userSettings: any): void {
         this.settings.userSettings = userSettings as User;
