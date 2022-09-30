@@ -221,8 +221,10 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
 
 
 
-    onData(characteristic:string,data: Buffer) {       
-        super.onData(characteristic,data);
+    onData(characteristic:string,data: Buffer):boolean {       
+        const hasData = super.onData(characteristic,data);
+        if (!hasData)
+            return false;
 
         const uuid = characteristic.toLowerCase();
 
@@ -245,9 +247,11 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
                 break;
 
         }
-        if (res)
+        if (res) {
             this.emit('data', res)
-
+            return false;
+        }
+        return true;
  
     }
 

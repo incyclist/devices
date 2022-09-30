@@ -83,7 +83,7 @@ export default class IncyclistDevice implements DeviceAdapter {
     detected: boolean;
     selected: boolean;
     onDataFn: OnDeviceDataCallback;
-    settings;
+    settings: any;
 
     /**
         * @param {DeviceProtocol} proto The DeviceProtocol implementation that should be used to detect this type of device
@@ -93,7 +93,7 @@ export default class IncyclistDevice implements DeviceAdapter {
         this.detected = false;
         this.selected = false;
         this.onDataFn = undefined;
-        this.settings = settings;
+        this.settings = settings || {};
     }
 
     isBike():boolean {throw new Error('not implemented')}
@@ -129,6 +129,7 @@ export default class IncyclistDevice implements DeviceAdapter {
         else {
             selectedMode = mode;
         }
+        
         this.settings.cyclingMode = selectedMode;        
         this.settings.cyclingMode.setSettings(settings);
     }

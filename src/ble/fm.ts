@@ -12,6 +12,7 @@ import { IncyclistBikeData } from '../CyclingMode';
 import FtmsCyclingMode from './ble-st-mode';
 import BleERGCyclingMode from './ble-erg-mode';
 import {FTMS, FTMS_CP,FTMS_STATUS,INDOOR_BIKE_DATA, TACX_FE_C_RX, TACX_FE_C_TX} from './consts'
+import BlePeripheralConnector from './ble-peripheral';
 
 const cwABike = {
     race: 0.35,
@@ -142,7 +143,10 @@ export type IndoorBikeData = {
     resistanceLevel?: number;
     instantaneousPower?: number;
     averagePower?: number;
-    expendedEnergy?: number;
+
+    totalEnergy?: number;
+    energyPerHour?: number;
+    energyPerMinute?: number;
     heartrate?: number;
     metabolicEquivalent?: number;
     time?: number;
@@ -178,6 +182,7 @@ export default class BleFitnessMachineDevice extends BleDevice {
     constructor (props?) {
         super(props)
         this.data = {}
+        this.services = BleFitnessMachineDevice.services;
         
     }
 
@@ -195,6 +200,7 @@ export default class BleFitnessMachineDevice extends BleDevice {
 
 
     async subscribeWriteResponse(cuuid: string) {
+
         this.logEvent({message:'subscribe to CP response',characteristics:cuuid})
         const connector = this.ble.getConnector( this.peripheral)
 
@@ -226,11 +232,59 @@ export default class BleFitnessMachineDevice extends BleDevice {
             
     }
 
+    subscribeAll(conn?: BlePeripheralConnector):Promise<void> {
+        return new Promise ( resolve => {
+            const characteristics = [ INDOOR_BIKE_DATA, FTMS_STATUS,FTMS_CP]
+            const timeout = Date.now()+5500;
+
+            const iv = setInterval( ()=> {
+                const subscriptionStatus = characteristics.map( c => this.subscribedCharacteristics.find( s=> s===c)!==undefined)
+                const done = subscriptionStatus.filter(s=> s===true).length === characteristics.length;
+                if (done || Date.now()>timeout) {
+                    clearInterval(iv)
+                    resolve();
+                }
+
+
+
+            },100)
+
+            try {
+                const connector = conn || this.ble.getConnector(this.peripheral)
+    
+    
+                
+                for (let i=0; i<characteristics.length;i++)
+                {
+                    const c = characteristics[i]
+                    const isAlreadySubscribed = connector.isSubscribed(c)            
+                    if ( !isAlreadySubscribed) {   
+                        connector.removeAllListeners(c);
+    
+                        connector.on(c, (uuid,data)=>{  
+                            this.onData(uuid,data)
+                        })
+                        connector.subscribe(c);
+                        this.subscribedCharacteristics.push(c)
+                    }
+                }
+    
+            }
+            catch (err) {
+                this.logEvent({message:'Error', fn:'subscribeAll()', error:err.message, stack:err.stack})
+    
+            }
+            
+        })
+
+    }
+
+
     async init(): Promise<boolean> {
         try {
 
             
-            await this.subscribeWriteResponse(FTMS_CP)            
+            //await this.subscribeWriteResponse(FTMS_CP)            
             await super.initDevice();
             await this.getFitnessMachineFeatures();
             this.logEvent({message: 'device info', deviceInfo:this.deviceInfo, features:this.features })
@@ -293,6 +347,7 @@ export default class BleFitnessMachineDevice extends BleDevice {
             }
         }
         catch (err) { 
+            this.logEvent({message:'error',fn:'parseHrm()',error:err.message|err, stack:err.stack})
 
         }
         return { ...this.data, raw:`2a37:${data.toString('hex')}`};
@@ -309,85 +364,97 @@ export default class BleFitnessMachineDevice extends BleDevice {
 
     parseIndoorBikeData(_data: Uint8Array):IndoorBikeData { 
         const data:Buffer = Buffer.from(_data);
-        const flags = data.readUInt16LE(0)
-        let offset = 2 ;      
-
-        if ((flags & IndoorBikeDataFlag.MoreData)===0) {
-            this.data.speed = data.readUInt16LE(offset)/100; offset+=2;
+        try {
+            const flags = data.readUInt16LE(0)
+            let offset = 2 ;      
+    
+            if ((flags & IndoorBikeDataFlag.MoreData)===0) {
+                this.data.speed = data.readUInt16LE(offset)/100; offset+=2;
+            }
+            if (flags & IndoorBikeDataFlag.AverageSpeedPresent) {
+                this.data.averageSpeed = data.readUInt16LE(offset)/100; offset+=2;
+            }
+            if (flags & IndoorBikeDataFlag.InstantaneousCadence) {
+                this.data.cadence = data.readUInt16LE(offset)/2; offset+=2;
+            }
+            if (flags & IndoorBikeDataFlag.AverageCadencePresent) {
+                this.data.averageCadence = data.readUInt16LE(offset)/2; offset+=2;
+            }
+    
+            if (flags & IndoorBikeDataFlag.TotalDistancePresent) {
+                const dvLow  = data.readUInt8(offset); offset+=1;
+                const dvHigh = data.readUInt16LE(offset); offset+=2;
+                this.data.totalDistance = (dvHigh<<8) +dvLow;
+            }
+            if (flags & IndoorBikeDataFlag.ResistanceLevelPresent) {
+                this.data.resistanceLevel = data.readInt8(offset); offset+=1;
+            }
+            if (flags & IndoorBikeDataFlag.InstantaneousPowerPresent) {
+                this.data.instantaneousPower = data.readInt16LE(offset); offset+=2;
+            }
+            if (flags & IndoorBikeDataFlag.AveragePowerPresent) {
+                this.data.averagePower = data.readInt16LE(offset); offset+=2;
+            }
+            if (flags & IndoorBikeDataFlag.ExpendedEnergyPresent) {
+                this.data.totalEnergy = data.readUInt16LE(offset); offset+=2;
+                this.data.energyPerHour = data.readUInt16LE(offset); offset+=2;
+                this.data.energyPerMinute = data.readUInt8(offset); offset+=1;
+            }
+    
+            if (flags & IndoorBikeDataFlag.HeartRatePresent) {
+                this.data.heartrate = data.readUInt8(offset); offset+=1;
+            }
+            if (flags & IndoorBikeDataFlag.MetabolicEquivalentPresent) {
+                this.data.metabolicEquivalent = data.readUInt8(offset)/10; offset+=2;
+            }
+            if (flags & IndoorBikeDataFlag.ElapsedTimePresent) {
+                this.data.time = data.readUInt16LE(offset); offset+=2;
+            }
+            if (flags & IndoorBikeDataFlag.RemainingTimePresent) {
+                this.data.remainingTime = data.readUInt16LE(offset); offset+=2;
+            }
+    
         }
-        if (flags & IndoorBikeDataFlag.AverageSpeedPresent) {
-            this.data.averageSpeed = data.readUInt16LE(offset)/100; offset+=2;
+        catch(err) {
+            this.logEvent({message:'error',fn:'parseIndoorBikeData()',error:err.message|err, stack:err.stack})
         }
-        if (flags & IndoorBikeDataFlag.InstantaneousCadence) {
-            this.data.cadence = data.readUInt16LE(offset)/2; offset+=2;
-        }
-        if (flags & IndoorBikeDataFlag.AverageCadencePresent) {
-            this.data.averageCadence = data.readUInt16LE(offset)/2; offset+=2;
-        }
-
-        if (flags & IndoorBikeDataFlag.TotalDistancePresent) {
-            const dvLow  = data.readUInt8(offset); offset+=1;
-            const dvHigh = data.readUInt16LE(offset); offset+=2;
-            this.data.totalDistance = (dvHigh<<8) +dvLow;
-        }
-        if (flags & IndoorBikeDataFlag.ResistanceLevelPresent) {
-            this.data.resistanceLevel = data.readInt16LE(offset); offset+=2;
-        }
-        if (flags & IndoorBikeDataFlag.InstantaneousPowerPresent) {
-            this.data.instantaneousPower = data.readInt16LE(offset); offset+=2;
-        }
-        if (flags & IndoorBikeDataFlag.AveragePowerPresent) {
-            this.data.averagePower = data.readInt16LE(offset); offset+=2;
-        }
-        if (flags & IndoorBikeDataFlag.ExpendedEnergyPresent) {
-            this.data.expendedEnergy = data.readUInt16LE(offset); offset+=2;
-        }
-
-        if (flags & IndoorBikeDataFlag.HeartRatePresent) {
-            this.data.heartrate = data.readUInt16LE(offset); offset+=2;
-        }
-        if (flags & IndoorBikeDataFlag.MetabolicEquivalentPresent) {
-            this.data.metabolicEquivalent = data.readUInt16LE(offset)/10; offset+=2;
-        }
-        if (flags & IndoorBikeDataFlag.ElapsedTimePresent) {
-            this.data.time = data.readUInt16LE(offset); offset+=2;
-        }
-        if (flags & IndoorBikeDataFlag.RemainingTimePresent) {
-            this.data.remainingTime = data.readUInt16LE(offset); offset+=2;
-        }
-
         return { ...this.data, raw:`2ad2:${data.toString('hex')}`};
 
     }
 
     parseFitnessMachineStatus(_data: Uint8Array):IndoorBikeData {  
         const data:Buffer = Buffer.from(_data);
-
-        const OpCode = data.readUInt8(0);
-        switch(OpCode) {
-            case FitnessMachineStatusOpCode.TargetPowerChanged:
-                this.data.targetPower = data.readInt16LE(1);
-                break;
-            case FitnessMachineStatusOpCode.TargetInclineChanged:
-                this.data.targetInclination = data.readInt16LE(1)/10;
-                break;
-            case FitnessMachineStatusOpCode.FitnessMachineStartedOrResumed:
-                this.data.status = "STARTED"
-                break;
-            case FitnessMachineStatusOpCode.FitnessMachineStoppedBySafetyKey:
-            case FitnessMachineStatusOpCode.FitnessMachineStoppedOrPaused:
-                this.data.status = "STOPPED"
-                break;
-            case FitnessMachineStatusOpCode.SpinDownStatus:
-                const spinDownStatus = data.readUInt8(1);
-                switch (spinDownStatus) {
-                    case 1: this.data.status = "SPIN DOWN REQUESTED"; break;
-                    case 2: this.data.status = "SPIN DOWN SUCCESS"; break;
-                    case 3: this.data.status = "SPIN DOWN ERROR"; break;
-                    case 4: this.data.status = "STOP PEDALING"; break;
-                    default: break;
+        try {
+            const OpCode = data.readUInt8(0);
+            switch(OpCode) {
+                case FitnessMachineStatusOpCode.TargetPowerChanged:
+                    this.data.targetPower = data.readInt16LE(1);
+                    break;
+                case FitnessMachineStatusOpCode.TargetInclineChanged:
+                    this.data.targetInclination = data.readInt16LE(1)/10;
+                    break;
+                case FitnessMachineStatusOpCode.FitnessMachineStartedOrResumed:
+                    this.data.status = "STARTED"
+                    break;
+                case FitnessMachineStatusOpCode.FitnessMachineStoppedBySafetyKey:
+                case FitnessMachineStatusOpCode.FitnessMachineStoppedOrPaused:
+                    this.data.status = "STOPPED"
+                    break;
+                case FitnessMachineStatusOpCode.SpinDownStatus:
+                    const spinDownStatus = data.readUInt8(1);
+                    switch (spinDownStatus) {
+                        case 1: this.data.status = "SPIN DOWN REQUESTED"; break;
+                        case 2: this.data.status = "SPIN DOWN SUCCESS"; break;
+                        case 3: this.data.status = "SPIN DOWN ERROR"; break;
+                        case 4: this.data.status = "STOP PEDALING"; break;
+                        default: break;
+                    }
                 }
-            }
+    
+        }
+        catch(err) {
+            this.logEvent({message:'error',fn:'parseFitnessMachineStatus()',error:err.message|err, stack:err.stack})
+        }
 
         return { ...this.data, raw:`2ada:${data.toString('hex')}`};
     }
@@ -405,6 +472,7 @@ export default class BleFitnessMachineDevice extends BleDevice {
                 const fitnessMachine = buffer.readUInt32LE(0)
                 const targetSettings = buffer.readUInt32LE(4)
                 this.features = {fitnessMachine, targetSettings}
+                this.logEvent( {message:'supported Features: ',fatures:this.features})
             }
     
         }
@@ -415,9 +483,11 @@ export default class BleFitnessMachineDevice extends BleDevice {
         
     }
 
-    onData(characteristic:string,data: Buffer) {       
+    onData(characteristic:string,data: Buffer):boolean {       
            
-        super.onData(characteristic,data);
+        const hasData = super.onData(characteristic,data);
+        if (!hasData)
+            return false;
 
         const uuid = characteristic.toLocaleLowerCase();
 
@@ -445,15 +515,17 @@ export default class BleFitnessMachineDevice extends BleDevice {
                 break;
 
         }
-        if (res)
+        if (res) {
             this.emit('data', res)
+            return false;
+        }
 
 
         // we might also get: 
         // '2a63' => Cycling Power Measurement
         // '2a5b' => CSC Measurement
         // '347b0011-7635-408b-8918-8ff3949ce592' => Elite 
-  
+        return true;
     }
 
     async writeFtmsMessage(requestedOpCode, data, props?:BleWriteProps) {

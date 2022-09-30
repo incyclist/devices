@@ -201,11 +201,11 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
     }
 
     parseCSC( _data:Buffer,logOnly:boolean=false):IndoorBikeData {
-        this.logEvent({message:'BLE CSC message',data:_data.toString('hex')});
+        const data:Buffer = Buffer.from(_data);
+        this.logEvent({message:'BLE CSC message',data:data.toString('hex')});
         if(logOnly)
             return this.data
 
-        const data:Buffer = Buffer.from(_data);
         let offset = 0;
 
         const flags = data.readUInt8(offset); offset++;
@@ -229,11 +229,11 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
     }
 
     parsePower( _data:Buffer,logOnly:boolean=false):IndoorBikeData {
-        this.logEvent({message:'BLE CSP message',data:_data.toString('hex')});
+        const data:Buffer = Buffer.from(_data);
+        this.logEvent({message:'BLE CSP message',data:data.toString('hex')});
         if (logOnly)
             return this.data;
 
-        const data:Buffer = Buffer.from(_data);
         try {
             let offset = 4;
             const flags = data.readUInt16LE(0)
@@ -503,7 +503,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 
 
 
-    onData(characteristic:string,data: Buffer) {     
+    onData(characteristic:string,data: Buffer):boolean {     
 
         const isDuplicate = this.checkForDuplicate(characteristic,data)
         if (isDuplicate)

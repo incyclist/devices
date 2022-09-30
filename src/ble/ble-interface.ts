@@ -402,6 +402,12 @@ export default class BleInterface extends BleInterfaceClass {
         this.peripheralCache.push({address:peripheral.address, ts:Date.now(), peripheral,connector, ...props});
     }
 
+    onDisconnect(peripheral):void {
+        const idx = this.peripheralCache.findIndex( i => i.address===peripheral.address)
+        if (idx!==-1)
+            this.peripheralCache.splice(idx,1);
+    }
+
     getConnector( peripheral:BlePeripheral) {
         const info = this.peripheralCache.find( i => i.address===peripheral.address)
 
@@ -564,7 +570,8 @@ export default class BleInterface extends BleInterfaceClass {
                 if (devices && devices.length>0) {
                     for (let i=0; i<devices.length;i++) {             
                         const idx = this.devices.push( {device:devices[i], isConnected:false})-1;
-                        await devices[i].connect();
+                        if (!devices[i].isConnected())
+                            await devices[i].connect();
                         this.devices[idx].isConnected = true;
                     }                    
                 }                                
@@ -808,6 +815,9 @@ export default class BleInterface extends BleInterfaceClass {
 
 
             const onPeripheralFound = async (peripheral:BlePeripheral, fromCache:boolean=false)  => {                
+                if ( !peripheral ||!peripheral.advertisement || !peripheral.advertisement.localName  || !peripheral.advertisement.serviceUuids || peripheral.advertisement.serviceUuids.length===0) 
+                    return
+
                 if (fromCache)
                     this.logEvent({message:'adding from Cache', peripheral:peripheral.address})
                 else {
@@ -816,8 +826,6 @@ export default class BleInterface extends BleInterfaceClass {
                     this.logEvent({message:'BLE scan: found device',peripheral:{id,name,address,services:advertisement.serviceUuids}})
                 }
 
-                if ( !peripheral ||!peripheral.advertisement || !peripheral.advertisement.serviceUuids || peripheral.advertisement.serviceUuids.length===0) 
-                    return
 
                 // I found some scans (on Mac) where address was not set
                 if (peripheral.address===undefined || peripheral.address==='')
@@ -866,7 +874,7 @@ export default class BleInterface extends BleInterfaceClass {
                     if (scanForDevice) { 
                         if( 
                             (id && id!=='' && d.id === id) || 
-                            (address && address!=='' && d.address===address) || 
+                            (address && address!=='' && d.address===address) ||
                             (name && name!=='' && d.name===name))
                             cntFound++;
                     }
@@ -917,8 +925,14 @@ export default class BleInterface extends BleInterfaceClass {
                 onPeripheralFound(i.peripheral, true)
             })
 
-
-            bleBinding.startScanning([], true, (err) => {                
+            let services = []
+            if (scanForDevice) {
+                if (props.requested instanceof BleDeviceClass) {
+                    const device = props.requested as BleDeviceClass;
+                    services  = (device.getServices()) || []                        
+                }
+            }
+            bleBinding.startScanning(services, false, (err) => {                
                 if (err) {
                     this.logEvent({message:`${opStr} result: error`, requested: scanForDevice ? {name, address,profile}: undefined,  error:err.message});
                     this.scanState.isScanning = false;

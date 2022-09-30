@@ -94,6 +94,10 @@ export default class AntFEAdapter extends AntAdapter {
         return new PowerMeterCyclingMode(this);
     }
 
+    getSupportedCyclingModes(): any[] {
+        return [PowerMeterCyclingMode]
+    }
+
     onAttached() {
         this.logger.logEvent( {message:'Device connected'})
         this.connected = true;

@@ -30,7 +30,7 @@ export default class BlePeripheralConnector {
         if (!this.peripheral || !this.ble)
             throw new Error('Illegal Arguments')
 
-        this.state = { isConnected:false, isConnecting:false, isInitialized:false, isInitializing:false, isSubscribing:false}
+        this.state = { subscribed:[], isConnected:false, isConnecting:false, isInitialized:false, isInitializing:false, isSubscribing:false}
         this.services = undefined;
         this.characteristics = undefined;
         this.logger = new EventLogger( 'BLE')
@@ -40,9 +40,9 @@ export default class BlePeripheralConnector {
         if ( this.logger) {
             this.logger.logEvent(event)
         }
-//        if (process.env.BLE_DEBUG) {
+        if (process.env.BLE_DEBUG) {
             console.log( '~~~BLE:', event)
-//        }
+        }
     }  
 
 
@@ -54,9 +54,13 @@ export default class BlePeripheralConnector {
 
         this.state.isConnecting = true;
         try {
+            this.peripheral.on('connect',()=> { console.log('~~~ peripheral connected', this.peripheral)})
+            //this.peripheral.once('disconnect',()=> { console.log('~~~ peripheral disconnected', this.peripheral)})
+
+            this.peripheral.on('disconnect', ()=> {this.onDisconnect()})
+
             if ( !this.state.isConnected || (this.peripheral && this.peripheral.state!=='connected')) {
                 await this.peripheral.connectAsync();                    
-                this.peripheral.once('disconnect', this.onDisconnect.bind(this))
             }
             this.state.isConnected = this.peripheral.state==='connected'
     
@@ -72,10 +76,13 @@ export default class BlePeripheralConnector {
     }
 
     onDisconnect() {
+        this.peripheral.removeAllListeners('connect');
+        this.peripheral.removeAllListeners('disconnect');
         this.logEvent( {message:'onDisconnected',peripheral:this.peripheral.address, state:this.state})
         this.state.isConnected = false;
-
-        this.reconnect();
+        this.state.isConnecting = false;
+        this.emitter.emit('disconnect')
+        //this.reconnect();
     }
 
     // get all services and characteristics
@@ -149,7 +156,7 @@ export default class BlePeripheralConnector {
                     // don't resubscribe 
                     if ( this.state.subscribed.find( uuid => uuid===c.uuid)===undefined) {
                         try {
-                            await this.subscribe(c.uuid)
+                            await this.subscribe(c.uuid,3000)
                             subscribed.push(c.uuid)
                         }
                         catch (err) {
@@ -170,9 +177,9 @@ export default class BlePeripheralConnector {
         return subscribed;
     }
 
-    subscribe( characteristicUuid:string): Promise<boolean> {
+    subscribe( characteristicUuid:string, timeout?:number): Promise<boolean> {
         
-        this.logEvent({message:'subscribe',characteristic:characteristicUuid,characteristics: this.characteristics.map(c=>({characteristic:c.uuid,uuid:uuid(c.uuid)}))})
+        this.logEvent({message:'subscribe attempt',characteristic:characteristicUuid,characteristics: this.characteristics.map(c=>({characteristic:c.uuid,uuid:uuid(c.uuid)}))})
         return new Promise ( (resolve,reject) => {
     
             try {
@@ -182,20 +189,23 @@ export default class BlePeripheralConnector {
                     reject(new Error( 'Characteristic not found'))
                     return;
                 }
-                this.logEvent({message:'subscribe', peripheral:this.peripheral.address, characteristic:characteristic.uuid,uuid:uuid(characteristic.uuid)})
+                this.logEvent({message:'subscribe', peripheral:this.peripheral.address, characteristic:characteristic.uuid})
     
                 characteristic.removeAllListeners('data');
                 characteristic.on('data', (data, _isNotification) => {
                     this.onData(uuid(characteristicUuid), data)
                 });
 
-                const to = setTimeout( ()=>{ 
-                    this.logEvent({message:'subscribe result',characteristic:characteristicUuid,error:'timeout'})
-                    reject( new Error('timeout'));
-                },3000)
+                let to;
+                if (timeout) {
+                    to = setTimeout( ()=>{ 
+                        this.logEvent({message:'subscribe result',characteristic:characteristicUuid,error:'timeout'})
+                        reject( new Error('timeout'));
+                    },timeout)
+                }
     
                 characteristic.subscribe((err) => {
-                    clearTimeout(to)
+                    if (to) clearTimeout(to)
                     this.logEvent({message:'subscribe result',characteristic:characteristicUuid, error:err})
                     
                     if (err)

@@ -1,7 +1,7 @@
 import { BleDevice } from './ble-device';
 import BleInterface from './ble-interface';
 import BleProtocol from './incyclist-protocol';
-import { BleDeviceClass } from './ble';
+import { BleDeviceClass,matches } from './ble';
 import DeviceAdapter,{ DeviceData,DEFAULT_USER_WEIGHT, DEFAULT_BIKE_WEIGHT } from '../Device';
 import { DeviceProtocol } from '../DeviceProtocol';
 import {EventLogger} from 'gd-eventlog';
@@ -147,18 +147,19 @@ export default class BleCyclingPowerDevice extends BleDevice {
         return {instantaneousPower, balance,accTorque,rpm,time,raw:`2a63:${data.toString('hex')}`}
     }
 
-    onData(characteristic:string,data: Buffer) {
-        super.onData(characteristic,data);
-
-        const isDuplicate = this.checkForDuplicate(characteristic,data)
-        if (isDuplicate)
-            return;
+    onData(characteristic:string,data: Buffer): boolean {
+        const hasData = super.onData(characteristic,data);
+        if (!hasData) 
+            return false;
 
 
-        if (characteristic.toLocaleLowerCase() === CSP_MEASUREMENT) { //  name: 'Cycling Power Measurement',
+
+        if ( matches(characteristic,CSP_MEASUREMENT)) { //  name: 'Cycling Power Measurement',
             const res = this.parsePower(data)
             this.emit('data', res)
+            return false;
         }
+        return true;
   
     }
 
@@ -237,6 +238,10 @@ export class PwrAdapter extends DeviceAdapter {
         return new PowerMeterCyclingMode(this);
     }
 
+    getSupportedCyclingModes(): any[] {
+        return [PowerMeterCyclingMode]
+    }
+
 
     getPort():string {
         return 'ble' 
@@ -270,7 +275,6 @@ export class PwrAdapter extends DeviceAdapter {
             return;
         this.prevDataTS = Date.now()
         
-
         this.logger.logEvent( {message:'onDeviceData',data:deviceData})        
 
         // transform data into internal structure of Cycling Modes

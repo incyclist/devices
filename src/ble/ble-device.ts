@@ -37,7 +37,7 @@ export abstract class BleDevice extends BleDeviceClass  {
     characteristics = []
     state?: string;
     logger?: EventLogger;
-    deviceInfo: BleDeviceInfo = {}
+    deviceInfo: BleDeviceInfo = {};
     isInitialized: boolean;
     subscribedCharacteristics: string[]
     writeQueue: CommandQueueItem[];
@@ -79,13 +79,17 @@ export abstract class BleDevice extends BleDeviceClass  {
 
     }
 
+    getServices(): string[] {
+        return this.services;
+    }
+
     logEvent(event) {
         if ( this.logger) {
             this.logger.logEvent(event)
         }
-        if (process.env.BLE_DEBUG) {
+        //if (process.env.BLE_DEBUG) {
             console.log( '~~~BLE:', event)
-        }
+        //}
     }  
 
     setLogger(logger: EventLogger) {
@@ -122,8 +126,16 @@ export abstract class BleDevice extends BleDeviceClass  {
         // reconnect
         if ( !this.connectState.isDisconnecting) {
             this.peripheral.state= 'disconnected'
+            this.connectState.isConnecting = false;
             this.connectState.isConnected = false;
-            this.connect( ) 
+
+            this.cleanupListeners();
+            this.subscribedCharacteristics  = [];
+            
+            this.ble.onDisconnect(this.peripheral)
+
+            // reconnect
+            this.connect( {reconnect:true}) 
         }
         this.emit('disconnected')    
     }
@@ -187,6 +199,7 @@ export abstract class BleDevice extends BleDeviceClass  {
         try {
             const connector = this.ble.getConnector(peripheral)
 
+            connector.on('disconnect',()=>{this.onDisconnect()})
             await connector.connect();
             await connector.initialize();
             await this.subscribeAll(connector)
@@ -209,7 +222,7 @@ export abstract class BleDevice extends BleDeviceClass  {
 
     
 
-    async subscribeAll(conn?: BlePeripheralConnector) {
+    async subscribeAll(conn?: BlePeripheralConnector):Promise<void> {
 
         try {
             const connector = conn || this.ble.getConnector(this.peripheral)
@@ -223,11 +236,12 @@ export abstract class BleDevice extends BleDeviceClass  {
         }
     }
 
-    async connect(props?: ConnectProps): Promise<boolean> {
 
+    async connect(props?: ConnectProps): Promise<boolean> {
+        const {reconnect} = props||{}
         try {
-            this.logEvent( {message:'connect',address: this.peripheral? this.peripheral.address: this.address, state:this.connectState})
-            if (this.connectState.isConnecting) {
+            this.logEvent( {message: reconnect? 'reconnect': 'connect',address: this.peripheral? this.peripheral.address: this.address, state:this.connectState})
+            if (!reconnect && this.connectState.isConnecting) {
                 await this.waitForConnectFinished(CONNECT_WAIT_TIMEOUT)
             }
     
@@ -333,6 +347,8 @@ export abstract class BleDevice extends BleDeviceClass  {
 
         if (!this.connectState.isConnecting && !this.connectState.isConnected) {
             this.connectState.isDisconnecting = false;
+            this.connectState.isConnecting = false;
+            this.connectState.isConnected = false;
             this.logEvent({message:'disconnect result: success',device: { id, name, address} })
             return true;
         }
@@ -344,6 +360,8 @@ export abstract class BleDevice extends BleDeviceClass  {
             // reconnect posible after 1s
             setTimeout(()=> { this.connectState.isDisconnecting = false; }, 1000)
             this.logEvent({message:'disconnect result: unclear - connect ongoing',device: { id, name, address} })
+            this.connectState.isConnecting = false;
+            this.connectState.isConnected = false;
             return true;
         }
 
@@ -351,11 +369,11 @@ export abstract class BleDevice extends BleDeviceClass  {
             this.ble.removeConnectedDevice(this)
             this.cleanupListeners();
 
-            // we keep the device connected, so that it can be re-used
-
-            // reconnect posible after 1s
-            setTimeout(()=> { this.connectState.isDisconnecting = false; }, 1000)
             this.logEvent({message:'disconnect result: success',device: { id, name, address} })
+            this.connectState.isDisconnecting = false;
+            this.connectState.isConnecting = false;
+            this.connectState.isConnected = false;
+
             return true;
         }
     }
@@ -384,15 +402,17 @@ export abstract class BleDevice extends BleDeviceClass  {
 
     }
 
-    onData(characteristic:string, data: Buffer): void {
+    onData(characteristic:string, _data: Buffer): boolean {
+        const data:Buffer = Buffer.from(_data);
+
         const isDuplicate = this.checkForDuplicate(characteristic,data)
         if (isDuplicate) {
             //console.log('~~~ duplicate data',characteristic,data.toString('hex'))
-            return;
+            return false;
         }
 
 
-        this.logEvent({message:'got data', characteristic, data:data.toString('hex'), writeQueue:this.writeQueue.length})
+        this.logEvent({message:'got data', characteristic,   data:data.toString('hex'), writeQueue:this.writeQueue.length})
 
         if (this.writeQueue.length>0 ) {
 //            console.log('~~~ onData',characteristic,data.toString('hex'))
@@ -407,10 +427,12 @@ export abstract class BleDevice extends BleDeviceClass  {
                 if (writeItem.resolve)
                     writeItem.resolve(data)
                 
-
+                return false;
             }
 
+
         }
+        return true;
 
     }
 
@@ -451,7 +473,10 @@ export abstract class BleDevice extends BleDeviceClass  {
 
 
     async write( characteristicUuid:string, data:Buffer,props?:BleWriteProps): Promise<ArrayBuffer> {
+            
         try {
+            if (!this.isConnected())
+                throw new Error('not connected')
 
             const {withoutResponse,timeout} = props||{};
 
@@ -526,6 +551,9 @@ export abstract class BleDevice extends BleDeviceClass  {
 
     read( characteristicUuid:string): Promise<Uint8Array> {
         return new Promise ( (resolve,reject) => {
+            if (!this.isConnected())
+                return reject( new Error('not connected'))
+
             const characteristic: BleCharacteristic = this.characteristics.find( c=> c.uuid===characteristicUuid || uuid(c.uuid)===characteristicUuid );
             if (!characteristic) {
                 reject(new Error( 'Characteristic not found'))
@@ -564,6 +592,7 @@ export abstract class BleDevice extends BleDeviceClass  {
         info.swRevision = info.swRevision ||await readValue('2a28')
         info.manufacturer = info.manufacturer ||await readValue('2a29')
 
+    
         this.deviceInfo = info;
         return info;
 

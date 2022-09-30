@@ -3,6 +3,7 @@ import BlePeripheralConnector from "./ble-peripheral";
 
 export type ConnectProps = {
     timeout?: number;
+    reconnect?: boolean;
 }
 
 export interface BleDeviceIdentifier  {
@@ -55,6 +56,7 @@ export abstract class  BleDeviceClass extends EventEmitter {
     abstract connect( props?:ConnectProps ): Promise<boolean>
     abstract disconnect(): Promise<boolean>
     abstract getDeviceInfo(): Promise<BleDeviceInfo> 
+    abstract getServices(): string[]
 
     setCharacteristicUUIDs( uuids: string[]) {}
 
@@ -127,6 +129,7 @@ export abstract class BleInterfaceClass extends EventEmitter   {
     abstract scan( props:ScanProps) : Promise<BleDeviceClass[]> 
     abstract stopScan() : Promise<boolean> 
     abstract disconnect() : Promise<boolean>
+    abstract onDisconnect(peripheral: BlePeripheral) : void
 
     abstract isScanning(): boolean
     abstract addConnectedDevice(device: BleDeviceClass):void
