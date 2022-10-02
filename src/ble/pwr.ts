@@ -41,6 +41,10 @@ export default class BleCyclingPowerDevice extends BleDevice {
     currentCrankData: CrankData = undefined
     prevCrankData: CrankData = undefined
     
+    constructor (props?) {
+        super(props)
+    }
+
     isMatching(characteristics: string[]): boolean {
         if (!characteristics)
             return false;
