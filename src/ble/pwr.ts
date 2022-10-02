@@ -30,6 +30,7 @@ type CrankData = {
 export default class BleCyclingPowerDevice extends BleDevice {
     static services =  [CSP];
     static characteristics =  [ CSP_MEASUREMENT, CSP_FEATURE, '2a5d', '2a3c' ];
+    static detectionPriority = 1;
     
     instantaneousPower: number = undefined;
     balance: number = undefined;
@@ -40,10 +41,6 @@ export default class BleCyclingPowerDevice extends BleDevice {
     currentCrankData: CrankData = undefined
     prevCrankData: CrankData = undefined
     
-    constructor (props?) {
-        super(props)
-    }
-
     isMatching(characteristics: string[]): boolean {
         if (!characteristics)
             return false;
@@ -53,7 +50,6 @@ export default class BleCyclingPowerDevice extends BleDevice {
         
         return hasCPMeasurement && hasCPFeature
     }
-
 
     async init(): Promise<boolean> {
         try {

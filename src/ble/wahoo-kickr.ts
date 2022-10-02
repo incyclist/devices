@@ -63,6 +63,7 @@ const ErgWriteDelay = 2000 //ms
 export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachineDevice {
     static services =  [CSP];
     static characteristics =  [ '2acc', '2ad2', '2ad6', '2ad8', '2ad9', '2ada', WAHOO_ADVANCED_TRAINER_CP];
+    static detectionPriority = 5;
 
     prevCrankData: CrankData = undefined
     currentCrankData: CrankData = undefined

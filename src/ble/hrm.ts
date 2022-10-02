@@ -14,6 +14,7 @@ type HrmData = {
 export default class BleHrmDevice extends BleDevice {
     static services =  ['180d'];
     static characteristics =  ['2a37', '2a38', '2a39', '2a3c'];
+    static detectionPriority = 1;
     
     heartrate: number;
     rr: number;
@@ -23,7 +24,6 @@ export default class BleHrmDevice extends BleDevice {
         this.heartrate = undefined
         this.rr = undefined
     }
-
 
     getProfile(): string {
         return 'Heartrate Monitor';

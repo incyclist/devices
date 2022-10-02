@@ -167,7 +167,8 @@ type IndoorBikeFeatures = {
 export default class BleFitnessMachineDevice extends BleDevice {
     static services =  [FTMS];
     static characteristics =  [ '2acc', INDOOR_BIKE_DATA, '2ad6', '2ad8', FTMS_CP, FTMS_STATUS ];
-    
+    static detectionPriority = 100;
+
     data: IndoorBikeData
     features: IndoorBikeFeatures = undefined
     hasControl: boolean = false
@@ -193,11 +194,9 @@ export default class BleFitnessMachineDevice extends BleDevice {
         const hasStatus =  characteristics.find( c => c===FTMS_STATUS)!==undefined
         const hasCP = characteristics.find( c => c===FTMS_CP)!==undefined
         const hasIndoorBike = characteristics.find( c => c===INDOOR_BIKE_DATA)!==undefined
-        const hasTacx = characteristics.find( c => c===TACX_FE_C_RX)!==undefined  && characteristics.find( c => c===TACX_FE_C_TX)!==undefined
 
-        return hasStatus && hasCP && hasIndoorBike /*&& !hasTacx*/;
+        return hasStatus && hasCP && hasIndoorBike;
     }
-
 
     async subscribeWriteResponse(cuuid: string) {
 
@@ -314,8 +313,8 @@ export default class BleFitnessMachineDevice extends BleDevice {
     }
 
     isBike(): boolean {
-        return this.features!==undefined && 
-            (this.features.targetSettings & TargetSettingFeatureFlag.IndoorBikeSimulationParametersSupported)!==0
+        return this.features===undefined || 
+            ((this.features.targetSettings & TargetSettingFeatureFlag.IndoorBikeSimulationParametersSupported)!==0)
     }
 
     isPower(): boolean {

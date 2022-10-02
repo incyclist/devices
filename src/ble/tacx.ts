@@ -80,6 +80,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
     static services =  [TACX_FE_C_BLE];
     static characteristics =  [ '2acc', '2ad2', '2ad6', '2ad8', '2ad9', '2ada', TACX_FE_C_RX, TACX_FE_C_TX];
     static PROFILE = PROFILE_ID;
+    static detectionPriority = 10;
 
     prevCrankData: CrankData = undefined
     currentCrankData: CrankData = undefined
@@ -102,14 +103,12 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 
     }
 
-    
     isMatching(characteristics: string[]): boolean {
         if (!characteristics)
             return false;
 
         const hasTacxCP = characteristics.find( c => matches(c,TACX_FE_C_RX) )!==undefined  && 
                           characteristics.find( c => matches(c,TACX_FE_C_TX) )!==undefined
-        const hasFTMS = characteristics.find( c => matches(c,FTMS_CP) )!==undefined 
 
         return   hasTacxCP;
     }

@@ -99,9 +99,9 @@ export default class BleInterface extends BleInterfaceClass {
         if ( this.logger) {
             this.logger.logEvent(event)
         }
-//        if (process.env.BLE_DEBUG) {
+        if (process.env.BLE_DEBUG) {
             console.log( '~~BLE:', event)
-//        }
+        }
     }
 
 
@@ -817,9 +817,10 @@ export default class BleInterface extends BleInterfaceClass {
             const onPeripheralFound = async (peripheral:BlePeripheral, fromCache:boolean=false)  => {                
                 if ( !peripheral ||!peripheral.advertisement || !peripheral.advertisement.localName  || !peripheral.advertisement.serviceUuids || peripheral.advertisement.serviceUuids.length===0) 
                     return
-
-                if (fromCache)
+                
+                if (fromCache) {
                     this.logEvent({message:'adding from Cache', peripheral:peripheral.address})
+                }
                 else {
                     const {id,name,address,advertisement={}} = peripheral;                    
                     
@@ -845,12 +846,13 @@ export default class BleInterface extends BleInterfaceClass {
 
                 const connectedPeripheral = connector.getPeripheral();
                 const {id,name,address,advertisement={}} = connectedPeripheral;  
-                const DeviceClasses = this.getDeviceClasses(connectedPeripheral,{profile,services});
+                const DeviceClasses = this.getDeviceClasses(connectedPeripheral,{profile,services}) || [];
                 
                 this.logEvent({message:'BLE scan: device connected',peripheral:{id,name,address,services:advertisement.serviceUuids},services, classes:DeviceClasses.map(c=>c.prototype.constructor.name) })                
     
                 let cntFound = 0;
-                DeviceClasses.forEach( async DeviceClass => {
+                const DeviceClass = DeviceClasses.sort( (a,b) => ((a as any).detectionPriority||0-(b as any).detectionPriority||0)  )[0]
+//                DeviceClasses.forEach( async DeviceClass => {
                     if (!DeviceClass)
                         return;
                     
@@ -917,13 +919,15 @@ export default class BleInterface extends BleInterfaceClass {
                     }
 
 
-                })
+//                })
             }
                 
             this.logEvent({message:`${opStr}: start scanning`, requested: scanForDevice ? {name, address,profile}: undefined,timeout})
+            /*
             this.peripheralCache.forEach( i => {
                 onPeripheralFound(i.peripheral, true)
             })
+            */
 
             let services = []
             if (scanForDevice) {
