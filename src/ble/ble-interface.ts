@@ -99,9 +99,9 @@ export default class BleInterface extends BleInterfaceClass {
         if ( this.logger) {
             this.logger.logEvent(event)
         }
-        if (process.env.BLE_DEBUG) {
+//        if (process.env.BLE_DEBUG) {
             console.log( '~~BLE:', event)
-        }
+//        }
     }
 
 
@@ -119,20 +119,6 @@ export default class BleInterface extends BleInterfaceClass {
     connect(props: ConnectProps={}): Promise<boolean> {
         const timeout = props.timeout || 2000;
 
-        const runBackgroundScan = ()=> {
-            return;
-            // trigger background scan
-            /*
-            this.scanState.isBackgroundScan = true;
-            this.scan({timeout:BACKGROUND_SCAN_TIMEOUT,isBackgroundScan:true})
-            .then(  ()=> {
-                this.scanState.isBackgroundScan = false;                        
-            })
-            .catch( ()=> {
-                this.scanState.isBackgroundScan = false;                        
-            })
-            */
-        }
 
         return new Promise((resolve, reject) => {
             if ( this.connectState.isConnected) {
@@ -194,7 +180,6 @@ export default class BleInterface extends BleInterfaceClass {
                     this.connectState.isConnecting = false;
                     this.logEvent({message:'connect result: success'});
                     resolve(true);
-                    runBackgroundScan()
                     return;
                     
 
@@ -221,7 +206,6 @@ export default class BleInterface extends BleInterfaceClass {
                             this.connectState.isConnected = true;
                             this.connectState.isConnecting = false;
                             this.logEvent({message:'connect result: success'});
-                            runBackgroundScan()
 
                             return resolve(true);
                         }  
@@ -661,7 +645,8 @@ export default class BleInterface extends BleInterfaceClass {
 
 
     async scan( props:ScanProps) : Promise<BleDeviceClass[]> {
-        const {timeout=DEFAULT_SCAN_TIMEOUT, deviceTypes=[],requested,isBackgroundScan } = props;
+        const {timeout=DEFAULT_SCAN_TIMEOUT, deviceTypes=[],requested } = props;
+
         let profile;
         if (requested)
             profile = requested instanceof  BleDeviceClass  ? 
@@ -670,7 +655,7 @@ export default class BleInterface extends BleInterfaceClass {
         const {id,address,name} = requested || {};
         
         const scanForDevice = (requested!==null && requested!==undefined)
-        const services =  (props.isBackgroundScan || !deviceTypes || deviceTypes.length===0) ? this.getAllSupportedServices() : this.getServicesFromDeviceTypes(deviceTypes)
+        const services =  (!deviceTypes || deviceTypes.length===0) ? this.getAllSupportedServices() : this.getServicesFromDeviceTypes(deviceTypes)
         const bleBinding = this.getBinding()
         if ( !bleBinding) 
             return Promise.reject(new Error('no binding defined')) 
@@ -684,22 +669,15 @@ export default class BleInterface extends BleInterfaceClass {
         const devicesProcessed = []
 
         
-        this.logEvent( {message:'scan()',props:{ timeout, isBackgroundScan}, scanState:this.scanState, 
+        this.logEvent( {message:'scan()',props:{ timeout}, scanState:this.scanState, 
                         peripheralCache:this.peripheralCache.map(i=> ({address:i.address, ts:i.ts, name:i.peripheral? i.peripheral.advertisement.localName : ''})),
                         deviceCache: this.devices.map( i=> ({ address:i.device.address, profile:i.device.getProfile(),isConnected:i.isConnected }))
                     })
-
-        // scan is already ongoing: stop if it is a background scan
-        if (!props.isBackgroundScan && this.scanState.isBackgroundScan) {
-            await this.stopScan();
-            this.scanState.isBackgroundScan = false;
-        }
-
-        
+       
         let opStr;
         if ( scanForDevice)  {
             opStr = 'search device';
-            this.logEvent({message:'search device request',device:{id,address,name}, deviceTypes});
+            this.logEvent({message:'search device request',services,device:{id,address,name}, deviceTypes});
         }
         else  {
             opStr = 'scan'
@@ -722,7 +700,6 @@ export default class BleInterface extends BleInterfaceClass {
         return new Promise( (resolve, reject) => {
 
             this.scanState.isScanning = true;
-            if (props.isBackgroundScan) this.scanState.isBackgroundScan = true;
 
             if (scanForDevice ) {
 
@@ -734,62 +711,7 @@ export default class BleInterface extends BleInterfaceClass {
                     // are there already existing devices ?!?
                     const existing = this.devices.find( i=> (i.device.address===address || i.device.name===name || i.device.id===id ) );
                     if (existing)
-                        this.logEvent( {message: `${opStr}: device already registered`, device:{name, address}})
-                    
-                    /*
-                    if (existing) {
-                        this.logEvent({message:`${opStr}: device is already registered`, device:{name, address}, knownDevices})
-                        const d = device as any;
-                        const linkedDevice = existing.device
-                        d.peripheral = existing.device.peripheral;
-                        if (d.setInterface && typeof (d.setInterface)==='function')                    
-                            d.setInterface(this);
-                        
-                        setTimeout( ()=>{
-                            let connectState = linkedDevice.getConnectState();
-                            this.logEvent({message:`${opStr}: device already registered`, device:device.name, address:device.address,connectState });         
-                            
-                            if (connectState.isConnecting) {
-                                const waitStart = Date.now();
-                                const waitTimeout = waitStart + timeout;
-
-                                const waitIv = setInterval( ()=>{
-                                    try {
-    
-                                        connectState = linkedDevice.getConnectState();
-                                        //console.log( '~~~',Date.now()-waitStart, connectState)
-                                        if (connectState.isConnecting && Date.now()>waitTimeout)  {
-                                            clearInterval(waitIv)
-                                            this.scanState.isScanning = false;
-                                            return resolve([])
-                                        }
-                                        if (!connectState.isConnecting) {
-                                            clearInterval(waitIv)
-                                            this.scanState.isScanning = false;
-                                            return resolve([device])
-                                        }
-                        
-                                    }
-                                    catch( err) { console.log('~~~ error',err)}
-                        
-                                }, 100)
-                                
-    
-                            }
-                            else if (connectState.isConnected ) {
-                                this.scanState.isScanning = false;
-                                resolve([device])
-                            }
-                            else {
-                                this.scanState.isScanning = false;
-                                resolve([])
-                            }
-    
-                        }, 100)
-                        
-                    }
-                    */
-    
+                        this.logEvent( {message: `${opStr}: device already registered`, device:{name, address}})                   
                 }
 
                 
