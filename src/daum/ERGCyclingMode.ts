@@ -29,6 +29,7 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
     chain: number[];
     cassette: number[];
     event: ERGEvent ={};
+    static isERG = true;
 
     constructor(adapter: DaumAdapter, props?:any) {
         super(adapter,props);

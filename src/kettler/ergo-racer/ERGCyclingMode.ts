@@ -24,6 +24,7 @@ export type ERGEvent = {
 
 export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements CyclingMode {
 
+    static isERG = true
     prevRequest: UpdateRequest;
     hasBikeUpdate: boolean = false;
     chain: number[];

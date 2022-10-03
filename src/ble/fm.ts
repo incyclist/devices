@@ -14,6 +14,8 @@ import BleERGCyclingMode from './ble-erg-mode';
 import {FTMS, FTMS_CP,FTMS_STATUS,INDOOR_BIKE_DATA, TACX_FE_C_RX, TACX_FE_C_TX} from './consts'
 import BlePeripheralConnector from './ble-peripheral';
 
+const sleep = (ms) => new Promise( resolve=> setTimeout(resolve,ms))
+
 const cwABike = {
     race: 0.35,
     triathlon:0.29,
@@ -911,7 +913,18 @@ export class FmAdapter extends DeviceAdapter {
                     }        
                 }
 
-                await this.device.requestControl();
+                let hasControl = await this.device.requestControl();
+                if ( !hasControl) {
+                    let retry = 1;
+                    while(!hasControl && retry<3) {
+                        await sleep(1000);
+                        hasControl = await this.device.requestControl();
+                        retry++;
+                    }
+                }
+                if (!hasControl)
+                    throw new Error( 'could not establish control')
+
                
                 const startRequest = this.getCyclingMode().getBikeInitRequest()
                 await this.sendUpdate(startRequest);

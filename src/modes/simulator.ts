@@ -29,6 +29,7 @@ export type ERGEvent = {
 export default class SimulatorCyclingMode extends PowerBasedCyclingModeBase { 
 
 
+    static isERG = true
     logger: EventLogger;
     data: IncyclistBikeData ;
     prevRequest: UpdateRequest;
@@ -46,8 +47,6 @@ export default class SimulatorCyclingMode extends PowerBasedCyclingModeBase {
 
         this.logger.logEvent({message:'constructor',props})
     }
-
-
     getName(): string {
         return config.name;
     }

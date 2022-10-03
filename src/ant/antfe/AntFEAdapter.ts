@@ -6,9 +6,8 @@ import {Queue,hexstr, runWithRetries} from '../../utils'
 import CyclingMode, { IncyclistBikeData } from '../../CyclingMode';
 import AntStCyclingMode from './ant-fe-st-mode';
 import AntFeERGCyclingMode from './ant-fe-erg-mode';
+import AntAdvSimCyclingMode from './ant-fe-adv-st-mode';
 
-const floatVal = (d) => d ? parseFloat(d) :d
-const intVal = (d) => d ? parseInt(d) :d
 const hex = (v) =>  Math.abs(v).toString(16).toUpperCase();
 
 const TIMEOUT_ACK = 5000;
@@ -117,7 +116,7 @@ export default class AntFEAdapter extends AntAdapter {
 
 
     getSupportedCyclingModes() : Array<any> {
-        return [AntStCyclingMode,AntFeERGCyclingMode]
+        return [AntStCyclingMode,AntFeERGCyclingMode,AntAdvSimCyclingMode]
     }
 
     setCyclingMode(mode: string | CyclingMode, settings?: any): void {

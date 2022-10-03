@@ -16,6 +16,8 @@ const MIN_SPEED = 10;
 
 export default class BleERGCyclingMode extends PowerBasedCyclingModeBase implements CyclingMode {
 
+    static isERG = true;
+
     prevRequest: UpdateRequest;
     hasBikeUpdate: boolean = false;
     chain: number[];
@@ -53,7 +55,6 @@ export default class BleERGCyclingMode extends PowerBasedCyclingModeBase impleme
             return {pedalRpm,slope, power,speed} 
         }
         this.logger.logEvent( {message:"processing update request",request,prev:this.prevRequest,data:getData()} );        
-
         let newRequest:UpdateRequest = {}
         try {
 
@@ -61,11 +62,11 @@ export default class BleERGCyclingMode extends PowerBasedCyclingModeBase impleme
                 this.prevRequest = {};
                 return request.reset ? {reset:true} : {};
             }
+            delete request.slope                
 
             const prevData = this.data || {} as any;
 
             if (request.targetPower!==undefined) {
-                delete request.slope                
                 delete request.refresh;               
             }
 
@@ -74,12 +75,6 @@ export default class BleERGCyclingMode extends PowerBasedCyclingModeBase impleme
                 delete request.refresh; 
                 newRequest.targetPower = this.prevRequest.targetPower;
             } 
-
-            if (request.slope!==undefined) {
-                if (!this.data) this.data = {} as any;
-                this.data.slope = request.slope;
-                delete request.slope;
-            }
                 
             if (request.maxPower!==undefined && request.minPower!==undefined && request.maxPower===request.minPower) {
                 request.targetPower = request.maxPower;                
