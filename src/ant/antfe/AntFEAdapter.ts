@@ -10,19 +10,20 @@ import AntAdvSimCyclingMode from './ant-fe-adv-st-mode';
 
 const hex = (v) =>  Math.abs(v).toString(16).toUpperCase();
 
-const TIMEOUT_ACK = 5000;
+const TIMEOUT_ACK = 1000;
 const TIMEOUT_START = 10000;
 const TIMEOUT_ATTACH = 3000;
 const DEFAULT_USER_WEIGHT = 75;
 const DEFAULT_BIKE_WEIGHT = 10;
 const DEFAULT_BIKE_WEIGHT_MOUNTAIN = 14.5;
 
-/*
+
 class MockLogger {
     log(...args) { console.log('~~~~~Ant:',...args)}
     logEvent(event) { console.log('~~~~~Ant:'+event.message, event)}
 }
-*/
+
+
 
 export type AntFEDeviceData = {
 	DeviceID: number;
@@ -316,7 +317,7 @@ export default class AntFEAdapter extends AntAdapter {
     
         let distance=0;
         if ( this.distanceInternal!==undefined && bikeData.distanceInternal!==undefined ) {
-            distance =  Math.round(bikeData.distanceInternal-this.distanceInternal)
+            distance =  bikeData.distanceInternal-this.distanceInternal
         }
         if (bikeData.distanceInternal!==undefined)
             this.distanceInternal = bikeData.distanceInternal;
@@ -356,6 +357,7 @@ export default class AntFEAdapter extends AntAdapter {
         const {args ={}, user={}} = opts;
         
         return new Promise( async (resolve,reject) => {
+
             if(this.ignoreHrm && this.ignoreBike && this.ignorePower) {
                 this.logger.logEvent({message:'start() not done: bike disabled'});        
                 return resolve(false)
@@ -532,22 +534,23 @@ export default class AntFEAdapter extends AntAdapter {
         try {
 
             const isReset = ( !request || request.reset || Object.keys(request).length===0 );
-            // TODO: handle reset
-            
+            if (isReset)
+                this.sendTrackResistanceNR(0)
+
             if (update.slope!==undefined) {
-                await  runWithRetries( async ()=>{ return await this.sendTrackResistance(update.slope) }, 2, 100 );
+                this.sendTrackResistanceNR(update.slope)
             }
     
             if (update.targetPower!==undefined) {
-                await  runWithRetries( async ()=>{ return await this.sendTargetPower(update.targetPower)},2,100);
+                this.sendTargetPowerNR(update.targetPower)
             }
             else if (request.maxPower!==undefined) {
                 if ( this.data.power && this.data.power>request.maxPower)
-                await  runWithRetries( async ()=>{ return await this.sendTargetPower(request.maxPower);},2,100);
+                    this.sendTargetPowerNR(request.maxPower)
             }
             else if (request.minPower!==undefined) {
                 if ( this.data.power && this.data.power<request.minPower)
-                await  runWithRetries( async ()=>{ return await this.sendTargetPower(request.minPower);},2,100);
+                    this.sendTargetPowerNR(request.minPower)
             }
         
         }
@@ -659,7 +662,11 @@ export default class AntFEAdapter extends AntAdapter {
     ====================================== Commands ==============================================
     */
 
-    sendUserConfiguration (userWeight, bikeWeight, wheelDiameter, gearRatio) {
+    sendUserConfigurationNR (userWeight, bikeWeight, wheelDiameter, gearRatio) {
+        this.sendUserConfiguration(userWeight, bikeWeight, wheelDiameter, gearRatio,true)
+    }
+
+    sendUserConfiguration (userWeight, bikeWeight, wheelDiameter, gearRatio,withoutResponse=false) {
 
         return new Promise( (resolve,reject) => {
             if (!this.connected)
@@ -703,7 +710,12 @@ export default class AntFEAdapter extends AntAdapter {
     
             const Messages = this.protocol.getAnt().Messages;
             let msg = Messages.acknowledgedData(payload);
-                
+        
+            if (withoutResponse) {
+                this.send( msg, logStr)    
+                return resolve(true)  
+            }
+
             this.send( msg, logStr, (res,err)=> {
                 if (err)
                     return reject(err)
@@ -713,7 +725,11 @@ export default class AntFEAdapter extends AntAdapter {
 
     }
 
-    sendBasicResistance( resistance) {
+    sendBasicResistanceNR( resistance) {
+        this.sendBasicResistance( resistance,true)
+    }
+
+    sendBasicResistance( resistance,withoutResponse=false) {
         return new Promise( (resolve,reject) => {
 
             if (!this.connected)
@@ -741,6 +757,10 @@ export default class AntFEAdapter extends AntAdapter {
     
             const Messages = this.protocol.getAnt().Messages;
             let msg = Messages.acknowledgedData(payload);
+            if (withoutResponse) {
+                this.send( msg, logStr)    
+                return resolve(true)  
+            }
                 
             this.send( msg, logStr, (res,err)=> {
                 if (err)
@@ -750,8 +770,12 @@ export default class AntFEAdapter extends AntAdapter {
         });
 
     }
+    
+    sendTargetPowerNR( power) { 
+        this.sendTargetPower( power,true)
+    }
 
-    sendTargetPower( power) {
+    sendTargetPower( power,withoutResponse=false) {
 
         return new Promise( (resolve,reject) => {
             if (!this.connected)
@@ -778,6 +802,10 @@ export default class AntFEAdapter extends AntAdapter {
     
             const Messages = this.protocol.getAnt().Messages;
             let msg = Messages.acknowledgedData(payload);
+            if (withoutResponse) {
+                this.send( msg, logStr)    
+                return resolve(true)  
+            }
     
             this.send( msg, logStr, (res,err)=> {
                 if (err)
@@ -788,7 +816,10 @@ export default class AntFEAdapter extends AntAdapter {
 
     }
 
-    sendWindResistance( windCoeff,windSpeed,draftFactor) {
+    sendWindResistanceNR( windCoeff,windSpeed,draftFactor) {
+        this.sendWindResistance( windCoeff,windSpeed,draftFactor,true)
+    }
+    sendWindResistance( windCoeff,windSpeed,draftFactor,withoutResponse=false) {
         return new Promise( (resolve,reject) => {
             if (!this.connected)
                 reject (new Error('not connected'));
@@ -825,6 +856,10 @@ export default class AntFEAdapter extends AntAdapter {
     
             const Messages = this.protocol.getAnt().Messages;
             let msg = Messages.acknowledgedData(payload);
+            if (withoutResponse) {
+                this.send( msg, logStr)    
+                return resolve(true)  
+            }
             this.send( msg, logStr, (res,err)=> {
                 if (err)
                     return reject(err)
@@ -834,7 +869,11 @@ export default class AntFEAdapter extends AntAdapter {
 
     }
 
-    sendTrackResistance( slope, rrCoeff?) {
+    sendTrackResistanceNR( slope, rrCoeff?)  {
+        this.sendTrackResistance( slope, rrCoeff, true)
+    }
+
+    sendTrackResistance( slope, rrCoeff?, withoutResponse=false) {
         return new Promise( (resolve,reject) => {
             if (!this.connected)
                 reject (new Error('not connected'));
@@ -867,6 +906,10 @@ export default class AntFEAdapter extends AntAdapter {
     
             const Messages = this.protocol.getAnt().Messages;
             let msg = Messages.acknowledgedData(payload);
+            if (withoutResponse) {
+                this.send( msg, logStr)    
+                return resolve(true)  
+            }
             this.send( msg, logStr, (res,err)=> {
                 if (err)
                     return reject(err)

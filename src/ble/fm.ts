@@ -388,7 +388,7 @@ export default class BleFitnessMachineDevice extends BleDevice {
                 this.data.totalDistance = (dvHigh<<8) +dvLow;
             }
             if (flags & IndoorBikeDataFlag.ResistanceLevelPresent) {
-                this.data.resistanceLevel = data.readInt8(offset); offset+=1;
+                this.data.resistanceLevel = data.readInt16LE(offset); offset+=2;
             }
             if (flags & IndoorBikeDataFlag.InstantaneousPowerPresent) {
                 this.data.instantaneousPower = data.readInt16LE(offset); offset+=2;

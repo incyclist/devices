@@ -28,6 +28,12 @@ describe('BleFitnessMachineDevice',()=>{
             expect(res).toMatchObject( { speed:0,instantaneousPower:0,cadence:0,heartrate:0,resistanceLevel:20 })
         })
 
+        test('real response from Volt/Mac (',()=>{
+            const res = ftms.parseIndoorBikeData( data("6402c108000014001c0000"));
+            expect(res).toMatchObject( { speed:22.41,instantaneousPower:28,cadence:0,heartrate:0,resistanceLevel:20 })
+        })
+
+        
         
         
     })

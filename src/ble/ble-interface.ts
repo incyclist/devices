@@ -737,7 +737,7 @@ export default class BleInterface extends BleInterfaceClass {
 
 
             const onPeripheralFound = async (peripheral:BlePeripheral, fromCache:boolean=false)  => {                
-                if ( !peripheral ||!peripheral.advertisement || !peripheral.advertisement.localName  || !peripheral.advertisement.serviceUuids || peripheral.advertisement.serviceUuids.length===0) 
+                if ( !peripheral ||!peripheral.advertisement || !peripheral.advertisement.localName  || !peripheral.advertisement.serviceUuids ) 
                     return
                 
                 if (fromCache) {
@@ -746,8 +746,9 @@ export default class BleInterface extends BleInterfaceClass {
                 else {
                     const {id,name,address,advertisement={}} = peripheral;                    
                     
-                    this.logEvent({message:'BLE scan: found device',peripheral:{id,name,address,services:advertisement.serviceUuids}})
+                    this.logEvent({message:'BLE scan: found device',peripheral:{id,name:advertisement.localName,address,services:advertisement.serviceUuids}})
                 }
+
 
 
                 // I found some scans (on Mac) where address was not set
@@ -760,12 +761,16 @@ export default class BleInterface extends BleInterfaceClass {
                     return;
 
                 peripheralsProcessed.push(peripheral.address)
+
+                if (scanForDevice && requested.name && requested.name!==peripheral.advertisement.localName)
+                    return;
               
-                const characteristics = await this.getCharacteristics(peripheral)
                 const connector = this.getConnector(peripheral);
+                const characteristics = await this.getCharacteristics(peripheral)
+
+
                 const connectedServices = connector.getServices();
                 const services = connectedServices ? connectedServices.map(cs=>cs.uuid) : undefined;
-
                 const connectedPeripheral = connector.getPeripheral();
                 const {id,name,address,advertisement={}} = connectedPeripheral;  
                 const DeviceClasses = this.getDeviceClasses(connectedPeripheral,{profile,services}) || [];
@@ -850,14 +855,15 @@ export default class BleInterface extends BleInterfaceClass {
                 onPeripheralFound(i.peripheral, true)
             })
             */
-
+            
             let services = []
-            if (scanForDevice) {
+            if (scanForDevice && name && !name.toLowerCase().startsWith('tacx')) {
                 if (props.requested instanceof BleDeviceClass) {
                     const device = props.requested as BleDeviceClass;
                     services  = (device.getServices()) || []                        
                 }
             }
+
             bleBinding.startScanning(services, false, (err) => {                
                 if (err) {
                     this.logEvent({message:`${opStr} result: error`, requested: scanForDevice ? {name, address,profile}: undefined,  error:err.message});
