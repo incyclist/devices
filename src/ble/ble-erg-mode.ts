@@ -62,9 +62,14 @@ export default class BleERGCyclingMode extends PowerBasedCyclingModeBase impleme
                 this.prevRequest = {};
                 return request.reset ? {reset:true} : {};
             }
-            delete request.slope                
 
             const prevData = this.data || {} as any;
+            if (request.slope!==undefined) {
+                if (!this.data) this.data = {} as any;
+                this.data.slope = request.slope;
+            }
+            delete request.slope                
+
 
             if (request.targetPower!==undefined) {
                 delete request.refresh;               

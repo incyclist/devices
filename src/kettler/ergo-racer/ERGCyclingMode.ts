@@ -73,9 +73,13 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
             }
 
             const prevData = this.data || {} as any;
+            if (request.slope!==undefined) {
+                if (!this.data) this.data = {} as any;
+                this.data.slope = request.slope;
+            }
+            delete request.slope;
 
             if (request.targetPower!==undefined) {
-                delete request.slope                
                 delete request.refresh;               
             }
 
@@ -91,11 +95,6 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
                 }
             } 
 
-            if (request.slope!==undefined) {
-                if (!this.data) this.data = {} as any;
-                this.data.slope = request.slope;
-                delete request.slope;
-            }
                 
             if (request.maxPower!==undefined && request.minPower!==undefined && request.maxPower===request.minPower) {
                 request.targetPower = request.maxPower;                
