@@ -1,3 +1,4 @@
+import { CSP_MEASUREMENT } from "./consts";
 import TacxAdvancedFitnessMachineDevice from "./tacx";
 
 class MockLogger {
@@ -16,13 +17,14 @@ describe ('onData',()=>{
         expect(res).toEqual({State:'READY',raw:'a4094e0519a500245c00002002'})
     }) 
 
-    test('trainerData - error' ,()=>{
+    test('trainerData - error: unknown message id' ,()=>{
+        
         const data = [164,9,78,5,251,0,7,4,0,8,4,0,18] 
         const message = Buffer.from(data);
         const tacx = new TacxAdvancedFitnessMachineDevice({id:'4711',logger:new MockLogger()});
 
         const res = tacx.onData('6e40fec2-b5a3-f393-e0a9-e50e24dcca9e',message);
-        expect(res).toEqual({State:'READY',raw:'a4094e0519a500245c00002002'})
+        expect(res).toBeUndefined();
     }) 
 
     test('generalFEData',()=>{
@@ -36,7 +38,6 @@ describe ('onData',()=>{
 
 
     test('power',()=>{
-        const data = [3,119,1,0,0,195,176,48,0,0,64]
         const data1 = [3,119,1,0,0,195,176,48,0,0,56]
 
         let message;
@@ -44,10 +45,9 @@ describe ('onData',()=>{
         const tacx = new TacxAdvancedFitnessMachineDevice({id:'4711',logger:new MockLogger()});
 
         
-        tacx.onData('2a5b',Buffer.from([3,119,1,0,0,195,176,48,0,0,32]));
-        tacx.onData('2a5b',Buffer.from([3,119,1,0,0,195,176,48,0,0,32]));
-        const res = tacx.onData('2a5b', Buffer.from(data1));
-        expect(res).toEqual({})
+        tacx.onData(CSP_MEASUREMENT,Buffer.from([3,119,1,0,0,195,176,48,0,0,32]));
+        const res = tacx.onData(CSP_MEASUREMENT, Buffer.from(data1));
+        expect(res).toMatchObject({instantaneousPower:1})
     }) 
 
 
@@ -85,12 +85,12 @@ describe ('parseProductInformation',()=>{
 
 describe ('setSlope',()=>{
 
-    test('slope 0.0',()=>{
+    test('slope 0.0',async ()=>{
         const data = [81,255,0,7,60,115,0,0] 
         const message = Buffer.from(data);
         const tacx = new TacxAdvancedFitnessMachineDevice({id:'4711',logger:new MockLogger()});
-        const res = tacx.setSlope(0.0)
-        expect(res).toEqual({SerialNumber:29500, SwVersion:7})
+        const res = await tacx.setSlope(0.0)
+        expect(res).toBe(true)
     })
 
 

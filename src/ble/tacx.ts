@@ -507,7 +507,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         const isDuplicate = this.checkForDuplicate(characteristic,data)
         if (isDuplicate)
             return;
-
+        this.messageCnt++;
         try {
            
 
