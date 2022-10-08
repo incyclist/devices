@@ -5,6 +5,8 @@ import { BleCharacteristic, BlePeripheral } from './ble'
 import { CSP, CSP_MEASUREMENT, FTMS, FTMS_CP, WAHOO_ADVANCED_TRAINER_CP } from './consts'
 import CSPDevice from './pwr'
 import FTMSDevice from './fm'
+import BleCyclingPowerDevice from './pwr'
+import TacxAdvancedFitnessMachineDevice from './tacx'
 
 describe('BleInterface',()=>{
 
@@ -80,6 +82,67 @@ describe('BleInterface',()=>{
 
 
         })
+
+    })
+
+    describe('getBestDeviceMatch',()=> {
+
+        test('Power and wahoo',()=>{
+            const classes = [ BleCyclingPowerDevice, WahooAdvancedFitnessMachineDevice];
+            const peripheral = {
+                id:'123',
+                advertisement: {
+                    localName: 'test'
+                }
+            }
+            const ble = new BleInterface( {logger:MockLogger})
+            const C = ble.getBestDeviceMatch(classes) as any;
+            const device = new C({peripheral})
+            expect( device ).toBeInstanceOf( WahooAdvancedFitnessMachineDevice)
+        })
+
+        test('Power,Wahoo and FTMS',()=>{
+            const classes = [ BleCyclingPowerDevice, WahooAdvancedFitnessMachineDevice, FTMSDevice];
+            const peripheral = {
+                id:'123',
+                advertisement: {
+                    localName: 'test'
+                }
+            }
+            const ble = new BleInterface( {logger:MockLogger})
+            const C = ble.getBestDeviceMatch(classes) as any;
+            const device = new C({peripheral})
+            expect( device ).toBeInstanceOf( FTMSDevice)
+        })
+
+        test('Power and Tacx',()=>{
+            const classes = [ BleCyclingPowerDevice, TacxAdvancedFitnessMachineDevice];
+            const peripheral = {
+                id:'123',
+                advertisement: {
+                    localName: 'test'
+                }
+            }
+            const ble = new BleInterface( {logger:MockLogger})
+            const C = ble.getBestDeviceMatch(classes) as any;
+            const device = new C({peripheral})
+            expect( device ).toBeInstanceOf( TacxAdvancedFitnessMachineDevice)
+        })
+
+        test('Power, Tacx and FTMS',()=>{
+            const classes = [ BleCyclingPowerDevice, TacxAdvancedFitnessMachineDevice, FTMSDevice];
+            const peripheral = {
+                id:'123',
+                advertisement: {
+                    localName: 'test'
+                }
+            }
+            const ble = new BleInterface( {logger:MockLogger})
+            const C = ble.getBestDeviceMatch(classes) as any;
+            const device = new C({peripheral})
+            expect( device ).toBeInstanceOf( FTMSDevice)
+        })
+
 
     })
 

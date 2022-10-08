@@ -643,6 +643,12 @@ export default class BleInterface extends BleInterfaceClass {
 
     }
 
+    getBestDeviceMatch(DeviceClasses : (typeof BleDeviceClass)[]):typeof BleDeviceClass {
+        const details = DeviceClasses.map( c=> ( {name:c.prototype.constructor.name, priority:(c as any).detectionPriority||0,class:c } ))
+        details.sort( (a,b) => b.priority-a.priority)
+        return details[0].class
+    }
+
 
     async scan( props:ScanProps) : Promise<BleDeviceClass[]> {
         const {timeout=DEFAULT_SCAN_TIMEOUT, deviceTypes=[],requested } = props;
@@ -778,7 +784,8 @@ export default class BleInterface extends BleInterfaceClass {
                 this.logEvent({message:'BLE scan: device connected',peripheral:{id,name,address,services:advertisement.serviceUuids},services, classes:DeviceClasses.map(c=>c.prototype.constructor.name) })                
     
                 let cntFound = 0;
-                const DeviceClass = DeviceClasses.sort( (a,b) => ((a as any).detectionPriority||0-(b as any).detectionPriority||0)  )[0]
+                const DeviceClass = this.getBestDeviceMatch(DeviceClasses);
+                
 //                DeviceClasses.forEach( async DeviceClass => {
                     if (!DeviceClass)
                         return;
