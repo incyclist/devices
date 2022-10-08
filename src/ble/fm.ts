@@ -14,6 +14,7 @@ import BleERGCyclingMode from './ble-erg-mode';
 import {FTMS, FTMS_CP,FTMS_STATUS,INDOOR_BIKE_DATA, TACX_FE_C_RX, TACX_FE_C_TX} from './consts'
 import BlePeripheralConnector from './ble-peripheral';
 
+
 const sleep = (ms) => new Promise( resolve=> setTimeout(resolve,ms))
 
 const cwABike = {
@@ -186,7 +187,6 @@ export default class BleFitnessMachineDevice extends BleDevice {
         super(props)
         this.data = {}
         this.services = BleFitnessMachineDevice.services;
-        
     }
 
     isMatching(characteristics: string[]): boolean {
@@ -733,7 +733,6 @@ export class FmAdapter extends DeviceAdapter {
     distanceInternal: number = 0;
     prevDataTS: number;
 
-
     constructor( device: BleDeviceClass, protocol: BleProtocol) {
         super(protocol);
         this.device = device as BleFitnessMachineDevice;
@@ -742,8 +741,7 @@ export class FmAdapter extends DeviceAdapter {
         this.logger = new EventLogger('BLE-FM')
 
         if (this.device)
-            this.device.setLogger(this.logger)
-        
+            this.device.setLogger(this.logger)       
     }
 
     isBike() { return this.device.isBike()}
@@ -891,15 +889,23 @@ export class FmAdapter extends DeviceAdapter {
     async start( props?: any ): Promise<any> {
         this.logger.logEvent({message: 'ftms: start requested', profile:this.getProfile(),props})
 
-        if ( this.ble.isScanning())
+        const {restart} = props || {};
+
+        if ( !restart && this.ble.isScanning())
             await this.ble.stopScan();
             
         try {
-            const bleDevice = await this.ble.connectDevice(this.device) as BleFitnessMachineDevice
-            bleDevice.setLogger(this.logger);
+            let bleDevice;
+            if (!this.device || !restart) {
+                bleDevice = await this.ble.connectDevice(this.device) as BleFitnessMachineDevice
+                this.device = bleDevice;
+            }
+            else    
+                bleDevice = this.device;
+
 
             if (bleDevice) {
-                this.device = bleDevice;
+                bleDevice.setLogger(this.logger);
 
                 const mode = this.getCyclingMode()
                 if (mode && mode.getSetting('bikeType')) {
@@ -956,7 +962,7 @@ export class FmAdapter extends DeviceAdapter {
             return;
 
         const update = this.getCyclingMode().sendBikeUpdate(request)
-        this.logger.logEvent({message: 'send bike update requested', profile:this.getProfile(), update, request})
+        this.logger.logEvent({message: 'send bike update requested',profile:this.getProfile(), update, request})
 
         if (update.slope!==undefined) {
             await this.device.setSlope(update.slope)

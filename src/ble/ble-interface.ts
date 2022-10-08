@@ -99,9 +99,9 @@ export default class BleInterface extends BleInterfaceClass {
         if ( this.logger) {
             this.logger.logEvent(event)
         }
-//        if (process.env.BLE_DEBUG) {
+        if (process.env.BLE_DEBUG) {
             console.log( '~~BLE:', event)
-//        }
+        }
     }
 
 

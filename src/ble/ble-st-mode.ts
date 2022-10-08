@@ -49,16 +49,12 @@ export default class FtmsCyclingMode extends PowerBasedCyclingModeBase implement
             return {gear,pedalRpm,slope, power,speed} 
         }
 
-        const event = {} as any
-        if (this.data===undefined) event.noData = true;
-        if (request.slope!==undefined && (event.noData || Math.abs(request.slope-this.data.slope)>=0.1 )) event.slopeUpdate  = true;
-        if (this.prevRequest===undefined) event.initialCall = true;
-
-        this.logger.logEvent( {message:"processing update request",request,prev:this.prevRequest,data:getData(),event} );
+        this.logger.logEvent( {message:"processing update request",request,prev:this.prevRequest,data:getData()} );
 
         // prepare request to be sent to device
         // also: update slope in device data
         let newRequest:UpdateRequest = {};
+        
         if (request.slope===undefined && request.refresh && this.prevRequest) {
             return this.prevRequest
         }

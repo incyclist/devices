@@ -44,7 +44,7 @@ export default class BleERGCyclingMode extends PowerBasedCyclingModeBase impleme
 
     getBikeInitRequest(): UpdateRequest {
         const startPower = this.getSetting('startPower');
-        return { slope:0, targetPower: startPower};
+        return { targetPower: startPower};
     }    
 
 

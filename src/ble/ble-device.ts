@@ -87,9 +87,9 @@ export abstract class BleDevice extends BleDeviceClass  {
         if ( this.logger) {
             this.logger.logEvent(event)
         }
-        //if (process.env.BLE_DEBUG) {
+        if (process.env.BLE_DEBUG) {
             console.log( '~~~BLE:', event)
-        //}
+        }
     }  
 
     setLogger(logger: EventLogger) {
@@ -474,9 +474,10 @@ export abstract class BleDevice extends BleDeviceClass  {
 
     async write( characteristicUuid:string, data:Buffer,props?:BleWriteProps): Promise<ArrayBuffer> {
             
+        if (!this.isConnected())
+            throw new Error('not connected')
+
         try {
-            if (!this.isConnected())
-                throw new Error('not connected')
 
             const {withoutResponse,timeout} = props||{};
 
@@ -544,7 +545,7 @@ export abstract class BleDevice extends BleDeviceClass  {
 
         }
         catch(err) {
-            this.logEvent({message:'error',fn:'',error:err.message||err, stack:err.stack})
+            this.logEvent({message:'error',fn:'write',error:err.message||err, stack:err.stack})
         }
 
     }
