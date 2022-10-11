@@ -211,7 +211,9 @@ describe( 'DaumAdapter', ()=>{
 
             jest.advanceTimersByTime(1000);            
             data=a.updateData({},{cadence:90, power:50, speed:29.9, heartrate:0, distance:0, time:0, gear:10})
-            expect(data).toEqual({isPedalling:true, power:50, pedalRpm:90, speed:3.8, heartrate:0, distanceInternal:1, time:1,gear:10, slope:0})
+            expect(data).toMatchObject({isPedalling:true, power:50, pedalRpm:90,  heartrate:0, time:1,gear:10, slope:0})
+            expect(data.distanceInternal).toBeCloseTo(1,0)
+            expect(data.speed).toBeCloseTo(3.8,1)
         })
 
         test('increase slope: power does not change, speed gets slower',()=>{
@@ -219,7 +221,9 @@ describe( 'DaumAdapter', ()=>{
 
             jest.advanceTimersByTime(1000);            
             data = a.updateData({},{cadence:90, power:50, slope:0, speed:29.9, heartrate:0, time:0, gear:10})
-            expect(data).toEqual({isPedalling:true, power:50, pedalRpm:90, speed:3.8, heartrate:0, distanceInternal:1, time:1,gear:10, slope:0})
+            expect(data).toMatchObject({isPedalling:true, power:50, pedalRpm:90, heartrate:0,   time:1,gear:10, slope:0})
+            expect(data.distanceInternal).toBeCloseTo(1,0)
+            expect(data.speed).toBeCloseTo(3.8,1)
 
             a.sendUpdate({slope:1})
             jest.advanceTimersByTime(1000);            
@@ -238,7 +242,9 @@ describe( 'DaumAdapter', ()=>{
             let data;
             jest.advanceTimersByTime(1000);            
             data = a.updateData({},{cadence:90, power:50, slope:0, speed:29.9, heartrate:0,  time:0, gear:10})
-            expect(data).toEqual({isPedalling:true, power:50, pedalRpm:90, speed:3.8, heartrate:0, distanceInternal:1, time:1,gear:10, slope:0})
+            expect(data).toMatchObject({isPedalling:true, power:50, pedalRpm:90, heartrate:0, time:1,gear:10, slope:0})
+            expect(data.distanceInternal).toBeCloseTo(1,0)
+            expect(data.speed).toBeCloseTo(3.8,1)
             
             a.sendUpdate({slope:-1})
             jest.advanceTimersByTime(1000);            

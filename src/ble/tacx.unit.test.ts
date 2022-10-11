@@ -85,12 +85,13 @@ describe ('parseProductInformation',()=>{
 
 describe ('setSlope',()=>{
 
-    test('slope 0.0',async ()=>{
-        const data = [81,255,0,7,60,115,0,0] 
-        const message = Buffer.from(data);
+    test('slope 0.0, rr not set',async ()=>{
+        const expected = Buffer.from( 'A4094F0533FFFFFFFF204E42F8','hex')
         const tacx = new TacxAdvancedFitnessMachineDevice({id:'4711',logger:new MockLogger()});
+        tacx.sendMessage = jest.fn( ()=> Promise.resolve(true) )
         const res = await tacx.setSlope(0.0)
         expect(res).toBe(true)
+        expect(tacx.sendMessage).toHaveBeenCalledWith( expected)
     })
 
 

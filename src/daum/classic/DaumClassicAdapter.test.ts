@@ -232,11 +232,11 @@ describe( 'DaumClassicAdapter', ()=>{
             a.logger.logEvent  = jest.fn()
             const res = await a.sendRequest({slope:10})
             expect(res).toBeUndefined()
-            expect(a.logger.logEvent).toHaveBeenCalledWith(expect.objectContaining({message:'error',fn:'sendRequest()',error:'some error'}))
+            expect(a.logger.logEvent).toHaveBeenCalledWith(expect.objectContaining({message:'sendRequest error',error:'some error'}))
 
             
             await a.sendRequest({targetPower:100})            
-            expect(a.logger.logEvent).toHaveBeenLastCalledWith(expect.objectContaining({message:'error',fn:'sendRequest()',error:'power error'}))
+            expect(a.logger.logEvent).toHaveBeenLastCalledWith(expect.objectContaining({message:'sendRequest error',error:'power error'}))
 
         })
 

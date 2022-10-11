@@ -352,17 +352,17 @@ describe( 'ERGCyclingMode',()=>{
             res = cm.sendBikeUpdate({slope:-2.798902988433838})
             jest.advanceTimersByTime(1000);
             res = cm.updateData({speed:50,slope:0,power:res.targetPower,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
-            expect(res.speed).toBeGreaterThan(31.2)
+            expect(res.speed).toBeGreaterThan(31)
 
             res = cm.sendBikeUpdate({slope:0})
             jest.advanceTimersByTime(1000);
             res = cm.updateData({speed:60,slope:0,power:158,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
-            expect(res.speed).toBeCloseTo(31.4,1)
+            expect(res.speed).toBeCloseTo(31.3,1)
 
             res = cm.sendBikeUpdate({slope:1})
             jest.advanceTimersByTime(1000);
             res = cm.updateData({speed:870,slope:0,power:158,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
-            expect(res.speed).toBeLessThan(31.5)
+            expect(res.speed).toBeLessThan(31.3)
         })
 
 
@@ -400,13 +400,13 @@ describe( 'ERGCyclingMode',()=>{
             // decrease cadence -> target power will decrease & speed will decrease once bike has adjusted power
             jest.advanceTimersByTime(1000);
             cm.updateData({speed:30,slope:0,power:158,isPedalling:true, pedalRpm:89,heartrate:99,distanceInternal:242351,gear:10,time:1626} )  
-            expect(cm.data.speed).toBeCloseTo(38.3,1)
+            expect(cm.data.speed).toBeCloseTo(38.2,1)
             expect(cm.event.rpmUpdated).toBe(true)         
             res = cm.sendBikeUpdate({refresh:true})
             expect(res.targetPower).toBeLessThan(158)
             jest.advanceTimersByTime(1000);
             cm.updateData({speed:30,slope:0,power:res.targetPower,isPedalling:true, pedalRpm:89,heartrate:99,distanceInternal:242351,gear:10,time:1626} )  
-            expect(cm.data.speed).toBeCloseTo(37.7,1)
+            expect(cm.data.speed).toBeCloseTo(37.6,1)
             expect(cm.event.rpmUpdated).toBeUndefined()
 
             // decrease cadence to zero, speed will not be immediately set to zero, sets target to "startPower"
