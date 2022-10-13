@@ -1,13 +1,14 @@
 {
     "name": "incyclist-ant-sample",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "private": true,
     "homepage": "./",
     "dependencies": {
-        "gd-ant-plus": "^0.0.31",
+        "gd-ant-plus": "^0.0.34",
         "gd-eventlog": "^0.1.22",
-        "incyclist-devices": "^1.2.0",
-        "usb": "^2.0.3"
+        "incyclist-ant-plus": "^0.1.0",
+        "incyclist-devices": "file:../..",
+        "usb": "^2.5.2"
     },
     "scripts": {
         "start": "node index.js"

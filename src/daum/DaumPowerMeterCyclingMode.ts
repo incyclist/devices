@@ -1,4 +1,4 @@
-import CyclingMode, { UpdateRequest} from "../CyclingMode";
+import CyclingMode, { UpdateRequest} from "../cycling-mode";
 import PowerMeterCyclingMode from "../modes/power-meter";
 
 

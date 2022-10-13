@@ -2,14 +2,14 @@ import { BleDevice } from './ble-device';
 import BleInterface from './ble-interface';
 import BleProtocol from './incyclist-protocol';
 import { BleDeviceClass,matches } from './ble';
-import DeviceAdapter,{ DeviceData,DEFAULT_USER_WEIGHT, DEFAULT_BIKE_WEIGHT } from '../Device';
-import { DeviceProtocol } from '../DeviceProtocol';
+import DeviceAdapter,{ DeviceData,DEFAULT_USER_WEIGHT, DEFAULT_BIKE_WEIGHT } from '../device';
+import { DeviceProtocol } from '../protocol';
 import {EventLogger} from 'gd-eventlog';
-import CyclingMode from '../CyclingMode';
+import CyclingMode from '../cycling-mode';
 import {CSP, CSP_MEASUREMENT,CSP_FEATURE}  from './consts'
 
 import PowerMeterCyclingMode from '../modes/power-meter';
-import { IncyclistBikeData } from '../CyclingMode';
+import { IncyclistBikeData } from '../cycling-mode';
 
 
 type PowerData = {

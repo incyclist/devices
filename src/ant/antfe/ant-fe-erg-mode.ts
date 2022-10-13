@@ -1,5 +1,5 @@
 import BleERGCyclingMode from "../../ble/ble-erg-mode";
-import { DeviceAdapter } from "../../Device";
+import { DeviceAdapter } from "../../device";
 
 export default class AntFeERGCyclingMode extends BleERGCyclingMode {
     static isERG = true;

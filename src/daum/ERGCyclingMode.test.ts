@@ -1,7 +1,8 @@
 import ERGCyclingMode from "./ERGCyclingMode";
-import { CyclingModeProperyType } from "../CyclingMode";
+import { CyclingModeProperyType } from "../cycling-mode";
 import DaumAdapter from './DaumAdapter'
 import { EventLogger } from "gd-eventlog";
+import { MockLogger } from "../../test/logger";
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
@@ -13,7 +14,7 @@ describe( 'ERGCyclingMode',()=>{
     })
 
     afterAll( ()=> {
-        EventLogger.useExternalLogger ( undefined)
+        EventLogger.useExternalLogger ( MockLogger)
 
     })
 
@@ -38,7 +39,7 @@ describe( 'ERGCyclingMode',()=>{
 
         test( 'with adapter, adapter has no logger',()=>{
             const adapter = new DaumAdapter({},null);
-            adapter.logger = undefined;
+            adapter.logger = MockLogger;
             const cyclingMode = new ERGCyclingMode(adapter);
             
             expect( cyclingMode.logger.getName() ).toBe('ERGMode');
@@ -156,7 +157,7 @@ describe( 'ERGCyclingMode',()=>{
         test('no slope, first request',()=>{
             const adapter = new DaumAdapter({userWeight:80, bikeWeight:10},null);
             const cyclingMode = new ERGCyclingMode(adapter);
-            cyclingMode.prevRequest = undefined
+            (cyclingMode as any).prevRequest  = undefined
             const res = cyclingMode.updateData({ isPedalling: true,pedalRpm: 100,gear:10, power: 100,distanceInternal: 0,speed: 0,heartrate: 0,time: 100})
             expect(res.slope).toBe(0)
         })
@@ -165,7 +166,7 @@ describe( 'ERGCyclingMode',()=>{
             const adapter = new DaumAdapter({userWeight:80, bikeWeight:10},null);
             const cyclingMode = new ERGCyclingMode(adapter);
             cyclingMode.data.slope = 2;
-            cyclingMode.prevRequest = undefined
+            (cyclingMode as any).prevRequest = undefined
             const res = cyclingMode.updateData({ isPedalling: true,pedalRpm: 100,gear:10, power: 100,distanceInternal: 0,speed: 0,heartrate: 0,time: 100})
             expect(res.slope).toBe(2)
         })
@@ -174,7 +175,7 @@ describe( 'ERGCyclingMode',()=>{
             const adapter = new DaumAdapter({userWeight:80, bikeWeight:10},null);
             const cyclingMode = new ERGCyclingMode(adapter);
             cyclingMode.data.slope = 2;
-            cyclingMode.prevRequest = undefined
+            (cyclingMode as any).prevRequest = undefined
             // ignores slope if provided by bike
             let res=cyclingMode.updateData({ isPedalling: true,pedalRpm: 100,gear:10, slope:1, power: 100,distanceInternal: 0,speed: 0,heartrate: 0,time: 100})
             expect(res.slope).toBe(2)
@@ -279,7 +280,7 @@ describe( 'ERGCyclingMode',()=>{
             });
 
             let res;
-            cm.prevRequest = undefined;
+            (cm as any).prevRequest = undefined;
             cm.data = {} as any;
             res = cm.sendBikeUpdate({ refresh:true})
             expect(res).toEqual({targetPower:100})

@@ -1,6 +1,6 @@
 import { EventLogger } from "gd-eventlog";
-import DeviceProtocolBase,{INTERFACE,DeviceProtocol,DeviceSettings, ScanProps, Device} from "../DeviceProtocol";
-import DeviceRegistry from "../DeviceRegistry";
+import DeviceProtocolBase,{INTERFACE,DeviceProtocol,DeviceSettings, ScanProps, Device} from "../protocol";
+import DeviceRegistry from "../registry";
 import { BleBinding, BleDeviceClass } from "./ble";
 
 import BleInterface from "./ble-interface";

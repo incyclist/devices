@@ -1,6 +1,6 @@
-import DeviceProtocolBase, { DeviceProtocol, DeviceSettings, ScanProps,  INTERFACE } from '../../DeviceProtocol'
+import DeviceProtocolBase, { DeviceProtocol, DeviceSettings, ScanProps,  INTERFACE } from '../../protocol'
 import { EventLogger } from 'gd-eventlog';
-import DeviceRegistry from '../../DeviceRegistry';
+import DeviceRegistry from '../../registry';
 import KettlerRacerAdapter from './adapter';
 
 const PROTOCOL_NAME = 'Kettler Racer'

@@ -1,9 +1,9 @@
 /* istanbul ignore file */
 
 /* eslint-disable no-unused-vars */
-import DeviceRegistry from './DeviceRegistry'
-import DeviceAdapter from './Device'
-import DeviceProtocolBase,{INTERFACE,DeviceProtocol} from './DeviceProtocol'
+import DeviceRegistry from './registry'
+import DeviceAdapter from './device'
+import DeviceProtocolBase,{INTERFACE,DeviceProtocol} from './protocol'
 
 // import all supported device protocols, as they will auto-register in the DeviceRegistry
 import SimulatorProtocol from './simulator/Simulator'
@@ -11,9 +11,12 @@ import DaumPremiumProtocol from './daum/premium/DaumPremiumProtocol'
 import DaumClassicProtocol from './daum/classic/DaumClassicProtocol'
 import KettlerRacerProtocol from './kettler/ergo-racer/protocol'
 import {AntScanner} from './ant/AntScanner'
-import BleProtocol from './ble/incyclist-protocol'
-import { CyclingModeProperyType } from './CyclingMode'
+import { CyclingModeProperyType } from './cycling-mode'
 
+import AntProtocol from './antv2/incyclist-protocol'
+import AntInterface from './antv2/ant-interface'
+
+import BleProtocol from './ble/incyclist-protocol'
 import BleInterface from './ble/ble-interface'
 import BleHrmDevice from './ble/hrm'
 import BleCyclingPowerDevice from './ble/pwr'
@@ -63,10 +66,14 @@ export {
     Protocols,
     
     AntScanner,
-    BleProtocol,
+
+    AntProtocol,
+    AntInterface,
+
     
     CyclingModeProperyType,
 
+    BleProtocol,
     BleInterface,
     BleHrmDevice,
     BleCyclingPowerDevice,

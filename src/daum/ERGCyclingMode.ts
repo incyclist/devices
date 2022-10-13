@@ -1,4 +1,4 @@
-import CyclingMode, { CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, UpdateRequest } from "../CyclingMode";
+import CyclingMode, { CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, UpdateRequest } from "../cycling-mode";
 import DaumAdapter from "./DaumAdapter";
 import calc from '../calculations'
 import PowerBasedCyclingModeBase from "../modes/power-base";

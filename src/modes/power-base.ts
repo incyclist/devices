@@ -1,5 +1,5 @@
-import { IncyclistBikeData, Settings,  CyclingModeBase } from '../CyclingMode';
-import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT, DeviceAdapter } from '../Device';
+import { IncyclistBikeData, Settings,  CyclingModeBase } from '../cycling-mode';
+import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT, DeviceAdapter } from '../device';
 import calc from '../calculations'
 import { EventLogger } from 'gd-eventlog';
 

@@ -1,7 +1,7 @@
 import BleInterface from './ble-interface';
 import BleProtocol from './incyclist-protocol';
 import { BleDeviceClass,matches } from './ble';
-import DeviceAdapter, { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from '../Device';
+import DeviceAdapter, { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from '../device';
 import {EventLogger} from 'gd-eventlog';
 import BleFitnessMachineDevice, { FmAdapter,IndoorBikeData } from './fm';
 import {CSC_MEASUREMENT, CSP_MEASUREMENT, FTMS_CP,INDOOR_BIKE_DATA,TACX_FE_C_BLE,TACX_FE_C_RX,TACX_FE_C_TX} from './consts'

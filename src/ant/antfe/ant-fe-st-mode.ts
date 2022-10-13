@@ -1,5 +1,5 @@
 import FtmsCyclingMode from "../../ble/ble-st-mode";
-import { DeviceAdapter } from "../../Device";
+import { DeviceAdapter } from "../../device";
 
 export default class AntStCyclingMode extends FtmsCyclingMode {
 

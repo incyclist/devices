@@ -1,6 +1,6 @@
-import CyclingMode, { CyclingModeProperty, IncyclistBikeData, Settings, UpdateRequest } from '../CyclingMode';
+import CyclingMode, { CyclingModeProperty, IncyclistBikeData, Settings, UpdateRequest } from '../cycling-mode';
 import PowerBasedCyclingModeBase from './power-base';
-import { DeviceAdapter } from '../Device';
+import { DeviceAdapter } from '../device';
 
 const MIN_SPEED = 10;
 

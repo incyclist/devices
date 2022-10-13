@@ -8,7 +8,7 @@ import {Queue} from '../../utils';
 import {EventLogger} from 'gd-eventlog'
 import { User } from "../../types/user";
 import { Route } from "../../types/route";
-import { OnDeviceStartCallback } from "../../Device";
+import { OnDeviceStartCallback } from "../../device";
 
 const nop = ()=>{}
 const MAX_RETRIES = 5;

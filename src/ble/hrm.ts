@@ -1,7 +1,7 @@
 import { BleDevice } from './ble-device';
 import BleInterface from './ble-interface';
-import DeviceAdapter from '../Device';
-import { DeviceProtocol } from '../DeviceProtocol';
+import DeviceAdapter from '../device';
+import { DeviceProtocol } from '../protocol';
 import { BleDeviceClass } from './ble';
 import BleProtocol from './incyclist-protocol';
 import { EventLogger } from 'gd-eventlog';

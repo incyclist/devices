@@ -2,13 +2,13 @@ import { BleDevice } from './ble-device';
 import BleInterface from './ble-interface';
 import BleProtocol from './incyclist-protocol';
 import { BleDeviceClass, BleWriteProps } from './ble';
-import DeviceAdapter,{ DeviceData } from '../Device';
-import { DeviceProtocol } from '../DeviceProtocol';
+import DeviceAdapter,{ DeviceData } from '../device';
+import { DeviceProtocol } from '../protocol';
 import {EventLogger} from 'gd-eventlog';
-import CyclingMode from '../CyclingMode';
+import CyclingMode from '../cycling-mode';
 
 import PowerMeterCyclingMode from '../modes/power-meter';
-import { IncyclistBikeData } from '../CyclingMode';
+import { IncyclistBikeData } from '../cycling-mode';
 import FtmsCyclingMode from './ble-st-mode';
 import BleERGCyclingMode from './ble-erg-mode';
 import {FTMS, FTMS_CP,FTMS_STATUS,INDOOR_BIKE_DATA, TACX_FE_C_RX, TACX_FE_C_TX} from './consts'

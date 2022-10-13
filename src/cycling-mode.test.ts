@@ -1,11 +1,13 @@
-import {CyclingModeBase} from "./CyclingMode";
-import {DeviceAdapter} from "./Device";
+import {CyclingModeBase} from "./cycling-mode";
+import {DeviceAdapter} from "./device";
 import { EventLogger } from "gd-eventlog";
+import { MockLogger } from "../test/logger";
+
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
 
-const mockAdapter: DeviceAdapter = {
+const mockAdapter  = {
     isBike: jest.fn(() => true),
     isPower: jest.fn(() => true),
     isHrm: jest.fn(() => true),
@@ -14,7 +16,7 @@ const mockAdapter: DeviceAdapter = {
     getName: jest.fn(() => 'Mock'),
     getPort: jest.fn(() => 'MockPort'),
     getProtocol: jest.fn(),
-    getProtocolName: jest.fn(() => 'MockPort'),
+    getProtocolName: jest.fn( ()=>'MockProtocol') ,
     setIgnoreHrm: jest.fn(),
     setIgnorePower: jest.fn(),
     setIgnoreBike: jest.fn(),
@@ -39,7 +41,7 @@ describe( 'CyclingMode',()=>{
     })
 
     afterAll( ()=> {
-        EventLogger.useExternalLogger ( undefined)
+        EventLogger.useExternalLogger ( MockLogger)
 
     })
 
@@ -57,9 +59,6 @@ describe( 'CyclingMode',()=>{
             expect( cyclingMode.adapter ).toBe( mockAdapter );
             expect( cyclingMode.settings['test'] ).toBeTruthy();
         } );
-        test( 'adapter is null',()=>{
-            expect( ()=>{new CyclingModeBase(null)}).toThrowError( 'IllegalArgument: adapter is null' );
-        })
 
 
     })

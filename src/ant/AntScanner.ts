@@ -1,5 +1,5 @@
 import { EventLogger } from "gd-eventlog";
-import DeviceProtocolBase,{INTERFACE,DeviceProtocol,DeviceSettings} from "../DeviceProtocol";
+import DeviceProtocolBase,{INTERFACE,DeviceProtocol,DeviceSettings} from "../protocol";
 import AntHrmAdapter from './anthrm/AntHrmAdapter'
 import AntAdapter from "./AntAdapter";
 import AntPwrAdapter from './antpwr/pwr-adapter'

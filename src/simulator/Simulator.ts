@@ -1,12 +1,12 @@
-import DeviceProtocolBase,{INTERFACE,DeviceSettings, DeviceProtocol} from '../DeviceProtocol';
-import DeviceRegistry from '../DeviceRegistry';
-import DeviceAdapter from '../Device';
+import DeviceProtocolBase,{INTERFACE,DeviceSettings, DeviceProtocol} from '../protocol';
+import DeviceRegistry from '../registry';
+import DeviceAdapter from '../device';
 
 import {EventLogger} from 'gd-eventlog'
-import CyclingMode, { IncyclistBikeData } from '../CyclingMode';
+import CyclingMode, { IncyclistBikeData } from '../cycling-mode';
 import SimulatorCyclingMode from '../modes/simulator';
-import { DeviceData } from '../Device';
-import { DEFAULT_USER_WEIGHT, DEFAULT_BIKE_WEIGHT } from '../Device';
+import { DeviceData } from '../device';
+import { DEFAULT_USER_WEIGHT, DEFAULT_BIKE_WEIGHT } from '../device';
 
 const DEFAULT_SETTINGS = { name:'Simulator', port: '', isBot:false }
 

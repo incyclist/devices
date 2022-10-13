@@ -1,6 +1,6 @@
 import FtmsCyclingMode from "../../ble/ble-st-mode";
-import { UpdateRequest } from "../../CyclingMode";
-import { DeviceAdapter } from "../../Device";
+import { UpdateRequest } from "../../cycling-mode";
+import { DeviceAdapter } from "../../device";
 
 const MAX_DEVIATION = 10;
 

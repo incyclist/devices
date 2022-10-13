@@ -1,6 +1,7 @@
 import { EventLogger } from 'gd-eventlog';
 import DaumAdapter from './DaumAdapter';
-import CyclingMode, { CyclingModeBase } from '../CyclingMode';
+import CyclingMode, { CyclingModeBase } from '../cycling-mode';
+import { MockLogger } from '../../test/logger';
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
@@ -13,7 +14,7 @@ describe( 'DaumAdapter', ()=>{
     })
 
     afterAll( ()=> {
-        EventLogger.useExternalLogger ( undefined)
+        EventLogger.useExternalLogger ( MockLogger)
         jest.useRealTimers();
     })
 
@@ -170,7 +171,7 @@ describe( 'DaumAdapter', ()=>{
             expect(a.cyclingData).toEqual(cmData)
         })
         test('no cycling mode set: uses default cycling mode',()=>{
-            a.cyclingMode = undefined;
+            (a as any).cyclingMode = undefined;
             a.getDefaultCyclingMode = jest.fn( ()=>cm);
             let data = {}
 

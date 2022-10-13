@@ -1,6 +1,6 @@
-import DeviceAdapter from "../Device";
+import DeviceAdapter from "../device";
 import {EventLogger} from 'gd-eventlog'
-import { DEFAULT_USER_WEIGHT, DEFAULT_BIKE_WEIGHT } from "../Device";
+import { DEFAULT_USER_WEIGHT, DEFAULT_BIKE_WEIGHT } from "../device";
 
 export const DEFAULT_UPDATE_FREQUENCY  = 1000;
 

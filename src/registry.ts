@@ -1,4 +1,4 @@
-import {DeviceProtocol} from './DeviceProtocol'
+import {DeviceProtocol} from './protocol'
 
 let _protocols = [];
 

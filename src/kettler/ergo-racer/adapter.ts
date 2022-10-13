@@ -1,11 +1,11 @@
-import { DeviceSettings } from "../../DeviceProtocol";
-import DeviceAdapterBase, {DeviceAdapter,DeviceData, Bike,DEFAULT_BIKE_WEIGHT,DEFAULT_USER_WEIGHT } from "../../Device";
-import { DeviceProtocol } from "../../DeviceProtocol";
+import { DeviceSettings } from "../../protocol";
+import DeviceAdapterBase, {DeviceAdapter,DeviceData, Bike,DEFAULT_BIKE_WEIGHT,DEFAULT_USER_WEIGHT } from "../../device";
+import { DeviceProtocol } from "../../protocol";
 import { EventLogger } from "gd-eventlog";
 import SerialComms from "../comms";
 import { Command } from "../../types/command";
 import { runWithRetries } from "../../utils";
-import CyclingMode, { IncyclistBikeData } from "../../CyclingMode";
+import CyclingMode, { IncyclistBikeData } from "../../cycling-mode";
 import { User } from "../../types/user";
 import PowerMeterCyclingMode from "../../modes/power-meter";
 import ERGCyclingMode from "./ERGCyclingMode";

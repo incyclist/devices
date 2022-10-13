@@ -3,7 +3,7 @@ import AntAdapter from '../AntAdapter';
 import { AntProtocol } from '../AntScanner';
 import {getBrand} from '../utils'
 import {Queue,hexstr, runWithRetries} from '../../utils'
-import CyclingMode, { IncyclistBikeData } from '../../CyclingMode';
+import CyclingMode, { IncyclistBikeData } from '../../cycling-mode';
 import AntStCyclingMode from './ant-fe-st-mode';
 import AntFeERGCyclingMode from './ant-fe-erg-mode';
 import AntAdvSimCyclingMode from './ant-fe-adv-st-mode';

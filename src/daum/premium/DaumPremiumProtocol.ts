@@ -1,5 +1,5 @@
-import DeviceProtocolBase, { INTERFACE ,DeviceProtocol, DeviceSettings} from '../../DeviceProtocol';
-import DeviceRegistry from '../../DeviceRegistry'
+import DeviceProtocolBase, { INTERFACE ,DeviceProtocol, DeviceSettings} from '../../protocol';
+import DeviceRegistry from '../../registry'
 import {Daum8iSerial,Daum8iTcp} from '../premium/bike'
 import DaumPremium from './DaumPremiumAdapter'
 import { EventLogger } from 'gd-eventlog';

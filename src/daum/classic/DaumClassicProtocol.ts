@@ -1,5 +1,5 @@
-import DeviceProtocolBase, { INTERFACE,ScanProps, DeviceProtocol, DeviceSettings } from '../../DeviceProtocol';
-import DeviceRegistry from '../../DeviceRegistry'
+import DeviceProtocolBase, { INTERFACE,ScanProps, DeviceProtocol, DeviceSettings } from '../../protocol';
+import DeviceRegistry from '../../registry'
 import Bike from './bike'
 import Adapter from './DaumClassicAdapter'
 import { EventLogger } from 'gd-eventlog';

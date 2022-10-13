@@ -1,6 +1,6 @@
 import { EventLogger } from 'gd-eventlog';
-import CyclingMode, { IncyclistBikeData } from '../CyclingMode';
-import IncyclistDevice,{Bike, DeviceAdapter, DeviceData,DEFAULT_BIKE_WEIGHT,DEFAULT_USER_WEIGHT } from '../Device'
+import CyclingMode, { IncyclistBikeData } from '../cycling-mode';
+import IncyclistDevice,{Bike, DeviceAdapter, DeviceData,DEFAULT_BIKE_WEIGHT,DEFAULT_USER_WEIGHT } from '../device'
 import ERGCyclingMode from './ERGCyclingMode';
 import SmartTrainerCyclingMode from './SmartTrainerCyclingMode';
 import PowerMeterCyclingMode from './DaumPowerMeterCyclingMode';

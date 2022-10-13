@@ -1,7 +1,7 @@
 /* istanbul ignore file */
 
-import {DeviceProtocol,Device} from './DeviceProtocol'
-import CyclingMode from './CyclingMode'
+import {DeviceProtocol,Device} from './protocol'
+import CyclingMode from './cycling-mode'
 
 export const DEFAULT_BIKE_WEIGHT = 10;
 export const DEFAULT_USER_WEIGHT = 75;
@@ -47,7 +47,7 @@ export interface DeviceAdapter extends Device {
     getName(): string
     getPort(): string
     getProtocol(): DeviceProtocol
-    getProtocolName(): string| undefined 
+    getProtocolName(): string 
 
     setIgnoreHrm(ignore: boolean): void 
     setIgnorePower(ignore:boolean): void 
@@ -106,7 +106,7 @@ export default class IncyclistDevice implements DeviceAdapter {
     getName():string { throw new Error('not implemented')}
     getPort():string {throw new Error('not implemented')}
     getProtocol():DeviceProtocol {return this.protocol; }
-    getProtocolName(): string| undefined {
+    getProtocolName(): string {
         return this.protocol ? this.protocol.getName() : undefined;
     }
 

@@ -1,5 +1,5 @@
 import { EventLogger } from 'gd-eventlog';
-import CyclingMode from '../../CyclingMode';
+import CyclingMode from '../../cycling-mode';
 import {runWithRetries} from '../../utils';
 import DaumAdapter from '../DaumAdapter'
 import DaumClassicCyclingMode from './DaumClassicCyclingMode';

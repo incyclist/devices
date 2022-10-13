@@ -2,10 +2,10 @@ import { EventLogger } from 'gd-eventlog';
 import AntAdapter from '../AntAdapter';
 import { AntProtocol } from '../AntScanner';
 import {getBrand} from '../utils'
-import { IncyclistBikeData } from '../../CyclingMode';
-import CyclingMode from '../../CyclingMode';
+import { IncyclistBikeData } from '../../cycling-mode';
+import CyclingMode from '../../cycling-mode';
 import PowerMeterCyclingMode from '../../modes/power-meter';
-import { DeviceData } from '../../Device';
+import { DeviceData } from '../../device';
 
 const floatVal = (d) => d ? parseFloat(d) :d
 const intVal = (d) => d ? parseInt(d) :d

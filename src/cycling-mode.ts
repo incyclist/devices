@@ -1,4 +1,4 @@
-import {Device} from "./DeviceProtocol"
+import {Device} from "./protocol"
 
 export type UpdateRequest = {
     slope?: number;

@@ -1,5 +1,5 @@
-import CyclingMode, { CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, UpdateRequest } from "../CyclingMode";
-import { DeviceAdapter } from "../Device";
+import CyclingMode, { CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, UpdateRequest } from "../cycling-mode";
+import { DeviceAdapter } from "../device";
 import PowerBasedCyclingModeBase from "../modes/power-base";
 
 

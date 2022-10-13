@@ -1,7 +1,9 @@
 import SmartTrainerCyclingMode, { direction } from "./SmartTrainerCyclingMode";
-import { CyclingModeProperyType } from "../CyclingMode";
+import { CyclingModeProperyType } from "../cycling-mode";
 import DaumAdapter from './DaumAdapter'
 import { EventLogger } from "gd-eventlog";
+import { MockLogger } from "../../test/logger";
+
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
@@ -13,7 +15,7 @@ describe( 'SmartTrainerCyclingMode',()=>{
     })
 
     afterAll( ()=> {
-        EventLogger.useExternalLogger ( undefined)
+        EventLogger.useExternalLogger ( MockLogger)
 
     })
 
@@ -38,7 +40,7 @@ describe( 'SmartTrainerCyclingMode',()=>{
 
         test( 'with adapter, adapter has no logger',()=>{
             const adapter = new DaumAdapter({},null);
-            adapter.logger = undefined;
+            adapter.logger = MockLogger;
             const cyclingMode = new SmartTrainerCyclingMode(adapter);
             
             expect( cyclingMode.logger.getName() ).toBe('SmartTrainer');

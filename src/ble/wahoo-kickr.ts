@@ -1,7 +1,7 @@
 import BleInterface from './ble-interface';
 import BleProtocol from './incyclist-protocol';
 import { BleDeviceClass, BleWriteProps, matches } from './ble';
-import DeviceAdapter, { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from '../Device';
+import DeviceAdapter, { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from '../device';
 import {EventLogger} from 'gd-eventlog';
 import BleFitnessMachineDevice, { FmAdapter } from './fm';
 import { CSP,FTMS_CP,WAHOO_ADVANCED_TRAINER_CP, WAHOO_ADVANCED_TRAINER_CP_FULL  } from './consts';

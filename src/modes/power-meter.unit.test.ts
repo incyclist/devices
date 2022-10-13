@@ -1,5 +1,5 @@
-import DeviceAdapterBase from '../Device';
-import DeviceProtocolBase from '../DeviceProtocol';
+import DeviceAdapterBase from '../device';
+import DeviceProtocolBase from '../protocol';
 import PowerMeterMode,{config} from './power-meter'
 
 class MockAdapter extends DeviceAdapterBase {

@@ -1,5 +1,5 @@
-import {DeviceProtocol} from './DeviceProtocol';
-import DeviceRegistry from './DeviceRegistry'
+import {DeviceProtocol} from './protocol';
+import DeviceRegistry from './registry'
 
 describe ( 'DeviceRegistry' ,()=>{
 
@@ -14,7 +14,7 @@ describe ( 'DeviceRegistry' ,()=>{
                 getName() { return 'A'}
             }
             DeviceRegistry.register(new A() as unknown as DeviceProtocol)
-            const r =DeviceRegistry._get(); 
+            const r =DeviceRegistry._get() as DeviceProtocol[]; 
             expect(r.length).toBe(1);
             expect(r[0].getName()).toBe('A');
         })
@@ -28,7 +28,7 @@ describe ( 'DeviceRegistry' ,()=>{
             DeviceRegistry.register(new A() as unknown as DeviceProtocol)
             DeviceRegistry.register(new B() as unknown as DeviceProtocol)
             DeviceRegistry.register(new C() as unknown as DeviceProtocol)
-            const r =DeviceRegistry._get(); 
+            const r =DeviceRegistry._get() as DeviceProtocol[];  
             expect(r.length).toBe(3);
             expect(r[0].getName()).toBe('A');
             expect(r[1].getName()).toBe('B');
@@ -47,23 +47,11 @@ describe ( 'DeviceRegistry' ,()=>{
             DeviceRegistry.register(a1 as unknown as DeviceProtocol)
             DeviceRegistry.register(new B() as unknown as DeviceProtocol)
             DeviceRegistry.register(a2 as unknown as DeviceProtocol)
-            const r =DeviceRegistry._get(); 
+            const r =DeviceRegistry._get() as DeviceProtocol[];  
             expect(r.length).toBe(2);
             expect(r[0].getName()).toBe('A');
             expect(r[1].getName()).toBe('B');
-            expect(r[0].marker).toBe('a2');
-        })
-
-        test('device= undefined',()=>{
-            class A  {
-                getName() { return 'A'}
-            }
-            DeviceRegistry.register(new A() as unknown as DeviceProtocol)
-            DeviceRegistry.register(undefined)
-
-            const r =DeviceRegistry._get(); 
-            expect(r.length).toBe(1);
-            expect(r[0].getName()).toBe('A');
+            expect((r[0] as any).marker).toBe('a2');
         })
 
 
@@ -94,11 +82,6 @@ describe ( 'DeviceRegistry' ,()=>{
 
         test( 'device not existing',()=> {
             const res = DeviceRegistry.findByName('X')
-            expect(res).toBeUndefined()
-        })
-
-        test( 'name=undefined',()=> {
-            const res = DeviceRegistry.findByName(undefined)
             expect(res).toBeUndefined()
         })
 
@@ -141,11 +124,7 @@ describe ( 'DeviceRegistry' ,()=>{
             expect(res.length).toBe(0);
         })
 
-        test( 'interface=undefined',()=> {
-            const res = DeviceRegistry.findByInterface(undefined)
-            expect(res).toBeUndefined()
-        })
-
+  
     })
 
 })

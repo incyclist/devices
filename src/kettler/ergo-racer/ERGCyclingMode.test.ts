@@ -1,10 +1,10 @@
 import ERGCyclingMode from "./ERGCyclingMode";
-import { CyclingModeProperyType } from "../../CyclingMode";
+import { CyclingModeProperyType } from "../../cycling-mode";
 import KettlerAdapter from './adapter'
 import KettlerRacerProtocol from "./protocol";
 import { EventLogger } from "gd-eventlog";
 import { MockLogger } from "../../../test/logger";
-import { DeviceProtocol } from "../../DeviceProtocol";
+import { DeviceProtocol } from "../../protocol";
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();

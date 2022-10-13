@@ -1,4 +1,4 @@
-import { DeviceProtocol } from "../DeviceProtocol";
+import { DeviceProtocol } from "../protocol";
 import { EventLogger } from "gd-eventlog";
 import { hexstr, Queue } from "../utils";
 import { Command } from "../types/command";
