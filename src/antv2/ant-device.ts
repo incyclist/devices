@@ -1,7 +1,7 @@
 import {Device} from '../protocol'
 
 import { IChannel, ISensor } from 'incyclist-ant-plus'
-import AntProtocol, { AntDeviceSettings } from './incyclist-protocol';
+import AntProtocol, { AntDeviceSettings, mapAntProfile } from './incyclist-protocol';
 import AntInterface from './ant-interface';
 import IncyclistDevice, { DeviceAdapter, OnDeviceDataCallback } from '../device';
 export const DEFAULT_UPDATE_FREQUENCY  = 1000;
@@ -63,9 +63,13 @@ export default class AntAdapter  extends IncyclistDevice implements Device   {
     }
 
 
-    isSame(device: DeviceAdapter): boolean {
-        throw new Error('Method not implemented.');
+    isSame(device:DeviceAdapter):boolean {
+        if (!(device instanceof AntAdapter))
+            return false;
+        const adapter = device as AntAdapter;
+        return  (adapter.getID()===this.getID() && adapter.getProfile()===this.getProfile())
     }
+
 
 
     getID(): string {
@@ -78,12 +82,20 @@ export default class AntAdapter  extends IncyclistDevice implements Device   {
 
         return `Ant+${profile} ${deviceID}`;
     }
+
+    
+
+    getProfile():string {
+        return mapAntProfile(this.sensor.getProfile());
+    }
+
     getPort(): string {
         return this.sensor.getChannel().getChannelNo().toString()
     }
     getProtocol(): AntProtocol {
         return this.protocol
     }
+
 
     getProtocolName(): string    {
         return this.protocol.getName()

@@ -1,3 +1,4 @@
+import { resolve } from "dns";
 import EventEmitter from "events";
 import { EventLogger } from "gd-eventlog";
 import { IAntDevice, IChannel, ISensor } from "incyclist-ant-plus";
@@ -31,6 +32,7 @@ export default class AntInterface  extends EventEmitter  {
     protected device: IAntDevice
     protected Binding: typeof AntDeviceBinding
     protected isConnected: boolean
+    protected isConnecting: boolean
     protected props: AntInterfaceProps
     protected activeScan: IChannel
     
@@ -40,6 +42,8 @@ export default class AntInterface  extends EventEmitter  {
 
         this.props = props;
         this.device = undefined;
+        this.isConnected = false;
+        this.isConnecting = false;
 
         const {binding, logger} = props;
 
@@ -75,22 +79,46 @@ export default class AntInterface  extends EventEmitter  {
     async connect() {
         if (this.isConnected)
             return true;
-        this.logEvent({message:'connecting ...'})
 
-        const device = new this.Binding( {...this.props, logger:this.logger} );
+        if (!this.isConnecting) {
 
- 
-        const opened = await device.open();
-        if (!opened) {
-            this.logEvent({message:'could not connect'})
-            return false;
+            this.isConnecting = true;
+            this.logEvent({message:'ANT+ connecting ...'})
+
+            try {
+                const device = new this.Binding( {...this.props, logger:this.logger} );
+
+        
+                const opened = await device.open();
+                if (!opened) {
+                    this.logEvent({message:'could not connect'})
+                    this.isConnecting = false;
+                    return false;
+                }
+
+                this.device = device;  
+                this.isConnected = true          
+                this.isConnecting = false;
+                this.logEvent({message:'ANT+ connected'})
+
+
+                return true
+            }
+            catch (err) {
+                this.isConnected = false;
+                this.isConnecting = false;
+                return false;
+            }
         }
-
-        this.device = device;  
-        this.isConnected = true          
-        this.logEvent({message:'connected'})
-        return true
-
+        else {
+            return new Promise (resolve => {
+                setInterval( ()=>{
+                    if (!this.isConnecting)
+                        resolve(this.isConnected)
+                },500)
+            })
+            
+        }
     }
 
     async disconnect() {
@@ -237,12 +265,25 @@ export default class AntInterface  extends EventEmitter  {
             return false
 
         channel.on('data',this.onData.bind(this))
+        sensor.setChannel(channel);
 
         this.on('data',(profile,deviceID,data)=>{
             if (profile===sensor.getProfile() && deviceID===sensor.getDeviceID())
             onDeviceData(data)
-        })
-        return await channel.startSensor(sensor)
+        })        
+
+        
+        try {
+            return await channel.startSensor(sensor)
+        } 
+        catch(err) {
+            try {
+                await channel.stopSensor(sensor)
+            }
+            catch{}
+
+            throw err
+        }
     }
 
     async stopSensor(sensor:ISensor): Promise<boolean> {
@@ -252,7 +293,8 @@ export default class AntInterface  extends EventEmitter  {
         const channel = sensor.getChannel()
 
         this.removeAllListeners('data')
-        return await channel.stopSensor(sensor)
+        if (channel)
+            return await channel.stopSensor(sensor)
     }
 
     isScanning(): boolean {

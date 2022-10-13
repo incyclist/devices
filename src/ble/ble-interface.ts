@@ -644,8 +644,11 @@ export default class BleInterface extends BleInterfaceClass {
     }
 
     getBestDeviceMatch(DeviceClasses : (typeof BleDeviceClass)[]):typeof BleDeviceClass {
+        if (!DeviceClasses||DeviceClasses.length===0)
+            return;
         const details = DeviceClasses.map( c=> ( {name:c.prototype.constructor.name, priority:(c as any).detectionPriority||0,class:c } ))
         details.sort( (a,b) => b.priority-a.priority)
+        
         return details[0].class
     }
 
