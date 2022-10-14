@@ -20,11 +20,15 @@ export default class AntFEAdapter extends AntAdapter{
     protected cyclingMode: CyclingMode;
     protected distanceInternal?: number;
 
+    protected msgCount: number;
+
     constructor( sensor:ISensor, protocol: AntProtocol) {
         super(sensor,protocol)
+
         this.deviceData = {
             DeviceID: sensor.getDeviceID()
         }       
+        this.msgCount = 0;
         this.logger = new EventLogger('Ant+FE')
     }
 
@@ -135,11 +139,12 @@ export default class AntFEAdapter extends AntAdapter{
         
 
         try {
+            const logData = this.getLogData(deviceData, ['PairedDevices','RawData']);
+            this.logger.logEvent( {message:'onDeviceData',data:logData})
             if ( this.onDataFn && !(this.ignoreHrm && this.ignoreBike && this.ignorePower) && !this.paused) {
                 if (!this.lastUpdate || (Date.now()-this.lastUpdate)>this.updateFrequency) {
-                    const logData = this.getLogData(deviceData, ['PairedDevices','RawData']);
-                    this.logger.logEvent( {message:'onDeviceData',data:logData})
 
+                    
                     // transform data into internal structure of Cycling Modes
                     let incyclistData = this.mapData(deviceData)      
 
@@ -160,6 +165,7 @@ export default class AntFEAdapter extends AntAdapter{
             }    
         }
         catch ( err) {
+            this.logger.logEvent({message:'error',fn:'onDeviceData()',error:err.message||err, stack:err.stack})
         }
     }
 
@@ -216,7 +222,8 @@ export default class AntFEAdapter extends AntAdapter{
         if (this.ignoreBike) {
             data = { heartrate: data.heartrate};
         }
-        if (this.ignoreHrm) delete data.heartrate;
+
+        if (this.ignoreHrm || !this.isHrm())  delete data.heartrate;
 
         return data;
     }
@@ -226,24 +233,53 @@ export default class AntFEAdapter extends AntAdapter{
     async start( props?: any ): Promise<any> {
         super.start(props);
 
+        this.logger.logEvent( {message:'start', props})
+
+        this.msgCount = 0;
         const opts = props || {} as any;
         const {args ={}, user={}} = opts;
 
 
         return new Promise ( async (resolve, reject) => {
-            const {timeout} = props||{}
-            let to ;
+            const {timeout=20000} = props||{}
+
+
+            let start = Date.now();
+            let startTimeout = start+timeout;
+            const status = { userSent: false, slopeSent:false}
+
+            let iv ;
+
+            const stopInterval = ()=> {
+                if (iv)
+                    clearInterval(iv)
+                iv = undefined
+            }
+
             if (timeout) {
-                to = setTimeout( async ()=>{
-                    await this.stop();
-                    reject(new Error(`could not start device, reason:timeout`))
-                }, timeout)
+                iv = setInterval( async ()=>{
+
+                    if (Date.now()>startTimeout) {
+                        stopInterval()
+                        await this.stop();
+                        reject(new Error(`could not start device, reason:timeout`))
+                    }
+
+                    if (this.started && this.msgCount>1 && status.userSent) {
+                        this.logger.logEvent( {message:'start success'})
+                        stopInterval()
+                    }
+
+
+                }, 100)
             }
 
             this.started = await this.ant.startSensor(this.sensor,this.onDeviceData.bind(this))
-            if (to) clearTimeout(to)
             if (!this.started) {
+                stopInterval()
+                this.stop();
                 return reject(new Error(`could not start device`))
+            
             }
 
             try {
@@ -255,7 +291,6 @@ export default class AntFEAdapter extends AntAdapter{
                 const userWeight = args.userWeight || user.weight ||DEFAULT_USER_WEIGHT;
                 const bikeWeight = args.bikeWeight||defaultBikeWeight;
 
-                const status = { userSent: false, slopeSent:false}
                 let i =0;
                 while ( i<3 && !status.userSent && !status.slopeSent) {
                     status.userSent = status.userSent || await fe.sendUserConfiguration( userWeight, bikeWeight, args.wheelDiameter, args.gearRatio);
@@ -263,10 +298,15 @@ export default class AntFEAdapter extends AntAdapter{
                     i++;
                 }
 
+                stopInterval()
                 
-                if ( status.userSent /* && status.slopeSent*/) 
+                if ( status.userSent /* && status.slopeSent*/)  {
+                    this.logger.logEvent( {message:'start success'})
                     return resolve(true)
-                
+                }
+
+                this.logger.logEvent( {message:'start failure'})
+                this.stop();
                 return reject(new Error(`could not start device, reason: could not send commands`))
 
             }
