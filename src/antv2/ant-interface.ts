@@ -1,7 +1,7 @@
 import { resolve } from "dns";
 import EventEmitter from "events";
 import { EventLogger } from "gd-eventlog";
-import { IAntDevice, IChannel, ISensor } from "incyclist-ant-plus";
+import { Channel, IAntDevice, IChannel, ISensor } from "incyclist-ant-plus";
 import AntDeviceBinding from "./ant-binding";
 import { AntScannerProps, AntScanProps } from "./incyclist-protocol";
 import SensorFactory from "./sensor-factory";
@@ -290,9 +290,9 @@ export default class AntInterface  extends EventEmitter  {
         if (!this.isConnected || !this.device) 
         return true
 
-        const channel = sensor.getChannel()
+        const channel = sensor.getChannel() as Channel
 
-        this.removeAllListeners('data')
+        channel.removeAllListeners('data')
         if (channel)
             return await channel.stopSensor(sensor)
     }
