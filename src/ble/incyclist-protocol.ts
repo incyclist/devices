@@ -9,6 +9,7 @@ import BleHrmDevice, {HrmAdapter} from "./hrm";
 import BleCyclingPowerDevice, {PwrAdapter} from "./pwr";
 import WahooAdvancedFitnessMachineDevice, { WahooAdvancedFmAdapter } from "./wahoo-kickr";
 import TacxBleFEDevice, { TacxBleFEAdapter } from './tacx';
+import BleEliteDevice,{EliteAdapter} from './elite'
 
 interface BleDeviceSettings extends DeviceSettings {
     id?: string;
@@ -65,6 +66,7 @@ export default class BleProtocol extends DeviceProtocolBase implements DevicePro
             case 'smart trainer':
             case 'wahoo smart trainer':
             case 'fitness machine':
+            case 'elite smart trainer':
             case TacxBleFEDevice.PROFILE.toLowerCase():
                 let device;
 
@@ -77,6 +79,10 @@ export default class BleProtocol extends DeviceProtocolBase implements DevicePro
                 if ( profile.toLowerCase()==='wahoo smart trainer') {
                     device = device || new WahooAdvancedFitnessMachineDevice(props())
                     return new WahooAdvancedFmAdapter(device,this)
+                }
+                if ( profile.toLowerCase()==='elite smart trainer') {
+                    device = device || new BleEliteDevice(props())
+                    return new EliteAdapter(device,this)
                 }
                 else  if (profile===TacxBleFEDevice.PROFILE) {
                     device = device || new TacxBleFEDevice(props())
