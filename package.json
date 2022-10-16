@@ -1,6 +1,6 @@
 {
   "name": "incyclist-devices",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "dependencies": {
     "@serialport/parser-byte-length": "^9.0.1",
     "@serialport/parser-delimiter": "^9.0.1",
