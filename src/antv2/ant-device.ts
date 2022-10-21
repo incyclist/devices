@@ -90,7 +90,7 @@ export default class AntAdapter  extends IncyclistDevice implements Device   {
     }
 
     getPort(): string {
-        return this.sensor.getChannel().getChannelNo().toString()
+        return "usb";
     }
     getProtocol(): AntProtocol {
         return this.protocol
