@@ -11,7 +11,7 @@ export const mapAntProfile = (antProfile) => {
     switch (antProfile) {
         case 'HR': return 'Heartrate Monitor'
         case 'PWR': return 'Power Meter'
-        case 'FE': return 'SmartTrainer'
+        case 'FE': return 'Smart Trainer'
     }
 }
 
@@ -19,7 +19,7 @@ export const mapIncyclistProfile = (incyclistProfile) => {
     switch (incyclistProfile) {
         case 'Heartrate Monitor': return 'HR'
         case 'Power Meter': return 'PWR'
-        case 'SmartTrainer': return 'FE'
+        case 'Smart Trainer': return 'FE'
     }
 }
 
