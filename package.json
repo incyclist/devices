@@ -6,7 +6,7 @@
     "@serialport/parser-delimiter": "^9.0.1",
     "@types/serialport": "^8.0.1",
     "gd-ant-plus": "^0.0.33",
-    "incyclist-ant-plus": "^0.1.5",
+    "incyclist-ant-plus": "^0.1.6",
     "win32filetime": "^1.0.2"
   },
   "peerDependencies": {

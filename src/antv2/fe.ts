@@ -292,9 +292,11 @@ export default class AntFEAdapter extends AntAdapter{
                 const bikeWeight = args.bikeWeight||defaultBikeWeight;
 
                 let i =0;
-                while ( i<3 && !status.userSent && !status.slopeSent) {
-                    status.userSent = status.userSent || await fe.sendUserConfiguration( userWeight, bikeWeight, args.wheelDiameter, args.gearRatio);
-                    status.slopeSent = status.slopeSent || await fe.sendTrackResistance(0.0)
+                while ( i<3 && (!status.userSent || !status.slopeSent)) {
+                    if (!timeout || iv)
+                        status.userSent = status.userSent || await fe.sendUserConfiguration( userWeight, bikeWeight, args.wheelDiameter, args.gearRatio);
+                    if (!timeout || iv)
+                        status.slopeSent = status.slopeSent || await fe.sendTrackResistance(0.0)
                     i++;
                 }
 
