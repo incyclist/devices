@@ -183,8 +183,17 @@ export default class AntInterface  extends EventEmitter  {
     
             channel.on('detected', onDetected)
             channel.on('data',this.onData.bind(this))
-            const success = await channel.startScanner()
-            this.logEvent({message:'scan started',success})
+            
+            try {
+                const success = await channel.startScanner()
+                this.logEvent({message:'scan started',success})
+            }
+            catch( err) {
+                this.logEvent({message:'scan could not be started',error:err.message, stack:err.stack})    
+                channel.off('detected',onDetected)
+                channel.off('data',this.onData.bind(this))
+                return []
+            }
 
             let iv ;
             return new Promise( resolve => {
@@ -277,12 +286,13 @@ export default class AntInterface  extends EventEmitter  {
             return await channel.startSensor(sensor)
         } 
         catch(err) {
+            this.logEvent( {message:'could not start sensor', error:err.message||err, stack:err.stack})
             try {
                 await channel.stopSensor(sensor)
             }
             catch{}
 
-            throw err
+            return false;
         }
     }
 
@@ -293,8 +303,15 @@ export default class AntInterface  extends EventEmitter  {
         const channel = sensor.getChannel() as Channel
 
         channel.removeAllListeners('data')
-        if (channel)
-            return await channel.stopSensor(sensor)
+        if (channel) {
+            try {
+                return await channel.stopSensor(sensor)
+            }
+            catch(err) {
+                this.logEvent( {message:'could not stop sensor', error:err.message||err, stack:err.stack})
+                return false;
+            }
+        }
     }
 
     isScanning(): boolean {
