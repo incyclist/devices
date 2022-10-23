@@ -72,13 +72,18 @@ export default class DaumPremiumDevice extends DaumAdapter{
 
     }
 
+    async relaunch(props) {
+        this.logger.logEvent({message:'relaunch()'});        
+        return await this.launch(props,true)
+    }
 
     async start(props) {
         this.logger.logEvent({message:'start()'});        
-        
-        console.log('~~~setPersonSupport:',this.getCyclingMode().getModeProperty('setPersonSupport'))
-        console.log('~~~eppSupport:',this.getCyclingMode().getModeProperty('eppSupport'))
+        return await this.launch(props,false)
+    }
 
+    async launch(props, isRelaunch=false) {
+        
         const opts = props || {}
 
         if (opts.user && opts.user.weight)
@@ -93,19 +98,17 @@ export default class DaumPremiumDevice extends DaumAdapter{
         var info = {} as any
         this.initData();        
         return runWithRetries( async ()=>{
-            if (this.isStopped())
-                return;
-
-            
+           
 
             try {
-                if(!this.bike.isConnected()) {
+                
+                if( !isRelaunch && !this.bike.isConnected()) {
                     await this.bike.saveConnect();
                 }
-                if (!info.deviceType) {
+                if (!isRelaunch && !info.deviceType) {
                     info.deviceType = await this.bike.getDeviceType()
                 }
-                if (!info.version) {
+                if (!isRelaunch &&!info.version) {
                     info.version = await this.bike.getProtocolVersion();
                 }
 
@@ -140,7 +143,8 @@ export default class DaumPremiumDevice extends DaumAdapter{
 
         }, 5, 1500 )
         .then ( data => {
-            this.startUpdatePull();
+            if (!isRelaunch || this.isStopped())
+                this.startUpdatePull();
             return data;
         })
     }
