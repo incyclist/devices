@@ -61,6 +61,21 @@ export default class DaumClassicAdapter extends DaumAdapter{
         return new DaumClassicCyclingMode(this)        
     }
 
+    async pause(): Promise<boolean> {
+        console.log('~~~~~~~~~~ PAUSE')
+        const paused  = await super.pause()
+        this.bike.pauseLogging()
+        return paused
+    }
+
+
+    async resume(): Promise<boolean> {
+        const resumed = await super.resume()
+        this.bike.resumeLogging()
+        return resumed
+    }
+
+
 
     check() {
 
@@ -98,8 +113,18 @@ export default class DaumClassicAdapter extends DaumAdapter{
 
     }
 
+
+    async relaunch(props) {
+        this.logger.logEvent({message:'relaunch()'});        
+        return await this.launch(props,true)
+    }
+
     async start(props) {
-        this.logger.logEvent({message:'start()',props});                
+        this.logger.logEvent({message:'start(-)'});        
+        return await this.launch(props,false)
+    }
+
+    async launch(props, isRelaunch=false) {
 
         const opts = props || {}
 
@@ -110,6 +135,10 @@ export default class DaumClassicAdapter extends DaumAdapter{
             this.bikeSettings.weight = bikeSettings.weight;
 
         this.initData();        
+        if (isRelaunch) {
+            await this.stop();
+        }
+
         let startState = { } as any;
 
         return runWithRetries( async ()=>{
@@ -166,6 +195,8 @@ export default class DaumClassicAdapter extends DaumAdapter{
             }
         }, 5, 1000 )
         .then ( data => {
+            this.stopped = false;
+            this.paused = false;
             this.startUpdatePull();
             return data;
         })

@@ -72,6 +72,20 @@ export default class DaumPremiumDevice extends DaumAdapter{
 
     }
 
+    async pause(): Promise<boolean> {
+        const paused  = await super.pause()
+        this.bike.pauseLogging()
+        return paused
+    }
+
+
+    async resume(): Promise<boolean> {
+        const resumed = await super.resume()
+        this.bike.resumeLogging()
+        return resumed
+    }
+
+
     async relaunch(props) {
         this.logger.logEvent({message:'relaunch()'});        
         return await this.launch(props,true)
@@ -96,7 +110,12 @@ export default class DaumPremiumDevice extends DaumAdapter{
         const route: Route = opts.route;
 
         var info = {} as any
-        this.initData();        
+        this.initData();   
+        
+        if (isRelaunch) {
+            await this.stop();
+        }
+        
         return runWithRetries( async ()=>{
            
 
@@ -105,10 +124,10 @@ export default class DaumPremiumDevice extends DaumAdapter{
                 if( !isRelaunch && !this.bike.isConnected()) {
                     await this.bike.saveConnect();
                 }
-                if (!isRelaunch && !info.deviceType) {
+                if (!info.deviceType) {
                     info.deviceType = await this.bike.getDeviceType()
                 }
-                if (!isRelaunch &&!info.version) {
+                if (!info.version) {
                     info.version = await this.bike.getProtocolVersion();
                 }
 
@@ -143,8 +162,10 @@ export default class DaumPremiumDevice extends DaumAdapter{
 
         }, 5, 1500 )
         .then ( data => {
-            if (!isRelaunch || this.isStopped())
-                this.startUpdatePull();
+            this.stopped = false;
+            this.paused = false;
+            
+            this.startUpdatePull();
             return data;
         })
     }

@@ -46,6 +46,7 @@ export default class Daum8008  {
     bikeCmdWorker: any;
     cmdStart: number;
     cmdCurrent: any;
+    isLoggingPaused: boolean;
 
     constructor( opts={} as any ) {
         
@@ -70,6 +71,7 @@ export default class Daum8008  {
         this.closed = undefined;
         this.cmdBusy=false;
         this.queue = new Queue();        
+        this.isLoggingPaused = false;
     }
 
     static setSerialPort(spClass) {
@@ -92,9 +94,20 @@ export default class Daum8008  {
         return this.connected;
     }
 
+    pauseLogging() {
+        this.isLoggingPaused =true;
+    }
+    resumLogging() {
+        this.isLoggingPaused =false;
+    }
+    logEvent(e) {
+        if(!this.isLoggingPaused)
+            this.logger.logEvent(e)
+    }
+
 
     setUser(user:User, callback) {
-        this.logger.logEvent({message:"setUser()",user});
+        this.logEvent({message:"setUser()",user});
         
         if (user)
             this.settings.user = user;
@@ -122,7 +135,7 @@ export default class Daum8008  {
 
   
     connect() {
-        this.logger.logEvent({message:"connect()",port:this.getPort(), sp:(this.sp!==undefined),});
+        this.logEvent({message:"connect()",port:this.getPort(), sp:(this.sp!==undefined),});
         if ( this.closing || this.opening) {
             return;
         }
@@ -146,7 +159,7 @@ export default class Daum8008  {
 
         }
         catch (err)  {
-            this.logger.logEvent({message:"startTraining:error:",error:err.message});
+            this.logEvent({message:"startTraining:error:",error:err.message});
         }               
 
     }
@@ -187,7 +200,7 @@ export default class Daum8008  {
 
 
     close() {
-        this.logger.logEvent( {message:'close()', port:this.getPort()});
+        this.logEvent( {message:'close()', port:this.getPort()});
         if ( this.closing) {
             return;
         }
@@ -256,7 +269,7 @@ export default class Daum8008  {
     }
 
     onPortOpen() {
-        this.logger.logEvent({message:"port opened",port:this.getPort()});
+        this.logEvent({message:"port opened",port:this.getPort()});
         this.error = undefined;
         this.connected = true;
         this.opening = false;
@@ -268,7 +281,7 @@ export default class Daum8008  {
     }
 
     onPortClose() {
-        this.logger.logEvent( {message:"port closed",port:this.getPort()});
+        this.logEvent( {message:"port closed",port:this.getPort()});
         
         this.error = undefined;
         this.connected = false;
@@ -290,7 +303,7 @@ export default class Daum8008  {
             return;
 
         const state = { opening:this.opening, connected:this.connected, closing:this.closing, closed:this.closed, busy:this.cmdBusy}
-        this.logger.logEvent({message:"port error:",port:this.getPort(),error:err.message,stack:err.stack,state});
+        this.logEvent({message:"port error:",port:this.getPort(),error:err.message,stack:err.stack,state});
         this.error = err;
         this.cmdBusy=false;
     }
@@ -342,7 +355,7 @@ export default class Daum8008  {
 
                 let d = Date.now()-cmdInfo.start;
                 if ( d>timeout) {
-                    this.logger.logEvent( {message:'sendCommmand:timeout',port:this.getPort()}); 
+                    this.logEvent( {message:'sendCommmand:timeout',port:this.getPort()}); 
                     const port = this.sp;
                     port.unpipe();
                     port.flush();
@@ -385,7 +398,7 @@ export default class Daum8008  {
         this.queue.enqueue(cmdInfo);
         
         if (this.queue.size()>1)
-            this.logger.logEvent({message:"sendCommand:adding:",cmd:logStr, hex:hexstr(payload),queueSize:this.queue.size()});
+            this.logEvent({message:"sendCommand:adding:",cmd:logStr, hex:hexstr(payload),queueSize:this.queue.size()});
 
         if ( this.bikeCmdWorker===undefined) {
             this.startWorker();
@@ -410,13 +423,13 @@ export default class Daum8008  {
 
             parser.on('data', (data) => {
                 let duration = Date.now()-this.cmdStart;
-                this.logger.logEvent({message:"sendCommand:received:",duration,hex:hexstr(data),port:this.getPort()});
+                this.logEvent({message:"sendCommand:received:",duration,hex:hexstr(data),port:this.getPort()});
                 serialPort.unpipe();
 
                 if (callbackErr!==undefined) {
                     if ( data[0]!==payload[0] ) {
                         serialPort.flush();
-                        this.logger.logEvent( {message: "sendCommand:illegal response",port:this.getPort()});
+                        this.logEvent( {message: "sendCommand:illegal response",port:this.getPort()});
                         done();
                         return callbackErr(512,{ message: "illegal response"} )            
                     }
@@ -426,13 +439,13 @@ export default class Daum8008  {
             })
 
 
-            this.logger.logEvent({message:"sendCommand:sending:",cmd:logStr, hex:hexstr(payload), port:this.getPort()});
+            this.logEvent({message:"sendCommand:sending:",cmd:logStr, hex:hexstr(payload), port:this.getPort()});
             this.cmdCurrent.start = this.cmdStart = Date.now();
             serialPort.write( payload);
 
         }
         catch (err)  {
-            this.logger.logEvent({message:"sendCommand:error:",error:err.message,port:this.getPort()});
+            this.logEvent({message:"sendCommand:error:",error:err.message,port:this.getPort()});
             done();
             callbackErr(500,{ message: `Exception: ${err.message}`})
 

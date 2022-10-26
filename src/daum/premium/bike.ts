@@ -55,6 +55,8 @@ class Daum8i  {
     queue: Queue<any>
     cmdCurrent: any;
     cmdStart: number;
+    isLoggingPaused: boolean;
+
 
     /*
     ====================================== Comstructor ==============================================
@@ -64,7 +66,6 @@ class Daum8i  {
         
         this.props  = props || {};
         this.logger = process.env.DEBUG? DEBUG_LOGGER as EventLogger : new EventLogger('DaumPremium') ;
-        this.logger.logEvent( {message:'new DaumPremium object',props:this.props})
 
         if (this.props.interface==='tcpip') {
             const port = this.props.port || DAUM_PREMIUM_DEFAULT_PORT;
@@ -84,6 +85,7 @@ class Daum8i  {
 
         this.settings = this.props.settings || {};        
         this.settings.logger  = this.logger;
+        this.isLoggingPaused = false;
 
         this.sendRetryDelay = DEFAULT_SEND_DELAY;
 
@@ -134,13 +136,25 @@ class Daum8i  {
         return this.connected;
     }
 
+
+    pauseLogging() {
+        this.isLoggingPaused =true;
+    }
+    resumLogging() {
+        this.isLoggingPaused =false;
+    }
+    logEvent(e) {
+        if(!this.isLoggingPaused)
+            this.logger.logEvent(e)
+    }
+
     /*
     ====================================== Bike Interface Implementation ==============================================
     */
 
    
     setUser(user, callback) {
-        this.logger.logEvent({message:"setUser()",user,port:this.portName});
+        this.logEvent({message:"setUser()",user,port:this.portName});
         
         this.settings.user = user || {};  
 
@@ -165,7 +179,7 @@ class Daum8i  {
     }
 
     connect() {
-        this.logger.logEvent({message:"connect()",sp:(this.sp!==undefined),connected:this.connected, blocked:this.blocked,port:this.portName,settings:this.settings});
+        this.logEvent({message:"connect()",sp:(this.sp!==undefined),connected:this.connected, blocked:this.blocked,port:this.portName,settings:this.settings});
 
         if ( this.connected || this.blocked) {
             return;
@@ -190,14 +204,14 @@ class Daum8i  {
                 if ( this.tcpip) {
                     const {host,port} = this.tcpipConnection                     
                     const {logger} = this.props;
-                    this.logger.logEvent({message:"creating TCPSocketPort",host,port});
+                    this.logEvent({message:"creating TCPSocketPort",host,port});
                     this.sp = new TcpSocketPort( {host, port,net, timeout:OPEN_TIMEOUT,logger})
                 }
                 else {
                     const settings = this.settings.port || {}
                     settings.autoOpen=false;
     
-                    this.logger.logEvent({message:"creating SerialPort",port:this.port,settings});
+                    this.logEvent({message:"creating SerialPort",port:this.port,settings});
                     this.sp = new __SerialPort( this.port,settings);
                 }
 
@@ -213,13 +227,13 @@ class Daum8i  {
             this.state.connecting = true;
             this.state.opening= { start, timeout:start+this.getTimeoutValue()}
 
-            this.logger.logEvent({message:"opening port ..."});            
+            this.logEvent({message:"opening port ..."});            
             this.sp.open()
                 
 
         }
         catch (err)  {
-            this.logger.logEvent({message:"scan:error:",error:err.message, stack:err.stack});
+            this.logEvent({message:"scan:error:",error:err.message, stack:err.stack});
             this.state.busy=false;
         }               
 
@@ -281,11 +295,11 @@ class Daum8i  {
         this.state.opened = true;
         this.state.busy=false;
 
-        this.logger.logEvent({message:"port opened",port:this.portName});
+        this.logEvent({message:"port opened",port:this.portName});
     }
 
     onPortClose() {
-        this.logger.logEvent( {message:"port closed",port:this.portName});
+        this.logEvent( {message:"port closed",port:this.portName});
         
         this.error = undefined;
         this.connected = false;
@@ -318,7 +332,7 @@ class Daum8i  {
     onPortError(error) {
 
 
-        this.logger.logEvent({message:"port error:",port:this.portName,error:error.message,connected:this.connected,state:this.getLogState()});
+        this.logEvent({message:"port error:",port:this.portName,error:error.message,connected:this.connected,state:this.getLogState()});
         this.error = error;
 
         if ( this.blocked) {
@@ -407,7 +421,7 @@ class Daum8i  {
 
     close() {
 
-        this.logger.logEvent( {message:'close request',port:this.portName});
+        this.logEvent( {message:'close request',port:this.portName});
 
         var sp = this.sp;
 
@@ -433,7 +447,7 @@ class Daum8i  {
             }    
         }
         catch(err) {
-            this.logger.logEvent( {message: 'close: Exception', port:this.portName, error:err.message});
+            this.logEvent( {message: 'close: Exception', port:this.portName, error:err.message});
         }
         this.connected = false;
 
@@ -449,7 +463,7 @@ class Daum8i  {
     }
 
     sendTimeout  (message) {
-        this.logger.logEvent({message:`sendCommand:${message||'timeout'}`,port:this.portName,cmd:this.cmdCurrent});
+        this.logEvent({message:`sendCommand:${message||'timeout'}`,port:this.portName,cmd:this.cmdCurrent});
         delete this.state.commandsInQueue[this.cmdCurrent.command];
         if (this.cmdCurrent.callbackErr!==undefined) {
             let cb = this.cmdCurrent.callbackErr;
@@ -498,7 +512,7 @@ class Daum8i  {
     
         }
         catch ( err) {
-            this.logger.logEvent({message:'checkForResponse: Exception', port:this.portName, error:err.message, stack:err.stack})
+            this.logEvent({message:'checkForResponse: Exception', port:this.portName, error:err.message, stack:err.stack})
         }
         return true;
 
@@ -552,7 +566,7 @@ class Daum8i  {
         }
 
         const response = [...incoming];
-        this.logger.logEvent({message:'sendCommand:RECV',data:hexstr(response) })
+        this.logEvent({message:'sendCommand:RECV',data:hexstr(response) })
 
         for (let i=0;i<incoming.length;i++)
         //incoming.forEach( async (c,i)=> 
@@ -569,7 +583,7 @@ class Daum8i  {
 
             const c= incoming.readUInt8(i)
             if ( c===0x06) {
-                this.logger.logEvent({message:"sendCommand:ACK received:",port:portName});
+                this.logEvent({message:"sendCommand:ACK received:",port:portName});
                 this.state.waitingForStart = true;
                 this.state.waitingForACK = false;
                 const remaining = getRemaining()
@@ -578,7 +592,7 @@ class Daum8i  {
             else if ( c===0x15) {
                 this.state.waitingForStart = true;
                 this.state.waitingForACK = false;
-                this.logger.logEvent({message:"sendCommand:NAK received:",port:portName});
+                this.logEvent({message:"sendCommand:NAK received:",port:portName});
                 const remaining = getRemaining()
                 if (  remaining && remaining!=='') return this.onData(remaining)
 
@@ -591,7 +605,7 @@ class Daum8i  {
 
             else if ( c===0x17) {
                 const remaining = getRemaining();
-                this.logger.logEvent({message:"sendCommand:received:",duration: Date.now()-this.state.sending.tsRequest,port:portName,cmd: `${cmd} [${hexstr(cmd)}]`,remaining: hexstr(remaining)});
+                this.logEvent({message:"sendCommand:received:",duration: Date.now()-this.state.sending.tsRequest,port:portName,cmd: `${cmd} [${hexstr(cmd)}]`,remaining: hexstr(remaining)});
                 this.state.waitingForEnd = false;   
                 const cmdStr = cmd.substring(0,cmd.length-2)
                 const checksumExtracted  = cmd.slice(-2)
@@ -653,7 +667,7 @@ class Daum8i  {
             else 
             {             
                 const message = buildMessage( command,payload)
-                this.logger.logEvent({message:'sendCommand:waiting',port:this.portName,cmd:command,hex:hexstr(message)})
+                this.logEvent({message:'sendCommand:waiting',port:this.portName,cmd:command,hex:hexstr(message)})
                 
                 const busyWait = ()=> {
                     return new Promise ( (done) => {
@@ -678,7 +692,7 @@ class Daum8i  {
 
                 const res = await busyWait();
                 if (!res) {
-                    this.logger.logEvent({message:'sendCommand:busy timeout',port:this.portName,cmd:command,hex:hexstr(message),duration: Date.now()-tsRequest})
+                    this.logEvent({message:'sendCommand:busy timeout',port:this.portName,cmd:command,hex:hexstr(message),duration: Date.now()-tsRequest})
                     return reject( new Error('BUSY timeout'))        
                 }
                 this.state.busy = true;
@@ -704,13 +718,13 @@ class Daum8i  {
                 const message = buildMessage( command,payload)
                 const start= Date.now();
                 const timeout =  start+this.getTimeoutValue() ;
-                this.logger.logEvent({message:"sendCommand:sending:",port:this.portName,cmd:command,hex:hexstr(message)});
+                this.logEvent({message:"sendCommand:sending:",port:this.portName,cmd:command,hex:hexstr(message)});
     
 
 
                 this.state.writeBusy =true;
                 if(!this.connected || port===undefined) {
-                    this.logger.logEvent({message:"sendCommand:error: not connected",port:this.portName});
+                    this.logEvent({message:"sendCommand:error: not connected",port:this.portName});
                     writeDone()
                     return reject( new Error('not connected'))
                 }    
@@ -735,7 +749,7 @@ class Daum8i  {
         
             }
             catch (err)  {
-                this.logger.logEvent({message:"sendCommand:error:",port:portName,error:err.message,stack:err.stack});
+                this.logEvent({message:"sendCommand:error:",port:portName,error:err.message,stack:err.stack});
                 writeDone();
                 reject(err)
             }          
@@ -752,7 +766,7 @@ class Daum8i  {
         }
         catch(err) {}
         this.state.writeBusy =false;
-        this.logger.logEvent({message:"sendCommand:sending ACK",port,queue:this.state.commandsInQueue});
+        this.logEvent({message:"sendCommand:sending ACK",port,queue:this.state.commandsInQueue});
     }
 
     sendNAK() {
@@ -761,7 +775,7 @@ class Daum8i  {
             this.sp.write( [0x15]); // send NAK
         }
         catch(err) {}
-        this.logger.logEvent({message:"sendCommand:sending NAK",port});
+        this.logEvent({message:"sendCommand:sending NAK",port});
     }
 
     sendReservedDaum8iCommand( command:ReservedCommands,cmdType, data?:Buffer)  {
@@ -900,7 +914,7 @@ class Daum8i  {
     }
 
     setSlope ( slope) {
-        this.logger.logEvent( {message:'setSlope not implemted'})
+        this.logEvent( {message:'setSlope not implemted'})
         return;
     }
 
@@ -923,12 +937,12 @@ class Daum8i  {
 
     setPerson( person:User ): Promise<boolean> {
         const {sex,age,length,weight} = person;
-        this.logger.logEvent( {message:'setPerson() request',sex,age,length,weight })
+        this.logEvent( {message:'setPerson() request',sex,age,length,weight })
         return this.sendReservedDaum8iCommand( ReservedCommands.PERSON_SET,'BF', getPersonData(person))
         .then( (res:any[]) => {
             const buffer = Buffer.from(res);
             const success = buffer.readInt16LE(0) === ReservedCommands.PERSON_SET
-            this.logger.logEvent( {message:'setPerson() response', success, buffer })
+            this.logEvent( {message:'setPerson() response', success, buffer })
 
             if (!success) 
                 throw new Error('Illegal Response' )
@@ -937,12 +951,12 @@ class Daum8i  {
     }
 
     programUploadInit():Promise<boolean> {
-        this.logger.logEvent( {message:'programUploadInit() request'})
+        this.logEvent( {message:'programUploadInit() request'})
         return this.sendReservedDaum8iCommand( ReservedCommands.PROGRAM_LIST_BEGIN,'BF')
         .then( (res:any[]) => {
             const buffer = Buffer.from(res);
             const success = buffer.readInt16LE(0) ===ReservedCommands.PROGRAM_LIST_BEGIN
-            this.logger.logEvent( {message:'programUploadInit() response',success, buffer})
+            this.logEvent( {message:'programUploadInit() response',success, buffer})
             if (!success) 
                 throw new Error('Illegal Response' )
             return true;
@@ -972,15 +986,15 @@ class Daum8i  {
         payload.writeInt32LE(7,32);             // eppVersion (4) - EPP_CURRENT_VERSION
         payload.writeInt32LE(eppLength,36);    // eppSize
        
-        this.logger.logEvent( {message:'programUploadStart() request', bikeType, length:eppLength})        
+        this.logEvent( {message:'programUploadStart() request', bikeType, length:eppLength})        
         return this.sendReservedDaum8iCommand( ReservedCommands.PROGRAM_LIST_NEW_PROGRAM,'BF', payload)
         .then( (res:any[]) => {
             const buffer = Buffer.from(res);
             if ( buffer.readInt16LE(0) ===ReservedCommands.PROGRAM_LIST_NEW_PROGRAM) {
-                this.logger.logEvent( {message:'programUploadStart() response', success:true})
+                this.logEvent( {message:'programUploadStart() response', success:true})
                 return epp
             }
-            this.logger.logEvent( {message:'programUploadStart() response', success:false})
+            this.logEvent( {message:'programUploadStart() response', success:false})
             throw new Error('Illegal Response' )
         })
     }
@@ -1002,7 +1016,7 @@ class Daum8i  {
         const chunk = Buffer.from(epp.slice(offset,offset+size));
         chunk.copy(payload,8);
 
-        this.logger.logEvent( {message:'programUploadSendBlock() request', offset, size})
+        this.logEvent( {message:'programUploadSendBlock() request', offset, size})
         return this.sendReservedDaum8iCommand( ReservedCommands.PROGRAM_LIST_CONTINUE_PROGRAM,'BF', payload)
         .then( (res:any[]) => {
             const buffer = Buffer.from(res);
@@ -1010,7 +1024,7 @@ class Daum8i  {
 
             success = success && (buffer.readInt16LE(2) === 1);
             success = success && (buffer.readInt8(4) === 1);
-            this.logger.logEvent( {message:'programUploadSendBlock() response'})
+            this.logEvent( {message:'programUploadSendBlock() response'})
 
             if (!success) throw new Error('Illegal Response' )
             return true;;
@@ -1020,12 +1034,12 @@ class Daum8i  {
 
 
     programUploadDone():Promise<boolean> {
-        this.logger.logEvent( {message:'programUploadDone() request'})
+        this.logEvent( {message:'programUploadDone() request'})
         return this.sendReservedDaum8iCommand( ReservedCommands.PROGRAM_LIST_END,'BF')
         .then( (res:any[]) => {
             const buffer = Buffer.from(res);
             const success =  buffer.readInt16LE(0) ===ReservedCommands.PROGRAM_LIST_END;
-            this.logger.logEvent( {message:'programUploadDone() response', success})
+            this.logEvent( {message:'programUploadDone() response', success})
 
             if (!success) throw new Error('Illegal Response' )
             return true;;
@@ -1070,12 +1084,12 @@ class Daum8i  {
         const payload = Buffer.alloc(2);
 
         payload.writeInt16LE(programId,0);
-        this.logger.logEvent( {message:'startProgram() request', programId})
+        this.logEvent( {message:'startProgram() request', programId})
         return this.sendReservedDaum8iCommand( ReservedCommands.PROGRAM_LIST_START,'BF', payload)
         .then( (res:any[]) => {
             const buffer = Buffer.from(res);
             const success =  buffer.readInt16LE(0) ===ReservedCommands.PROGRAM_LIST_START
-            this.logger.logEvent( {message:'startProgram() request', programId, success})
+            this.logEvent( {message:'startProgram() request', programId, success})
             
             if (!success) throw new Error('Illegal Response' )
             return true;;
