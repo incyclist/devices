@@ -4,7 +4,8 @@ import { BleDeviceClass,matches } from './ble';
 import DeviceAdapter, { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from '../device';
 import {EventLogger} from 'gd-eventlog';
 import BleFitnessMachineDevice, { FmAdapter,IndoorBikeData } from './fm';
-import {CSC_MEASUREMENT, CSP_MEASUREMENT, FTMS_CP,INDOOR_BIKE_DATA,TACX_FE_C_BLE,TACX_FE_C_RX,TACX_FE_C_TX} from './consts'
+import {CSC_MEASUREMENT, CSP_MEASUREMENT, FTMS_CP,INDOOR_BIKE_DATA,TACX_FE_C_BLE,TACX_FE_C_RX,TACX_FE_C_TX, FTMS_STATUS} from './consts'
+import BlePeripheralConnector from './ble-peripheral';
 
 const SYNC_BYTE = 0xA4; //164
 const DEFAULT_CHANNEL = 5;
@@ -120,6 +121,54 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
             if (matches(c,TACX_FE_C_TX))
                 this.tacxTx = c;
         })
+    }
+
+
+    subscribeAll(conn?: BlePeripheralConnector):Promise<void> {
+        return new Promise ( resolve => {
+            const characteristics = [ CSC_MEASUREMENT, CSP_MEASUREMENT, INDOOR_BIKE_DATA, FTMS_STATUS,FTMS_CP]
+            const timeout = Date.now()+5500;
+
+            const iv = setInterval( ()=> {
+                const subscriptionStatus = characteristics.map( c => this.subscribedCharacteristics.find( s=> s===c)!==undefined)
+                const done = subscriptionStatus.filter(s=> s===true).length === characteristics.length;
+                if (done || Date.now()>timeout) {
+                    clearInterval(iv)
+                    resolve();
+                }
+
+
+
+            },100)
+
+            try {
+                const connector = conn || this.ble.getConnector(this.peripheral)
+    
+    
+                
+                for (let i=0; i<characteristics.length;i++)
+                {
+                    const c = characteristics[i]
+                    const isAlreadySubscribed = connector.isSubscribed(c)            
+                    if ( !isAlreadySubscribed) {   
+                        connector.removeAllListeners(c);
+    
+                        connector.on(c, (uuid,data)=>{  
+                            this.onData(uuid,data)
+                        })
+                        connector.subscribe(c);
+                        this.subscribedCharacteristics.push(c)
+                    }
+                }
+    
+            }
+            catch (err) {
+                this.logEvent({message:'Error', fn:'subscribeAll()', error:err.message, stack:err.stack})
+    
+            }
+            
+        })
+
     }
 
 
@@ -532,7 +581,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
                     case CSC_MEASUREMENT:                        
                         res = this.parseCSC(data,this.hasFECData)
                         break;
-                    case '2ada':     //  name: 'Fitness Machine Status',
+                    case FTMS_STATUS:     //  name: 'Fitness Machine Status',
                         if (!this.hasFECData)
                             res = this.parseFitnessMachineStatus(data)
                         break;
