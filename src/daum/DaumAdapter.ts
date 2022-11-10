@@ -191,6 +191,15 @@ export default class DaumAdapterBase extends IncyclistDevice implements DeviceAd
         throw new Error('Method not implemented.');
     }
 
+    stopUpdatePull() { 
+        if (!this.iv)
+            return;
+        
+        if (this.iv.sync) clearInterval(this.iv.sync)
+        if (this.iv.update) clearInterval(this.iv.update)
+        this.iv = undefined
+    }
+
     startUpdatePull() {
         // ignore if already  started
         if (this.iv)

@@ -126,25 +126,36 @@ export default class DaumClassicAdapter extends DaumAdapter{
 
     async launch(props, isRelaunch=false) {
 
-        const opts = props || {}
+        if (isRelaunch) {
+            await this.stop();
+        }
 
-        const {user,bikeSettings} = opts;
+        return this.startRide(props)
+        .then ( data => {
+            this.stopped = false;
+            this.paused = false;
+            this.startUpdatePull();
+            return data;
+        })
+    }
+
+    startRide(props:{user?,bikeSettings?,gear?}={}) {
+
+        this.stopUpdatePull();
+
+        const {user,bikeSettings} = props;
         if (user && user.weight)
             this.userSettings.weight = user.weight;
         if (bikeSettings && bikeSettings.weight)
             this.bikeSettings.weight = bikeSettings.weight;
 
         this.initData();        
-        if (isRelaunch) {
-            await this.stop();
-        }
 
-        let startState = { } as any;
-
+        let startState = { } as any;        
         return runWithRetries( async ()=>{
             
             try {
-    
+
                 if(!this.bike.isConnected())
                     await this.bike.saveConnect();
                     
@@ -170,7 +181,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
                     startState.startProg = true;
                 }
                 if ( !startState.setGear) {
-                    await this.bike.setGear( this.cyclingData.gear || ( opts.gear ||10 ));    
+                    await this.bike.setGear( this.cyclingData.gear || ( props.gear ||10 ));    
                     startState.setGear = true;
                 }
 
@@ -183,6 +194,10 @@ export default class DaumClassicAdapter extends DaumAdapter{
                 if (startRequest.targetPower && startRequest.targetPower!==25 && data.power===25) {
                     throw new Error( 'invalid device response: runData');
                 }
+
+                this.stopped = false;
+                this.paused = false;
+                this.startUpdatePull();
                 
                 return data;
                 
@@ -194,12 +209,6 @@ export default class DaumClassicAdapter extends DaumAdapter{
                 throw( new Error(`could not start device, reason:${err.message}`));
             }
         }, 5, 1000 )
-        .then ( data => {
-            this.stopped = false;
-            this.paused = false;
-            this.startUpdatePull();
-            return data;
-        })
     }
 
     getCurrentBikeData() {
