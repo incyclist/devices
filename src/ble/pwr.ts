@@ -126,7 +126,7 @@ export default class BleCyclingPowerDevice extends BleDevice {
             }
 
             if ( flags&0x10)  {  // wheel revolutions
-
+                offset+=6
             }
             if ( flags&0x20)  {  // crank revolutions
                 const crankData = { 

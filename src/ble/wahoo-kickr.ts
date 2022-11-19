@@ -197,8 +197,10 @@ export default class WahooAdvancedFitnessMachineDevice extends BleFitnessMachine
             if ( flags&0x1)  
                 data.readUInt8(offset++);
             if ( flags&0x4)  {
-                data.readUInt16LE(offset);
                 offset+=2;
+            }
+            if ( flags&0x10)  {
+                offset+=6;
             }
             if ( flags&0x20)  {
                 const crankData = { 

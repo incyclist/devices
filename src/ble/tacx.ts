@@ -288,13 +288,16 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 
             this.data.instantaneousPower = data.readUInt16LE(2)
             
-            if ( flags&0x1)  
-                data.readUInt8(offset++);
-            if ( flags&0x4)  {
-                data.readUInt16LE(offset);
+            if ( flags&0x1)  // bit 0
+                data.readUInt8(offset++);   // pedal power balance
+
+            if ( flags&0x4)  {              // Accumulated Torque
                 offset+=2;
             }
-            if ( flags&0x20)  {
+            if (flags&0x10) {               // Wheel revolution
+                offset+=6;
+            }
+            if ( flags&0x20)  {             // crank revolution
                 const crankData = { 
                     revolutions: data.readUInt16LE(offset),
                     time: data.readUInt16LE(offset+2)

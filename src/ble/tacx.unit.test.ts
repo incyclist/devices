@@ -68,6 +68,33 @@ describe ('onData',()=>{
 
 })
 
+describe( 'parsePower',()=>{
+
+    test('bug:strange rpm values',()=>{
+        const tacx = new TacxAdvancedFitnessMachineDevice({id:'4711',logger:new MockLogger()});
+        tacx.logEvent = jest.fn();
+
+        tacx.parsePower( Buffer.from('3000000000000000000000000008','hex'))
+        const res = tacx.parsePower( Buffer.from('30001f00020000003b040000000c','hex'))
+        expect(res.cadence).toBeLessThan(200)
+
+    })
+
+
+    test('wheel & crank',()=>{
+        const tacx = new TacxAdvancedFitnessMachineDevice({id:'4711',logger:new MockLogger()});
+        tacx.logEvent = jest.fn();
+
+        const msg1 = '30002700e80400001597e001bdf5'        
+        const msg2 = '30002700e9040000b19ae20163fb'
+        tacx.parsePower( Buffer.from(msg1,'hex'))
+        const res = tacx.parsePower( Buffer.from(msg2,'hex'))
+        expect(res.cadence).toBeCloseTo(85,0)
+
+    })
+
+})
+
 
 describe ('parseProductInformation',()=>{
 
