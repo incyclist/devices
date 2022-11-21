@@ -135,7 +135,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
             this.stopped = false;
             this.paused = false;
             this.startUpdatePull();
-            return data;
+            return true;
         })
     }
 

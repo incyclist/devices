@@ -166,7 +166,7 @@ export default class DaumPremiumDevice extends DaumAdapter{
             this.paused = false;
             
             this.startUpdatePull();
-            return data;
+            return true;
         })
     }
 
