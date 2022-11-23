@@ -62,7 +62,6 @@ export default class DaumClassicAdapter extends DaumAdapter{
     }
 
     async pause(): Promise<boolean> {
-        console.log('~~~~~~~~~~ PAUSE')
         const paused  = await super.pause()
         this.bike.pauseLogging()
         return paused
@@ -114,34 +113,49 @@ export default class DaumClassicAdapter extends DaumAdapter{
     }
 
 
-    async relaunch(props) {
-        this.logger.logEvent({message:'relaunch()'});        
+    async startRide(props) {
+        this.logger.logEvent({message:'relaunch of device'});        
         return await this.launch(props,true)
     }
 
     async start(props) {
-        this.logger.logEvent({message:'start(-)'});        
+        this.logger.logEvent({message:'initial start of device'});        
         return await this.launch(props,false)
     }
 
     async launch(props, isRelaunch=false) {
 
-        if (isRelaunch) {
-            await this.stop();
-        }
+        try {
+            if (isRelaunch) {
+                await this.stop();
+            }
 
-        return this.startRide(props)
-        .then ( data => {
+            await this.performStart(props)
+        
+            if (!isRelaunch) {
+                try {
+                    const version = await this.bike.getVersion();
+                    this.logEvent({message: 'device info', deviceInfo:version})
+                }
+                catch {}
+            }
+
+
             this.stopped = false;
             this.paused = false;
             this.startUpdatePull();
             return true;
-        })
+        }
+        catch(err) {
+            this.logger.logEvent({message: 'start result: error', error: err.message})
+            throw new Error(`could not start device, reason:${err.message}`)
+        }
+
     }
 
-    startRide(props:{user?,bikeSettings?,gear?}={}) {
-
-        this.stopUpdatePull();
+    performStart(props:{user?,bikeSettings?,gear?}={}) {
+        
+        this.stop();
 
         const {user,bikeSettings} = props;
         if (user && user.weight)
@@ -212,6 +226,9 @@ export default class DaumClassicAdapter extends DaumAdapter{
     }
 
     getCurrentBikeData() {
+        if (this.stopped)
+            return;
+
         return this.getBike().runData()
     }
 

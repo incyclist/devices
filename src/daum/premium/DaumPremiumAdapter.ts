@@ -85,15 +85,34 @@ export default class DaumPremiumDevice extends DaumAdapter{
         return resumed
     }
 
+    async startRide(props) {
+        this.logger.logEvent({message:'relaunch of device'});        
+        try {
+            await this.launch(props,true)
+            return true;
+        }
+        catch(err) {
 
-    async relaunch(props) {
-        this.logger.logEvent({message:'relaunch()'});        
-        return await this.launch(props,true)
+            this.logger.logEvent({message: 'start result: error', error: err.message})
+            throw new Error(`could not start device, reason:${err.message}`)
+
+        }
+
     }
 
     async start(props) {
-        this.logger.logEvent({message:'start()'});        
-        return await this.launch(props,false)
+        this.logger.logEvent({message:'initial start of device'});        
+
+        try {
+            await this.launch(props,false)
+            return true;
+        }
+        catch(err) {
+
+            this.logger.logEvent({message: 'start result: error', error: err.message})
+            throw new Error(`could not start device, reason:${err.message}`)
+
+        }
     }
 
     async launch(props, isRelaunch=false) {
@@ -156,7 +175,6 @@ export default class DaumPremiumDevice extends DaumAdapter{
                 return;
             }
             catch(err) {
-                console.error(err)
                 throw( new Error(`could not start device, reason:${err.message}`));
             }
 
