@@ -89,22 +89,22 @@ const IndoorBikeDataFlag = {
 }
 
 const FitnessMachineFeatureFlag = {
-    AverageSpeedSupported: bit(0),
-    CadenceSupported: bit(1),
-    TotalDistanceSupported: bit(2),
-    InclinationSupported: bit(3),
-    ElevationGainSupported: bit(4),
-    PaceSupported: bit(5),
-    StepCountSupported: bit(6),
-    ResistanceLevelSupported: bit(7),
-    StrideCountSupported: bit(8),
-    ExpendedEnergySupported: bit(9),
-    HeartRateMeasurementSupported: bit(10),
-    MetabolicEquivalentSupported: bit(11),
-    ElapsedTimeSupported: bit(12),
-    RemainingTimeSupported: bit(13),
-    PowerMeasurementSupported: bit(14),
-    ForceOnBeltAndPowerOutputSupported: bit(15),
+    AverageSpeedSupported: bit(0),                  // 0x0001
+    CadenceSupported: bit(1),                       // 0x0002
+    TotalDistanceSupported: bit(2),                 // 0x0004
+    InclinationSupported: bit(3),                   // 0x0008
+    ElevationGainSupported: bit(4),                 // 0x0010
+    PaceSupported: bit(5),                          // 0x0020
+    StepCountSupported: bit(6),                     // 0x0040
+    ResistanceLevelSupported: bit(7),               // 0x0080
+    StrideCountSupported: bit(8),                   // 0x0100
+    ExpendedEnergySupported: bit(9),                // 0x0200
+    HeartRateMeasurementSupported: bit(10),         // 0x0400
+    MetabolicEquivalentSupported: bit(11),          // 0x0800
+    ElapsedTimeSupported: bit(12),                  // 0x1000
+    RemainingTimeSupported: bit(13),                // 0x2000
+    PowerMeasurementSupported: bit(14),             // 0x4000
+    ForceOnBeltAndPowerOutputSupported: bit(15),    // 0x8000
     UserDataRetentionSupported: bit(16)
 }
 
@@ -744,7 +744,7 @@ export class FmAdapter extends DeviceAdapter {
             this.device.setLogger(this.logger)       
     }
 
-    isBike() { return this.device.isBike()}
+    isBike() { return this.device.isBike() || this.device.isPower() }
     isHrm() { return this.device.isHrm() }
     isPower() { return this.device.isPower() }
     isSame(device:DeviceAdapter):boolean {
@@ -939,6 +939,9 @@ export class FmAdapter extends DeviceAdapter {
                     this.onDeviceData(data)
                     
                 })
+
+                bleDevice.on('disconnected', this.emit)
+                
                 return true;
             }    
         }

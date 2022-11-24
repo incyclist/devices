@@ -6,6 +6,8 @@ import AntInterface from './ant-interface';
 import IncyclistDevice, { DeviceAdapter, OnDeviceDataCallback } from '../device';
 export const DEFAULT_UPDATE_FREQUENCY  = 1000;
 
+const NO_DATA_TIMEOUT = 5000;
+
 export default class AntAdapter  extends IncyclistDevice implements Device   {
 
     sensor: ISensor;
@@ -27,6 +29,8 @@ export default class AntAdapter  extends IncyclistDevice implements Device   {
     selected: boolean
     settings: any
     onDataFn: OnDeviceDataCallback
+    protected ivDataTimeout: NodeJS.Timer
+    protected lastDataTS: number;
 
 
 
@@ -127,6 +131,29 @@ export default class AntAdapter  extends IncyclistDevice implements Device   {
 
     }
 
+    startDataTimeoutCheck() {
+        if (this.ivDataTimeout)
+            return;
+
+        this.ivDataTimeout = setInterval( ()=>{
+            console.log('~~~ check',this.lastDataTS)
+            if (!this.lastDataTS)
+                return;
+
+            if (this.lastDataTS+NO_DATA_TIMEOUT<Date.now()) {
+                this.emit('disconnected', Date.now()-this.lastDataTS)
+            }
+        }, 1000)
+    }
+
+    stopDataTimeoutCheck() {
+        if (!this.ivDataTimeout)
+            return;
+        clearInterval(this.ivDataTimeout)
+        this.ivDataTimeout = undefined
+    }
+
+
     async start( props?: any ): Promise<any> {
         if ( props && props.user)
             this.userSettings = props.user;
@@ -138,7 +165,9 @@ export default class AntAdapter  extends IncyclistDevice implements Device   {
     }
 
     async stop(): Promise<boolean> {
+        this.stopDataTimeoutCheck()
         this.stopped = true;
+ 
         return true;
     }
 

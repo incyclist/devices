@@ -21,11 +21,13 @@ const INTERFACE = process.env.INTERFACE || 'v2'
 async function main(props={}) {
 
     let protocol
+    let ant
+
     if (INTERFACE==='old' || INTERFACE==='v1') {
         protocol = new AntScanner(Ant)
     }
     else  {
-        const ant = AntInterface.getInstance( {binding:AntDevice, debug:true,logger, startupTimeout:2000})
+        ant = AntInterface.getInstance( {binding:AntDevice, debug:true,logger, startupTimeout:2000})
         await ant.connect();
         protocol = new AntProtocol()
     }
@@ -34,8 +36,9 @@ async function main(props={}) {
     if (props.deviceID && props.profile) {
         const device = protocol.add(props)
         device.onData( (...args)=> console.log('data',...args)  )
+        device.on('disconnected', ()=>{console.log('disconnected')})
         const success = await  device.start();
-        console.log( 'device start result',success)
+        console.log( 'device start result',props,success)
     }
     else {
 

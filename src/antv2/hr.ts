@@ -39,6 +39,10 @@ export default class AntHrAdapter extends AntAdapter{
             return;
 
         this.deviceData = deviceData;
+        this.lastDataTS = Date.now();
+        if (!this.ivDataTimeout) 
+            this.startDataTimeoutCheck()
+
         try {
             if ( this.onDataFn && !this.ignoreHrm && !this.paused) {
                 if ( this.lastUpdate===undefined || (Date.now()-this.lastUpdate)>this.updateFrequency) {

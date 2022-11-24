@@ -2,6 +2,7 @@
 
 import {DeviceProtocol,Device} from './protocol'
 import CyclingMode from './cycling-mode'
+import EventEmitter from 'events';
 
 export const DEFAULT_BIKE_WEIGHT = 10;
 export const DEFAULT_USER_WEIGHT = 75;
@@ -77,7 +78,7 @@ export interface DeviceAdapter extends Device {
     * 
 */
 
-export default class IncyclistDevice implements DeviceAdapter {
+export default class IncyclistDevice extends EventEmitter implements DeviceAdapter  {
 
     protocol: DeviceProtocol;
     detected: boolean;
@@ -89,6 +90,7 @@ export default class IncyclistDevice implements DeviceAdapter {
         * @param {DeviceProtocol} proto The DeviceProtocol implementation that should be used to detect this type of device
     */
     constructor( proto: DeviceProtocol, settings?) {
+        super();
         this.protocol= proto;
         this.detected = false;
         this.selected = false;

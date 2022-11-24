@@ -21,7 +21,7 @@ export default class AntFEAdapter extends AntAdapter{
     protected distanceInternal?: number;
 
     protected msgCount: number;
-
+    
     constructor( sensor:ISensor, protocol: AntProtocol) {
         super(sensor,protocol)
 
@@ -130,12 +130,16 @@ export default class AntFEAdapter extends AntAdapter{
 
 
     }
+    
+
     onDeviceData( deviceData) {
         if (!this.started || this.isStopped())
             return;
 
         this.deviceData = deviceData;
-        
+        this.lastDataTS = Date.now();
+        if (!this.ivDataTimeout) 
+            this.startDataTimeoutCheck()
         
 
         try {
@@ -281,6 +285,8 @@ export default class AntFEAdapter extends AntAdapter{
                 return reject(new Error(`could not start device`))
             
             }
+
+
 
             try {
                 const fe = this.sensor as FitnessEquipmentSensor;

@@ -64,7 +64,10 @@ export default class AntPwrAdapter extends AntAdapter{
             return;
 
         this.deviceData = deviceData;
-        this.deviceData = deviceData;
+        this.lastDataTS = Date.now();
+        if (!this.ivDataTimeout) 
+            this.startDataTimeoutCheck()
+
         
         try {
             if ( this.onDataFn && !(this.ignoreBike && this.ignorePower) && !this.paused) {

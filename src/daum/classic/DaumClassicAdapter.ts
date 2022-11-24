@@ -135,7 +135,8 @@ export default class DaumClassicAdapter extends DaumAdapter{
             if (!isRelaunch) {
                 try {
                     const version = await this.bike.getVersion();
-                    this.logEvent({message: 'device info', deviceInfo:version})
+                    const {serialNo,cockpit} = version || {}
+                    this.logEvent({message: 'device info', deviceInfo: {serialNo,cockpit}})
                 }
                 catch {}
             }
