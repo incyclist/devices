@@ -135,10 +135,13 @@ export default class Daum8008  {
 
   
     connect() {
-        this.logEvent({message:"connect()",port:this.getPort(), sp:(this.sp!==undefined),});
+        this.logEvent({message:"connect()",port:this.getPort(), isConnected:this.connected, sp:(this.sp!==undefined),});
         if ( this.closing || this.opening) {
             return;
         }
+
+        if (this.connected)
+            return;
 
 
         try {

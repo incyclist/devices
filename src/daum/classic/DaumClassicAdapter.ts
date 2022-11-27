@@ -130,7 +130,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
                 await this.stop();
             }
 
-            await this.performStart(props)
+            await this.performStart(props, isRelaunch)
         
             if (!isRelaunch) {
                 try {
@@ -154,7 +154,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
 
     }
 
-    performStart(props:{user?,bikeSettings?,gear?}={}) {
+    performStart(props:{user?,bikeSettings?,gear?}={}, isRelaunch=false) {
         
         this.stop();
 
@@ -171,7 +171,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
             
             try {
 
-                if(!this.bike.isConnected())
+                if (!isRelaunch && !this.bike.isConnected())
                     await this.bike.saveConnect();
                     
                 await this.getBike().resetDevice();

@@ -246,6 +246,10 @@ export default class DaumAdapterBase extends IncyclistDevice implements DeviceAd
           
 
     stop(): Promise<boolean> {
+
+        if (this.stopped)
+            return Promise.resolve(true);
+
         this.logEvent({message:'stop request'});        
         this.stopped = true;
         return new Promise( (resolve,reject) => {
@@ -260,7 +264,7 @@ export default class DaumAdapterBase extends IncyclistDevice implements DeviceAd
                 resolve(true);
             }
             catch (err) {
-                this.logEvent({message:'stop error',error:err.message});        
+                this.logEvent({message:'stop error',error:err.message});                        
                 reject(err);
             }
         })
@@ -286,7 +290,7 @@ export default class DaumAdapterBase extends IncyclistDevice implements DeviceAd
 
     async sendUpdate(request) {
         // don't send any commands if we are pausing
-        if( this.paused)
+        if( this.paused || this.stopped)
             return;
         
         this.logEvent({message:'sendUpdate',request,waiting:this.requests.length});    
@@ -300,6 +304,9 @@ export default class DaumAdapterBase extends IncyclistDevice implements DeviceAd
 
     async update() {
         // now get the latest data from the bike
+        if (this.stopped)
+            return;
+
         this.updateBusy = true;
         this.getCurrentBikeData()
         .then( bikeData => {
@@ -326,6 +333,10 @@ export default class DaumAdapterBase extends IncyclistDevice implements DeviceAd
     }
 
     async sendRequests() {
+
+        if (this.stopped)
+            return;
+
         // if we have updates, send them to the device
         if (this.requests.length>0) {
             const processing  =[...this.requests];
@@ -359,7 +370,7 @@ export default class DaumAdapterBase extends IncyclistDevice implements DeviceAd
     async bikeSync() {
 
         // don't send any commands if we are pausing
-        if( this.paused) {
+        if( this.paused || this.stopped) {
             return;
         }
 
