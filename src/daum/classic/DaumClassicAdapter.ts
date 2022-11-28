@@ -92,9 +92,9 @@ export default class DaumClassicAdapter extends DaumAdapter{
                 if(!this.bike.isConnected())
                     await this.bike.saveConnect();
                 
-                const address = await this.bike.getAddress()
+                const address = await this.bike.getAddress() ||  {}
                 info.bikeNo = address.bike;
-                const version = await this.bike.getVersion();
+                const version = await this.bike.getVersion() || {}
                 info.serialNo = version.serialNo;
                 info.cockpit = version.cockpit
                 this.setName('Daum '+info.cockpit);
