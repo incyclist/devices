@@ -125,6 +125,11 @@ export default class AntFEAdapter extends AntAdapter{
         
         }
         catch( err) {
+
+            if (err.message && err.message.toLowerCase()==='timeout') {
+                this.emit('timeout')
+            }
+
             this.logger.logEvent( {message:'sendBikeUpdate() error',error:err.message})
         }
 
@@ -286,6 +291,8 @@ export default class AntFEAdapter extends AntAdapter{
             
             }
 
+            this.initTimeoutHandler()
+
 
 
             try {
@@ -325,6 +332,13 @@ export default class AntFEAdapter extends AntAdapter{
             
     
         })
+    }
+
+    initTimeoutHandler() {
+        const fe = this.sensor as FitnessEquipmentSensor;
+        
+        fe.setSendTimeout(5000);
+        
     }
 
     async stop(): Promise<boolean>  {
