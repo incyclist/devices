@@ -1,4 +1,3 @@
-import { resolve } from "dns";
 import EventEmitter from "events";
 import { EventLogger } from "gd-eventlog";
 import { Channel, IAntDevice, IChannel, ISensor } from "incyclist-ant-plus";
@@ -91,7 +90,7 @@ export default class AntInterface  extends EventEmitter  {
         
                 const opened = await device.open();
                 if (!opened) {
-                    this.logEvent({message:'could not connect'})
+                    this.logEvent({message:'ANT+ not connected'})
                     this.isConnecting = false;
                     return false;
                 }

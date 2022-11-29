@@ -136,7 +136,6 @@ export default class AntAdapter  extends IncyclistDevice implements Device   {
             return;
 
         this.ivDataTimeout = setInterval( ()=>{
-            console.log('~~~ check',this.lastDataTS)
             if (!this.lastDataTS)
                 return;
 
