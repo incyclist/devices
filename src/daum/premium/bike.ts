@@ -178,7 +178,7 @@ class Daum8i  {
         this.blocked= false;
     }
 
-    connect() {
+    async connect() {
         this.logEvent({message:"connect()",sp:(this.sp!==undefined),connected:this.connected, blocked:this.blocked,port:this.portName,settings:this.settings});
 
         if ( this.connected || this.blocked) {
@@ -192,7 +192,7 @@ class Daum8i  {
             if ( this.sp!==undefined ) {
                 try {
                     this.sp.removeAllListeners();
-                    this.sp.close();
+                    await this.sp.close();
                 }
                 catch(err) {
                 }
@@ -228,12 +228,12 @@ class Daum8i  {
             this.state.opening= { start, timeout:start+this.getTimeoutValue()}
 
             this.logEvent({message:"opening port ..."});            
-            this.sp.open()
+            await this.sp.open()
                 
 
         }
         catch (err)  {
-            this.logEvent({message:"scan:error:",error:err.message, stack:err.stack});
+            this.logEvent({message:"connect:error:",error:err.message, stack:err.stack});
             this.state.busy=false;
         }               
 
@@ -241,48 +241,59 @@ class Daum8i  {
 
 	async reconnect() {
         //this.sp=undefined;
-        await this.saveClose();
-		await this.saveConnect();
+        try {
+            await this.saveClose();
+		    await this.saveConnect();
+        }
+        catch {}
 	}
 
 
 
 
     saveConnect() {
-        return new Promise( (resolve,reject)=> {
+        return new Promise( async (resolve,reject)=> {
+
             if ( this.isConnected() ) {
                 this.state.connecting = false;
                 return resolve(true);
             }
 
-            this.connect();
+            try {
+                await this.connect();
+            }
+            catch {}
 
 
             const tTimeout = Date.now()+TIMEOUT_START;
             const iv = setInterval( ()=>{
+                try {
 
-                if ( this.state.error !== undefined) {
-                    clearInterval(iv);
-                    this.forceClose()
-                    reject(this.state.error);
-
-                    this.state = { opened:false, closed:true, busy:false}
-
-                }
-                else if ( this.isConnected() ) {
-                    this.state.connecting = false;
-                    resolve(true);
-                    clearInterval(iv);
-                }
-                
-                else {
-                    if ( Date.now()>tTimeout ) {
-                        this.state.connecting = false;
-                        this.forceClose()
+                    if ( this.state.error !== undefined) {
                         clearInterval(iv);
-                        reject( new Error('timeout') );
+                        this.forceClose()
+                        reject(this.state.error);
+    
+                        this.state = { opened:false, closed:true, busy:false}
+    
                     }
+                    else if ( this.isConnected() ) {
+                        this.state.connecting = false;
+                        resolve(true);
+                        clearInterval(iv);
+                    }
+                    
+                    else {
+                        if ( Date.now()>tTimeout ) {
+                            this.state.connecting = false;
+                            this.forceClose()
+                            clearInterval(iv);
+                            reject( new Error('timeout') );
+                        }
+                    }
+    
                 }
+                catch {}
             } ,100)
         })
     }
@@ -337,11 +348,16 @@ class Daum8i  {
 
         if ( this.blocked) {
             if ( !this.state.closed) {                
-                if (this.sp) {
-                    this.sp.removeAllListeners();
-                    this.sp.close();
-                    this.sp = undefined;
+
+                try {
+                    if (this.sp) {
+                        this.sp.removeAllListeners();
+                        this.sp.close();
+                        this.sp = undefined;
+                    }
                 }
+                catch {}
+
                 this.state = { opened:false, closed: true, busy:false}
             }
             return;
@@ -407,12 +423,19 @@ class Daum8i  {
             return;
         
         this.sp.removeAllListeners();
+
         try {
             sp.unpipe();
             sp.flush();    
         }
         catch {}
-        sp.close();
+
+
+        try {
+            sp.close();
+        }
+        catch {}
+
         this.connected = false;
         if (updateState)
             this.state = { opened:false, closed:true, busy:false}
