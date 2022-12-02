@@ -286,7 +286,7 @@ export default class AntFEAdapter extends AntAdapter{
             this.setFEDefaultTimeout()
 
             let success = false;
-            let status;
+            let status = { userSent: false, slopeSent:false}
             let retry =0;
 
             while (!success && retry<MAX_RETRIES) {
@@ -315,7 +315,8 @@ export default class AntFEAdapter extends AntAdapter{
     
     
                 }
-                catch(error) {
+                catch(err) {
+                    this.logger.logEvent( { message:'sending FE message error', error:err.message })
                     try {
                         await await this.ant.stopSensor(this.sensor)                        
                     }
@@ -335,6 +336,7 @@ export default class AntFEAdapter extends AntAdapter{
             if (success) {
                 this.logger.logEvent( {message:'start success'})
                 stopTimeoutCheck()
+                resolve(true)
             }
             else {
                 this.logger.logEvent( {message:'start failed'})
