@@ -905,7 +905,7 @@ export default class BleInterface extends BleInterfaceClass {
 
         this.getBinding().removeAllListeners('discover');
 
-        const ongoing = this.peripheralCache.filter( i=> i.state.isLoading);
+        const ongoing = this.peripheralCache.filter( i=> i.state && i.state.isLoading);
         if (ongoing)
             ongoing.forEach( i => {i.isInterrupted = true;})
 
