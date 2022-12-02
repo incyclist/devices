@@ -8,10 +8,12 @@ import CyclingMode, { IncyclistBikeData } from '../cycling-mode';
 import AntStCyclingMode from "../ant/antfe/ant-fe-st-mode";
 import AntFeERGCyclingMode from "../ant/antfe/ant-fe-erg-mode";
 import AntAdvSimCyclingMode from "../ant/antfe/ant-fe-adv-st-mode";
+import { sleep } from "../utils";
 
 const DEFAULT_USER_WEIGHT = 75;
 const DEFAULT_BIKE_WEIGHT = 10;
 const DEFAULT_BIKE_WEIGHT_MOUNTAIN = 14.5;
+const MAX_RETRIES = 3;
 
 export default class AntFEAdapter extends AntAdapter{
     
@@ -19,8 +21,10 @@ export default class AntFEAdapter extends AntAdapter{
     protected logger: EventLogger
     protected cyclingMode: CyclingMode;
     protected distanceInternal?: number;
+    protected startProps : any;
 
     protected msgCount: number;
+    protected isReconnecting: boolean
     
     constructor( sensor:ISensor, protocol: AntProtocol) {
         super(sensor,protocol)
@@ -30,6 +34,7 @@ export default class AntFEAdapter extends AntAdapter{
         }       
         this.msgCount = 0;
         this.logger = new EventLogger('Ant+FE')
+        this.isReconnecting = false
     }
 
     isBike() { return true;}
@@ -93,8 +98,9 @@ export default class AntFEAdapter extends AntAdapter{
     async sendUpdate(request) {
 
         // don't send any commands if we are pausing
-        if( this.paused)
+        if( this.paused || this.isReconnecting)
             return;
+
 
         const update = this.getCyclingMode().sendBikeUpdate(request)
         this.logger.logEvent({message: 'send bike update requested', update, request})
@@ -127,7 +133,11 @@ export default class AntFEAdapter extends AntAdapter{
         catch( err) {
 
             if (err.message && err.message.toLowerCase()==='timeout') {
+                
                 this.emit('timeout')
+                if ( this.startProps.automaticReconnect) {
+                    await this.reconnect()
+                }
             }
 
             this.logger.logEvent( {message:'sendBikeUpdate() error',error:err.message})
@@ -141,6 +151,7 @@ export default class AntFEAdapter extends AntAdapter{
         if (!this.started || this.isStopped())
             return;
 
+        this.msgCount++;
         this.deviceData = deviceData;
         this.lastDataTS = Date.now();
         if (!this.ivDataTimeout) 
@@ -242,6 +253,8 @@ export default class AntFEAdapter extends AntAdapter{
     async start( props?: any ): Promise<any> {
         super.start(props);
 
+        this.startProps = props;
+
         this.logger.logEvent( {message:'start', props})
 
         this.msgCount = 0;
@@ -250,91 +263,90 @@ export default class AntFEAdapter extends AntAdapter{
 
 
         return new Promise ( async (resolve, reject) => {
+
             const {timeout=20000} = props||{}
 
 
-            let start = Date.now();
-            let startTimeout = start+timeout;
-            const status = { userSent: false, slopeSent:false}
-
-            let iv ;
-
-            const stopInterval = ()=> {
-                if (iv)
-                    clearInterval(iv)
-                iv = undefined
+            let to ;
+            const stopTimeoutCheck = ()=>{
+                if (to) {
+                    clearTimeout(to)
+                    to = null;
+                }
             }
 
-            if (timeout) {
-                iv = setInterval( async ()=>{
+            to = setTimeout( async ()=>{
+                await this.stop();
+                reject(new Error(`could not start device, reason:timeout`))
+                to = null;
 
-                    if (Date.now()>startTimeout) {
-                        stopInterval()
-                        await this.stop();
-                        reject(new Error(`could not start device, reason:timeout`))
-                    }
-
-                    if (this.started && this.msgCount>1 && status.userSent) {
-                        this.logger.logEvent( {message:'start success'})
-                        stopInterval()
-                    }
+            }, timeout)
 
 
-                }, 100)
-            }
+            this.setFEDefaultTimeout()
 
-            this.started = await this.ant.startSensor(this.sensor,this.onDeviceData.bind(this))
-            if (!this.started) {
-                stopInterval()
-                this.stop();
-                return reject(new Error(`could not start device`))
-            
-            }
+            let success = false;
+            let status;
+            let retry =0;
 
-            this.initTimeoutHandler()
+            while (!success && retry<MAX_RETRIES) {
+                retry++;
 
-
-
-            try {
-                const fe = this.sensor as FitnessEquipmentSensor;
-
-                const mode = this.getCyclingMode()
-                const bikeType = mode ? mode.getSetting('bikeType').toLowerCase() : 'race';
-                const defaultBikeWeight = bikeType==='mountain' ? DEFAULT_BIKE_WEIGHT_MOUNTAIN : DEFAULT_BIKE_WEIGHT; 
-                const userWeight = args.userWeight || user.weight ||DEFAULT_USER_WEIGHT;
-                const bikeWeight = args.bikeWeight||defaultBikeWeight;
-
-                let i =0;
-                while ( i<3 && (!status.userSent || !status.slopeSent)) {
-                    if (!timeout || iv)
-                        status.userSent = status.userSent || await fe.sendUserConfiguration( userWeight, bikeWeight, args.wheelDiameter, args.gearRatio);
-                    if (!timeout || iv)
-                        status.slopeSent = status.slopeSent || await fe.sendTrackResistance(0.0)
-                    i++;
+                if (!this.started) {
+                    this.started = await this.ant.startSensor(this.sensor,this.onDeviceData.bind(this))
+                    status = { userSent: false, slopeSent:false}
+                }
+                if (!this.started) {
+                    await sleep(2000)
+                    continue
                 }
 
-                stopInterval()
+                try {
+                    const fe = this.sensor as FitnessEquipmentSensor;
+    
+                    const mode = this.getCyclingMode()
+                    const bikeType = mode ? mode.getSetting('bikeType').toLowerCase() : 'race';
+                    const defaultBikeWeight = bikeType==='mountain' ? DEFAULT_BIKE_WEIGHT_MOUNTAIN : DEFAULT_BIKE_WEIGHT; 
+                    const userWeight = args.userWeight || user.weight ||DEFAULT_USER_WEIGHT;
+                    const bikeWeight = args.bikeWeight||defaultBikeWeight;
+
+                    status.userSent = status.userSent || await fe.sendUserConfiguration( userWeight, bikeWeight, args.wheelDiameter, args.gearRatio);
+                    status.slopeSent = status.slopeSent || await fe.sendTrackResistance(0.0)
+    
+    
+                }
+                catch(error) {
+                    try {
+                        await await this.ant.stopSensor(this.sensor)                        
+                    }
+                    catch {}
+                    this.started = false;                
+                }
+
+                success = status.userSent && status.slopeSent
                 
-                if ( status.userSent /* && status.slopeSent*/)  {
-                    this.logger.logEvent( {message:'start success'})
-                    return resolve(true)
-                }
-
-                this.logger.logEvent( {message:'start failure'})
-                this.stop();
-                return reject(new Error(`could not start device, reason: could not send commands`))
-
             }
-            catch(error) {
-                reject(new Error(`could not start device, reason:${error.message}`))
-                return;
+
+            while (success && this.msgCount===0) {
+                await sleep(500)
             }
+
             
+            if (success) {
+                this.logger.logEvent( {message:'start success'})
+                stopTimeoutCheck()
+            }
+            else {
+                this.logger.logEvent( {message:'start failed'})
+                stopTimeoutCheck()
+                reject(new Error('could not start device, reason: could not send FE commands'))
+
+            }
     
         })
     }
 
-    initTimeoutHandler() {
+    setFEDefaultTimeout() {
         const fe = this.sensor as FitnessEquipmentSensor;
         
         fe.setSendTimeout(5000);
@@ -345,6 +357,27 @@ export default class AntFEAdapter extends AntAdapter{
         const stopped = await this.ant.stopSensor(this.sensor)
         super.stop()
         return stopped
+    }
+
+    async reconnect(): Promise<boolean> {
+        this.logger.logEvent( {message:'reconnect to device'})
+
+        this.isReconnecting = true;
+        try {
+            await this.stop();
+            await this.start(this.startProps)
+            this.started = true;
+            this.isReconnecting = false;
+            this.logger.logEvent( {message:'reconnect success'})
+            return true;
+        }
+        catch(err) {
+            this.logger.logEvent( {message:'reconnect failed'})
+            this.isReconnecting = false;
+            return false;
+        }
+
+
     }
 
 }

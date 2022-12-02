@@ -150,6 +150,7 @@ export default class AntAdapter  extends IncyclistDevice implements Device   {
             return;
         clearInterval(this.ivDataTimeout)
         this.ivDataTimeout = undefined
+        this.lastDataTS = undefined
     }
 
 
