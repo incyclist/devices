@@ -13,6 +13,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
 
     name: string;
     id: string;
+    udid: number
 
     constructor ( protocol,bike ) {
         super(protocol,bike)
@@ -27,6 +28,11 @@ export default class DaumClassicAdapter extends DaumAdapter{
         this.paused     = undefined;
         this.iv         = undefined;
         this.distanceInternal = undefined;
+
+        this.udid = Date.now()
+
+        this.logger.logEvent( {message:'Device created',udid:this.udid, port:this.getPort()})
+        
 
         this.initData();
     }
@@ -114,16 +120,17 @@ export default class DaumClassicAdapter extends DaumAdapter{
 
 
     async startRide(props) {
-        this.logger.logEvent({message:'relaunch of device'});        
+        this.logger.logEvent({message:'relaunch of device',udid:this.udid});        
         return await this.launch(props,true)
     }
 
     async start(props) {
-        this.logger.logEvent({message:'initial start of device'});        
+        this.logger.logEvent({message:'initial start of device',udid:this.udid});        
         return await this.launch(props,false)
     }
 
     async launch(props, isRelaunch=false) {
+
 
         try {
             if (isRelaunch) {
@@ -136,7 +143,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
                 try {
                     const version = await this.bike.getVersion();
                     const {serialNo,cockpit} = version || {}
-                    this.logEvent({message: 'device info', deviceInfo: {serialNo,cockpit}})
+                    this.logEvent({message: 'device info', deviceInfo: {serialNo,cockpit},udid:this.udid})
                 }
                 catch {}
             }
@@ -148,7 +155,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
             return true;
         }
         catch(err) {
-            this.logger.logEvent({message: 'start result: error', error: err.message})
+            this.logger.logEvent({message: 'start result: error', error: err.message, udid:this.udid})
             throw new Error(`could not start device, reason:${err.message}`)
         }
 
