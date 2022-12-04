@@ -31,7 +31,8 @@ export default class AntAdapter  extends IncyclistDevice implements Device   {
     onDataFn: OnDeviceDataCallback
     protected ivDataTimeout: NodeJS.Timer
     protected lastDataTS: number;
-
+    protected dataMsgCount: number;
+    private ivWaitForData: NodeJS.Timer
 
 
     constructor ( sensor: ISensor, protocol: AntProtocol, settings?) {
@@ -44,6 +45,7 @@ export default class AntAdapter  extends IncyclistDevice implements Device   {
         this.ignorePower=false;
         this.deviceData = {}
         this.data = {}
+        this.dataMsgCount = 0;
         this.updateFrequency = DEFAULT_UPDATE_FREQUENCY;
         this.channel = undefined;
         this.paused = false;
@@ -73,6 +75,37 @@ export default class AntAdapter  extends IncyclistDevice implements Device   {
         const adapter = device as AntAdapter;
         return  (adapter.getID()===this.getID() && adapter.getProfile()===this.getProfile())
     }
+
+    async waitForData(timeout:number) {
+
+
+        const startTs = Date.now();
+        const timeoutTs = startTs + timeout;
+
+
+        return new Promise( (resolve,reject) => {
+            if (this.ivWaitForData)
+                return reject (new Error('busy'))
+
+            this.ivWaitForData = setInterval( ()=> { 
+                const nowTs = Date.now();
+                if (nowTs>timeoutTs && this.dataMsgCount===0) {
+                    clearInterval(this.ivWaitForData)
+                    this.ivWaitForData = undefined;
+                    reject( new Error('No Data Received'))
+                }
+
+                if (this.dataMsgCount>0) {
+                    clearInterval(this.ivWaitForData)
+                    this.ivWaitForData = undefined;
+                    resolve( nowTs-startTs)
+                }
+            }, 500)    
+        })
+
+    }
+
+
 
 
 
@@ -149,12 +182,16 @@ export default class AntAdapter  extends IncyclistDevice implements Device   {
         if (!this.ivDataTimeout)
             return;
         clearInterval(this.ivDataTimeout)
+
         this.ivDataTimeout = undefined
         this.lastDataTS = undefined
+        this.dataMsgCount = 0;
     }
 
 
     async start( props?: any ): Promise<any> {
+        this.dataMsgCount = 0;
+
         if ( props && props.user)
             this.userSettings = props.user;
         if ( props && props.bikeSettings)

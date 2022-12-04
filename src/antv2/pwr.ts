@@ -60,11 +60,13 @@ export default class AntPwrAdapter extends AntAdapter{
     }
 
     onDeviceData(deviceData) {
+        this.dataMsgCount++;
+        this.lastDataTS = Date.now();
+
         if (!this.started)
             return;
 
         this.deviceData = deviceData;
-        this.lastDataTS = Date.now();
         if (!this.ivDataTimeout) 
             this.startDataTimeoutCheck()
 
@@ -167,7 +169,7 @@ export default class AntPwrAdapter extends AntAdapter{
         super.start(props);
 
         return new Promise ( async (resolve, reject) => {
-            const {timeout} = props||{}
+            const {timeout = 20000} = props||{}
             let to ;
             if (timeout) {
                 to = setTimeout( async ()=>{
@@ -177,8 +179,18 @@ export default class AntPwrAdapter extends AntAdapter{
             }
 
             this.started = await this.ant.startSensor(this.sensor,this.onDeviceData.bind(this))
-            if (to) clearTimeout(to)
-            resolve(this.started)
+
+
+            try {
+                await this.waitForData(timeout-100)
+                if (to) clearTimeout(to)
+                resolve(this.started)
+    
+            }
+            catch(err) {
+                // will generate a timeout
+            }
+
     
         })
     }

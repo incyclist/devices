@@ -23,7 +23,6 @@ export default class AntFEAdapter extends AntAdapter{
     protected distanceInternal?: number;
     protected startProps : any;
 
-    protected msgCount: number;
     protected isReconnecting: boolean
     
     constructor( sensor:ISensor, protocol: AntProtocol) {
@@ -32,7 +31,7 @@ export default class AntFEAdapter extends AntAdapter{
         this.deviceData = {
             DeviceID: sensor.getDeviceID()
         }       
-        this.msgCount = 0;
+        this.dataMsgCount = 0;
         this.logger = new EventLogger('Ant+FE')
         this.isReconnecting = false
     }
@@ -148,15 +147,20 @@ export default class AntFEAdapter extends AntAdapter{
     
 
     onDeviceData( deviceData) {
+
+        this.dataMsgCount++;
+        this.lastDataTS = Date.now();
+
         if (!this.started || this.isStopped())
             return;
 
-        this.msgCount++;
         this.deviceData = deviceData;
-        this.lastDataTS = Date.now();
-        if (!this.ivDataTimeout) 
+
+        if ( this.dataMsgCount===1) {        
             this.startDataTimeoutCheck()
-        
+        }
+
+
 
         try {
             const logData = this.getLogData(deviceData, ['PairedDevices','RawData']);
@@ -257,15 +261,16 @@ export default class AntFEAdapter extends AntAdapter{
 
         this.logger.logEvent( {message:'start', props})
 
-        this.msgCount = 0;
         const opts = props || {} as any;
         const {args ={}, user={}} = opts;
 
 
         return new Promise ( async (resolve, reject) => {
 
+
             const {timeout=20000} = props||{}
 
+            const totalTimeout = timeout+10000;
 
             let to ;
             const stopTimeoutCheck = ()=>{
@@ -280,22 +285,45 @@ export default class AntFEAdapter extends AntAdapter{
                 reject(new Error(`could not start device, reason:timeout`))
                 to = null;
 
-            }, timeout)
+            }, totalTimeout)
 
 
-            this.setFEDefaultTimeout()
+            this.setFEDefaultTimeout() // set Timeout for a resonse of a Acknowledge message
 
             let success = false;
             let status = { userSent: false, slopeSent:false}
             let retry =0;
+            let startSuccess = 0;
 
             while (!success && retry<MAX_RETRIES) {
                 retry++;
 
                 if (!this.started) {
                     this.started = await this.ant.startSensor(this.sensor,this.onDeviceData.bind(this))
+
+                    if (this.started) {
+                        startSuccess++;
+                    }
+
+                    // on initial connection we wait for data before trying to send commands
+                    if (this.started && startSuccess===1) {
+                        try {
+                            await this.waitForData(timeout)
+                        }
+                        catch (err) {
+                            stopTimeoutCheck();
+                            try {
+                                await await this.ant.stopSensor(this.sensor)                        
+                            }
+                            catch {}        
+                            this.started = false;
+
+                            return reject(new Error(`could not start device, reason: ${err.message}`))
+                        }
+                    }
                     status = { userSent: false, slopeSent:false}
                 }
+
                 if (!this.started) {
                     await sleep(2000)
                     continue
@@ -328,7 +356,7 @@ export default class AntFEAdapter extends AntAdapter{
                 
             }
 
-            while (success && this.msgCount===0) {
+            while (success && this.dataMsgCount===0) {
                 await sleep(500)
             }
 
@@ -341,7 +369,10 @@ export default class AntFEAdapter extends AntAdapter{
             else {
                 this.logger.logEvent( {message:'start failed'})
                 stopTimeoutCheck()
-                reject(new Error('could not start device, reason: could not send FE commands'))
+                if (this.started)
+                    reject(new Error('could not start device, reason: could not send FE commands'))
+                else 
+                    reject(new Error('could not start device, reason: could not connect'))
 
             }
     
