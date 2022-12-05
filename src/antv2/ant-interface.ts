@@ -300,16 +300,20 @@ export default class AntInterface  extends EventEmitter  {
         return true
 
         const channel = sensor.getChannel() as Channel
-
-        channel.removeAllListeners('data')
         if (channel) {
             try {
+                channel.flush();
+                channel.removeAllListeners('data')
                 return await channel.stopSensor(sensor)
             }
             catch(err) {
                 this.logEvent( {message:'could not stop sensor', error:err.message||err, stack:err.stack})
                 return false;
             }
+        }
+        else {
+            this.logEvent( {message:'could not stop sensor', error:'no channel attached'})
+            return false;
         }
     }
 

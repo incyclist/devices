@@ -259,7 +259,7 @@ export default class AntFEAdapter extends AntAdapter{
 
         this.startProps = props;
 
-        this.logger.logEvent( {message:'start', props})
+        this.logger.logEvent( {message:'starting device', props})
 
         const opts = props || {} as any;
         const {args ={}, user={}} = opts;
@@ -346,7 +346,7 @@ export default class AntFEAdapter extends AntAdapter{
                 catch(err) {
                     this.logger.logEvent( { message:'sending FE message error', error:err.message })
                     try {
-                        await await this.ant.stopSensor(this.sensor)                        
+                        await this.ant.stopSensor(this.sensor)                        
                     }
                     catch {}
                     this.started = false;                
@@ -387,8 +387,11 @@ export default class AntFEAdapter extends AntAdapter{
     }
 
     async stop(): Promise<boolean>  {
-        const stopped = await this.ant.stopSensor(this.sensor)
-        super.stop()
+        this.logger.logEvent( {message:'stopping device'})
+        let stopped = await this.ant.stopSensor(this.sensor)
+        await super.stop()
+
+        this.logger.logEvent( {message:'stopping device done', success:stopped})
         return stopped
     }
 
@@ -397,6 +400,7 @@ export default class AntFEAdapter extends AntAdapter{
 
         this.isReconnecting = true;
         try {
+           
             await this.stop();
             await this.start(this.startProps)
             this.started = true;
