@@ -259,7 +259,7 @@ export default class AntFEAdapter extends AntAdapter{
 
         this.startProps = props;
 
-        this.logger.logEvent( {message:'starting device', props})
+        this.logger.logEvent( {message:'starting device', props, isStarted: this.started, isReconnecting: this.isReconnecting})
 
         const opts = props || {} as any;
         const {args ={}, user={}} = opts;
@@ -329,30 +329,35 @@ export default class AntFEAdapter extends AntAdapter{
                     continue
                 }
 
-                try {
-                    const fe = this.sensor as FitnessEquipmentSensor;
-    
-                    const mode = this.getCyclingMode()
-                    const bikeType = mode ? mode.getSetting('bikeType').toLowerCase() : 'race';
-                    const defaultBikeWeight = bikeType==='mountain' ? DEFAULT_BIKE_WEIGHT_MOUNTAIN : DEFAULT_BIKE_WEIGHT; 
-                    const userWeight = args.userWeight || user.weight ||DEFAULT_USER_WEIGHT;
-                    const bikeWeight = args.bikeWeight||defaultBikeWeight;
-
-                    status.userSent = status.userSent || await fe.sendUserConfiguration( userWeight, bikeWeight, args.wheelDiameter, args.gearRatio);
-                    status.slopeSent = status.slopeSent || await fe.sendTrackResistance(0.0)
-    
-    
-                }
-                catch(err) {
-                    this.logger.logEvent( { message:'sending FE message error', error:err.message })
+                if (!this.isReconnecting) {
                     try {
-                        await this.ant.stopSensor(this.sensor)                        
+                        const fe = this.sensor as FitnessEquipmentSensor;
+        
+                        const mode = this.getCyclingMode()
+                        const bikeType = mode ? mode.getSetting('bikeType').toLowerCase() : 'race';
+                        const defaultBikeWeight = bikeType==='mountain' ? DEFAULT_BIKE_WEIGHT_MOUNTAIN : DEFAULT_BIKE_WEIGHT; 
+                        const userWeight = args.userWeight || user.weight ||DEFAULT_USER_WEIGHT;
+                        const bikeWeight = args.bikeWeight||defaultBikeWeight;
+    
+                        status.userSent = status.userSent || await fe.sendUserConfiguration( userWeight, bikeWeight, args.wheelDiameter, args.gearRatio);
+                        status.slopeSent = status.slopeSent || await fe.sendTrackResistance(0.0)
+        
+        
                     }
-                    catch {}
-                    this.started = false;                
+                    catch(err) {
+                        this.logger.logEvent( { message:'sending FE message error', error:err.message })
+                        try {
+                            await this.ant.stopSensor(this.sensor)                        
+                        }
+                        catch {}
+                        this.started = false;                
+                    }
+    
+                    success = status.userSent && status.slopeSent    
                 }
-
-                success = status.userSent && status.slopeSent
+                else {
+                    success = true;
+                }
                 
             }
 
@@ -388,7 +393,9 @@ export default class AntFEAdapter extends AntAdapter{
 
     async stop(): Promise<boolean>  {
         this.logger.logEvent( {message:'stopping device'})
+
         let stopped = await this.ant.stopSensor(this.sensor)
+        this.started = false;
         await super.stop()
 
         this.logger.logEvent( {message:'stopping device done', success:stopped})
