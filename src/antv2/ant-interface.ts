@@ -302,6 +302,18 @@ export default class AntInterface  extends EventEmitter  {
         const channel = sensor.getChannel() as Channel
         if (channel) {
             try {
+
+                // old versions of ant-plus library did not have a flush functionn
+                // As this old version still might be used in an old Incyclist app, we have to re-create it
+                if (!channel.flush) {
+                    this.logEvent( {message:'old version of ant-channel detected' })
+                    channel.flush = () => {
+                        const c = channel as any
+                        c.messageQueue.forEach( msg => {msg.resolve(false) })
+                        c.messageQueue = [];
+                        c.isWriting = false;
+                    }
+                }
                 channel.flush();
                 channel.removeAllListeners('data')
                 return await channel.stopSensor(sensor)
