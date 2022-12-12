@@ -43,7 +43,7 @@ export default class BleERGCyclingMode extends PowerBasedCyclingModeBase impleme
     }
 
     getBikeInitRequest(): UpdateRequest {
-        const startPower = this.getSetting('startPower');
+        const startPower = Number(this.getSetting('startPower'));
         return { targetPower: startPower};
     }    
 
@@ -55,12 +55,18 @@ export default class BleERGCyclingMode extends PowerBasedCyclingModeBase impleme
             return {pedalRpm,slope, power,speed} 
         }
         this.logger.logEvent( {message:"processing update request",request,prev:this.prevRequest,data:getData()} );        
+
         let newRequest:UpdateRequest = {}
         try {
 
-            if ( !request || request.reset || Object.keys(request).length===0 ) {
+            if ( !request || request.reset  ) {
                 this.prevRequest = {};
                 return request.reset ? {reset:true} : {};
+            }
+
+            if ( Object.keys(request).length===0 && this.prevRequest) {
+            
+                request.targetPower = this.prevRequest.targetPower;
             }
 
             const prevData = this.data || {} as any;
@@ -70,18 +76,23 @@ export default class BleERGCyclingMode extends PowerBasedCyclingModeBase impleme
             }
             delete request.slope                
 
+            if (request.targetPowerDelta && this.prevRequest && this.prevRequest.targetPower) {
+                request.targetPower = this.prevRequest.targetPower + request.targetPowerDelta;
+                delete request.targetPowerDelta
+            }
 
             if (request.targetPower!==undefined) {
-                delete request.refresh;               
+                delete request.refresh;           
+                newRequest.targetPower = Number(request.targetPower)    
             }
 
             // no slope change or targets change -> refresh
-            if ( request.refresh) {
+            if ( request.refresh && request.targetPower===undefined) {
                 delete request.refresh; 
                 newRequest.targetPower = this.prevRequest.targetPower;
             } 
-                
-            if (request.maxPower!==undefined && request.minPower!==undefined && request.maxPower===request.minPower) {
+               
+            if (request.targetPower===undefined && request.maxPower!==undefined && request.minPower!==undefined && request.maxPower===request.minPower) {
                 request.targetPower = request.maxPower;                
                 newRequest.targetPower = request.targetPower;
             }
@@ -102,9 +113,16 @@ export default class BleERGCyclingMode extends PowerBasedCyclingModeBase impleme
                 if ( prevData.power && prevData.power<request.minPower)
                     newRequest.targetPower = request.minPower
             }            
+
+            if (Object.keys(newRequest).length===0 ) {
+                if (this.prevRequest)
+                    newRequest.targetPower = this.prevRequest.targetPower
+                newRequest.refresh=true
+
+            } 
     
    
-            this.prevRequest = JSON.parse(JSON.stringify(request));
+            this.prevRequest = JSON.parse(JSON.stringify(newRequest));
     
     
         }

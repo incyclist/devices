@@ -104,11 +104,10 @@ export default class AntFEAdapter extends AntAdapter{
         const update = this.getCyclingMode().sendBikeUpdate(request)
         this.logger.logEvent({message: 'send bike update requested', update, request})
 
-
         try {
             const fe = this.sensor as FitnessEquipmentSensor;
 
-            const isReset = ( !request || request.reset || Object.keys(request).length===0 );
+            const isReset = ( !update || update.reset || Object.keys(update).length===0 );
             if (isReset)
                 await fe.sendTrackResistance(0)
 
@@ -118,14 +117,6 @@ export default class AntFEAdapter extends AntAdapter{
     
             if (update.targetPower!==undefined) {
                 await fe.sendTargetPower(update.targetPower)
-            }
-            else if (request.maxPower!==undefined) {
-                if ( this.data.power && this.data.power>request.maxPower)
-                    await fe.sendTargetPower(request.maxPower)
-            }
-            else if (request.minPower!==undefined) {
-                if ( this.data.power && this.data.power<request.minPower)
-                    await fe.sendTargetPower(request.minPower)
             }
         
         }
