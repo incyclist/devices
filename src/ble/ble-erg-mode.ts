@@ -78,6 +78,8 @@ export default class BleERGCyclingMode extends PowerBasedCyclingModeBase impleme
 
             if (request.targetPowerDelta && this.prevRequest && this.prevRequest.targetPower) {
                 request.targetPower = this.prevRequest.targetPower + request.targetPowerDelta;
+                if (request.targetPower<10)
+                    request.targetPower = this.prevRequest.targetPower
                 delete request.targetPowerDelta
             }
 
