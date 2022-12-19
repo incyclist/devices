@@ -164,6 +164,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
     performStart(props:{user?,bikeSettings?,gear?}={}, isRelaunch=false) {
         
         this.stop();
+        
 
         const {user,bikeSettings} = props;
         if (user && user.weight)
@@ -175,8 +176,8 @@ export default class DaumClassicAdapter extends DaumAdapter{
 
         let startState = { } as any;        
         return runWithRetries( async ()=>{
-            
             try {
+                this.logger.logEvent({message: 'start attempt',  udid:this.udid, isRelaunch, isConnected:this.bike.isConnected()})
 
                 if (!isRelaunch && !this.bike.isConnected())
                     await this.bike.saveConnect();
@@ -225,6 +226,8 @@ export default class DaumClassicAdapter extends DaumAdapter{
                 
             }
             catch (err) {
+                this.logger.logEvent({message: 'start attempt failed',  udid:this.udid, error:err.message})
+                
                 if ( startState.checkRunData ) { 
                     startState = { } as any
                 }

@@ -211,13 +211,7 @@ export default class Daum8008  {
         var serialPort = this.sp;
         this.closing = true;
 
-        if (this.bikeCmdWorker!==undefined) {
-            clearInterval(this.bikeCmdWorker);
-            this.bikeCmdWorker=undefined;
-        }
-
-        if ( this.queue!==undefined )
-            this.queue.clear();
+        this.stopWorker();
 
 
         let connected = this.connected ;
@@ -320,6 +314,21 @@ export default class Daum8008  {
         this.bikeCmdWorker = setInterval( ()=> {
             this.sendDaum8008CommandfromQueue()
         }, 50 );
+    }
+
+
+    stopWorker() {
+        if ( this.queue!==undefined )
+            this.queue.clear();
+
+        if (this.bikeCmdWorker!==undefined) {
+            clearInterval(this.bikeCmdWorker);
+            this.bikeCmdWorker=undefined;
+        }
+
+        if ( this.queue!==undefined )
+            this.queue.clear();
+
     }
 
     sendDaum8008CommandfromQueue() {
