@@ -1,14 +1,15 @@
 import { EventLogger } from 'gd-eventlog';
 import {Daum8iSerial} from './bike'
 import {ACTUAL_BIKE_TYPE} from '../constants'
-import {asciiArrayToString, buildMessage,getAsciiArrayFromStr,hexstr,append} from './utils'
+import {asciiArrayToString, buildMessage,getAsciiArrayFromStr,hexstr,append, BikeType} from './utils'
+import EventEmitter from 'events';
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
 
 var __responses = {} as any;
 
-class MockSerialPort {
+class MockSerialPort extends EventEmitter {
 
     callbacks: any;
     isOpen: boolean;
@@ -17,9 +18,9 @@ class MockSerialPort {
     iv: any;
 
     constructor() {
+        super();
         this.callbacks= {}
         this.isOpen = false;
-        this.path = undefined;
 
         this.outputQueue =  [];
         this.flush =  jest.fn();
@@ -33,7 +34,11 @@ class MockSerialPort {
     
     open() {
         this.isOpen = true;
-        this.iv = setInterval( ()=> {this.sendNext()},10 )
+        if ( this.iv) 
+            clearInterval(this.iv)
+
+        if (!this.iv)
+            this.iv = setInterval( ()=> {this.sendNext()},10 )
         this.emit('open')
     }
 
@@ -49,21 +54,7 @@ class MockSerialPort {
     }
 
 
-    on(event,callback) {
-        this.callbacks[event]=callback;
-    }
-
-    removeAllListeners() {
-        this.callbacks = {}
-    }
-
-    emit(event, ...args) {
-        if ( this.callbacks[event])
-            this.callbacks[event](...args)
-    }
-
     write( message) {
-
         if ( message[0]===1) {
             const cmdArr = [message[1],message[2],message[3]]
             const cmd = asciiArrayToString(cmdArr);
@@ -80,7 +71,17 @@ class MockSerialPort {
     }
 
     sendNext() {
+
+        if ( this.outputQueue && this.outputQueue.length>0) {
+            const message = this.outputQueue.shift();
+
+            console.log( 'server:sending',hexstr(message))
+            this.emit('data',message)
+        }
+
+        /*
         
+
         const onData = this.callbacks['data'];
 
         if ( onData && this.outputQueue && this.outputQueue.length>0) {
@@ -94,6 +95,7 @@ class MockSerialPort {
                 console.log( 'server:onData not defined')
 
         }
+        */
 
     }
 
@@ -134,7 +136,7 @@ describe( 'Daum8i', ()=> {
     })
 
     afterAll( ()=> {
-        EventLogger.useExternalLogger ( undefined)
+        EventLogger.useExternalLogger ( undefined as any)
 
     })
 
@@ -361,7 +363,7 @@ describe( 'Daum8i', ()=> {
             bike.sendNAK = jest.fn()
             bike.getTimeoutValue = jest.fn(()=>100)     // TIMEOUT after 100ms
 
-            let error = undefined;
+            let error = {} as any;
             try {
                 const res = await bike.getProtocolVersion();
                 console.log(res)
@@ -382,7 +384,7 @@ describe( 'Daum8i', ()=> {
             })            
             bike.sendNAK = jest.fn()
             bike.settings= { tcpip:{timeout:100}};
-            let error = undefined;
+            let error = {} as any;
             try {
                 const res = await bike.getProtocolVersion();
                 console.log(res)
@@ -481,7 +483,7 @@ describe( 'Daum8i', ()=> {
             
             function trainingData() {
 
-                const GS = 0x1D
+                const GS = 0x1D as never
                 let payload = [];
                 append(payload, getAsciiArrayFromStr('10'));payload.push(GS); // time
                 append(payload, getAsciiArrayFromStr('99'));payload.push(GS); // heartrate
@@ -525,6 +527,74 @@ describe( 'Daum8i', ()=> {
         },5000)
 
     
+    })
+
+
+    describe( 'unexpected data', ()=> {   
+
+        let bike;
+
+        beforeEach( async ()=>{
+            bike = new Daum8i( {port:'COM1'})
+            try {
+                await bike.saveConnect();
+            }
+            catch (err) {
+                //
+            }
+        })
+
+        afterEach( async ()=> {
+            await bike.saveClose();
+        })
+
+        test('cycling data while nothing is expected',async ()=>{
+  
+            function trainingData() {
+
+                const GS = 0x1D as never
+                let payload = [];
+                append(payload, getAsciiArrayFromStr('10'));payload.push(GS); // time
+                append(payload, getAsciiArrayFromStr('99'));payload.push(GS); // heartrate
+                append(payload, getAsciiArrayFromStr('30.0'));payload.push(GS); // speed
+                append(payload, getAsciiArrayFromStr('0'));payload.push(GS); // slope        
+                append(payload, getAsciiArrayFromStr('100'));payload.push(GS); // distance
+                append(payload, getAsciiArrayFromStr('90.1'));payload.push(GS); // cadence
+                append(payload, getAsciiArrayFromStr('30'));payload.push(GS); // power
+                append(payload, getAsciiArrayFromStr('130.2'));payload.push(GS); // physEnergy
+                append(payload, getAsciiArrayFromStr('130.3'));payload.push(GS); // realEnergy
+                append(payload, getAsciiArrayFromStr('13.1'));payload.push(GS); // torque
+                append(payload, getAsciiArrayFromStr('11'));payload.push(GS); // gear
+                append(payload, getAsciiArrayFromStr('1'));payload.push(GS); // deviceState
+                append(payload, getAsciiArrayFromStr('0')) // speedStatus
+                return payload;    
+            }
+                                
+            MockSerialPort.setResponse( 'S23' , ( command, sendData) => { sendData( [0x06]); } )
+            MockSerialPort.setResponse( 'X70' , ( command, sendData) => { sendData( [0x06]); setTimeout( ()=>{sendData( buildMessage( 'X70', trainingData() ) )}, 500)   } )
+            const data = buildMessage( 'X70', trainingData() )
+            
+            
+            bike.setPower(50).catch( console.log)
+            bike.sp.emit('error',new Error('sth'))
+
+            const sleep = (ms) => new Promise( resolve=> setTimeout(resolve,ms))
+
+
+            await sleep(500)
+            await bike.saveConnect()
+            await bike.getTrainingData()
+            
+            
+
+            bike.onData(data)
+            bike.onData(data)
+            bike.onData(data)
+            bike.onData(data)
+            
+            
+        })
+
     })
 
 

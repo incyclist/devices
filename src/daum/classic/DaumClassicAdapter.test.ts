@@ -13,7 +13,7 @@ describe( 'DaumClassicAdapter', ()=>{
     })
 
     afterAll( ()=> {
-        EventLogger.useExternalLogger ( undefined)
+        EventLogger.useExternalLogger ( undefined as never)
         jest.useRealTimers();
     })
 
