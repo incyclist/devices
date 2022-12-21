@@ -40,10 +40,17 @@ describe( 'SmartTrainerCyclingMode',()=>{
 
         test( 'with adapter, adapter has no logger',()=>{
             const adapter = new DaumAdapter({},null);
-            adapter.logger = MockLogger;
             const cyclingMode = new SmartTrainerCyclingMode(adapter);
             
             expect( cyclingMode.logger.getName() ).toBe('SmartTrainer');
+        } );
+
+        test( 'with adapter, adapter has a logger',()=>{
+            const adapter = new DaumAdapter({},null);
+            adapter.logger = MockLogger;
+            const cyclingMode = new SmartTrainerCyclingMode(adapter);
+            
+            expect( cyclingMode.logger.getName() ).toBe('mock');
         } );
 
 
