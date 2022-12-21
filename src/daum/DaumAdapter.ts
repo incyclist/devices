@@ -259,7 +259,8 @@ export default class DaumAdapterBase extends IncyclistDevice implements DeviceAd
                     if ( this.iv.update) clearInterval(this.iv.update);
                     this.iv=undefined
                 }
-                this.bike.stopWorker();
+                if (this.bike.stopWorker && typeof(this.bike.stopWorker)==='function')
+                    this.bike.stopWorker();
                 this.logEvent({message:'stop request completed'});        
                 this.paused=undefined;
                 resolve(true);
