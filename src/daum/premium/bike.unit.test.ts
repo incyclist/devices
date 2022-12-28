@@ -8,6 +8,7 @@ if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
 
 var __responses = {} as any;
+let __ACKHandler;
 
 class MockSerialPort extends EventEmitter {
 
@@ -68,6 +69,13 @@ class MockSerialPort extends EventEmitter {
             }
 
         }
+
+        if (message[0]===6 && MockSerialPort.getACKHandler()) {
+            const onAck = MockSerialPort.getACKHandler()
+            onAck( (data)=> {
+                this.outputQueue.push(data);
+            })
+        }
     }
 
     sendNext() {
@@ -109,6 +117,8 @@ class MockSerialPort extends EventEmitter {
         return this;
     }
 
+    
+
     static setResponse( command, fn ) {
         if (!__responses) 
             this.reset();
@@ -117,6 +127,14 @@ class MockSerialPort extends EventEmitter {
 
     static getReponseHandler(command) {
         return __responses[command];
+    }
+
+    static setACKHandler( handler) {
+        __ACKHandler = handler
+    }
+
+    static getACKHandler() {
+        return __ACKHandler
     }
 
     static reset() {
@@ -594,6 +612,39 @@ describe( 'Daum8i', ()=> {
             
             
         })
+
+
+        test('ech of previous command while waiting for ACK',async ()=>{
+  
+                                
+            MockSerialPort.setResponse( 'S23' , ( message, sendData) => { 
+                const ACK = Buffer.from([0x06])
+                const echo = Buffer.from(message)
+                const response = Buffer.concat( [echo,ACK]  )
+                sendData( response); 
+                
+            })
+
+            MockSerialPort.setACKHandler( (sendData)=> { sendData( Buffer.from('015332333136372e3030383417','hex'))
+                
+            })
+
+            
+            bike.setPower(50).catch( console.log)
+
+            
+
+            const sleep = (ms) => new Promise( resolve=> setTimeout(resolve,ms))
+
+            console.log('sleeping')
+            await sleep(2000)
+            console.log('sleep done')
+            
+
+            
+            
+        })
+
 
     })
 

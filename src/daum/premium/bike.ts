@@ -585,8 +585,9 @@ class Daum8i  {
         Daum 8i Commands
     */
 
-    onData (data)  {
+    onData (data, depth=0)  {
         let cmd ='';
+        const MAX_DEPTH = 5
 
         if ( this.state.waitingForEnd) {
             cmd = this.state.partialCmd;
@@ -594,26 +595,17 @@ class Daum8i  {
 
         
         const bufferData = Buffer.isBuffer(data) ? data: Buffer.from(data,'latin1') 
+
         const s = this.state.sending;
-        if ( s===undefined) {
-            if ( this.state.input === undefined) 
-                this.state.input = bufferData;
+        if ( s===undefined ) {
+            this.logEvent({message:'onData:IGNORED',data:bufferData.toString('hex') })
             return;
         }
 
         const {portName, resolve} = this.state.sending;
-
-        let incoming;
-        if ( this.state.input!==undefined) {
-            const arr = [ this.state.input, bufferData ]
-            incoming= Buffer.concat(arr)
-        }
-        else {
-            incoming = bufferData;
-        }
-
-        const response = [...incoming];
-        this.logEvent({message:'sendCommand:RECV',data:hexstr(response) })
+        
+        let incoming = bufferData;
+        this.logEvent({message:'sendCommand:RECV',data:hexstr(incoming) })
 
         for (let i=0;i<incoming.length;i++)
         //incoming.forEach( async (c,i)=> 
@@ -630,18 +622,18 @@ class Daum8i  {
 
             const c= incoming.readUInt8(i)
             if ( c===0x06) {
-                this.logEvent({message:"sendCommand:ACK received:",port:portName});
                 this.state.waitingForStart = true;
                 this.state.waitingForACK = false;
                 const remaining = getRemaining()
-                if (  remaining && remaining!=='') return this.onData(remaining)
+                this.logEvent({message:"sendCommand:ACK received:",port:portName,remaining:hexstr(remaining)});
+                if (  remaining && remaining!=='' && depth<MAX_DEPTH) return this.onData(remaining, depth+1)
             }
             else if ( c===0x15) {
                 this.state.waitingForStart = true;
                 this.state.waitingForACK = false;
-                this.logEvent({message:"sendCommand:NAK received:",port:portName});
                 const remaining = getRemaining()
-                if (  remaining && remaining!=='') return this.onData(remaining)
+                this.logEvent({message:"sendCommand:NAK received:",port:portName,remaining:hexstr(remaining)});
+                if (  remaining && remaining!=='' && depth<MAX_DEPTH) return this.onData(remaining,depth+1)
 
                 // TODO: retries
             }
@@ -652,35 +644,50 @@ class Daum8i  {
 
             else if ( c===0x17) {
                 const remaining = getRemaining();
-                this.logEvent({message:"sendCommand:received:",duration: Date.now()-this.state.sending.tsRequest,port:portName,cmd: `${cmd} [${hexstr(cmd)}]`,remaining: hexstr(remaining)});
-                this.state.waitingForEnd = false;   
-                const cmdStr = cmd.substring(0,cmd.length-2)
-                const checksumExtracted  = cmd.slice(-2)
-                const checksumCalculated = checkSum( getAsciiArrayFromStr(cmdStr),[])
+                // special case: receiving and "echo" of previous command while waiting for ACK
+                if (this.state.waitingForACK) {
+                    // ignore command
+                    this.logEvent({message:"sendCommand:ignored:",duration: Date.now()-this.state.sending.tsRequest,port:portName,cmd: `${cmd} [${hexstr(cmd)}]`,remaining: hexstr(remaining)});
+                    this.state.waitingForEnd = false;   
 
-                if ( checksumExtracted===checksumCalculated) {
-                    this.sendACK();
-                    if (this.state.sending && this.state.sending.responseCheckIv) { 
-                        clearInterval(this.state.sending.responseCheckIv);
-                    }
-                    this.state= {
-                        sending: undefined,
-                        busy:false,
-                        writeBusy: false,        
-                        waitingForStart: false,
-                        waitingForEnd: false,
-                        waitingForACK: false,
-                    }    
-                    const payload = cmd.substring(3,cmd.length-2)
-    
-                    resolve(payload);        
+
+
+
                 }
                 else {
-                    this.sendNAK();
+                    this.logEvent({message:"sendCommand:received:",duration: Date.now()-this.state.sending.tsRequest,port:portName,cmd: `${cmd} [${hexstr(cmd)}]`,remaining: hexstr(remaining)});
+                    this.state.waitingForEnd = false;   
+                    const cmdStr = cmd.substring(0,cmd.length-2)
+                    const checksumExtracted  = cmd.slice(-2)
+                    const checksumCalculated = checkSum( getAsciiArrayFromStr(cmdStr),[])
+    
+                    if ( checksumExtracted===checksumCalculated) {
+                        this.sendACK();
+                        if (this.state.sending && this.state.sending.responseCheckIv) { 
+                            clearInterval(this.state.sending.responseCheckIv);
+                        }
+                        this.state= {
+                            sending: undefined,
+                            busy:false,
+                            writeBusy: false,        
+                            waitingForStart: false,
+                            waitingForEnd: false,
+                            waitingForACK: false,
+                        }    
+                        const payload = cmd.substring(3,cmd.length-2)
+        
+                        resolve(payload);        
+                    }
+                    else {
+                        this.sendNAK();
+                    }
+    
                 }
+
+
                 cmd = '';
-                if ( remaining)
-                    return this.onData( remaining);
+                if ( remaining && depth<5)
+                    return this.onData( remaining,depth+1);
 
                 
             }
