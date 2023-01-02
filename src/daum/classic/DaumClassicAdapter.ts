@@ -134,7 +134,8 @@ export default class DaumClassicAdapter extends DaumAdapter{
 
         try {
             if (isRelaunch) {
-                await this.stop();
+                await this.stop();              // stop the worker intervals
+                this.bike.connected = true;     // most likely connection was done from a different instance 
             }
 
             await this.performStart(props, isRelaunch)
@@ -148,10 +149,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
                 catch {}
             }
 
-
-            this.stopped = false;
-            this.paused = false;
-            this.startUpdatePull();
+            this.logger.logEvent({message: 'start result: success', udid:this.udid})
             return true;
         }
         catch(err) {
