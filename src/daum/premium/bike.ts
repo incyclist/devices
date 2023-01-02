@@ -211,8 +211,8 @@ class Daum8i  {
                     this.sp = new __SerialPort( this.port,settings);
                 }
 
-                this.sp.once('open', this.onPortOpen.bind(this) );            
-                this.sp.once('close', this.onPortClose.bind(this));            
+                this.sp.on('open', this.onPortOpen.bind(this) );            
+                this.sp.on('close', this.onPortClose.bind(this));            
                 this.sp.on('error', (error)=>{this.onPortError(error)} );    
 
                 this.sp.on('data', (data)=>{ this.onData(data)} );        
@@ -452,10 +452,16 @@ class Daum8i  {
                 if (!isClosed) resolve(false)
             }, timeout)
 
-            this.sp.removeAllListeners('close');
-            this.sp.removeAllListeners('error');
+            try {
+                this.sp.removeAllListeners('close');
+                this.sp.removeAllListeners('error');
+            }
+            catch(err) {
+                this.logger.logEvent({message:'error', fn:'closePort()', error:err.message})
+            }
+            
             this.sp.on('error',()=>{})
-            this.sp.once('close' ,()=>{        
+            this.sp.on('close' ,()=>{        
                 clearTimeout(to)
                 isClosed = true;
                 resolve(true)
