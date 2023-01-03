@@ -8,6 +8,7 @@ export type UpdateRequest = {
     targetPowerDelta?: number;
     reset?: boolean;
     refresh?: boolean;
+    init?: boolean;
 }
 export enum CyclingModeProperyType {
     Integer = 'Integer',

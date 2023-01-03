@@ -134,14 +134,14 @@ describe( 'ERGCyclingMode',()=>{
             const adapter = new DaumAdapter({},null);
             const cyclingMode = new ERGCyclingMode(adapter); 
             const request = cyclingMode.getBikeInitRequest();
-            expect( request ).toEqual( { targetPower: 50})
+            expect( request ).toEqual( { targetPower: 50, init:true})
         })
         test('startPower set',()=>{
             const adapter = new DaumAdapter({},null);
             const cyclingMode = new ERGCyclingMode(adapter); 
             cyclingMode.getSetting = jest.fn( ()=> 110 );
             const request = cyclingMode.getBikeInitRequest();
-            expect( request ).toEqual( { targetPower: 110})
+            expect( request ).toEqual( { targetPower: 110, init:true})
         })
     })
 
@@ -410,6 +410,8 @@ describe( 'ERGCyclingMode',()=>{
             expect(cm.data.speed).toBeCloseTo(37.6,1)
             expect(cm.event.rpmUpdated).toBeUndefined()
 
+            expect(res.targetPower).not.toBe(100)
+
             // decrease cadence to zero, speed will not be immediately set to zero, sets target to "startPower"
             jest.advanceTimersByTime(1000);
             cm.updateData({speed:30,slope:0,power:158,isPedalling:false, pedalRpm:0,heartrate:99,distanceInternal:242351,gear:10,time:1626} )  
@@ -438,6 +440,29 @@ describe( 'ERGCyclingMode',()=>{
             jest.advanceTimersByTime(971);
             res = cm.updateData({isPedalling:true,power:58,pedalRpm:63.2,speed:15.515999999999998,heartrate:0,distanceInternal:290,gear:13,time:72} )  
             expect(res.speed).toBeDefined()
+            
+        })
+
+        test('bug no change after rpm change',()=>{
+            const adapter = new DaumAdapter({},null);
+            const cm = new ERGCyclingMode(adapter);
+            cm.getSetting = jest.fn( (key) => { 
+                if (key==='startPower') return 50
+                if (key==='bikeType') return 'race'
+            });
+
+            let res;
+            cm.prevRequest = {targetPower:50};
+            cm.event = {}
+            cm.data = {speed:40,slope:0,power:50,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:10,gear:10,time:1220.219};
+            cm.prevUpdateTS = Date.now()
+
+            // increase cadence -> target power will increase & speed will increase once bike has adjusted power
+            jest.advanceTimersByTime(1000);
+            cm.updateData({speed:30,slope:0,power:158,isPedalling:true,pedalRpm:91,heartrate:99,distanceInternal:242351,gear:10,time:1626} )  
+            expect(cm.event.rpmUpdated).toBe(true)         
+            res = cm.sendBikeUpdate({refresh:true})
+            expect(res.targetPower).toBeCloseTo(150,0)
             
         })
 

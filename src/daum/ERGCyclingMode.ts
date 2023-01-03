@@ -52,7 +52,7 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
 
     getBikeInitRequest(): UpdateRequest {
         const startPower = this.getSetting('startPower');
-        return { targetPower: startPower};
+        return { targetPower: startPower, init:true};
     }    
 
     sendBikeUpdate(request: UpdateRequest): UpdateRequest {
@@ -101,55 +101,54 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
 
             // no slope change or targets change -> refresh
             if ( request.refresh) {
+                
                 delete request.refresh;
  
-                if ( this.prevRequest!==undefined && !this.event.gearUpdated && !this.event.rpmUpdated)  {
+                if ( this.prevRequest!==undefined && this.prevRequest.targetPower!==undefined && !this.event.gearUpdated && !this.event.rpmUpdated)  {
                     newRequest.targetPower = this.prevRequest.targetPower;
                 }
-                else {
+                else if (this.event.gearUpdated || this.event.rpmUpdated) {
                     newRequest.targetPower = this.calculateTargetPower(request);
+                    
                 }
-
-                
-
-                if ( this.prevRequest!==undefined && Object.keys(this.prevRequest).length>0)  {
+                else if ( this.prevRequest!==undefined && Object.keys(this.prevRequest).length>0)  {
                     request = {...this.prevRequest};
                 }
                 else {
                     newRequest.targetPower = this.calculateTargetPower(request);
                 }
-
+                
             } 
-
-                
-            if (request.maxPower!==undefined && request.minPower!==undefined && request.maxPower===request.minPower) {
-                request.targetPower = request.maxPower;                
-            }
-    
-            if (request.targetPower===undefined) {
-                newRequest.targetPower = this.calculateTargetPower(request)
-            }
             else {
-                newRequest.targetPower = request.targetPower;
-            }
-            delete request.slope;
+                if (request.maxPower!==undefined && request.minPower!==undefined && request.maxPower===request.minPower) {
+                    request.targetPower = request.maxPower;                
+                }
+        
+                if (request.targetPower===undefined) {
+                    newRequest.targetPower = this.calculateTargetPower(request)
+                }
+                else {
+                    newRequest.targetPower = request.targetPower;
+                }
+                delete request.slope;
                 
     
-            if (request.maxPower!==undefined) {
-                if (newRequest.targetPower!==undefined && newRequest.targetPower>request.maxPower) {
-                    newRequest.targetPower = request.maxPower;
+                if (request.maxPower!==undefined) {
+                    if (newRequest.targetPower!==undefined && newRequest.targetPower>request.maxPower) {
+                        newRequest.targetPower = request.maxPower;
+                    }
+                    newRequest.maxPower = request.maxPower;
                 }
-                newRequest.maxPower = request.maxPower;
-            }
+            
+                if (request.minPower!==undefined) {
+                    if (newRequest.targetPower!==undefined && newRequest.targetPower<request.minPower) {
+                        newRequest.targetPower = request.minPower;
+                    }
+                    newRequest.minPower = request.minPower;
+                }            
         
-            if (request.minPower!==undefined) {
-                if (newRequest.targetPower!==undefined && newRequest.targetPower<request.minPower) {
-                    newRequest.targetPower = request.minPower;
-                }
-                newRequest.minPower = request.minPower;
-            }            
-    
-
+            }
+                
             if ( newRequest.targetPower!==undefined && prevData.power!==undefined && newRequest.targetPower===prevData.power) {
                 // no update needed
                 delete newRequest.targetPower;
@@ -164,7 +163,9 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
             this.logger.logEvent( {message:"error",fn:'sendBikeUpdate()',error:err.message||err,stack:err.stack} );
 
         }
-        
+
+        this.event.gearUpdated = false;
+        this.event.rpmUpdated = false;
         return newRequest;
 
 
@@ -184,7 +185,7 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
         delete this.event.gearUpdated;
         delete this.event.rpmUpdated;       
        
-        if (prevData==={} || prevData.speed===undefined || prevData.speed===0) {
+        if (Object.keys(prevData).length===0 || prevData.speed===undefined || prevData.speed===0) {
             this.event.starting = true;
             this.event.tsStart = Date.now();
         }
