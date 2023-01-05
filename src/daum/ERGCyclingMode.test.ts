@@ -452,7 +452,7 @@ describe( 'ERGCyclingMode',()=>{
             });
 
             let res;
-            cm.prevRequest = {targetPower:50};
+            cm.prevRequest = {targetPower:50,init:true};
             cm.event = {}
             cm.data = {speed:40,slope:0,power:50,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:10,gear:10,time:1220.219};
             cm.prevUpdateTS = Date.now()
@@ -463,6 +463,35 @@ describe( 'ERGCyclingMode',()=>{
             expect(cm.event.rpmUpdated).toBe(true)         
             res = cm.sendBikeUpdate({refresh:true})
             expect(res.targetPower).toBeCloseTo(150,0)
+            
+        })
+
+
+        test('bug: power limits not kept during workout',()=>{
+            const adapter = new DaumAdapter({},null);
+            const cm = new ERGCyclingMode(adapter);
+            cm.getSetting = jest.fn( (key) => { 
+                if (key==='startPower') return 50
+                if (key==='bikeType') return 'race'
+            });
+
+            let res;
+            cm.prevRequest = {minPower:181,maxPower:181,targetPower:181};
+            cm.event = {starting:true,tsStart:1672901061171,rpmUpdated:true}
+            cm.data = {gear:9,pedalRpm:23,slope:0,power:50,speed:3.928287395349927,isPedalling:true,heartrate:77,distanceInternal:1230};
+            cm.prevUpdateTS = Date.now()
+
+            jest.advanceTimersByTime(250);
+            res = cm.sendBikeUpdate({refresh:true})
+
+            // increase cadence -> target power will increase & speed will increase once bike has adjusted power
+            jest.advanceTimersByTime(750);
+            cm.updateData({gear:9,pedalRpm:28.5,slope:7.348413074372249,power:181,speed:7.573560915382975,isPedalling:true,heartrate:77,distanceInternal:1234} )  
+            expect(cm.event.rpmUpdated).toBe(true)         
+
+            res = cm.sendBikeUpdate({refresh:true})
+            expect(res.targetPower).toBeUndefined()
+            expect(cm.prevRequest).toMatchObject({minPower:181,maxPower:181,targetPower:181})
             
         })
 

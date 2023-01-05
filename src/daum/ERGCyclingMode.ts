@@ -64,6 +64,9 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
         this.logger.logEvent( {message:"processing update request",request,prev:this.prevRequest,data:getData(),event:this.event} );        
 
         let newRequest:UpdateRequest = {}
+        let isRefreshOnly = request && request.refresh && Object.keys(request).length===1;
+        let isInit = request && request.init
+
         try {
 
             if ( !request || request.reset || Object.keys(request).length===0 ) {
@@ -104,7 +107,7 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
                 
                 delete request.refresh;
  
-                if ( this.prevRequest!==undefined && this.prevRequest.targetPower!==undefined && !this.event.gearUpdated && !this.event.rpmUpdated)  {
+                if ( this.prevRequest!==undefined && this.prevRequest.targetPower!==undefined && !this.prevRequest.init)  {
                     newRequest.targetPower = this.prevRequest.targetPower;
                 }
                 else if (this.event.gearUpdated || this.event.rpmUpdated) {
@@ -148,13 +151,18 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
                 }            
         
             }
-                
+            
+            if (!isRefreshOnly && !isInit)
+                this.prevRequest = JSON.parse(JSON.stringify(request));
+            else if (isInit) 
+                this.prevRequest = {}
+
+
             if ( newRequest.targetPower!==undefined && prevData.power!==undefined && newRequest.targetPower===prevData.power) {
                 // no update needed
                 delete newRequest.targetPower;
             }
     
-            this.prevRequest = JSON.parse(JSON.stringify(request));
     
     
         }
