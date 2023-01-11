@@ -242,4 +242,43 @@ describe( 'DaumClassicAdapter', ()=>{
 
     })
 
+    describe('stop' ,()=>{
+        let a: DaumClassicAdapter;
+        let bikeComms:any;
+    
+        beforeEach( async ()=>{
+            bikeComms = new BikeInterface({port:'COMX'})   
+            bikeComms.setSlope = jest.fn( (slope,bike=0)=>({bike,slope}))
+            bikeComms.setPower = jest.fn( (power,bike=0)=>({bike,power}));
+            a = new DaumClassicAdapter( new DaumClassicProtocol(),bikeComms);
+        })
+
+
+        test('not stopped',  async ()=>{
+            a.logger.logEvent  = jest.fn()
+            a.stopped = false;
+            bikeComms.queue.enqueue({a:1})
+            bikeComms.queue.enqueue({a:2})
+            const res = await a.stop()
+            expect(res).toBeTruthy()
+            expect(a.stopped).toBeTruthy()
+            expect(bikeComms.queue.isEmpty()).toBeTruthy()
+
+    
+        })
+
+        test('already stopped',  async ()=>{
+            a.logger.logEvent  = jest.fn()
+            a.stopped = true;
+            const res = await a.stop()
+            expect(res).toBeTruthy()
+            expect(a.stopped).toBeTruthy()
+
+    
+        })
+
+
+    })
+
+
 })

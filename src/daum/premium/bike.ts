@@ -869,6 +869,12 @@ class Daum8i  {
         });
     }
 
+    stopWorker() {
+        this.logEvent({message:"stop worker",port:this.getPort()});
+
+        // there is no queueing in Daum Premium, therefore no worker iv needs to be stopped
+    }
+
 
     /*
     ====================================== Commands ==============================================

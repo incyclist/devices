@@ -318,6 +318,8 @@ export default class Daum8008  {
 
 
     stopWorker() {
+        this.logEvent({message:"stop worker",port:this.getPort()});
+
         if ( this.queue!==undefined )
             this.queue.clear();
 
@@ -333,7 +335,7 @@ export default class Daum8008  {
 
     sendDaum8008CommandfromQueue() {
 
-        if (!this.connected  || this.closing)
+        if (!this.connected  || this.closing || !this.sp)
             return;
 
         if (this.cmdStart!==undefined && this.error!==undefined) {
