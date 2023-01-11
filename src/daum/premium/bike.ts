@@ -34,6 +34,13 @@ const DEBUG_LOGGER = {
     logEvent: (event) => console.log(JSON.stringify(event))
 }
 
+const validateHost = (host:string) =>  {
+    const ipParts = host.split('.')
+    if (ipParts.length>1)
+        return ipParts.map(p=>Number(p)).join('.')
+    return host
+}
+
 class Daum8i  {
     portName: string;
     logger: EventLogger;
@@ -69,7 +76,7 @@ class Daum8i  {
 
         if (this.props.interface==='tcpip') {
             const port = this.props.port || DAUM_PREMIUM_DEFAULT_PORT;
-            const host = this.props.host || DAUM_PREMIUM_DEFAULT_HOST;
+            const host = validateHost(this.props.host || DAUM_PREMIUM_DEFAULT_HOST);
             this.portName = `${host}:51955`;
             this.tcpip = true;
             this.serial = false;

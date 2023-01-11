@@ -1,5 +1,5 @@
 import { EventLogger } from 'gd-eventlog';
-import {Daum8iSerial} from './bike'
+import {Daum8iSerial,Daum8iTcp} from './bike'
 import {ACTUAL_BIKE_TYPE} from '../constants'
 import {asciiArrayToString, buildMessage,getAsciiArrayFromStr,hexstr,append, BikeType} from './utils'
 import EventEmitter from 'events';
@@ -164,7 +164,21 @@ describe( 'Daum8i', ()=> {
         Daum8i.setSerialPort( MockSerialPort);
     })
 
-    
+    describe( 'constructor', ()=> {
+
+        test('normal ip number',()=>{
+            const bike = new Daum8iTcp( {interface:'tcpip', host:'192.168.2.11'})
+            expect(bike.getPort()).toBe('192.168.2.11:51955')    
+        })
+        test('weird ip numbering',()=>{
+            const bike = new Daum8iTcp( {interface:'tcpip', host:'192.168.002.011'})
+            expect(bike.getPort()).toBe('192.168.2.11:51955')    
+        })
+        test('hostname',()=>{
+            const bike = new Daum8iTcp( {interface:'tcpip', host:'localhost'})
+            expect(bike.getPort()).toBe('localhost:51955')    
+        })
+    })
 
     describe( 'functions', ()=> {
 
