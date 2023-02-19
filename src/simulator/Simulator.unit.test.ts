@@ -1,4 +1,4 @@
-import SimulatorProtocol,{Simulator} from "./Simulator";
+import {Simulator} from "./Simulator";
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
@@ -8,56 +8,35 @@ describe('Simulator',() => {
     describe('Constructor',()=> {
 
         test('empty constructor',() => {
-            let s = new Simulator();
+            let s = new Simulator({interface:'Simulator'});
             expect(s).toMatchObject( { speed:0, power:0, cadence: 90, slope:0 })
-            expect(s).toMatchObject( { detected:false, selected:false })
             expect(s.started).toBe(false)
             expect(s.paused).toBe(false)
             expect(s.time).toBeUndefined()
             expect(s.iv).toBeUndefined()
-            expect(s.getProtocolName()).toBe(SimulatorProtocol.NAME)
             
         }) 
 
 
     });
 
-    test('isBike',()=> {
-        let s = new Simulator();
-        expect(s.isBike()).toBe(true)
-    })
-
-    test('isHrm',()=> {
-        let s = new Simulator();
-        expect(s.isHrm()).toBe(false)
-    })
-
-    test('isPower',()=> {
-        let s = new Simulator();
-        expect(s.isPower()).toBe(true)
-    })
-
 
     test('getID',()=> {
-        let s = new Simulator();
+        let s = new Simulator({interface:'Simulator'});
         expect(s.getID()).toBe(Simulator.NAME)
     })
 
     test('getName',()=> {
-        let s = new Simulator();
+        let s = new Simulator({interface:'Simulator'});
         expect(s.getName()).toBe(Simulator.NAME)
     })
 
-    test('getPort',()=> {
-        let s = new Simulator();
-        expect(s.getPort()).toBe('local')
-    })
 
     describe('start',()=> {
 
         let s;
         beforeEach( ()=> {
-            s = new Simulator();
+            s = new Simulator({interface:'Simulator'});
         })
         afterEach( ()=>{
             s.stop();
@@ -125,7 +104,7 @@ describe('Simulator',() => {
 
         let s;
         beforeEach( ()=> {
-            s = new Simulator();
+            s = new Simulator({interface:'Simulator'});
             
         })
 
@@ -165,7 +144,7 @@ describe('Simulator',() => {
 
         let s;
         beforeEach( ()=> {
-            s = new Simulator();
+            s = new Simulator({interface:'Simulator'});
             
         })
 
@@ -204,7 +183,7 @@ describe('Simulator',() => {
 
         let s;
         beforeEach( ()=> {
-            s = new Simulator();
+            s = new Simulator({interface:'Simulator'});
             
         })
 
@@ -239,7 +218,7 @@ describe('Simulator',() => {
 
         let s;
         beforeEach( ()=> {
-            s = new Simulator();
+            s = new Simulator({interface:'Simulator'});
             
         })
 

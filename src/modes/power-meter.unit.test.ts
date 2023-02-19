@@ -1,21 +1,12 @@
-import DeviceAdapterBase from '../device';
-import DeviceProtocolBase from '../protocol';
+import MockAdapter from '../../test/mock-adapter';
 import PowerMeterMode,{config} from './power-meter'
 
-class MockAdapter extends DeviceAdapterBase {
-    constructor() {
-        super( new DeviceProtocolBase())
-    }
-    getProtocolName(): string {
-        return ('mock')
-    }
-}
 
 describe('PowerMeterMode', () => {
 
     let mode;
     beforeAll( ()=> {
-        mode = new PowerMeterMode( new MockAdapter());
+        mode = new PowerMeterMode( new MockAdapter);
     })
     describe ( 'getName', () => {
         test('should always return "PowerMeter"', () => {

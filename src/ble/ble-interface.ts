@@ -1,9 +1,12 @@
 import { EventLogger } from 'gd-eventlog';
-import { sleep } from '../utils';
-import { BleInterfaceClass, ConnectProps, ScanProps, BleDeviceClass,BlePeripheral,BleState,BleBinding,uuid, BleCharacteristic, BleDeviceDescription} from './ble'
-import { BleDevice } from './ble-device';
-import {matches} from './ble'
+import { sleep } from '../utils/utils';
+import { BleInterfaceClass,  BleScanProps, BleState,BleBinding, } from './ble'
+import { BleComms } from './ble-comms';
 import BlePeripheralConnector from './ble-peripheral';
+import BleAdapterFactory from './adapter-factory';
+import { getBestDeviceMatch,getDevicesFromServices,getServicesFromDeviceTypes,uuid } from './utils';
+
+import {ConnectProps,BlePeripheral,BleCharacteristic, BleDeviceSettings} from './types'
 
 const CONNECT_TIMEOUT = 5000;
 const DEFAULT_SCAN_TIMEOUT = 20000;
@@ -29,12 +32,12 @@ export interface PeripheralState {
 }
 
 export interface BleDeviceInfo { 
-    device: BleDeviceClass;
+    device: BleComms;
     isConnected: boolean;
 }
 
 export interface BleDeviceClassInfo { 
-    Class: typeof BleDeviceClass,
+    Class: typeof BleComms,
     type: string
     services: string[];
     id: string;
@@ -53,11 +56,11 @@ export default class BleInterface extends BleInterfaceClass {
     scanState: ScanState = { isScanning: false, isConnecting:false,  timeout: undefined, isBackgroundScan:false}
     connectState: ConnectState = { isConnecting: false, isConnected: false,isInitSuccess: false }
     
-    devices: BleDeviceInfo[] = [];          // devices that have been registered or recognized during scan
-    peripheralCache = [];                   // peripherals that were detected in current and previous scans
-
+    devices: BleDeviceInfo[] = [];              // devices that have been registered or recognized during scan
+    peripheralCache = [];                       // peripherals that were detected in current and previous scans
     logger: EventLogger
-    static deviceClasses: BleDeviceClassInfo[] = []
+    
+    
     static _instance: BleInterface;
 
     static getInstance(props: {binding?: BleBinding, log?:boolean, logger?:EventLogger}={}): BleInterface { 
@@ -86,13 +89,15 @@ export default class BleInterface extends BleInterfaceClass {
 //        else if ( props.log) {
             this.logger = new EventLogger( 'BLE');
 //        }
+
+
+
     }
 
-    static register(id:string, type:string, Class: typeof BleDeviceClass, services: string[]) { 
-        if (this.deviceClasses.find( i => i.id === id)) 
-            return;
-        this.deviceClasses.push({id,type, Class, services})
+    getAdapterFactory() {
+        return BleAdapterFactory.getInstance()
     }
+
 
 
     logEvent(event) {
@@ -124,7 +129,7 @@ export default class BleInterface extends BleInterfaceClass {
             if ( this.connectState.isConnected) {
                 return resolve(true);
             }
-            this.logEvent({message:'connect request',});
+            this.logEvent({message:'Ble connect request',});
             
             if ( !this.getBinding()) 
                 return Promise.reject(new Error('no binding defined')) 
@@ -134,7 +139,7 @@ export default class BleInterface extends BleInterfaceClass {
                 this.connectState.isConnected= false;
                 this.connectState.isConnecting=false;
                 this.connectState.timeout= null;                    
-                this.logEvent( {message:'connect result: timeout'});
+                this.logEvent( {message:'Ble connect result: timeout'});
                 reject( new Error('timeout'))
             }, timeout)
 
@@ -205,7 +210,7 @@ export default class BleInterface extends BleInterfaceClass {
     
                             this.connectState.isConnected = true;
                             this.connectState.isConnecting = false;
-                            this.logEvent({message:'connect result: success'});
+                            this.logEvent({message:'Ble connect result: success'});
 
                             return resolve(true);
                         }  
@@ -225,7 +230,7 @@ export default class BleInterface extends BleInterfaceClass {
                 if ( this.connectState.timeout)
                     clearTimeout(this.connectState.timeout)
                 this.connectState.timeout= null;                    
-                this.logEvent({message:'connect result: error', error:err.message});
+                this.logEvent({message:'Ble connect result: error', error:err.message});
                 return reject(new Error('bluetooth unavailable, cause: ' + err.message))
             }
         
@@ -250,7 +255,7 @@ export default class BleInterface extends BleInterfaceClass {
         const connectedDevices = this.devices.filter( d => d.isConnected);
         for (let i=0; i<connectedDevices.length; i++) { 
             const d = connectedDevices[i];
-            const device = d.device as  BleDeviceClass;
+            const device = d.device as  BleComms;
             await device.disconnect();            
         }
 
@@ -268,95 +273,6 @@ export default class BleInterface extends BleInterfaceClass {
         return this.connectState.isConnected;
     }
 
-    getDevicesFromServices(deviceTypes : (typeof BleDeviceClass)[],services :string | string[]) : (typeof BleDeviceClass)[] {
-        if (!deviceTypes || !Array.isArray(deviceTypes) || deviceTypes.length === 0) {
-            return []
-        }
-
-        const get = (deviceTypes: (typeof BleDeviceClass)[], fnCompare: (s:string)=>boolean ) => {
-            const types =  deviceTypes.filter( DeviceType  => { 
-                const C = DeviceType as any
-
-                let found = false;
-                if (C.services)
-                    found = C.services.find( (s:string) => fnCompare(s) )
-
-                return found;
-            })    
-            return types;
-
-        }
-        if ( typeof services === 'string') { 
-            return get(deviceTypes, (s)=> matches(s,services) )
-        }
-        if ( Array.isArray(services)) {
-            const sids = services.map(uuid);
-            return get(deviceTypes, s => { 
-                const res = sids.find( (service)=> matches(s,service)) 
-                return res!==undefined;
-            })
-        }
-        return []   
-    }
-
-    getAllSupportedServices() {
-        const supported = BleInterface.deviceClasses;
-        const res = [];
-
-        if (supported && supported.length>0) {
-            supported.forEach( dc => {
-                if (dc && dc.services) {
-                    dc.services.forEach( s => {
-                        if ( !res.includes(s))
-                            res.push(s)
-                    })
-                }
-
-            })
-        }
-
-        return res;
-        
-    }
-
-    getAllSupportedDeviceTypes() {
-        const supported = BleInterface.deviceClasses;
-        return supported.map( dc => dc.Class)
-    }
-
-    getServicesFromDeviceTypes(deviceTypes:(typeof BleDeviceClass)[]): string[] {
-        let services = [] as string[]
-        try {
-            if (!deviceTypes || !Array.isArray(deviceTypes) || deviceTypes.length === 0) {
-                return []
-            }
-            
-            deviceTypes.forEach( DeviceType => {
-                if (DeviceType.services) {
-                    const dtServices = DeviceType.services;
-                    dtServices.forEach( s => {
-                        if ( !services.find( s2 => s2 === s)) 
-                            services.push(s)
-                    })
-                }
-            })    
-        }
-        catch( err) {console.log(err)}
-        return services;
-    }
-
-    getServicesFromDevice(device: BleDeviceClass): string[] {
-        if (!device ) 
-            return []
-        const services = [] as string[]
-        const dServices = device.getServiceUUids();
-        dServices.forEach( s => {
-            if ( !services.find( s2 => s2 === s)) 
-                services.push(s)
-        })
-
-        return services;             
-    }
 
     waitForConnectFinished( timeout) {
         const waitStart = Date.now();
@@ -456,39 +372,11 @@ export default class BleInterface extends BleInterfaceClass {
     }
 
 
-    getDeviceClasses (peripheral, props:{ deviceTypes?: (typeof BleDeviceClass)[], profile?: string, services?: string[] } = {}): (typeof BleDeviceClass)[] {
-        let DeviceClasses;
-        const {deviceTypes,profile,services=peripheral.advertisement.serviceUuids}  = props;
 
-
-        if ((!deviceTypes ||deviceTypes.length===0)) {
-            // find matching Classes in the set of all registered Device Classes
-            const classes = BleInterface.deviceClasses.map( c => c.Class)
-
-            DeviceClasses = this.getDevicesFromServices( classes, services) 
-        }
-        else {                            
-            // find matching Classes in the set of requested Device Classes
-            DeviceClasses = this.getDevicesFromServices(deviceTypes, services) 
-        }
-
-        if (profile && DeviceClasses && DeviceClasses.length>0) {
-            DeviceClasses = DeviceClasses.filter( C => {
-                
-                const device = new C({peripheral});
-                if (device.getProfile()!==profile) 
-                    return false;
-                return true;
-            })
-        }
-        return DeviceClasses
-    }
-
-    createDevice( DeviceClass: (typeof BleDeviceClass), peripheral: BlePeripheral, characteristics?:BleCharacteristic[]) {
-
+    createDeviceComms( DeviceClass: (typeof BleComms), peripheral: BlePeripheral, characteristics?:BleCharacteristic[]) {
         try {
             const C = DeviceClass as any; // avoid error "Cannot crate instance of abstract class"
-            const device = new C({peripheral}) as BleDevice;
+            const device = new C({peripheral});
             const cids = characteristics ?  characteristics.map(c=> uuid(c.uuid) ) : [];
             
             this.logEvent({message:'trying to create device',peripheral: peripheral.address,characteristics:cids, profile:device.getProfile() })
@@ -518,9 +406,9 @@ export default class BleInterface extends BleInterfaceClass {
     }
 
 
-    async connectDevice(requested: BleDeviceClass | BleDeviceDescription, timeout=DEFAULT_SCAN_TIMEOUT+CONNECT_TIMEOUT): Promise<BleDeviceClass> {
+    async connectDevice(requested: BleComms | BleDeviceSettings, timeout=DEFAULT_SCAN_TIMEOUT+CONNECT_TIMEOUT): Promise<BleComms> {
         const {id,name,address} = requested
-        const profile = requested instanceof  BleDeviceClass  ? 
+        const profile = requested instanceof  BleComms  ? 
             (requested.getProfile && typeof(requested.getProfile)==='function' ? requested.getProfile() : undefined) : 
             requested.profile;
 
@@ -547,10 +435,10 @@ export default class BleInterface extends BleInterfaceClass {
             if (!peripheralInfo.characteristic) {
                 await this.getCharacteristics(peripheralInfo.periphal)
                                 
-                const DeviceClasses = this.getDeviceClasses( peripheralInfo.peripheral, {profile})
+                const DeviceClasses = this.getAdapterFactory().getDeviceClasses( peripheralInfo.peripheral, {profile})
                 if (!DeviceClasses || DeviceClasses.length===0)
                     return;
-                const devices = DeviceClasses.map( C=> this.createDevice(C,peripheralInfo.periphal,peripheralInfo.characteristics))                    
+                const devices = DeviceClasses.map( C=> this.createDeviceComms(C,peripheralInfo.periphal,peripheralInfo.characteristics))                    
                 if (devices && devices.length>0) {
                     for (let i=0; i<devices.length;i++) {             
                         const idx = this.devices.push( {device:devices[i], isConnected:false})-1;
@@ -643,28 +531,21 @@ export default class BleInterface extends BleInterfaceClass {
 
     }
 
-    getBestDeviceMatch(DeviceClasses : (typeof BleDeviceClass)[]):typeof BleDeviceClass {
-        if (!DeviceClasses||DeviceClasses.length===0)
-            return;
-        const details = DeviceClasses.map( c=> ( {name:c.prototype.constructor.name, priority:(c as any).detectionPriority||0,class:c } ))
-        details.sort( (a,b) => b.priority-a.priority)
-        
-        return details[0].class
-    }
 
 
-    async scan( props:ScanProps) : Promise<BleDeviceClass[]> {
+
+    async scan( props:BleScanProps) : Promise<BleComms[]> {
         const {timeout=DEFAULT_SCAN_TIMEOUT, deviceTypes=[],requested } = props;
 
         let profile;
         if (requested)
-            profile = requested instanceof  BleDeviceClass  ? 
+            profile = requested instanceof  BleComms  ? 
             (requested.getProfile && typeof(requested.getProfile)==='function' ? requested.getProfile() : undefined) : 
             requested.profile;
         const {id,address,name} = requested || {};
         
         const scanForDevice = (requested!==null && requested!==undefined)
-        const services =  (!deviceTypes || deviceTypes.length===0) ? this.getAllSupportedServices() : this.getServicesFromDeviceTypes(deviceTypes)
+        const services =  (!deviceTypes || deviceTypes.length===0) ? this.getAdapterFactory().getAllSupportedServices() : getServicesFromDeviceTypes(deviceTypes)
         const bleBinding = this.getBinding()
         if ( !bleBinding) 
             return Promise.reject(new Error('no binding defined')) 
@@ -690,7 +571,7 @@ export default class BleInterface extends BleInterfaceClass {
         }
         else  {
             opStr = 'scan'
-            const supported = BleInterface.deviceClasses.map(dc => ({id:dc.id, type:dc.type,services:dc.services }))
+            const supported = BleAdapterFactory.getInstance().getAllAdapters().map(i => i.protocol )
             this.logEvent({message:'scan start', services,supported});
         }
 
@@ -782,12 +663,12 @@ export default class BleInterface extends BleInterfaceClass {
                 const services = connectedServices ? connectedServices.map(cs=>cs.uuid) : undefined;
                 const connectedPeripheral = connector.getPeripheral();
                 const {id,name,address,advertisement={}} = connectedPeripheral;  
-                const DeviceClasses = this.getDeviceClasses(connectedPeripheral,{profile,services}) || [];
+                const DeviceClasses = this.getAdapterFactory().getDeviceClasses(connectedPeripheral,{profile,services}) || [];
                 
                 this.logEvent({message:'BLE scan: device connected',peripheral:{id,name,address,services:advertisement.serviceUuids},services, classes:DeviceClasses.map(c=>c.prototype.constructor.name) })                
     
                 let cntFound = 0;
-                const DeviceClass = this.getBestDeviceMatch(DeviceClasses);
+                const DeviceClass = getBestDeviceMatch(DeviceClasses);
                 
 //                DeviceClasses.forEach( async DeviceClass => {
                     if (!DeviceClass)
@@ -796,7 +677,7 @@ export default class BleInterface extends BleInterfaceClass {
                     if (scanForDevice && cntFound>0)
                         return;
 
-                    const d = this.createDevice(DeviceClass, peripheral, characteristics) as BleDevice
+                    const d = this.createDeviceComms(DeviceClass, peripheral, characteristics) as BleComms
                     if (!d) {
                         this.logEvent({message:`${opStr}: could not create device `,DeviceClass})
                         return;
@@ -868,8 +749,8 @@ export default class BleInterface extends BleInterfaceClass {
             
             let services = []
             if (scanForDevice && name && !name.toLowerCase().startsWith('tacx')) {
-                if (props.requested instanceof BleDeviceClass) {
-                    const device = props.requested as BleDeviceClass;
+                if (props.requested instanceof BleComms) {
+                    const device = props.requested as BleComms;
                     services  = (device.getServices()) || []                        
                 }
             }
@@ -923,7 +804,7 @@ export default class BleInterface extends BleInterfaceClass {
         return this.scanState.isScanning===true
     }
 
-    addConnectedDevice(device: BleDeviceClass):void { 
+    addConnectedDevice(device: BleComms):void { 
         const existigDevice = this.devices.find( i => i.device.id === device.id && i.device.getProfile()===device.getProfile())
 
         if (existigDevice) {
@@ -933,7 +814,7 @@ export default class BleInterface extends BleInterfaceClass {
         this.devices.push( {device,isConnected:true})            
     }
 
-    addDeviceToCache( device: BleDeviceClass, isConnected:boolean): void {
+    addDeviceToCache( device: BleComms, isConnected:boolean): void {
         const existigDevice = this.devices.find( i => i.device.id === device.id && i.device.getProfile()===device.getProfile())
 
         if (existigDevice) {
@@ -942,19 +823,19 @@ export default class BleInterface extends BleInterfaceClass {
         this.devices.push( {device,isConnected})                            
     }
 
-    findConnected(device: BleDeviceClass|BlePeripheral): BleDeviceClass {
+    findConnected(device: BleComms|BlePeripheral): BleComms {
         const connected =  this.devices.find( i => i.device.id===device.id && i.isConnected)
         if (connected)
             return connected.device
         return undefined;
     }
-    findDeviceInCache(device: { id?:string, address?:string, name?:string, profile:string}): BleDeviceClass {
+    findDeviceInCache(device: { id?:string, address?:string, name?:string, profile:string}): BleComms {
         const existing =  this.devices.find( i => (i.device.id===device.id || i.device.address===device.address || i.device.name===device.name) && i.device.getProfile()===device.profile)
         return existing ? existing.device : undefined;
     }
 
 
-    removeConnectedDevice(device: BleDeviceClass):void { 
+    removeConnectedDevice(device: BleComms):void { 
         const existigDevice = this.devices.find( i => i.device.id === device.id)
 
         if (existigDevice) {

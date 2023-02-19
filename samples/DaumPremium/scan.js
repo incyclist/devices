@@ -1,7 +1,6 @@
 const {EventLogger} = require( 'gd-eventlog');
 const net = require ('net')
-const {DeviceRegistry,INTERFACE} = require('../../lib/DeviceSupport');
-const { networkInterfaces } = require('os');
+const {DeviceRegistry,INTERFACE,TCPBinding} = require('incyclist-devices');
 const SerialPort = require('serialport');
 
 const logger = new EventLogger('DaumPremiumSample')
@@ -18,78 +17,15 @@ const onScanFinished = (id) => {
     logger.logEvent( {message: 'scan finished',id})
 }
 
-function scanPort( host,port) {
+
+async function scan(timeout=DEFAULT_SCAN_TIMEOUT) {
+
+    const ports  = await TCPBinding.list(DEFAULT_PORT)
+    const hosts = ports.map( p=> p.path)
     
-    return new Promise( (resolve,reject) => {
-        try {
-            const socket = new net.Socket();
-            socket.setTimeout(1000,(e) =>{})
-            socket.on('timeout',()=>{ reject(0) })
-            socket.on('error',(err)=>{ reject(0) })
-    
-            socket.on('ready',()=>{
-                resolve(host)
-                socket.destroy();
-            })
-            socket.connect( port, host );
-        }
-        catch (err) {
-            reject(err)
-        }
-    
-    })
-}
+    return new Promise( async resolve => {
+        
 
-
-function scan(timeout=DEFAULT_SCAN_TIMEOUT) {
-
-    const nets = networkInterfaces();
-    const results = []
-
-    const names = Object.keys(nets);
-    names.forEach( name => {
-        for (const net of nets[name]) {
-            // Skip over non-IPv4 and internal (i.e. 127.0.0.1) addresses
-            if (net.family === 'IPv4' && !net.internal) {
-                results.push(net.address);
-            }
-        }
-    })
-
-   
-    const address = Object.keys(networkInterfaces())
-    // flatten interfaces to an array
-    .reduce((a, key) => [
-        ...a,
-        ...networkInterfaces()[key]
-    ], [])
-    // non-internal ipv4 addresses only
-    .filter(iface => iface.family === 'IPv4' && !iface.internal && iface.netmask==='255.255.255.0')
-    .map( iface => { 
-        const parts = iface.address.split('.');
-        return `${parts[0]}.${parts[1]}.${parts[2]}`    
-    })
-
-    const subnets  = address.filter((x, i) => i === address.indexOf(x))
-    subnets.push('127.0.0.1')
-
-
-    const hosts = [];
-    const range = [];
-    for (let i=1;i<255;i++) range.push(i)
-
-    hosts.push( '192.168.2.244')
-
-    subnets.forEach( sn => {
-        range.forEach( j => {
-            const host = `${sn}.${j}`
-            scanPort(host,DEFAULT_PORT).then( r => { console.log(host,r); hosts.push(r)}).catch(()=>{})
-        })
-    })
-
-
-    return new Promise( resolve => {
-        setTimeout( ()=>{
 
             const host = hosts.length>0 ? hosts[hosts.length-1] : '127.0.0.1';
 
@@ -127,7 +63,6 @@ function scan(timeout=DEFAULT_SCAN_TIMEOUT) {
                 },100)
             }, timeout)
     
-        },3000)    
     
 
     })

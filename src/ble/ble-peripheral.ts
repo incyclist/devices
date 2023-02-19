@@ -1,7 +1,8 @@
-import { BleCharacteristic, BlePeripheral,uuid } from "./ble";
+import { BleCharacteristic, BlePeripheral, IBlePeripheralConnector } from './types';
 import BleInterface from "./ble-interface";
 import { EventLogger } from "gd-eventlog";
 import EventEmitter from "events";
+import { uuid } from "./utils";
 
 export type ConnectorState = {
     isConnected: boolean;
@@ -12,7 +13,9 @@ export type ConnectorState = {
     subscribed?: string[];
 }
 
-export default class BlePeripheralConnector {
+
+
+export default class BlePeripheralConnector implements IBlePeripheralConnector{
 
     private state: ConnectorState;
     private services: string [];
@@ -46,7 +49,7 @@ export default class BlePeripheralConnector {
     }  
 
 
-    async connect() {
+    async connect():Promise<void> {
         if ( this.state.isConnected)
             return;
 
@@ -54,7 +57,7 @@ export default class BlePeripheralConnector {
 
         this.state.isConnecting = true;
         try {
-            this.peripheral.on('connect',()=> { console.log('~~~ peripheral connected', this.peripheral)})
+            this.peripheral.on('connect',()=> { })
             //this.peripheral.once('disconnect',()=> { console.log('~~~ peripheral disconnected', this.peripheral)})
 
             this.peripheral.on('disconnect', ()=> {this.onDisconnect()})
@@ -71,8 +74,8 @@ export default class BlePeripheralConnector {
         this.state.isConnecting = false;
     }
 
-    async reconnect() {
-        this.connect()
+    async reconnect():Promise<void>  {
+        await this.connect()
     }
 
     onDisconnect() {
@@ -224,34 +227,34 @@ export default class BlePeripheralConnector {
         })
     } 
 
-    onData( characteristicUuid:string, data) {
+    onData( characteristicUuid:string, data):void {
         this.emitter.emit(uuid(characteristicUuid), characteristicUuid,data)
     }
 
-    on( characteristicUuid:string, callback:(characteristicUuid:string, data)=>void)  {
+    on( characteristicUuid:string, callback:(characteristicUuid:string, data)=>void):void  {
         if (callback)
             this.emitter.on(uuid(characteristicUuid),callback)
     } 
 
-    off( characteristicUuid:string, callback:(characteristicUuid:string, data)=>void)  {
+    off( characteristicUuid:string, callback:(characteristicUuid:string, data)=>void):void  {
         if (callback)
             this.emitter.off(uuid(characteristicUuid),callback)
     } 
 
-    removeAllListeners(characteristicUuid:string) {
+    removeAllListeners(characteristicUuid:string):void {
         this.emitter.removeAllListeners(uuid(characteristicUuid))
     }
 
 
-    getState() {
+    getState():string {
         return this.peripheral.state;
     }
 
-    getCharachteristics() {
+    getCharachteristics():BleCharacteristic [] {
         return this.characteristics
     }
 
-    getServices() {
+    getServices():string[] {
         return this.services
     }
 

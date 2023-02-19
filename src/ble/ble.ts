@@ -1,72 +1,8 @@
 import EventEmitter from "events";
+import { BleComms } from "./ble-comms";
 import BlePeripheralConnector from "./ble-peripheral";
+import { BleDeviceCommsClass, BleDeviceSettings, BlePeripheral, BlePeripheralIdentifier, ConnectProps,  } from "./types";
 
-export type ConnectProps = {
-    timeout?: number;
-    reconnect?: boolean;
-}
-
-export interface BleDeviceIdentifier  {
-    id?: string;
-    address?: string;
-    name?: string;
-}
-
-export interface ConnectState  {
-    isConnecting: boolean;
-    isConnected: boolean;
-    isDisconnecting: boolean;
-}
-export type BleDeviceInfo = {
-    manufacturer?: string;
-    hwRevision?: string;
-    swRevision?: string;
-    fwRevision?: string;
-    model?:string;
-    serialNo?: string;
-
-}
-
-export interface BleDeviceDescription {
-    id?: string;
-    address: string;
-    name?: string;
-    profile: string;
-}
-
-
-export abstract class  BleDeviceClass extends EventEmitter { 
-    static services: string[] = []
-    id?: string;
-    address?: string;
-    name?: string;
-    peripheral?: BlePeripheral;
-    connectState: ConnectState = {  isConnecting: false, isConnected: false, isDisconnecting: false }
-
-    getConnectState() {
-        return this.connectState
-    }
-
-    isConnected() {
-        return this.connectState.isConnected;
-    }
-
-    abstract getProfile(): string;
-    abstract getServiceUUids(): string[] 
-    abstract connect( props?:ConnectProps ): Promise<boolean>
-    abstract disconnect(): Promise<boolean>
-    abstract getDeviceInfo(): Promise<BleDeviceInfo> 
-    abstract getServices(): string[]
-
-    setCharacteristicUUIDs( uuids: string[]) {}
-
-
-}
-
-export interface BleWriteProps {
-    withoutResponse?: boolean;
-    timeout?: number
-}
 
 export interface BleBinding extends EventEmitter {
     startScanning(serviceUUIDs?: string[], allowDuplicates?: boolean, callback?: (error?: Error) => void): void;
@@ -78,10 +14,10 @@ export interface BleBinding extends EventEmitter {
 
 
 
-export type ScanProps ={
+export type BleScanProps ={
     timeout?: number;
-    deviceTypes?: (typeof BleDeviceClass)[];
-    requested?: BleDeviceClass|BleDeviceDescription;    
+    deviceTypes?: (typeof BleComms)[];
+    requested?: BleComms|BleDeviceSettings;    
     isBackgroundScan?: boolean
     
 }
@@ -126,15 +62,15 @@ export abstract class BleInterfaceClass extends EventEmitter   {
     }    
 
     abstract connect(props: ConnectProps): Promise<boolean> 
-    abstract scan( props:ScanProps) : Promise<BleDeviceClass[]> 
+    abstract scan( props:BleScanProps) : Promise<BleDeviceCommsClass[]> 
     abstract stopScan() : Promise<boolean> 
     abstract disconnect() : Promise<boolean>
     abstract onDisconnect(peripheral: BlePeripheral) : void
 
     abstract isScanning(): boolean
-    abstract addConnectedDevice(device: BleDeviceClass):void
-    abstract removeConnectedDevice(device: BleDeviceClass):void
-    abstract findConnected(device: BleDeviceClass|BlePeripheral):BleDeviceClass
+    abstract addConnectedDevice(device: BleDeviceCommsClass):void
+    abstract removeConnectedDevice(device: BleDeviceCommsClass):void
+    abstract findConnected(device: BleDeviceCommsClass|BlePeripheral):BleDeviceCommsClass
     abstract getConnector(peripheral: BlePeripheral): BlePeripheralConnector
     abstract findPeripheral(peripheral:BlePeripheral | { id?:string, address?:string, name?:string}): BlePeripheral
 
@@ -144,36 +80,6 @@ export abstract class BleInterfaceClass extends EventEmitter   {
 }
 
 
-export interface BlePeripheral extends EventEmitter, BleDeviceIdentifier{
-    services: string[];
-    advertisement: any;
-    state: string
-
-    connectAsync(): Promise<void>;
-    disconnect( cb:(err?:Error)=>void ): Promise<void>;
-    discoverSomeServicesAndCharacteristicsAsync(serviceUUIDs: string[], characteristicUUIDs: string[]): Promise<any>;
-    
-
-}
-
-export interface BleCharacteristic extends EventEmitter {
-    uuid: string;
-    properties: string[]
-
-    subscribe( callback: (err:Error)=>void): void
-    read( callback: (err:Error, data:Buffer)=>void): void
-    write(data:Buffer, withoutResponse:boolean,callback?: (err:Error)=>void): void
-}
-
-export type BleDeviceProps = {
-    id?: string;
-    address?: string;
-    name?: string;
-    services?: string[];
-    ble: BleInterfaceClass;
-    peripheral?: BlePeripheral;
-    
-}
 
 
 
@@ -186,30 +92,3 @@ export enum BleState  {
     POWERED_ON = 'poweredOn',
 }
 
-export const uuid = (s) => {
-    //console.log(s)
-    if (s) {
-        if (s.includes('-')) {
-            const parts = s.split('-')
-            const uuidNo = parseInt('0x'+parts[0])
-            return uuidNo.toString(16).toLowerCase()
-        }
-        return s;
-    }
-}
-
-export const matches = (uuid1,uuid2) => {
-    const ul1 = uuid1.toLowerCase()
-    const ul2 = uuid2.toLowerCase()
-
-    if (uuid(ul1)===uuid(ul2))
-        return true;
- 
-    if (ul1.length<ul2.length && ul2.startsWith(ul1))
-        return true
-    if (ul1.length>ul2.length && ul1.startsWith(ul2))
-        return true
-
-    return false;
-
-}

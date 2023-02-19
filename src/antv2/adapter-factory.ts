@@ -1,46 +1,86 @@
 
-import AntProtocol, { AntDeviceSettings, mapIncyclistProfile } from "./incyclist-protocol";
-import AntAdapter from "./ant-device";
-import AntFEAdapter from "./fe";
-import AntHrAdapter from "./hr";
-import AntPwrAdapter from "./pwr";
-import SensorFactory from "./sensor-factory";
-import { settings } from "cluster";
+import AntAdapter from "./adapter";
+import { AntDeviceProperties, AntDeviceSettings } from "./types";
 
 
-const profiles = [
-    {profile: 'PWR', Class:AntPwrAdapter}, 
-    {profile: 'HR', Class: AntHrAdapter}, 
-    {profile: 'FE', Class: AntFEAdapter}, 
-]
+export type AntAdapterInfo = {
+    antProfile: string,
+    incyclistProfile: string,
+    Adapter: typeof AntAdapter
+}
 
+export type AdapterQuery = {
+    antProfile?: string,
+    incyclistProfile?: string,    
+}
 
-export default class AdapterFactory {
+export default class AntAdapterFactory {
+    static _instance:AntAdapterFactory;
 
-    static create ( settings: { configuration?:AntDeviceSettings, detected?:{ profile:string, deviceID:number }}, protocol: AntProtocol) : AntAdapter {
+    adapters: AntAdapterInfo[]
 
-        let profile;
-        let deviceID;
+    static getInstance(): AntAdapterFactory {
+        if (!AntAdapterFactory._instance)
+            AntAdapterFactory._instance = new AntAdapterFactory() ;
+        return AntAdapterFactory._instance;
+    }
+    constructor() {
+        this.adapters = []
+    }
 
-        if (settings && settings.configuration) {
-            profile = mapIncyclistProfile(settings.configuration.profile)
-            deviceID = settings.configuration.deviceID
-        }
-        else if (settings && settings.detected) {
-            profile = settings.detected.profile;
-            deviceID = settings.detected.deviceID
+    register( antProfile: string, incyclistProfile: string, Adapter: typeof AntAdapter)  {       
+
+        const info = Object.assign({},{antProfile, incyclistProfile, Adapter})
+        const existing = this.adapters.findIndex( a => a.antProfile===antProfile) 
+
+        if (existing!==-1)
+            this.adapters[existing]= info;
+        else    
+            this.adapters.push(info)
+
+    }
+
+    getAdapter(query?:AdapterQuery) {
+        const {antProfile, incyclistProfile} = query
+        if (!antProfile && !incyclistProfile)
+            throw new Error('Illegal arguments: either "antProfile" or "incyclistProfile" must be set')
+        
+        let found;
+        if (antProfile) 
+            found = this.adapters.find(a=>a.antProfile===antProfile) 
+        if (incyclistProfile) 
+            found = this.adapters.find(a=>a.incyclistProfile===incyclistProfile) 
+
+        return found
+    }  
+
+    createInstance(settings:AntDeviceSettings,props?:AntDeviceProperties) {
+        let info
+        const {profile,protocol} = settings
+        if (protocol) { // legacy settings
+            info = this.getAdapter({incyclistProfile:profile})
         }
         else {
-            return;
+            info = this.getAdapter({antProfile:profile})
+    
         }
-
-        const sensor = SensorFactory.create(profile,Number(deviceID))
-        if (sensor) {
-            const info = profiles.find( i => i.profile===profile) 
-            if (!info)
-                return;
-
-            return new info.Class(sensor,protocol)
-        }        
+        if (info && info.Adapter)
+            return new info.Adapter(settings,props)
     }
+
+    createFromDetected(profile:string, deviceID:number, props?:AntDeviceProperties )  {
+        const info = this.getAdapter({antProfile:profile})
+        if (!info || !info.Adapter)
+            return;
+        
+        const settings:AntDeviceSettings = Object.assign( {}, {
+            profile: info.incyclistProfile,
+            deviceID:deviceID.toString(),
+            interface: 'ant',
+            protocol:'Ant'
+        })
+        return new info.Adapter(settings,props)
+    }
+
+
 }

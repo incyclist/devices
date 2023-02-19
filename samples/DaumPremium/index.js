@@ -1,14 +1,16 @@
+const {INTERFACE,SerialPortProvider,TCPBinding,SerialInterface,DaumPremiumAdapter, InterfaceFactory,IncyclistDevieAdapter} = require('incyclist-devices');
+const { autoDetect } = require('@serialport/bindings-cpp')
+
+
 const {EventLogger,ConsoleAdapter} = require( 'gd-eventlog');
-const {DeviceRegistry,INTERFACE} = require('../../lib/DeviceSupport');
-const SerialPort = require('serialport');
-const net = require ('net')
+const { AdapterFactory } = require('../../lib');
+const { Daum8iMock,Daum8iMockImpl,Daum8MockSimulator } = require('incyclist-devices/lib/serial/daum/premium/mock');
+const { MockBinding } = require('@serialport/binding-mock');
 
 EventLogger.registerAdapter(new ConsoleAdapter()) 
 const logger = new EventLogger('DaumPremiumSample');
 
-const {scan} = require('./scan')
-
- function runDevice(device) {
+function runDevice(device) {
     logger.logEvent( {message:'starting device',device:device.getName(),port:device.getPort()})        
 
     return new Promise ( async (resolve) => {
@@ -37,30 +39,40 @@ const {scan} = require('./scan')
 }
 async function run() {
 
-
+    logger.logEvent({message:'starting ...'})
+    const isDebug = process.env.DEBUG
     var args = process.argv.slice(2);
     if (args.length<1) {
-        const devices = await scan();
+
+        scanner  = InterfaceFactory.create('tcpip',{logger, log:isDebug})
+
+        //const scanner = SerialInterface.getInstance({ifaceName:'tcpip',logger});
+        const devices = await scanner.scan( {port:51955, timeout: 10000, protocol:'Daum Premium'})
+        logger.logEvent({message:'devices found', devices})
+
         if (devices && devices.length>0) {
-            const device = devices[0];
+            const deviceSettings = devices[0];
+            console.log(deviceSettings)
+            const device = AdapterFactory.create(deviceSettings)
+            //console.log(device)
+
             await runDevice(device)
             process.exit()
         }
         else {
             process.exit();
         }
+
+
     }
     else {
-        const scanner = DeviceRegistry.findByName('Daum Premium');
-        scanner.setNetImpl(net);
-        scanner.setSerialPort(SerialPort);
-
         const portName = args[0]
         const parts = portName.split(':')
         let props; 
         if (parts.length===1) {
             const port = portName;
             props = {port,interface:INTERFACE.SERIAL}
+
         }
         else {
             const host = parts[0];
@@ -68,8 +80,11 @@ async function run() {
             props = {host,port,interface:INTERFACE.TCPIP}
         }
 
+        
         logger.logEvent({message:'adding device',props})
-        const device = scanner.add( props)
+        
+
+        const device = AdapterFactory.create( {...props, protocol:'Daum Premium'})
 
         try {
             await runDevice(device)      
@@ -80,9 +95,20 @@ async function run() {
         catch(err) {
             console.log('~~~ Error',err)
         }
+        
         process.exit();
 
     }
+}
+
+if (process.env.USE_MOCK) { 
+    Daum8iMockImpl.reset();        
+    SerialPortProvider.getInstance().setBinding('tcpip',Daum8iMock)
+    Daum8iMockImpl.getInstance().createPort(process.env.USE_MOCK)
+    Daum8iMockImpl.getInstance().setSimulator(process.env.USE_MOCK,new Daum8MockSimulator())           
+}
+else {
+    SerialPortProvider.getInstance().setBinding('tcpip',TCPBinding)    
 }
 
 run();

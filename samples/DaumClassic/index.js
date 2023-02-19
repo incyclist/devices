@@ -1,8 +1,12 @@
 const {EventLogger,ConsoleAdapter} = require( 'gd-eventlog');
-const SerialPort = require('serialport');
+const { autoDetect } = require('@serialport/bindings-cpp')
+const {useSerialPortProvider} = require('incyclist-devices');
+const { SerialPort } = require('serialport');
+const { MockBinding,MockPortBinding } = require('@serialport/binding-mock')
+
 EventLogger.registerAdapter(new ConsoleAdapter()) 
 const logger = new EventLogger('DaumClassicSample');
-const {DeviceRegistry} = require('../../lib/DeviceSupport');
+//const {DeviceRegistry, useSerialPortProvider} = require('../../lib/DeviceSupport');
 
 const {scan} = require('./scan')
 
@@ -64,7 +68,28 @@ function runDevice(device) {
 
 }
 
+
+
+
 async function run() {
+
+    const spp = useSerialPortProvider();
+
+    if (process.env.MOCK) {
+
+        console.log('using MockBinding for ports',process.env.MOCK )
+        const mockPorts = process.env.MOCK.split(',')
+        MockBinding.reset();
+        mockPorts.forEach( port => MockBinding.createPort(port))
+        spp.setBinding('serial', MockBinding)
+    }
+    else {
+        spp.setBinding('serial', autoDetect())
+        //spp.setLegacyClass('serial', SerialPort)
+    
+    }
+    
+
 
     var args = process.argv.slice(2);
     if (args.length<1) {
@@ -81,7 +106,7 @@ async function run() {
     }
     else {
         const scanner = DeviceRegistry.findByName('Daum Classic');
-        scanner.setSerialPort(SerialPort)
+        
         const device = scanner.add( { port:args[0],opts:{logger} })
         device.logger = logger;
         await runDevice(device)      

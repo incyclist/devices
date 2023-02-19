@@ -1,0 +1,73 @@
+import { MockBinding } from "@serialport/binding-mock";
+import { EventLogger } from "gd-eventlog";
+import { DaumPremiumAdapter } from "../..";
+import SerialPortProvider from "../../serialport";
+import DaumClassicCyclingMode from "./modes/daum-classic";
+import DaumPowerMeterCyclingMode from "../DaumPowerMeterCyclingMode";
+import ERGCyclingMode from "../ERGCyclingMode";
+import SmartTrainerCyclingMode from "../SmartTrainerCyclingMode";
+import { Daum8iMock, Daum8iMockImpl, Daum8MockSimulator } from "./mock";
+
+if ( process.env.DEBUG===undefined)
+    console.log = jest.fn();
+
+
+describe('DaumPremiumAdapter #integration',()=>{
+    beforeAll( ()=> {
+        if (process.env.DEBUG!==undefined && process.env.DEBUG!=='' && Boolean(process.env.DEBUG)!==false)
+            EventLogger.useExternalLogger ( { log: (str)=>console.log(str), logEvent:(event)=>console.log(event) } );
+    })
+
+    afterAll( ()=> {
+        EventLogger.useExternalLogger ( undefined as any)
+
+    })
+
+    let simulator, device;
+    beforeEach( ()=> {
+        MockBinding.reset();
+        MockBinding.createPort('COM1')
+
+        simulator = new Daum8MockSimulator();
+        Daum8iMockImpl.reset();        
+        SerialPortProvider.getInstance().setBinding('serial',Daum8iMock)
+        Daum8iMockImpl.getInstance().setSimulator('COM1',simulator)           
+
+        device = new DaumPremiumAdapter( {interface:'serial', port:'COM1', protocol:'Daum Premium'})
+    })
+
+    afterEach( async ()=>{
+        await device.close().catch()
+    })
+
+    test('constructor',()=>{
+        // check simple getters
+        expect(device.getName()).toBe('Daum8i')
+        expect(device.getPort()).toBe('COM1')
+        expect(device.getInterface()).toBe('serial')
+        expect(device.getProtocolName()).toBe('Daum Premium')
+        
+        const cm = device.getSupportedCyclingModes()
+        expect(cm).toContain(ERGCyclingMode)
+        expect(cm).toContain(SmartTrainerCyclingMode)
+        expect(cm).toContain(DaumPowerMeterCyclingMode)
+        expect(cm).toContain(DaumClassicCyclingMode)
+    })
+
+    test('check',async ()=>{
+        const res = await device.check()
+        expect(res).toBeTruthy()
+        expect(device.getName()).toBe('Daum8i')            
+    })
+
+    test('check with temporary error',async ()=>{
+        simulator.simulateChecksumError()
+        
+        const res = await device.check()
+        expect(res).toBeTruthy()
+        expect(device.getName()).toBe('Daum8i')            
+        
+    })
+
+
+})

@@ -1,12 +1,7 @@
-import IncyclistDevice from '../device';
-import DeviceProtocolBase from '../protocol';
+import MockAdapter from '../../test/mock-adapter';
 import PowerMeterMode from './power-base'
 
-class MockAdapter extends IncyclistDevice {
-    constructor() {
-        super( new DeviceProtocolBase())
-    }
-}
+
 
 describe('PowerMeterMode', () => {
 

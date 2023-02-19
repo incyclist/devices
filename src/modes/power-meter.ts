@@ -1,6 +1,6 @@
-import CyclingMode, { CyclingModeProperty, IncyclistBikeData, Settings, UpdateRequest } from '../cycling-mode';
+import CyclingMode, { CyclingModeProperty, IncyclistBikeData, Settings, UpdateRequest } from '../modes/cycling-mode';
 import PowerBasedCyclingModeBase from './power-base';
-import { DeviceAdapter } from '../device';
+import { IncyclistDeviceAdapter } from '../types/adapter';
 
 const MIN_SPEED = 10;
 
@@ -13,7 +13,7 @@ export const config = {
 
 export default class PowerMeterCyclingMode extends PowerBasedCyclingModeBase implements CyclingMode {
 
-    constructor(adapter: DeviceAdapter, props?: Settings) {
+    constructor(adapter: IncyclistDeviceAdapter, props?: Settings) {
         super(adapter,props);
         this.initLogger('PowerMeterMode')
         this.data = { speed: 0, slope:0 , power:0,  distanceInternal:0, pedalRpm:0, isPedalling:false, heartrate:0}
