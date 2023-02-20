@@ -163,7 +163,7 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
             if (deviceID && detected.find( s => s.deviceID===deviceID && s.profile===profile)===undefined) {
                 try {
                     detected.push( {interface:this.getName(),profile,deviceID})                    
-                    this.emit('device', profile,deviceID)
+                    this.emit('device', {interface:'ant',profile,deviceID})
                 }
                 catch(err) {
                     this.logEvent({message:'error', fn:'onDerected', error:err.message, stack:err.stack})
