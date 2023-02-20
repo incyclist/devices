@@ -4,10 +4,9 @@
     "private": true,
     "homepage": "./",
     "dependencies": {
-        "gd-ant-plus": "^0.0.34",
         "gd-eventlog": "^0.1.22",
-        "incyclist-devices": "file:../..",
-        "usb": "^2.5.2"
+        "incyclist-ant-plus": "^0.1.16",
+        "incyclist-devices": "file:../.."
     },
     "scripts": {
         "start": "node index.js"

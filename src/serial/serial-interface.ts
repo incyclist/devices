@@ -88,7 +88,7 @@ export class SinglePathScanner {
                         port = this.path;
                     }
 
-                    const adapterSettings = {interface:this.serial, host,port, protocol}
+                    const adapterSettings = {interface:this.serial.getName(), host,port, protocol}
                     
                     const adapter = AdapterFactory.create(adapterSettings)
 
@@ -299,7 +299,6 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
 
         if (timeout)  {
             this.toScan = setTimeout(()=>{
-                console.log('~~~ TIMEOUT')
                 timeOutExpired = true;
                 this.scanEvents.emit('timeout')
             },timeout)
@@ -342,8 +341,8 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
                 s.scan()
                     .then( device=> { 
                     
-                    detected.push(device)
-                    this.emit('device',device)          
+                        detected.push(device)
+                        this.emit('device',device)          
                     })
                     .catch()
                 ))    
