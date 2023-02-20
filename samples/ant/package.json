@@ -5,7 +5,7 @@
     "homepage": "./",
     "dependencies": {
         "gd-eventlog": "^0.1.22",
-        "incyclist-ant-plus": "^0.1.16",
+        "incyclist-ant-plus": "^0.1.17",
         "incyclist-devices": "file:../.."
     },
     "scripts": {

@@ -9,7 +9,7 @@
     "@serialport/stream": "^10.5.0",
     "@types/serialport": "^8.0.2",
     "gd-ant-plus": "^0.0.33",
-    "incyclist-ant-plus": "^0.1.15",
+    "incyclist-ant-plus": "^0.1.17",
     "win32filetime": "^1.0.2"
   },
   "peerDependencies": {
