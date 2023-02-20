@@ -4,7 +4,7 @@ import SerialInterface, { SerialInterfaceType } from './serial-interface'
 
 import { TCPBinding } from './bindings/tcp'
 
-import {SerialAdapterFactory,SerialIncyclistDevice,SerialDeviceSettings} from '.'  // Import needs to be from here so that the adapters are registered
+import {SerialAdapterFactory,SerialIncyclistDevice} from '.'  // Import needs to be from here so that the adapters are registered
 
 import CyclingMode from '../modes/cycling-mode'
 
@@ -122,9 +122,7 @@ describe('SerialInterface',()=>{
             
             const detected = await serial.scan({timeout:100, protocol:'Daum Classic' })
             expect(detected.length).toBe(1)
-            expect(detected[0]).toMatchObject( { protocol: 'Daum Classic', port:'COM1'})
-            expect(detected[0].interface).toBeInstanceOf(SerialInterface)
-
+            expect(detected[0]).toMatchObject( { interface:'serial',protocol: 'Daum Classic', port:'COM1'})
             
         })
 
