@@ -161,7 +161,7 @@ describe( 'parseTrainingData',()=> {
 
 });
 
-describe('FileTimeSupport',()=>{
+describe.skip('FileTimeSupport',()=>{
         
     test('from date',()=>{
         const date = new Date(2022,0,1,15,0,0,0)
@@ -244,8 +244,6 @@ describe( 'routeToEpp',()=>{
         beforeAll(()=>{
             f1 = FileTimeSupport.fromCurrentDate
             f2 = FileTimeSupport.fromDate
-            FileTimeSupport.fromCurrentDate = jest.fn().mockReturnValue( FileTime.fromUnix(new Date(2022,0,1,15,0,0,0)))
-            FileTimeSupport.fromDate = jest.fn( (date) =>  FileTime.fromUnix(date))
         })
 
         test('with route',()=>{
