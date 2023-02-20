@@ -161,7 +161,36 @@ describe( 'parseTrainingData',()=> {
 
 });
 
+describe('FileTimeSupport',()=>{
+        
+    test('from date',()=>{
+        const date = new Date(2022,0,1,15,0,0,0)
+
+        const ft = FileTimeSupport.fromDate(date)
+        expect(ft.high).toBe(30932759)
+        expect(ft.low).toBe(3719950336)
+    })
+})
+
 describe( 'routeToEpp',()=>{
+
+    let ftCurrent;
+    let ftDate;
+
+    beforeAll( ()=> {
+        ftCurrent = FileTimeSupport.fromCurrentDate
+        ftDate = FileTimeSupport.fromDate
+
+        FileTimeSupport.fromCurrentDate = jest.fn().mockReturnValue( {high:30932759, low:3719950336})
+        FileTimeSupport.fromDate = jest.fn().mockReturnValue( {high:30932759, low:3719950336})
+    
+    })
+
+    afterAll( ()=>{
+        FileTimeSupport.fromCurrentDate = ftCurrent
+        FileTimeSupport.fromDate = ftDate
+    })
+
     const route:Route = {
         programId: 1,
         points: [{distance:0,elevation:1},{distance:10,elevation:10},{distance:20,elevation:20},{distance:30,elevation:30},{distance:40,elevation:40},{distance:50,elevation:50}],

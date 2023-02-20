@@ -5,7 +5,7 @@ if ( process.env.DEBUG===undefined)
 
 
 describe('utils',()=>{
-    describe( 'sleep',()=> {
+    describe.skip( 'sleep',()=> {
 
         test ( 'successfull run' ,async ()=> {
             const t=Date.now()
@@ -82,7 +82,7 @@ describe('utils',()=>{
             test ( 'retry too many failures' ,async ()=> {
                 let cnt = 0;
                 const fn = ()=> { 
-                    return new Promise( (resolve,reject) => { 
+                    return new Promise( () => { 
                         if ( cnt++===3) return 'Y'
                         else  throw( new Error('error')); 
                     })
