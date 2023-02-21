@@ -29,7 +29,7 @@
     "lint": "eslint . --ext .ts",
     "build": "tsc",
     "test": "jest --coverage",
-    "dev": "nodemon --watch src -e ts,js --exec npm run build"
+    "dev": "tsc --watch"
   },
   "files": [
     "lib/"
