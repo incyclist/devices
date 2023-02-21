@@ -1,8 +1,7 @@
-import { IncyclistInterface, InterfaceProps } from "./types/interface";
+import { InterfaceProps } from "./types/interface";
 
 import { SerialInterface } from "./serial";
 import AntInterface, { AntInterfaceProps } from "./antv2/ant-interface";
-import BleInterface from "./ble/ble-interface";
 import { INTERFACE } from "./types/device";
 import { SerialInterfaceProps } from "./serial/serial-interface";
 

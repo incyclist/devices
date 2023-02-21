@@ -1,4 +1,4 @@
-import { ISensor } from "incyclist-ant-plus";
+import { ISensor, Profile } from "incyclist-ant-plus";
 
 import {BicyclePowerSensor, HeartRateSensor, FitnessEquipmentSensor} from "incyclist-ant-plus";
 
@@ -10,7 +10,7 @@ const profiles = [
 
 export default class SensorFactory {
 
-    static create ( profile:string, deviceID?:number) : ISensor {
+    static create ( profile:Profile, deviceID?:number) : ISensor {
         const info = profiles.find( i => i.profile===profile) 
         if (!info)
             return;

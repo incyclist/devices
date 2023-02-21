@@ -1,4 +1,5 @@
 import { IncyclistCapability } from '../../types/capabilities'
+import { AntDeviceSettings } from '../types'
 import AntHrAdapter from './adapter'
 
 describe( 'adapter', ()=>{
@@ -11,7 +12,7 @@ describe( 'adapter', ()=>{
                 deviceID: '2606',
                 profile: 'Heartrate Monitor',
                 interface: 'ant'
-              }
+            } as AntDeviceSettings
             const adapter = new AntHrAdapter(settings,{})
 
             // simple getters
@@ -22,11 +23,11 @@ describe( 'adapter', ()=>{
         })
 
         test('minimal settings',()=>{
-            const settings = {       
+            const settings:AntDeviceSettings = {       
                 deviceID: '2606',
                 profile: 'HR',
                 interface: 'ant'
-              }
+            }  as AntDeviceSettings
             const adapter = new AntHrAdapter(settings,{})
 
             // simple getters
@@ -42,7 +43,7 @@ describe( 'adapter', ()=>{
                 interface: 'ant',
                 protocol: 'Ant'
 
-              }
+            } as AntDeviceSettings
             const adapter = new AntHrAdapter(settings,{})
 
             // simple getters
@@ -57,7 +58,7 @@ describe( 'adapter', ()=>{
                 deviceID: '2606',
                 profile: 'Smart Trainer',
                 interface: 'ant'
-            }
+            } as AntDeviceSettings
 
             let adapter,error;
             try {

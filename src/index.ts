@@ -42,10 +42,6 @@ import {
 
 import { CyclingModeProperyType } from './modes/cycling-mode'
 
-
-
-
-
 export {
     IncyclistInterface,
     INTERFACE,

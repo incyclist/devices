@@ -1,5 +1,6 @@
 import { IncyclistCapability } from '../types/capabilities'
 import AntAdapter from './adapter'
+import { AntDeviceSettings } from './types';
 
 describe( 'adapter', ()=>{
     let cs ;
@@ -23,7 +24,7 @@ describe( 'adapter', ()=>{
                 deviceID: '2606',
                 profile: 'Heartrate Monitor',
                 interface: 'ant'
-              }
+            } as AntDeviceSettings
             const adapter = new AntAdapter(settings,{})
 
             // simple getters
@@ -39,7 +40,7 @@ describe( 'adapter', ()=>{
                 deviceID: '2606',
                 profile: 'Smart Trainer',
                 interface: 'ble'
-            }
+            } as AntDeviceSettings
 
             let adapter,error;
             try {

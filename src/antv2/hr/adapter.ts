@@ -1,16 +1,16 @@
-import { HeartRateSensorState, ISensor } from "incyclist-ant-plus";
+import { HeartRateSensorState, ISensor, Profile } from "incyclist-ant-plus";
 import AntAdapter from "../adapter";
 import {getBrand} from '../utils'
 import { EventLogger } from "gd-eventlog";
-import { AntDeviceProperties, AntDeviceSettings } from "../types";
+import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "../types";
 import SensorFactory from "../sensor-factory";
 import { IncyclistCapability } from "../../types/capabilities";
 
 
 export default class AntHrAdapter extends AntAdapter{
     
-    static INCYCLIST_PROFILE_NAME = 'Heartrate Monitor'
-    static ANT_PROFILE_NAME = 'HR'
+    static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Heartrate Monitor'
+    static ANT_PROFILE_NAME:Profile = 'HR'
 
     constructor ( settings:AntDeviceSettings, props?:AntDeviceProperties) {
 

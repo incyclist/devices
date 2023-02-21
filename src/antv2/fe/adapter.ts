@@ -1,4 +1,4 @@
-import { FitnessEquipmentSensor, ISensor } from "incyclist-ant-plus";
+import { FitnessEquipmentSensor, ISensor, Profile } from "incyclist-ant-plus";
 
 import  { ControllableAntAdapter } from "../adapter";
 import {getBrand} from '../utils'
@@ -8,7 +8,7 @@ import AntStCyclingMode from "../modes/ant-fe-st-mode";
 import AntFeERGCyclingMode from "../modes/ant-fe-erg-mode";
 import AntAdvSimCyclingMode from "../modes/ant-fe-adv-st-mode";
 import { sleep } from "../../utils/utils";
-import { AntDeviceProperties, AntDeviceSettings } from "../types";
+import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "../types";
 import SensorFactory from "../sensor-factory";
 import { IncyclistCapability } from "../../types/capabilities";
 import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/adpater";
@@ -18,8 +18,8 @@ const MAX_RETRIES = 3;
 
 export default class AntFEAdapter extends ControllableAntAdapter{
 
-    static INCYCLIST_PROFILE_NAME = 'Smart Trainer'
-    static ANT_PROFILE_NAME = 'FE'
+    static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Smart Trainer'
+    static ANT_PROFILE_NAME:Profile = 'FE'
 
     protected distanceInternal?: number;
     protected startProps : AntDeviceProperties;

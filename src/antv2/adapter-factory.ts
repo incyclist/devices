@@ -1,17 +1,18 @@
 
+import { Profile } from "incyclist-ant-plus";
 import AntAdapter from "./adapter";
-import { AntDeviceProperties, AntDeviceSettings } from "./types";
+import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "./types";
 
 
 export type AntAdapterInfo = {
-    antProfile: string,
-    incyclistProfile: string,
+    antProfile: Profile,
+    incyclistProfile: LegacyProfile,
     Adapter: typeof AntAdapter
 }
 
 export type AdapterQuery = {
-    antProfile?: string,
-    incyclistProfile?: string,    
+    antProfile?: Profile,
+    incyclistProfile?: LegacyProfile,    
 }
 
 export default class AntAdapterFactory {
@@ -28,7 +29,7 @@ export default class AntAdapterFactory {
         this.adapters = []
     }
 
-    register( antProfile: string, incyclistProfile: string, Adapter: typeof AntAdapter)  {       
+    register( antProfile: Profile, incyclistProfile: LegacyProfile, Adapter: typeof AntAdapter)  {       
 
         const info = Object.assign({},{antProfile, incyclistProfile, Adapter})
         const existing = this.adapters.findIndex( a => a.antProfile===antProfile) 
@@ -58,17 +59,19 @@ export default class AntAdapterFactory {
         let info
         const {profile,protocol} = settings
         if (protocol) { // legacy settings
-            info = this.getAdapter({incyclistProfile:profile})
+            const incyclistProfile = profile as LegacyProfile
+            info = this.getAdapter({incyclistProfile})
         }
         else {
-            info = this.getAdapter({antProfile:profile})
+            const antProfile = profile as Profile
+            info = this.getAdapter({antProfile})
     
         }
         if (info && info.Adapter)
             return new info.Adapter(settings,props)
     }
 
-    createFromDetected(profile:string, deviceID:number, props?:AntDeviceProperties )  {
+    createFromDetected(profile:Profile, deviceID:number, props?:AntDeviceProperties )  {
         const info = this.getAdapter({antProfile:profile})
         if (!info || !info.Adapter)
             return;

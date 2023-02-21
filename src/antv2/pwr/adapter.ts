@@ -1,18 +1,18 @@
-import { ISensor } from "incyclist-ant-plus";
+import { ISensor, Profile } from "incyclist-ant-plus";
 import { ControllableAntAdapter } from "../adapter";
 import {getBrand} from '../utils'
 import { EventLogger } from "gd-eventlog";
 import CyclingMode, { IncyclistBikeData } from '../../modes/cycling-mode';
 import PowerMeterCyclingMode from "../../modes/power-meter";
-import { AntDeviceProperties, AntDeviceSettings } from "../types";
+import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "../types";
 import SensorFactory from "../sensor-factory";
 import { IncyclistCapability } from "../../types/capabilities";
 import { DeviceData } from "../../types/data";
 
 export default class AntPwrAdapter extends ControllableAntAdapter {
 
-    static INCYCLIST_PROFILE_NAME = 'Power Meter'
-    static ANT_PROFILE_NAME = 'PWR'
+    static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Power Meter'
+    static ANT_PROFILE_NAME:Profile = 'PWR'
 
     protected distanceInternal?: number;
 

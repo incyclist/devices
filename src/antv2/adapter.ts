@@ -1,9 +1,9 @@
 
-import { IChannel, ISensor } from 'incyclist-ant-plus'
+import { IChannel, ISensor, Profile } from 'incyclist-ant-plus'
 import AntInterface from './ant-interface';
 
 import IncyclistDevice, { DEFAULT_BIKE_WEIGHT } from '../base/adpater';
-import { AntDeviceProperties, AntDeviceSettings } from './types';
+import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from './types';
 import { DeviceProperties } from '../types/device';
 import { Bike, IncyclistDeviceAdapter, OnDeviceDataCallback } from '../types/adapter';
 import { sleep } from '../utils/utils';
@@ -11,7 +11,8 @@ import { IncyclistCapability } from '../types/capabilities';
 import CyclingMode from '../modes/cycling-mode';
 import { User } from '../types/user';
 import { DEFAULT_USER_WEIGHT,DEFAULT_PROPS } from '../base/adpater';
-import { getBrand } from './utils';
+import { getBrand, mapLegacyProfile } from './utils';
+
 export const DEFAULT_UPDATE_FREQUENCY  = 1000;
 
 const NO_DATA_TIMEOUT = 5000;
@@ -165,9 +166,13 @@ export default class AntAdapter  extends IncyclistDevice   {
     }
     
 
-    getProfile():string {
+    getProfile():Profile {
         const settings = this.settings as AntDeviceSettings
-        return settings.profile
+        if (settings.protocol===undefined)
+            return settings.profile as Profile
+        else { // Legacy 
+            return mapLegacyProfile(settings.profile as LegacyProfile)
+        } 
     }
 
 
@@ -304,7 +309,7 @@ export class ControllableAntAdapter extends AntAdapter implements Bike {
 
     setBikeProps(props:DeviceProperties) {
 
-        const {user,userWeight,bikeWeight} = props||{}
+        const {user,userWeight} = props||{}
         if (user) 
             this.setUser(user)
         if (userWeight)

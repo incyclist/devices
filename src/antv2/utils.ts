@@ -1,3 +1,6 @@
+import { Profile } from "incyclist-ant-plus"
+import { LegacyProfile } from "./types"
+
 const brands = [
     'Garmin,1',
     'garmin_fr405_antfs,2',
@@ -178,4 +181,15 @@ export const getBrand = (manId:number) => {
         return found.name
     return;
 }
+
+export const mapLegacyProfile = ( legacy:LegacyProfile ):Profile => {
+    switch (legacy){
+        case 'Heartrate Monitor': return 'HR'
+        case 'Power Meter': return 'PWR'
+        case 'Smart Trainer': return 'FE'
+        case 'Cadence Sensor':return 'CAD'
+        case 'Speed Sensor': return 'SPD'
+        case 'Speed + Cadence Sensor': return 'SC'
+    }
+} 
 
