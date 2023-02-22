@@ -1,11 +1,29 @@
+import { EventLogger } from "gd-eventlog";
 import { EventEmitter } from "stream";
-import { DeviceProperties, DeviceSettings } from "../types/device";
+import { DeviceProperties, DeviceSettings, IncyclistScanProps } from "../types/device";
+import { IncyclistInterface, InterfaceProps } from "../types/interface";
+import { BleBinding } from "./ble";
+
+export type BleProtocol = 'hr' | 'fm' | 'cp' | 'tacx' | 'wahoo' | 'elite'
+
+
+export interface BleDeviceConstructProps extends BleDeviceProps {
+    log?: boolean;
+    logger?: EventLogger;
+    peripheral?: BlePeripheral
+}
+
 
 export interface BleDeviceSettings extends DeviceSettings {
     id?: string;
-    profile: string;
-    protocol: string;
+    protocol: BleProtocol;
+    profile?:string; // Legacy
     address?: string;    
+    name?: string;
+}
+
+export interface BleDetectedDevice extends BleDeviceSettings {
+    peripheral: BlePeripheral
 }
 
 export interface BleDeviceProperties extends DeviceProperties {
@@ -17,8 +35,15 @@ export interface BleStartProperties extends BleDeviceProperties {
     restart?:boolean
 }
 
+export interface BleInterfaceProps extends InterfaceProps {
+    binding?: BleBinding
+    timeout?: number;
+    reconnect?: boolean;
+}
+
+
 export interface BlePeripheral extends EventEmitter, BlePeripheralIdentifier{
-    services: string[];
+    services: [];
     advertisement: any;
     state: string
 
@@ -67,10 +92,11 @@ export type BleDeviceProps = {
    
 }
 
-export type ConnectProps = {
+export type BleCommsConnectProps = {
     timeout?: number;
     reconnect?: boolean;
 }
+
 
 export interface BleWriteProps {
     withoutResponse?: boolean;
@@ -104,30 +130,4 @@ export type BleDeviceInfo = {
 }
 
 
-export abstract class  BleDeviceCommsClass extends EventEmitter { 
-    static services: string[] = []
-    id?: string;
-    address?: string;
-    name?: string;
-    connectState: ConnectState = {  isConnecting: false, isConnected: false, isDisconnecting: false }
-
-    getConnectState() {
-        return this.connectState
-    }
-
-    isConnected() {
-        return this.connectState.isConnected;
-    }
-
-    abstract getProfile(): string;
-    abstract getServiceUUids(): string[] 
-    abstract connect( props?:ConnectProps ): Promise<boolean>
-    abstract disconnect(): Promise<boolean>
-    abstract getDeviceInfo(): Promise<BleDeviceInfo> 
-    abstract getServices(): string[]
-
-    setCharacteristicUUIDs( uuids: string[]) {}
-
-
-}
 

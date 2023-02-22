@@ -1,7 +1,5 @@
 /* istanbul ignore file */
-
 /* eslint-disable no-unused-vars */
-import DeviceAdapter from './base/adpater'
 import {INTERFACE} from './types/device'
 import InterfaceFactory from './interfaces'
 import AdapterFactory from './adapters'

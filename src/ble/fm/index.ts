@@ -1,3 +1,4 @@
+/* istanbul ignore file */
 import BleFmComms from './comms';
 import BleFmAdapter from './adapter';
 import { IndoorBikeData } from './types';

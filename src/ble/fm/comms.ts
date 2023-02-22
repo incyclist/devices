@@ -1,7 +1,8 @@
-import { BleWriteProps, IBlePeripheralConnector } from "../types";
-import { BleComms } from "../ble-comms";
+import { BleProtocol, BleWriteProps, IBlePeripheralConnector } from "../types";
 import { FTMS, FTMS_CP, FTMS_STATUS, INDOOR_BIKE_DATA } from "../consts";
 import { IndoorBikeData, IndoorBikeFeatures } from "./types";
+import { BleComms } from "../base/comms";
+import { LegacyProfile } from "../../antv2/types";
 
 
 
@@ -112,6 +113,7 @@ const TargetSettingFeatureFlag = {
   
 
 export default class BleFitnessMachineDevice extends BleComms {
+    static protocol: BleProtocol = 'fm'
     static services =  [FTMS];
     static characteristics =  [ '2acc', INDOOR_BIKE_DATA, '2ad6', '2ad8', FTMS_CP, FTMS_STATUS ];
     static detectionPriority = 100;
@@ -147,7 +149,7 @@ export default class BleFitnessMachineDevice extends BleComms {
     async subscribeWriteResponse(cuuid: string) {
 
         this.logEvent({message:'subscribe to CP response',characteristics:cuuid})
-        const connector = this.ble.getConnector( this.peripheral)
+        const connector = this.ble.peripheralCache.getConnector( this.peripheral)
 
             const isAlreadySubscribed = connector.isSubscribed(cuuid)            
             if ( !isAlreadySubscribed) {   
@@ -195,7 +197,7 @@ export default class BleFitnessMachineDevice extends BleComms {
             },100)
 
             try {
-                const connector = conn || this.ble.getConnector(this.peripheral)
+                const connector = conn || this.ble.peripheralCache.getConnector(this.peripheral)
     
     
                 
@@ -250,8 +252,12 @@ export default class BleFitnessMachineDevice extends BleComms {
         this.hasControl = false;
     }
 
-    getProfile(): string {
+    getProfile(): LegacyProfile {
         return 'Smart Trainer';
+    }
+
+    getProtocol(): BleProtocol {
+        return BleFitnessMachineDevice.protocol
     }
 
     getServiceUUids(): string[] {
@@ -501,7 +507,7 @@ export default class BleFitnessMachineDevice extends BleComms {
     }
 
     async requestControl(): Promise<boolean> {
-        
+        console.log('~~~ request control')
         let to = undefined;
         if (this.isCheckingControl) {
             to = setTimeout( ()=>{}, 3500)
@@ -525,6 +531,7 @@ export default class BleFitnessMachineDevice extends BleComms {
         this.isCheckingControl = false;
         if (to) clearTimeout(to)
 
+        console.log('~~~request control status', this.hasControl,res)
         return this.hasControl;
     }
 

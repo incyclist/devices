@@ -1,18 +1,13 @@
+import EventEmitter from "events";
 import { EventLogger } from "gd-eventlog";
-import { BleInterfaceClass } from "./ble";
-import BlePeripheralConnector from "./ble-peripheral";
-import { matches,uuid } from "./utils";
-import {BleDeviceCommsClass,ConnectProps,BleDeviceInfo,BlePeripheral,BleDeviceProps,BleCharacteristic, BleWriteProps} from './types'
-import BleInterface from "./ble-interface";
+import { LegacyProfile } from "../../antv2/types";
+import BleInterface from "../ble-interface";
+import BlePeripheralConnector from "../ble-peripheral";
+import { BleCharacteristic, BleCommsConnectProps, BleDetectedDevice, BleDeviceConstructProps, BleDeviceInfo, BleDeviceSettings, BlePeripheral, BleProtocol, BleWriteProps, ConnectState } from "../types";
+import { getPeripheralInfo, matches, uuid } from "../utils";
 
 const CONNECT_WAIT_TIMEOUT = 10000;
 const BLE_TIMEOUT = 1000;
-
-interface BleDeviceConstructProps extends BleDeviceProps {
-    log?: boolean;
-    logger?: EventLogger;
-    peripheral?: BlePeripheral
-}
 
 type CommandQueueItem = {
     uuid: string,
@@ -29,13 +24,16 @@ export interface MessageLog {
 }
 
 
-export class BleComms extends BleDeviceCommsClass  {
+export class BleComms extends  EventEmitter  {
+
+    static services: string[] = []
+    static protocol: BleProtocol;
 
     id: string;
     address: string;
     name: string;
     services: string[];
-    ble: BleInterfaceClass;
+    ble: BleInterface;
     peripheral?: BlePeripheral;
     characteristics = []
     state?: string;
@@ -46,6 +44,8 @@ export class BleComms extends BleDeviceCommsClass  {
     writeQueue: CommandQueueItem[];
     workerIv: NodeJS.Timeout;
     prevMessages: MessageLog[] 
+    connectState: ConnectState = {  isConnecting: false, isConnected: false, isDisconnecting: false }
+ 
 
     constructor (props?: BleDeviceConstructProps) {
         super()
@@ -81,12 +81,29 @@ export class BleComms extends BleDeviceCommsClass  {
         }
 
     }
+
+    getConnectState() {
+        return this.connectState
+    }
+
+    isConnected() {
+        return this.connectState.isConnected;
+    }
+
+
     getServiceUUids(): string[] {
         throw new Error("Method not implemented.");
     } 
-    getProfile(): string { 
+    getProfile(): LegacyProfile { 
         throw new Error("Method not implemented.");
+    }
+    getProtocol(): BleProtocol {
+        throw new Error("Method not implemented.");
+    }
 
+    getSettings(): BleDeviceSettings {
+        const {id,address,name} = this;
+        return {id,name,address,interface:'ble',protocol:this.getProtocol()}
     }
 
     getServices(): string[] {
@@ -106,7 +123,7 @@ export class BleComms extends BleDeviceCommsClass  {
         this.logger = logger
     }
 
-    setInterface(ble: BleInterfaceClass): void { 
+    setInterface(ble: BleInterface): void { 
         this.ble = ble;
     }
 
@@ -124,7 +141,7 @@ export class BleComms extends BleDeviceCommsClass  {
             this.characteristics = []
         }
         else {
-            const connector = this.ble.getConnector(this.peripheral);
+            const connector = this.ble.peripheralCache.getConnector(this.peripheral);
 
             this.characteristics.forEach( c => {            
                 connector.removeAllListeners(uuid(c.uuid));
@@ -211,7 +228,7 @@ export class BleComms extends BleDeviceCommsClass  {
 
 
         try {
-            const connector = this.ble.getConnector(peripheral)
+            const connector = this.ble.peripheralCache.getConnector(peripheral)
 
             connector.on('disconnect',()=>{this.onDisconnect()})
             await connector.connect();
@@ -239,7 +256,7 @@ export class BleComms extends BleDeviceCommsClass  {
     async subscribeAll(conn?: BlePeripheralConnector):Promise<void> {
 
         try {
-            const connector = conn || this.ble.getConnector(this.peripheral)
+            const connector = conn || this.ble.peripheralCache.getConnector(this.peripheral)
             const subscribed = await connector.subscribeAll( (uuid:string,data) => {this.onData(uuid,data)});
             subscribed.forEach( c => this.subscribedCharacteristics.push(c))
 
@@ -251,7 +268,7 @@ export class BleComms extends BleDeviceCommsClass  {
     }
 
 
-    async connect(props?: ConnectProps): Promise<boolean> {
+    async connect(props?: BleCommsConnectProps): Promise<boolean> {
         const {reconnect} = props||{}
         try {
             this.logEvent( {message: reconnect? 'reconnect': 'connect',address: this.peripheral? this.peripheral.address: this.address, state:this.connectState})
@@ -280,7 +297,7 @@ export class BleComms extends BleDeviceCommsClass  {
                 const {id,name,address } = this;
                 // is there already a peripheral in the cache (from background scan or previous scan)?
                 try {
-                    this.peripheral = this.ble.findPeripheral({id,name,address})
+                    this.peripheral = this.ble.peripheralCache.getPeripheral({id,name,address})
                 }
                 catch(err) {
                     console.log('~~~ error',err)
@@ -310,9 +327,10 @@ export class BleComms extends BleDeviceCommsClass  {
                             await this.ble.stopScan();
                         }            
         
-                        const devices:BleComms[] = await this.ble.scan({requested:this}) as BleComms[];
-                        if ( devices && devices.length > 0) {
-                            this.peripheral = devices[0].peripheral;
+                        const peripheral = await this.ble.scanForDevice(this,{}) ;
+                        if ( peripheral) {
+                            
+                            this.peripheral = peripheral;
                             await this.connectPeripheral(this.peripheral)
                             this.logEvent({message:'connect result: success',mode:'device', device:  { id, name, address}  })
 
@@ -325,7 +343,7 @@ export class BleComms extends BleDeviceCommsClass  {
         
                     }
                     catch (err) {
-                        console.log('~~~ error',err)
+                        console.log('~~~ connnect ERROR', err)
                         error = err;
                     }
                     
@@ -380,7 +398,6 @@ export class BleComms extends BleDeviceCommsClass  {
         }
 
         if (this.connectState.isConnected) { 
-            this.ble.removeConnectedDevice(this)
             this.cleanupListeners();
 
             this.logEvent({message:'disconnect result: success',device: { id, name, address} })
@@ -494,7 +511,7 @@ export class BleComms extends BleDeviceCommsClass  {
 
             const {withoutResponse,timeout} = props||{};
 
-            const connector = this.ble.getConnector( this.peripheral)
+            const connector = this.ble.peripheralCache.getConnector( this.peripheral)
             const isAlreadySubscribed = connector.isSubscribed(characteristicUuid)
 
             if (!withoutResponse && !this.workerIv) {                
@@ -503,7 +520,7 @@ export class BleComms extends BleDeviceCommsClass  {
 
             //console.log('~~~ write ',characteristicUuid, data.toString('hex'), isAlreadySubscribed, this.subscribedCharacteristics)
             if ( !withoutResponse && !isAlreadySubscribed) {
-                const connector = this.ble.getConnector( this.peripheral)
+                const connector = this.ble.peripheralCache.getConnector( this.peripheral)
                 connector.removeAllListeners(characteristicUuid)
                 connector.on(characteristicUuid, (uuid,data)=>{ 
                     this.onData(uuid,data)
@@ -615,4 +632,5 @@ export class BleComms extends BleDeviceCommsClass  {
     
 
 }
+
 

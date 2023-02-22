@@ -1,3 +1,4 @@
+/* istanbul ignore file */
 import SerialPortProvider,{useSerialPortProvider} from './serialport';
 import SerialInterface  from './serial-interface';
 import SerialAdapterFactory from './adapter-factory';

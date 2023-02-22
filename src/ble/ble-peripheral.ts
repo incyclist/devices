@@ -25,8 +25,8 @@ export default class BlePeripheralConnector implements IBlePeripheralConnector{
     private logger?: EventLogger;
     private emitter: EventEmitter;
 
-    constructor( ble: BleInterface,  peripheral: BlePeripheral) {
-        this.ble = ble;
+    constructor( peripheral: BlePeripheral) {
+        this.ble = BleInterface.getInstance();
         this.peripheral = peripheral;
         this.emitter = new EventEmitter();
 
@@ -90,6 +90,7 @@ export default class BlePeripheralConnector implements IBlePeripheralConnector{
 
     // get all services and characteristics
     async initialize( enforce=false) {
+
         if (this.state.isInitialized && !enforce)
             return;
 
@@ -105,13 +106,14 @@ export default class BlePeripheralConnector implements IBlePeripheralConnector{
 
         try {
             const res = await this.peripheral.discoverSomeServicesAndCharacteristicsAsync([],[])    
+            
             this.characteristics = res.characteristics
-            this.services = res.services                
+            this.services = res.services.map( s => typeof (s) === 'string' ? s : s.uuid)
     
         }
 
         catch(err) {
-
+            this.logEvent({message:'error', fn:'initialize', error:err.message, stack:err.stack})
         }
         this.state.isInitializing = false;
         this.state.isInitialized = this.characteristics!==undefined && this.services!==undefined

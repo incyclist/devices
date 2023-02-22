@@ -4,6 +4,8 @@ import { SerialInterface } from "./serial";
 import AntInterface, { AntInterfaceProps } from "./antv2/ant-interface";
 import { INTERFACE } from "./types/device";
 import { SerialInterfaceProps } from "./serial/serial-interface";
+import { BleInterfaceProps } from "./ble/types";
+import { BleInterface } from "./ble";
 
 
 export default class InterfaceFactory {
@@ -18,6 +20,9 @@ export default class InterfaceFactory {
             case INTERFACE.ANT:
                 const antProps = props as AntInterfaceProps
                 return AntInterface.getInstance(antProps)
+            case INTERFACE.BLE:
+                const bleProps = props as BleInterfaceProps
+                return BleInterface.getInstance(bleProps)
 
         }
     }

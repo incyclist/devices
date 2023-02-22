@@ -1,11 +1,11 @@
 import BleInterface from './ble-interface'
 import {MockLogger} from '../../test/logger'
-import {ConnectProps, BleDeviceInfo} from './types';
-import { getDevicesFromServices } from './utils';
-import { BleComms } from './ble-comms';
+import { BleComms } from './base/comms';
+import { BleCommsConnectProps, BleDeviceInfo } from './types';
+import { getDevicesFromServices } from './base/comms-utils';
 
 class A extends BleComms {
-    connect(props?: ConnectProps | undefined): Promise<boolean> {
+    connect(props?: BleCommsConnectProps): Promise<boolean> {
         throw new Error('Method not implemented.');
     }
     disconnect(): Promise<boolean> {
@@ -18,13 +18,12 @@ class A extends BleComms {
         throw new Error('Method not implemented.');
     }
     static services:string[];
-    getProfile(): string {return 'mock'}
     getServiceUUids(): string[] {return A.services }
     static setServices( services:string[]) {A.services = services}
 }
 
 class B extends BleComms {
-    connect(props?: ConnectProps | undefined): Promise<boolean> {
+    connect(props?: BleCommsConnectProps): Promise<boolean> {
         throw new Error('Method not implemented.');
     }
     disconnect(): Promise<boolean> {
@@ -37,7 +36,6 @@ class B extends BleComms {
         throw new Error('Method not implemented.');
     }
     static services:string[];
-    getProfile(): string {return 'mock'}
     getServiceUUids(): string[] {return B.services }
     static setServices( services:string[]) {B.services = services}
 }

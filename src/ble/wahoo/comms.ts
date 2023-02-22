@@ -1,9 +1,11 @@
+import { BleWahooComms } from ".";
+import { LegacyProfile } from "../../antv2/types";
 import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/adpater";
 import { CSP, FTMS_CP, WAHOO_ADVANCED_TRAINER_CP, WAHOO_ADVANCED_TRAINER_CP_FULL } from "../consts";
 import { CrankData } from "../cp";
 import { IndoorBikeData } from "../fm";
 import BleFitnessMachineDevice from "../fm/comms";
-import { BleWriteProps } from "../types";
+import { BleProtocol, BleWriteProps } from "../types";
 import { matches } from "../utils";
 
 export const enum OpCode   {
@@ -23,6 +25,7 @@ export const enum OpCode   {
 const ErgWriteDelay = 2000 //ms
 
 export default class BleWahooDevice extends BleFitnessMachineDevice {
+    static protocol: BleProtocol = 'wahoo'
     static services =  [CSP];
     static characteristics =  [ '2acc', '2ad2', '2ad6', '2ad8', '2ad9', '2ada', WAHOO_ADVANCED_TRAINER_CP];
     static detectionPriority = 5;
@@ -90,8 +93,12 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
     }
 
 
-    getProfile(): string {
-        return 'Wahoo Smart Trainer';
+    getProfile(): LegacyProfile {
+        return 'Smart Trainer';
+    }
+
+    getProtocol(): BleProtocol {
+        return BleWahooComms.protocol
     }
 
     getServiceUUids(): string[] {

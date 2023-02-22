@@ -88,7 +88,7 @@ export default class AntPwrAdapter extends ControllableAntAdapter {
 
         
         try {
-            if ( this.onDataFn &&  !this.paused) {
+            if ( this.hasDataListeners() &&  !this.paused) {
                 if (!this.lastUpdate || (Date.now()-this.lastUpdate)>this.updateFrequency) {
                     const logData = this.getLogData(deviceData, ['PairedDevices','RawData']);
                     this.logger.logEvent( {message:'onDeviceData',data:logData})
@@ -104,8 +104,7 @@ export default class AntPwrAdapter extends ControllableAntAdapter {
                     const data =  this.transformData(incyclistData);
                     
                     
-                    this.onDataFn(data)
-                    this.lastUpdate = Date.now();
+                    this.emitData(data)
                 }
             }    
         }

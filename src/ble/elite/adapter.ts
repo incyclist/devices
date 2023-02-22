@@ -8,6 +8,7 @@ import {  DeviceProperties } from '../../types/device';
 import { DeviceData } from '../../types/data';
 import { BleDeviceSettings } from '../types';
 import { IncyclistCapability } from '../../types/capabilities';
+import { BleEliteComms } from '.';
 
 /**
  * WORK IN PROGRESS --- DON'T USE YET
@@ -66,7 +67,7 @@ export default class BleEliteAdapter extends BleControllableAdapter {
     onDeviceData(deviceData:PowerData):void {
         super.onDeviceData(deviceData)
 
-        if (!this.started || this.paused || !this.onDataFn)
+        if (!this.started || this.paused || !this.hasDataListeners())
             return;       
 
         
@@ -81,7 +82,7 @@ export default class BleEliteAdapter extends BleControllableAdapter {
             // transform data into structure expected by the application
             const data =  this.transformData(incyclistData);                  
 
-            this.onDataFn(data)
+            this.emitData(data)
             this.lastUpdate = Date.now();
 
         }
@@ -138,12 +139,24 @@ export default class BleEliteAdapter extends BleControllableAdapter {
 
         // TODO !!
 
-        this.logger.logEvent({message: 'csp: start requested', profile:this.getProfile(),props})
+        if ( this.ble.isScanning()) {
+            this.logger.logEvent({message:'stop previous scan',isScanning:this.ble.isScanning()})
+            await this.ble.stopScan();
+        }
+
+        const connected = await this.connect()
+        if (!connected)
+            throw new Error(`could not start device, reason:could not connect`)
+            
+
+        const comms = this.device as BleEliteComms
+
+        this.logger.logEvent({message: 'start requested', profile:this.getProfile(),props})
         try {
-            const bleDevice = await this.ble.connectDevice(this.device) as BleEliteDevice
-            if (bleDevice) {
-                this.device = bleDevice;
-                bleDevice.on('data', (data)=> {
+            
+            if (comms) {
+                
+                comms.on('data', (data)=> {
                     this.onDeviceData(data)
                     
                 })

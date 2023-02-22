@@ -6,6 +6,7 @@ import {Bike, IncyclistDeviceAdapter, OnDeviceDataCallback} from '../types/adapt
 import { User } from "../types/user";
 import { IncyclistCapability } from "../types/capabilities";
 import { EventLogger } from "gd-eventlog";
+import { DeviceData } from "../types/data";
 
 export const DEFAULT_BIKE_WEIGHT = 10;
 export const DEFAULT_USER_WEIGHT = 75;
@@ -21,7 +22,8 @@ export default class IncyclistDevice extends EventEmitter implements IncyclistDe
     onDataFn: OnDeviceDataCallback;
     settings: DeviceSettings;
     props: DeviceProperties
-    
+    lastUpdate?: number;
+
     capabilities: IncyclistCapability[]
     protected logger: EventLogger
     started: boolean
@@ -109,6 +111,17 @@ export default class IncyclistDevice extends EventEmitter implements IncyclistDe
     }
     isPaused() {
         return this.paused
+    }
+
+    emitData(data:DeviceData) {
+        if( this.onDataFn)
+            this.onDataFn(data)
+        this.emit('data', this.getSettings(), data)    
+        this.lastUpdate = Date.now();    
+    }
+
+    hasDataListeners() {
+        return this.onDataFn || this.listenerCount('data')>0
     }
 
 

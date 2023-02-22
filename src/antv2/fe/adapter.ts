@@ -152,7 +152,7 @@ export default class AntFEAdapter extends ControllableAntAdapter{
             const logData = this.getLogData(deviceData, ['PairedDevices','RawData']);
             this.logger.logEvent( {message:'onDeviceData',data:logData})
 
-            if ( this.onDataFn &&  !this.paused) {
+            if ( this.hasDataListeners() &&  !this.paused) {
                 if (!this.lastUpdate || (Date.now()-this.lastUpdate)>this.updateFrequency) {
 
                     
@@ -165,13 +165,7 @@ export default class AntFEAdapter extends ControllableAntAdapter{
                     // transform data into structure expected by the application
                     const data =  this.transformData(incyclistData);                          
 
-                    /*
-                    this.data = this.updateData(this.data,deviceData)
-                    const data = this.transformData(this.data);   
-                    */
-
-                    this.onDataFn(data)
-                    this.lastUpdate = Date.now();
+                    this.emitData(data)
                 }
             }    
         }

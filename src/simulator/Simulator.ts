@@ -282,9 +282,9 @@ export class Simulator extends ControllableDevice {
         this.paused = (this.data.speed===0);
 
         if (this.ignoreHrm) delete data.heartrate;
-        if( this.onDataFn) {
-            this.onDataFn(data )
-        }
+        
+        this.emitData(data )
+        
         
     }
     

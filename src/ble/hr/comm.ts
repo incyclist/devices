@@ -1,7 +1,10 @@
-import { BleComms } from '../ble-comms';
+import { LegacyProfile } from '../../antv2/types';
+import { BleComms } from '../base/comms';
+import { BleProtocol } from '../types';
 import { HrmData } from './types';
 
 export default class BleHrmDevice extends BleComms {
+    static protocol:BleProtocol = 'hr'
     static services =  ['180d'];
     static characteristics =  ['2a37', '2a38', '2a39', '2a3c'];
     static detectionPriority = 1;
@@ -15,8 +18,12 @@ export default class BleHrmDevice extends BleComms {
         this.rr = undefined
     }
 
-    getProfile(): string {
+    getProfile(): LegacyProfile {
         return 'Heartrate Monitor';
+    }
+
+    getProtocol(): BleProtocol {
+        return BleHrmDevice.protocol
     }
   
 
@@ -52,6 +59,7 @@ export default class BleHrmDevice extends BleComms {
     }
 
     onData(characteristic:string,data: Buffer):boolean {
+        
         const hasData = super.onData(characteristic,data);
         if (!hasData)
             return;

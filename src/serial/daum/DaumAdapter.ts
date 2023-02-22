@@ -264,9 +264,8 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
         return await this.processClientRequest(request);
     } 
 
-    sendData() {
-        if ( this.onDataFn)
-            this.onDataFn(this.deviceData)
+    sendData() {        
+            this.emitData(this.deviceData)
     }
 
     async update() {

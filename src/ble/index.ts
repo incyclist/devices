@@ -1,3 +1,4 @@
+/* istanbul ignore file */
 import BleInterface from './ble-interface'
 
 import BleAdapterFactory from './adapter-factory'
@@ -9,11 +10,11 @@ import { BleTacxAdapter, BleTacxComms } from './tacx'
 
 
 const af = BleAdapterFactory.getInstance()
-af.register('hr','Heartrate Monitor', BleHrmAdapter, BleHrmComms)
-af.register('cp','Power Meter', BlePwrAdapter, BlePwrComms)
-af.register('fm','Smart Trainer',BleFmAdapter, BleFmComms)
-af.register('wahoo','Smart Trainer',BleWahooAdapter,BleWahooComms)
-af.register('tacx','Smart Trainer',BleTacxAdapter,BleTacxComms)
+af.register('hr', BleHrmAdapter, BleHrmComms)
+af.register('cp', BlePwrAdapter, BlePwrComms)
+af.register('fm',BleFmAdapter, BleFmComms)
+af.register('wahoo',BleWahooAdapter,BleWahooComms)
+af.register('tacx',BleTacxAdapter,BleTacxComms)
 
 
 export {

@@ -6,6 +6,7 @@ import { DeviceProperties } from '../../types/device';
 import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from '../../base/adpater';
 import { BleDeviceSettings, BleStartProperties } from '../types';
 import { IncyclistCapability } from '../../types/capabilities';
+import { BleTacxComms } from '.';
 
 
 
@@ -42,29 +43,36 @@ export default class BleTacxFEAdapter extends BleFmAdapter {
 
 
     async start( props:BleStartProperties={}): Promise<any> {
-        this.logger.logEvent({message: 'start requested', protocol:this.getProtocolName(),props})
 
+        if (this.started)
+            return true;
 
-        if ( this.ble.isScanning())
+        if ( this.ble.isScanning()) {
+            this.logger.logEvent({message:'stop previous scan',isScanning:this.ble.isScanning()})
             await this.ble.stopScan();
-            
-        try {
-            const bleDevice = await this.ble.connectDevice(this.device) as TacxAdvancedFitnessMachineDevice
-            bleDevice.setLogger(this.logger);
+        }
 
-            if (bleDevice) {
-                this.device = bleDevice;
+        const connected = await this.connect()
+        if (!connected)
+            throw new Error(`could not start device, reason:could not connect`)                  
+                
+        this.logger.logEvent({message: 'start requested', protocol:this.getProtocolName(),props})
+        try {
+            const comms = this.device as BleTacxComms;
+            
+            if (comms) {
+                this.device = comms;
 
                 const mode = this.getCyclingMode()
                 
                 if (mode && mode.getSetting('bikeType')) {
                     const bikeType = mode.getSetting('bikeType').toLowerCase();
-                    bleDevice.setCrr(cRR);
+                    comms.setCrr(cRR);
                     
                     switch (bikeType)  {
-                        case 'race': bleDevice.setCw(cwABike.race); break;
-                        case 'triathlon': bleDevice.setCw(cwABike.triathlon); break;
-                        case 'mountain': bleDevice.setCw(cwABike.mountain); break;
+                        case 'race': comms.setCw(cwABike.race); break;
+                        case 'triathlon': comms.setCw(cwABike.triathlon); break;
+                        case 'mountain': comms.setCw(cwABike.mountain); break;
                     }        
                 }
                 
@@ -72,13 +80,13 @@ export default class BleTacxFEAdapter extends BleFmAdapter {
                 const userWeight = (user && user.weight ? user.weight : DEFAULT_USER_WEIGHT);
                 
 
-                bleDevice.sendTrackResistance(0.0);
-                bleDevice.sendUserConfiguration( userWeight, bikeWeight, wheelDiameter, gearRatio);
+                comms.sendTrackResistance(0.0);
+                comms.sendUserConfiguration( userWeight, bikeWeight, wheelDiameter, gearRatio);
 
                 const startRequest = this.getCyclingMode().getBikeInitRequest()
                 await this.sendUpdate(startRequest);
 
-                bleDevice.on('data', (data)=> {
+                comms.on('data', (data)=> {
                     this.onDeviceData(data)                    
                 })
 
@@ -87,7 +95,7 @@ export default class BleTacxFEAdapter extends BleFmAdapter {
                 this.started = true;
                 this.paused = false;
 
-                if (bleDevice.isHrm() && !this.hasCapability(IncyclistCapability.HeartRate)) {
+                if (comms.isHrm() && !this.hasCapability(IncyclistCapability.HeartRate)) {
                     this.capabilities.push(IncyclistCapability.HeartRate)
                 }
 

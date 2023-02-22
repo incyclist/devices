@@ -3,11 +3,11 @@ import IncyclistDevice,{ DEFAULT_BIKE_WEIGHT, DEFAULT_PROPS, DEFAULT_USER_WEIGHT
 import CyclingMode from "../modes/cycling-mode";
 import { Bike } from "../types/adapter";
 import { DeviceData } from "../types/data";
-import { DeviceProperties } from "../types/device";
+import { DeviceProperties, DeviceSettings } from "../types/device";
 import { User } from "../types/user";
-import { BleComms } from "./ble-comms";
+import { BleComms } from "./base/comms";
 import BleInterface from "./ble-interface";
-import { BleDeviceSettings } from "./types";
+import { BleDeviceProperties, BleDeviceSettings } from "./types";
 
 const INTERFACE_NAME = 'ble'
 
@@ -18,7 +18,6 @@ export default class BleAdapter  extends IncyclistDevice  {
     deviceData: any
     data: DeviceData
     dataMsgCount: number
-    lastUpdate?: number;
     lastDataTS: number;
     updateFrequency: number;
     device: BleComms
@@ -39,19 +38,64 @@ export default class BleAdapter  extends IncyclistDevice  {
         this.ble = BleInterface.getInstance()
     }
 
+    async connect():Promise<boolean> { 
+        if (!this.device) {
+            // should never happen
+            throw new Error('No Comms')
+        }
+
+        if (this.isConnected())
+            return true;
+        
+        let connected = false;
+        try  {
+            connected = await this.device.connect()
+            console.log('~~~ connected')
+        }
+        catch(err) {
+            console.log('~~~ ERROR',err)
+        }
+        return connected
+    }
+
+    async close():Promise<boolean> { 
+        if (!this.device || !this.isConnected())
+            return true;
+
+        if (this.device) {
+            await this.device.disconnect()
+            this.ble.removeConnectedDevice(this)
+            return true;
+        }
+
+    }
+
+    getComms():BleComms {
+        return this.device
+    }
+
+    check(): Promise<boolean> {throw new Error("Method not implemented.");}
+
     isEqual(settings: BleDeviceSettings): boolean {
         const as = this.settings as BleDeviceSettings;
 
         if (as.interface!==settings.interface)
             return false;
 
-        if (as.protocol==='BLE' || settings.protocol==='BLE')  { // legacy
+        if (as.profile || settings.profile)  { // legacy
             return (as.protocol===settings.protocol && as.profile===settings.profile && as.name===settings.name)
         }
         else {
             return (as.protocol===settings.protocol && (as.name===settings.name || as.address===settings.address || as.id===settings.id)  ) 
         }
 
+    }
+    isSame( adapter: BleAdapter):boolean {
+        return this.isEqual( adapter.getSettings())
+    }
+
+    isConnected():boolean {
+        return this.device && this.device.isConnected()
     }
 
     resetData() {
@@ -60,7 +104,6 @@ export default class BleAdapter  extends IncyclistDevice  {
         this.data= {}
         this.lastDataTS = undefined
     }
-
 
     getInterface(): string {
         return INTERFACE_NAME
@@ -88,17 +131,35 @@ export default class BleAdapter  extends IncyclistDevice  {
         this.deviceData = Object.assign( {},deviceData);        
     }
 
+    getSettings(): BleDeviceSettings {
+        return this.settings as BleDeviceSettings
+    }
+    setProperties(props:BleDeviceProperties) {
+        this.props = props
+    }
 
     async start( props: DeviceProperties={} ): Promise<any> {
         if (this.started)
             return true;
 
+        if ( this.ble.isScanning()) {
+            this.logger.logEvent({message:'stop previous scan',isScanning:this.ble.isScanning()})
+            await this.ble.stopScan();
+        }
+
+        const connected = await this.connect()
+        if (!connected)
+            throw new Error(`could not start device, reason:could not connect`)
+            
+
+        
         this.logger.logEvent({message: 'start requested', protocol:this.getProtocolName(),props})
         try {
-            const bleDevice = await this.ble.connectDevice(this.device) 
-            if (bleDevice) {
-                this.device = bleDevice;
-                bleDevice.on('data', (data)=> {
+            const comms = this.device;
+            
+            if (comms) {
+                
+                comms.on('data', (data)=> {
                     this.onDeviceData(data)
                     
                 })

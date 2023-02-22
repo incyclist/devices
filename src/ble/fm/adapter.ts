@@ -13,6 +13,7 @@ import { sleep } from '../../utils/utils';
 import { DeviceData } from '../../types/data';
 import { BleDeviceSettings, BleStartProperties } from '../types';
 import { IncyclistCapability } from '../../types/capabilities';
+import { BleFmComms } from '.';
 
 
 
@@ -68,7 +69,7 @@ export default class BleFmAdapter extends BleControllableAdapter {
         
         super.onDeviceData(deviceData)
 
-        if (!this.started || this.paused || !this.onDataFn)
+        if (!this.started || this.paused || !this.hasDataListeners())
             return;       
         
 
@@ -83,8 +84,7 @@ export default class BleFmAdapter extends BleControllableAdapter {
             // transform data into structure expected by the application
             this.data =  this.transformData(incyclistData);                  
 
-            this.onDataFn(this.data)
-            this.lastUpdate = Date.now();
+            this.emitData(this.data)            
         }
 
     }
@@ -139,6 +139,9 @@ export default class BleFmAdapter extends BleControllableAdapter {
         if (this.started)
             return true;
 
+
+
+        
         this.logger.logEvent({message: 'start requested', protocol:this.getProtocolName(),props})
 
         const {restart} = props;
@@ -146,37 +149,32 @@ export default class BleFmAdapter extends BleControllableAdapter {
         if ( !restart && this.ble.isScanning())
             await this.ble.stopScan();
             
+        const connected = await this.connect()
+        if (!connected)
+            throw new Error(`could not start device, reason:could not connect`)
+            
         try {
-            let bleDevice;
-            if (!this.device || !restart) {
-                bleDevice = await this.ble.connectDevice(this.device) as BleFitnessMachineDevice
-                this.device = bleDevice;
-            }
-            else    
-                bleDevice = this.device as BleFitnessMachineDevice
-
-
-            if (bleDevice) {
-                bleDevice.setLogger(this.logger);
+            const comms = this.device as BleFmComms
+            if (comms) {                
 
                 const mode = this.getCyclingMode()
                 if (mode && mode.getSetting('bikeType')) {
                     const bikeType = mode.getSetting('bikeType').toLowerCase();
-                    bleDevice.setCrr(cRR);
+                    comms.setCrr(cRR);
                     
                     switch (bikeType)  {
-                        case 'race': bleDevice.setCw(cwABike.race); break;
-                        case 'triathlon': bleDevice.setCw(cwABike.triathlon); break;
-                        case 'mountain': bleDevice.setCw(cwABike.mountain); break;
+                        case 'race': comms.setCw(cwABike.race); break;
+                        case 'triathlon': comms.setCw(cwABike.triathlon); break;
+                        case 'mountain': comms.setCw(cwABike.mountain); break;
                     }        
                 }
 
-                let hasControl = await bleDevice.requestControl();
+                let hasControl = await comms.requestControl();
                 if ( !hasControl) {
                     let retry = 1;
                     while(!hasControl && retry<3) {
                         await sleep(1000);
-                        hasControl = await bleDevice.requestControl();
+                        hasControl = await comms.requestControl();
                         retry++;
                     }
                 }
@@ -187,13 +185,13 @@ export default class BleFmAdapter extends BleControllableAdapter {
                 const startRequest = this.getCyclingMode().getBikeInitRequest()
                 await this.sendUpdate(startRequest);
 
-                bleDevice.on('data', (data)=> {
+                comms.on('data', (data)=> {
                     this.onDeviceData(data)
                     
                 })
-                bleDevice.on('disconnected', this.emit)
+                comms.on('disconnected', this.emit)
 
-                if (bleDevice.isHrm() && !this.hasCapability(IncyclistCapability.HeartRate)) {
+                if (comms.isHrm() && !this.hasCapability(IncyclistCapability.HeartRate)) {
                     this.capabilities.push(IncyclistCapability.HeartRate)
                 }
 

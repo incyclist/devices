@@ -67,7 +67,7 @@ export default class PwrAdapter extends BleControllableAdapter {
 
         super.onDeviceData(deviceData)
 
-        if (!this.started || this.paused || !this.onDataFn)
+        if (!this.started || this.paused || !this.hasDataListeners())
             return;       
 
         if (!this.lastUpdate || (Date.now()-this.lastUpdate)>this.updateFrequency) {
@@ -83,8 +83,7 @@ export default class PwrAdapter extends BleControllableAdapter {
             // transform data into structure expected by the application
             this.data =  this.transformData(incyclistData);                  
 
-            this.onDataFn(this.data)
-            this.lastUpdate = Date.now();
+            this.emitData(this.data)
         }
 
 

@@ -5,6 +5,7 @@ import BleAdapter from '../adapter';
 import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from '../../base/adpater';
 import { BleDeviceProperties, BleDeviceSettings, BleStartProperties } from '../types';
 import { IncyclistCapability } from '../../types/capabilities';
+import { BleWahooComms } from '.';
 
 
 export default class BleWahooAdapter extends BleFmAdapter {
@@ -47,36 +48,39 @@ export default class BleWahooAdapter extends BleFmAdapter {
                 await this.ble.stopScan();
             }
 
-            const bleDevice = await this.ble.connectDevice(this.device) as BleWahooDevice
+            const connected = await this.connect()
+            if (!connected)
+                throw new Error(`could not start device, reason:could not connect`)
+                
+
+            const comms = this.device as BleWahooComms
            
 
-            if (bleDevice) {
-                this.device = bleDevice;
-
+            if (comms) {
                 const mode = this.getCyclingMode()
                 if (mode && mode.getSetting('bikeType')) {
                     const bikeType = mode.getSetting('bikeType').toLowerCase();
-                    bleDevice.setCrr(cRR);
+                    comms.setCrr(cRR);
                     
                     switch (bikeType)  {
-                        case 'race': bleDevice.setCw(cwABike.race); break;
-                        case 'triathlon': bleDevice.setCw(cwABike.triathlon); break;
-                        case 'mountain': bleDevice.setCw(cwABike.mountain); break;
+                        case 'race': comms.setCw(cwABike.race); break;
+                        case 'triathlon': comms.setCw(cwABike.triathlon); break;
+                        case 'mountain': comms.setCw(cwABike.mountain); break;
                     }        
                 }
                 const {user,bikeWeight=DEFAULT_BIKE_WEIGHT} = props || {}
                 const weight = (user && user.weight ? Number(user.weight) : DEFAULT_USER_WEIGHT) +  bikeWeight;
-                await bleDevice.setSimMode(weight, bleDevice.getCrr(), bleDevice.getCw())
+                await comms.setSimMode(weight, comms.getCrr(), comms.getCw())
 
                 const startRequest = this.getCyclingMode().getBikeInitRequest()
                 await this.sendUpdate(startRequest);
 
-                bleDevice.on('data', (data)=> {
+                comms.on('data', (data)=> {
                     this.onDeviceData(data)
                     
                 })
 
-                if (bleDevice.isHrm() && !this.hasCapability(IncyclistCapability.HeartRate)) {
+                if (comms.isHrm() && !this.hasCapability(IncyclistCapability.HeartRate)) {
                     this.capabilities.push(IncyclistCapability.HeartRate)
                 }
 

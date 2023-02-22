@@ -91,7 +91,7 @@ describe( 'adapter', ()=>{
         beforeEach( ()=>{            
             adapter = new AntAdapter({deviceID: '2606',profile: 'Heartrate Monitor',interface: 'ant'})
 
-            adapter.onDataFn = jest.fn()
+            adapter.emitData = jest.fn()
             adapter.startDataTimeoutCheck = jest.fn()
             adapter.emit = jest.fn()
             adapter.dataMsgCount = 1

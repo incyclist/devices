@@ -60,7 +60,7 @@ export default class HrmAdapter extends BleAdapter {
     onDeviceData(deviceData:HrmData) {
         super.onDeviceData(deviceData)
 
-        if (!this.started || this.paused || !this.onDataFn)
+        if (!this.started || this.paused || !this.hasDataListeners())
             return;       
 
         if (!this.lastUpdate || (Date.now()-this.lastUpdate)>this.updateFrequency) {
@@ -69,8 +69,8 @@ export default class HrmAdapter extends BleAdapter {
 
             // transform data into structure expected by the application
             this.data =  this.mapData(this.deviceData)
-            this.onDataFn(this.data)
-            this.lastUpdate = Date.now();
+            this.emitData(this.data)
+            
         }
     
     }

@@ -679,8 +679,7 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice   {
     } 
 
     sendData() {
-        if ( this.onDataFn) 
-            this.onDataFn(this.data)
+            this.emitData(this.data)
     }
 
     refreshRequests() {

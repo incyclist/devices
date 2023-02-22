@@ -1,7 +1,6 @@
 import EventEmitter from "events";
-import { BleComms } from "./ble-comms";
-import BlePeripheralConnector from "./ble-peripheral";
-import { BleDeviceCommsClass, BleDeviceSettings, BlePeripheral, BlePeripheralIdentifier, ConnectProps,  } from "./types";
+import { IncyclistScanProps } from "../types/device";
+import { BleProtocol } from "./types";
 
 
 export interface BleBinding extends EventEmitter {
@@ -14,12 +13,10 @@ export interface BleBinding extends EventEmitter {
 
 
 
-export type BleScanProps ={
-    timeout?: number;
-    deviceTypes?: (typeof BleComms)[];
-    requested?: BleComms|BleDeviceSettings;    
-    isBackgroundScan?: boolean
-    
+export interface BleScanProps extends IncyclistScanProps{
+    protocol?: BleProtocol
+    protocols?: BleProtocol[]    
+    isBackgroundScan?: boolean    
 }
 
 export class BleBindingWrapper  {
@@ -53,33 +50,6 @@ export class BleBindingWrapper  {
     }
 
 }
-
-export abstract class BleInterfaceClass extends EventEmitter   {
-    binding: BleBinding
-    constructor (props: {binding?: BleBinding}={}) {
-        super()
-        this.setBinding(props.binding)
-    }    
-
-    abstract connect(props: ConnectProps): Promise<boolean> 
-    abstract scan( props:BleScanProps) : Promise<BleDeviceCommsClass[]> 
-    abstract stopScan() : Promise<boolean> 
-    abstract disconnect() : Promise<boolean>
-    abstract onDisconnect(peripheral: BlePeripheral) : void
-
-    abstract isScanning(): boolean
-    abstract addConnectedDevice(device: BleDeviceCommsClass):void
-    abstract removeConnectedDevice(device: BleDeviceCommsClass):void
-    abstract findConnected(device: BleDeviceCommsClass|BlePeripheral):BleDeviceCommsClass
-    abstract getConnector(peripheral: BlePeripheral): BlePeripheralConnector
-    abstract findPeripheral(peripheral:BlePeripheral | { id?:string, address?:string, name?:string}): BlePeripheral
-
-    getBinding(): BleBinding { return this.binding }
-    setBinding(binding: BleBinding) { this.binding = binding }
-
-}
-
-
 
 
 

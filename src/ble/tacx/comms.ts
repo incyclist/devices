@@ -1,8 +1,10 @@
+import { BleTacxComms } from ".";
+import { LegacyProfile } from "../../antv2/types";
 import { CSC_MEASUREMENT, CSP_MEASUREMENT, FTMS_CP, FTMS_STATUS, INDOOR_BIKE_DATA, TACX_FE_C_BLE, TACX_FE_C_RX, TACX_FE_C_TX } from "../consts";
 import { CrankData } from "../cp";
 import { IndoorBikeData } from "../fm";
 import BleFitnessMachineDevice from "../fm/comms";
-import { IBlePeripheralConnector } from "../types";
+import { BleProtocol, IBlePeripheralConnector } from "../types";
 import { matches } from "../utils";
 import { BleFeBikeData } from "./types";
 
@@ -31,6 +33,7 @@ const ACKNOWLEDGED_DATA = 0x4F; //79
 
 
 export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineDevice {
+    static protocol: BleProtocol = 'tacx'
     static services =  [TACX_FE_C_BLE];
     static characteristics =  [ '2acc', '2ad2', '2ad6', '2ad8', '2ad9', '2ada', TACX_FE_C_RX, TACX_FE_C_TX];
     static PROFILE = PROFILE_ID;
@@ -95,7 +98,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
             },100)
 
             try {
-                const connector = conn || this.ble.getConnector(this.peripheral)
+                const connector = conn || this.ble.peripheralCache.getConnector(this.peripheral)
     
     
                 
@@ -137,8 +140,12 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
     }
 
 
-    getProfile(): string {
-        return TacxAdvancedFitnessMachineDevice.PROFILE;
+    getProfile(): LegacyProfile {
+        return 'Smart Trainer'
+    }
+
+    getProtocol(): BleProtocol {
+        return BleTacxComms.protocol
     }
 
     getServiceUUids(): string[] {

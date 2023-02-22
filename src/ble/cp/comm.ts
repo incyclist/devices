@@ -1,10 +1,13 @@
-import { BleComms } from '../ble-comms';
 import { CrankData, PowerData } from './types';
 import {CSP, CSP_MEASUREMENT,CSP_FEATURE}  from '../consts'
 import { matches } from '../utils';
+import { BleComms } from '../base/comms';
+import { LegacyProfile } from '../../antv2/types';
+import { BleProtocol } from '../types';
 
 
 export default class BleCyclingPowerDevice extends BleComms {
+    static protocol:BleProtocol = 'cp'
     static services =  [CSP];
     static characteristics =  [ CSP_MEASUREMENT, CSP_FEATURE, '2a5d', '2a3c' ];
     static detectionPriority = 1;
@@ -41,8 +44,12 @@ export default class BleCyclingPowerDevice extends BleComms {
         }
     }
 
-    getProfile(): string {
+    getProfile(): LegacyProfile {
         return 'Power Meter';
+    }
+
+    getProtocol(): BleProtocol {
+        return BleCyclingPowerDevice.protocol
     }
 
     getServiceUUids(): string[] {

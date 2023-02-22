@@ -1,17 +1,22 @@
 import { DeviceProperties } from "../types/device";
-import { BleComms } from "./ble-comms";
 import BleAdapter from "./adapter";
-import { getDevicesFromServices } from "./utils";
-import { BleDeviceSettings } from "./types";
+import { BleDeviceSettings, BleProtocol } from "./types";
+import { LegacyProfile } from "../antv2/types";
+import { BleComms } from "./base/comms";
+import { getDevicesFromServices } from "./base/comms-utils";
 
 export interface BleAdapterInfo {
-    protocol: string,
-    profile: string,
+    protocol: BleProtocol,
     Adapter: typeof BleAdapter
     Comm: typeof BleComms
 }
 
-export function mapLegacyProfile(profile) {
+type MappingRecord = {
+    profile: LegacyProfile,
+    protocol: BleProtocol,
+}
+
+export function mapLegacyProfile(profile:string):MappingRecord {
     switch (profile) {
         case 'Smart Trainer': return { profile:'Smart Trainer', protocol:'fm' }
         case 'Elite Smart Trainer': return { profile:'Smart Trainer', protocol:'elite' }
@@ -20,28 +25,30 @@ export function mapLegacyProfile(profile) {
         case 'Tacx Smart Trainer': return { profile:'Smart Trainer', protocol:'tacx' }
         case 'Wahoo Smart Trainer': return { profile:'Smart Trainer', protocol:'wahoo' }
     }
-    return {profile,protocol:'Ble'}    
 }
 
 export default class BleAdapterFactory {
     static _instance:BleAdapterFactory;
 
-    adapters: BleAdapterInfo[]
+    implementations: BleAdapterInfo[]
+    instances: BleAdapter[]
 
     static getInstance(): BleAdapterFactory {
         if (!BleAdapterFactory._instance)
             BleAdapterFactory._instance = new BleAdapterFactory() ;
         return BleAdapterFactory._instance;
     }
+
     constructor() {
-        this.adapters = []
+        this.implementations = []
+        this.instances = []
     }
 
-    getAdapter(protocol:string):BleAdapterInfo {
-        return  this.adapters.find(a=>a.protocol===protocol) 
+    getAdapterInfo(protocol:BleProtocol):BleAdapterInfo {
+        return  this.implementations.find(a=>a.protocol===protocol) 
     } 
-    getAllAdapters():BleAdapterInfo[] {
-        return this.adapters
+    getAll():BleAdapterInfo[] {
+        return this.implementations
     }
 
     createInstance(settings:BleDeviceSettings,props?:DeviceProperties):BleAdapter {
@@ -49,44 +56,72 @@ export default class BleAdapterFactory {
 
         const adapterSettings = Object.assign( {}, settings)
 
-        if (protocol==='BLE') { // legacy settings 
+        if (profile) { // legacy settings 
             const mapping = mapLegacyProfile(profile)
-            protocol = mapping.protocol
-            profile = mapping.profile
-
-            adapterSettings.protocol = protocol
-            adapterSettings.profile = profile
+            adapterSettings.protocol = mapping.protocol
+            delete adapterSettings.profile
         }
 
-        const info = this.getAdapter(protocol)
+        const existing = this.find(adapterSettings)
+        if (existing) {
+            existing.setProperties(props)
+            return existing
+
+        }
+
+        const info = this.getAdapterInfo(protocol)
         if (!info || !info.Adapter)
             return
 
-        const adapter= new info.Adapter(adapterSettings,props)        
+        const adapter= new info.Adapter(adapterSettings,props)      
+        this.instances.push(adapter)  
         return adapter
     }
 
+    removeInstance( query:{settings?:BleDeviceSettings, adapter?:BleAdapter}):void {
+        let idx=-1;
 
+        if (query.settings) {   
+            idx =  this.instances.findIndex( a=>a.isEqual(query.settings))
+        }
+        else if (query.adapter) {
+            idx =  this.instances.findIndex( a=>a.isEqual(query.adapter.getSettings()))
+        }
+        if (idx!==-1) 
+            this.instances.splice(idx)
+    }
 
-
-    register( protocol: string, profile: string, Adapter: typeof BleAdapter,Comm: typeof BleComms)  {       
-        const info = Object.assign({},{protocol, profile, Adapter,Comm})
-        const existing = this.adapters.findIndex( a => a.protocol===protocol) 
-
-        if (existing)
-            this.adapters[existing]= info;
-        else    
-            this.adapters.push(info)
+    find(settings?:BleDeviceSettings) {
+        return this.instances.find( a=>a.isEqual(settings))
     }
 
 
-    getAllSupportedDeviceTypes(): (typeof BleComms)[] {
-        const supported = BleAdapterFactory.getInstance().getAllAdapters()
+    register( protocol: BleProtocol, Adapter: typeof BleAdapter,Comm: typeof BleComms)  {       
+        const info = Object.assign({},{protocol, Adapter,Comm})
+        const existing = this.implementations.findIndex( a => a.protocol===protocol) 
+
+        if (existing!==-1)
+            this.implementations[existing]= info;
+        else    
+            this.implementations.push(info)
+    }
+
+    getAllInstances(): BleAdapter[] {
+        return this.instances
+    }
+
+
+    getAllSupportedComms(): (typeof BleComms)[] {
+        const supported = BleAdapterFactory.getInstance().getAll()
         return supported.map( info => info.Comm)
+    }
+    getAllSupportedAdapters(): (typeof BleAdapter)[] {
+        const supported = BleAdapterFactory.getInstance().getAll()
+        return supported.map( info => info.Adapter)
     }
     
     getAllSupportedServices():string[] {
-        const supported = BleAdapterFactory.getInstance().getAllAdapters()
+        const supported = BleAdapterFactory.getInstance().getAll()
         const res = [];
     
         if (supported && supported.length>0) {
@@ -103,27 +138,22 @@ export default class BleAdapterFactory {
     
         return res;
     }
+
+
     
-    getDeviceClasses (peripheral, props:{ deviceTypes?: (typeof BleComms)[], profile?: string, services?: string[] } = {}): (typeof BleComms)[] {
+    getDeviceClasses (peripheral, props:{ protocol?: BleProtocol, services?: string[] } = {}): (typeof BleComms)[] {
         let DeviceClasses;
-        const {deviceTypes,profile,services=peripheral.advertisement.serviceUuids}  = props;
+        const {protocol,services=peripheral.advertisement.serviceUuids}  = props;
     
     
-        if ((!deviceTypes ||deviceTypes.length===0)) {
-            // find matching Classes in the set of all registered Device Classes
-            const classes = this.getAllSupportedDeviceTypes()
-            DeviceClasses = getDevicesFromServices( classes, services) 
-        }
-        else {                            
-            // find matching Classes in the set of requested Device Classes
-            DeviceClasses = getDevicesFromServices(deviceTypes, services) 
-        }
+        // find matching Classes in the set of all registered Device Classes
+        const classes = this.getAllSupportedComms()
+        DeviceClasses = getDevicesFromServices( classes, services) 
     
-        if (profile && DeviceClasses && DeviceClasses.length>0) {
-            DeviceClasses = DeviceClasses.filter( C => {
-                
+        if (protocol && DeviceClasses && DeviceClasses.length>0) {
+            DeviceClasses = DeviceClasses.filter( (C: typeof BleComms)  => {                
                 const device = new C({peripheral});
-                if (device.getProfile()!==profile) 
+                if (device.getProtocol()!==protocol) 
                     return false;
                 return true;
             })
