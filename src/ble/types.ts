@@ -78,9 +78,9 @@ export interface BleCharacteristic extends EventEmitter {
     uuid: string;
     properties: string[]
 
-    subscribe( callback: (err:Error)=>void): void
-    read( callback: (err:Error, data:Buffer)=>void): void
-    write(data:Buffer, withoutResponse:boolean,callback?: (err:Error)=>void): void
+    subscribe( callback: (err:Error|undefined)=>void): void
+    read( callback: (err:Error|undefined, data:Buffer)=>void): void
+    write(data:Buffer, withoutResponse:boolean,callback?: (err:Error|undefined)=>void): void
 }
 
 export type BleDeviceProps = {

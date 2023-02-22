@@ -6,6 +6,8 @@ const Noble = require('noble/lib/noble');
 const {WinrtBindings} = require('./bindings')
 const defaultBinding = require('noble/lib/resolve-bindings');
 const { sleep } = require('incyclist-devices/lib/utils/utils');
+const { MockBinding } = require('incyclist-devices/lib/ble/bindings');
+const { HrMock } = require('incyclist-devices/lib/ble/hr/mock');
 const platform = os.platform()
 
 EventLogger.registerAdapter(new ConsoleAdapter()) 
@@ -13,13 +15,19 @@ const Logger = new EventLogger('BleSampleApp')
 
 let ble,binding
 
-// Select binding (based on OS)
-switch (platform) {
-    case 'win32': binding= new Noble(new WinrtBindings());break;
-    case 'linux': break; // TODO
-    case 'darwin': binding = new Noble(defaultBinding()); break;
-    default:
-        process.exit()
+if (process.env.USE_MOCK) {
+    binding = MockBinding
+    MockBinding.addMock(HrMock)
+}
+else {
+    // Select binding (based on OS)
+    switch (platform) {
+        case 'win32': binding= new Noble(new WinrtBindings());break;
+        case 'linux': break; // TODO
+        case 'darwin': binding = new Noble(defaultBinding()); break;
+        default:
+            process.exit()
+    }
 }
 
 const parseArgs = ()=> {

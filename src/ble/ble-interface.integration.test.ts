@@ -1,4 +1,4 @@
-import BleInterface from './ble-interface'
+import {BleInterface} from '../ble'
 import {MockLogger} from '../../test/logger'
 import { CSP } from './consts'
 import { BlePwrComms as CSPDevice} from './cp'
@@ -6,10 +6,26 @@ import { BleFmComms as FTMSDevice} from './fm'
 import { BleWahooComms as WahooAdvancedFitnessMachineDevice} from './wahoo'
 import { BleTacxComms as TacxAdvancedFitnessMachineDevice} from './tacx'
 import { getBestDeviceMatch, getDevicesFromServices } from './base/comms-utils'
+import { MockBinding } from './bindings'
+import { HrMock } from './hr/mock'
+import { BleComms } from './base/comms'
 
 
 describe('BleInterface',()=>{
 
+    describe('scan',()=> {
+        test('scan',async ()=> {
+
+            MockBinding.addMock(HrMock)
+
+            const ble = new BleInterface({logger:MockLogger,binding:MockBinding})
+            await ble.connect()
+            const devices = await ble.scan({timeout:1000})
+            expect(devices.length).toBe(1)
+            expect(devices[0]).toMatchObject({name:'HRM-Mock'})
+        })
+
+    })
     describe('getDevicesFromServices',()=>{
 
         describe('Wahoo SmartTrainer',()=>{

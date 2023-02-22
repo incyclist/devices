@@ -149,33 +149,6 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
 
             try {
 
-                if (!this.connectState.isInitSuccess) {
-                    const binding = this.getBinding()._bindings
-                    if (binding) {
-                        const binding_init_original = binding.init.bind(binding);
-                        const self = this;
-    
-                        binding.on('error', (err) => { this.getBinding().emit('error',err)})
-    
-                        binding.init.bind = function() { 
-                            try {
-                                binding_init_original()
-                                self.connectState.isInitSuccess = true;
-                            }
-                            catch (err) {
-                                self.connectState.isInitSuccess = false;
-                                self.connectState.isConnected = false;
-                                self.connectState.isConnecting = false;
-                                self.logEvent({message:'connect result: error', error:err.message});
-                                return reject( new Error(err.message)   )
-                            }
-                        }    
-                    }
-                    else {
-                        
-                    }
-
-                }
 
                 const state = this.getBinding().state
                 if(state === BleState.POWERED_ON ){

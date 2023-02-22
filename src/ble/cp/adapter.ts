@@ -25,7 +25,7 @@ export default class PwrAdapter extends BleControllableAdapter {
         const logger = this.logger
         const ble = this.ble
         
-        this.device = new BleCyclingPowerDevice( {id,address,name,ble,logger})
+        this.device = new BleCyclingPowerDevice( {id,address,name,logger})
         this.capabilities = [ 
             IncyclistCapability.Power, IncyclistCapability.Cadence, IncyclistCapability.Speed
         ]

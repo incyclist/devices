@@ -9,6 +9,8 @@ export interface BleBinding extends EventEmitter {
 //    open(): {err: Error, opened: boolean}
     _bindings: any;
     state: string;
+    on(eventName: string | symbol, listener: (...args: any[]) => void):this
+
 }
 
 
@@ -18,39 +20,6 @@ export interface BleScanProps extends IncyclistScanProps{
     protocols?: BleProtocol[]    
     isBackgroundScan?: boolean    
 }
-
-export class BleBindingWrapper  {
-
-    constructor(protected  binding: BleBinding) {
-        this.binding = binding
-
-    }
-    
-    open(): {err: Error, opened: boolean} {
-
-        // Workaround: noble terminates if there is no adapter 
-        const binding = this.binding._bindings
-        const binding_init = binding.init.bind(binding);
-        
-        try {
-            binding_init()
-            return {err:null,opened:true}
-        }
-        catch (err) {
-            const error = err;
-            const opened = false;
-            return {err:error, opened}
-        }
-    
-
-    }
-
-    get(): BleBinding {
-        return this.binding
-    }
-
-}
-
 
 
 export enum BleState  {
