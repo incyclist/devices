@@ -1,4 +1,4 @@
-const { InterfaceFactory, BleAdapterFactory} = require('incyclist-devices')
+const { InterfaceFactory ,AdapterFactory} = require('incyclist-devices')
 const {EventLogger,ConsoleAdapter} = require( 'gd-eventlog');
 
 const os = require('os')
@@ -18,6 +18,8 @@ switch (platform) {
     case 'win32': binding= new Noble(new WinrtBindings());break;
     case 'linux': break; // TODO
     case 'darwin': binding = new Noble(defaultBinding()); break;
+    default:
+        process.exit()
 }
 
 const parseArgs = ()=> {
@@ -33,7 +35,6 @@ const parseArgs = ()=> {
     }
     if ( args.length>=3 && args[0]==='connect') { 
         const props = { command: 'connect' }
-        const protocol = args[1]
         const device = args[2].split('=')
 
         if (device[0].toLocaleLowerCase()==='id')
@@ -45,6 +46,7 @@ const parseArgs = ()=> {
         else 
             props.name = args[2];
 
+        props.protocol = args[1]
         return props
     }
     if ( args[0]!=='scan') {
@@ -87,11 +89,13 @@ const  main = async(props = {})=> {
         if (devices.length>0) {
             console.log('> info', `${devices.length} device(s) found`)
             devices.forEach( async device => {
-                const adapter = BleAdapterFactory.getInstance().createInstance(device)
+                const adapter = AdapterFactory.create(device)
                 try {
-                    started = await adapter.start()
-                    adapter.on('data', (device,data)=>{ console.log('> data', {...device, ...data})})
-                    cntStartet++;
+                    const started = await adapter.start()
+                    if (started) {
+                        adapter.on('data', (device,data)=>{ console.log('> data', {...device, ...data})})
+                        cntStartet++;
+                    }
                 }
                 catch(err) {
 
@@ -112,12 +116,12 @@ const  main = async(props = {})=> {
     }
     else {
        
-        const adapter = BleAdapterFactory.getInstance().createInstance( {interface: 'ble', id,name,address})
+        const adapter = AdapterFactory.create( {interface: 'ble',protocol,id,name,address})
 
-        let started,error
         try {
-            started = await adapter.start()
-            adapter.on('data', (device,data)=>{ console.log('> data', {...device, ...data})})
+            const started = await adapter.start()
+            if (started)
+                adapter.on('data', (device,data)=>{ console.log('> data', {...device, ...data})})
         }
         catch(err) {
             console.log('> error',err.message)            
