@@ -8,21 +8,52 @@ import { BleTacxComms as TacxAdvancedFitnessMachineDevice} from './tacx'
 import { getBestDeviceMatch, getDevicesFromServices } from './base/comms-utils'
 import { MockBinding } from './bindings'
 import { HrMock } from './hr/mock'
-import { BleComms } from './base/comms'
-
 
 describe('BleInterface',()=>{
 
     describe('scan',()=> {
-        test('scan',async ()=> {
+        beforeEach( ()=>{
+            MockBinding.reset()
+        })
+        test('scan all - single device found',async ()=> {
+
+            MockBinding.addMock(HrMock)
+            const onDetected = jest.fn()
+            const ble = new BleInterface({logger:MockLogger,binding:MockBinding})
+
+            ble.on('device',onDetected)
+            await ble.connect()            
+            const devices = await ble.scan({timeout:100})
+
+            expect(devices.length).toBe(1)
+            expect(devices[0]).toMatchObject({name:'HRM-Mock'})
+            expect(onDetected).toHaveBeenCalled()
+        })
+        test('scan all - no device found',async ()=> {
+
+            const onDetected = jest.fn()
+            const ble = new BleInterface({logger:MockLogger,binding:MockBinding})
+
+            ble.on('device',onDetected)
+            await ble.connect()            
+            const devices = await ble.scan({timeout:100})
+
+            expect(devices.length).toBe(0)            
+            expect(onDetected).not.toHaveBeenCalled()
+        })
+        test('scan with filter - incorrect protocol',async ()=> {
 
             MockBinding.addMock(HrMock)
 
+            const onDetected = jest.fn()
             const ble = new BleInterface({logger:MockLogger,binding:MockBinding})
-            await ble.connect()
-            const devices = await ble.scan({timeout:1000})
-            expect(devices.length).toBe(1)
-            expect(devices[0]).toMatchObject({name:'HRM-Mock'})
+
+            ble.on('device',onDetected)
+            await ble.connect()            
+            const devices = await ble.scan({protocols:['fm','cp'],timeout:100})
+
+            expect(devices.length).toBe(0)
+            expect(onDetected).not.toHaveBeenCalled()
         })
 
     })

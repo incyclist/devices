@@ -25,10 +25,18 @@ export const RESULT_UNLIKELY_ERROR           = 0x0e;
 
 export class MockCharacteristic extends EventEmitter implements BleCharacteristic {
     uuid: string
-    properties: string[]
+    properties: Property[]
+    secure?: boolean | undefined
+    value: Buffer
+    descriptors: Descriptor[]
+
     subscribe(callback: (err: Error | undefined) => void): void {
         throw new Error("Method not implemented.")
     }
+    unsubscribe(callback: (err: Error | undefined) => void): void { 
+        throw new Error("Method not implemented.")
+    }
+
     read(callback: (err: Error | undefined, data: Buffer) => void): void {
         throw new Error("Method not implemented.")
     }
@@ -39,11 +47,6 @@ export class MockCharacteristic extends EventEmitter implements BleCharacteristi
 }
 
 export class StaticReadCharacteristic extends MockCharacteristic {
-    uuid: string
-    properties: Property[]
-    secure?: boolean | undefined
-    value: Buffer
-    descriptors: Descriptor[]
 
     constructor( uuid:string, description:string, value) {
         super()
@@ -61,11 +64,6 @@ export class StaticReadCharacteristic extends MockCharacteristic {
 }
 
 export class StaticWriteCharacteristic extends MockCharacteristic {
-    uuid: string
-    properties: Property[]
-    secure?: boolean | undefined
-    value: Buffer
-    descriptors: Descriptor[]
     size:number;
 
     constructor( uuid:string, description:string,size:number) {
@@ -83,6 +81,63 @@ export class StaticWriteCharacteristic extends MockCharacteristic {
             callback()
     }
 }
+
+
+export abstract class StaticNotifyCharacteristic extends MockCharacteristic {
+    cntSubscriptions: number
+    iv: NodeJS.Timer
+    notifyFrequency: number
+
+    constructor( uuid:string, description:string) {
+        super()
+        this.uuid = uuid;
+        this.properties = ['notify']
+        this.descriptors = [ {uuid:'2901', value:description}]        
+        this.cntSubscriptions = 0;
+        this.notifyFrequency = 500;
+    }
+
+    subscribe(callback: (err: Error | undefined) => void): void {
+        this.cntSubscriptions++;
+        this.startNotify()
+        if (callback)
+            callback(undefined)
+        
+    }
+    unsubscribe(callback: (err: Error | undefined) => void): void { 
+        if (this.cntSubscriptions===0) {
+            if (callback)
+                callback( new Error('not subscribed'))
+            return;
+        }
+
+        this.cntSubscriptions--;
+        if (this.cntSubscriptions===0) {
+            this.stopNotify()
+        }
+        if (callback)
+            callback(undefined)
+    }
+
+    abstract notify():void
+
+    startNotify():void {
+        if (!this.iv)
+            this.iv=setInterval(this.notify.bind(this),this.notifyFrequency)
+    }
+
+    stopNotify():void {
+        if (this.iv) {
+            clearInterval(this.iv)
+            this.iv=null;
+        }
+    }
+
+
+
+
+}
+
 
 
 export type PrimaryService = {

@@ -125,7 +125,6 @@ export class Simulator extends ControllableDevice {
         }
         this.cyclingMode = selectedMode;        
         this.cyclingMode.setSettings(settings);
-        //console.log('~~~ Simulator.setCyclingMode',mode, settings, this.cyclingMode)
     }
 
 

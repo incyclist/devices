@@ -374,7 +374,6 @@ export class Daum8iMockBinding extends MockPortBinding {
 
     onPersonSet(payload:Buffer) {
         this.simulator.person = parsePersonData(payload)
-        console.log('~~~ person',this.simulator.person)
         this.emitData(this.createResponse( 'M70', Buffer.from('07000000','hex' ) ))
     }
 

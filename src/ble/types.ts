@@ -41,6 +41,14 @@ export interface BleInterfaceProps extends InterfaceProps {
     reconnect?: boolean;
 }
 
+export type BleService = {
+    uuid: string;
+}
+
+export type DiscoverResult = {
+    services: BleService[]
+    characteristics: BleCharacteristic[]
+}
 
 export interface BlePeripheral extends EventEmitter, BlePeripheralIdentifier{
     services: [];
@@ -49,7 +57,7 @@ export interface BlePeripheral extends EventEmitter, BlePeripheralIdentifier{
 
     connectAsync(): Promise<void>;
     disconnect( cb:(err?:Error)=>void ): Promise<void>;
-    discoverSomeServicesAndCharacteristicsAsync(serviceUUIDs: string[], characteristicUUIDs: string[]): Promise<any>;
+    discoverSomeServicesAndCharacteristicsAsync(serviceUUIDs: string[], characteristicUUIDs: string[]): Promise<DiscoverResult>;
     
 
 }
@@ -76,9 +84,12 @@ export interface IBlePeripheralConnector {
 
 export interface BleCharacteristic extends EventEmitter {
     uuid: string;
-    properties: string[]
+    properties: string[];
+    _serviceUuid?: string;
+    name?: string;
 
     subscribe( callback: (err:Error|undefined)=>void): void
+    unsubscribe( callback: (err:Error|undefined)=>void): void
     read( callback: (err:Error|undefined, data:Buffer)=>void): void
     write(data:Buffer, withoutResponse:boolean,callback?: (err:Error|undefined)=>void): void
 }

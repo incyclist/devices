@@ -50,15 +50,15 @@ export default class BleAdapter  extends IncyclistDevice  {
         let connected = false;
         try  {
             connected = await this.device.connect()
-            console.log('~~~ connected')
         }
         catch(err) {
-            console.log('~~~ ERROR',err)
+            this.logEvent({message:'error',fn:'connect()',error:err.message, stack:err.stack})            
         }
         return connected
     }
 
     async close():Promise<boolean> { 
+        
         if (!this.device || !this.isConnected())
             return true;
 
@@ -139,6 +139,7 @@ export default class BleAdapter  extends IncyclistDevice  {
     }
 
     async start( props: DeviceProperties={} ): Promise<any> {
+
         if (this.started)
             return true;
 

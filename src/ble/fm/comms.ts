@@ -507,7 +507,6 @@ export default class BleFitnessMachineDevice extends BleComms {
     }
 
     async requestControl(): Promise<boolean> {
-        console.log('~~~ request control')
         let to = undefined;
         if (this.isCheckingControl) {
             to = setTimeout( ()=>{}, 3500)
@@ -531,7 +530,6 @@ export default class BleFitnessMachineDevice extends BleComms {
         this.isCheckingControl = false;
         if (to) clearTimeout(to)
 
-        console.log('~~~request control status', this.hasControl,res)
         return this.hasControl;
     }
 

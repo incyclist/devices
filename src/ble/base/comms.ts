@@ -189,7 +189,7 @@ export class BleComms extends  EventEmitter  {
                     }
     
                 }
-                catch( err) { console.log('~~~ error',err)}
+                catch( err) { this.logEvent( {message:'error', fn:'', error:err.message, stack:err.stack}) }
     
             }, 100)
     
@@ -223,7 +223,6 @@ export class BleComms extends  EventEmitter  {
     }
 
     async connectPeripheral  (peripheral: BlePeripheral)   {
-
         this.connectState.isConnecting = true;
 
 
@@ -254,7 +253,7 @@ export class BleComms extends  EventEmitter  {
     
 
     async subscribeAll(conn?: BlePeripheralConnector):Promise<void> {
-
+        
         try {
             const connector = conn || this.ble.peripheralCache.getConnector(this.peripheral)
             const subscribed = await connector.subscribeAll( (uuid:string,data) => {this.onData(uuid,data)});
@@ -265,6 +264,11 @@ export class BleComms extends  EventEmitter  {
             this.logEvent({message:'Error', fn:'subscribeAll()', error:err.message, stack:err.stack})
 
         }
+    }
+
+    unsubscribeAll(conn?: BlePeripheralConnector) {
+        const connector = conn || this.ble.peripheralCache.getConnector(this.peripheral)
+        connector.unsubscribeAll()
     }
 
 
@@ -300,7 +304,7 @@ export class BleComms extends  EventEmitter  {
                     this.peripheral = this.ble.peripheralCache.getPeripheral({id,name,address})
                 }
                 catch(err) {
-                    console.log('~~~ error',err)
+                    this.logEvent({message:'error',fn:'connect()', error:err.message, stack:err.stack})
                 }
             }
     
@@ -343,7 +347,6 @@ export class BleComms extends  EventEmitter  {
         
                     }
                     catch (err) {
-                        console.log('~~~ connnect ERROR', err)
                         error = err;
                     }
                     
@@ -367,6 +370,7 @@ export class BleComms extends  EventEmitter  {
     }
 
     async disconnect(): Promise<boolean> {
+        
         const {id,name,address } = this;
         this.logEvent({message:'disconnect requested',device: { id, name, address} })
 
@@ -399,6 +403,7 @@ export class BleComms extends  EventEmitter  {
 
         if (this.connectState.isConnected) { 
             this.cleanupListeners();
+            this.unsubscribeAll();
 
             this.logEvent({message:'disconnect result: success',device: { id, name, address} })
             this.connectState.isDisconnecting = false;
@@ -437,7 +442,6 @@ export class BleComms extends  EventEmitter  {
 
         const isDuplicate = this.checkForDuplicate(characteristic,data)
         if (isDuplicate) {
-            //console.log('~~~ duplicate data',characteristic,data.toString('hex'))
             return false;
         }
 
@@ -445,7 +449,6 @@ export class BleComms extends  EventEmitter  {
         this.logEvent({message:'got data', characteristic,   data:data.toString('hex'), writeQueue:this.writeQueue.length})
 
         if (this.writeQueue.length>0 ) {
-//            console.log('~~~ onData',characteristic,data.toString('hex'))
             const writeIdx = this.writeQueue.findIndex( i => matches(i.uuid,characteristic));            
 
             if (writeIdx!==-1) {
@@ -453,7 +456,6 @@ export class BleComms extends  EventEmitter  {
 
                 
                 this.writeQueue.splice(writeIdx,1);
-                //console.log('~~~ write queue', this.writeQueue)
                 if (writeItem.resolve)
                     writeItem.resolve(data)
                 
@@ -518,7 +520,6 @@ export class BleComms extends  EventEmitter  {
                 this.startWorker();
             }
 
-            //console.log('~~~ write ',characteristicUuid, data.toString('hex'), isAlreadySubscribed, this.subscribedCharacteristics)
             if ( !withoutResponse && !isAlreadySubscribed) {
                 const connector = this.ble.peripheralCache.getConnector( this.peripheral)
                 connector.removeAllListeners(characteristicUuid)

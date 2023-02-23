@@ -55,7 +55,7 @@ class Binding extends EventEmitter implements BleBinding {
         if (callback)
             callback()
 
-        await sleep(200)
+        await sleep(50)
 
         this.peripherals.forEach( p => {
             this.emit('discover',new MockPeripheral(p))
@@ -100,8 +100,21 @@ class MockPeripheral  extends EventEmitter implements BlePeripheral {
     async discoverSomeServicesAndCharacteristicsAsync(serviceUUIDs: string[], characteristicUUIDs: string[]): Promise<any> {
 
         const characteristics: MockCharacteristic[] = []
+
         this.services.forEach( s=> {
-            characteristics.push( ...s.characteristics )
+
+            if (serviceUUIDs && serviceUUIDs.length>0 &&  !serviceUUIDs.includes(s.uuid))
+                return;
+
+            s.characteristics.forEach( c => {
+                if (characteristicUUIDs && characteristicUUIDs.length>0 &&  !characteristicUUIDs.includes(c.uuid))
+                    return;
+
+                c._serviceUuid = s.uuid;
+                c.name = c.descriptors?.find(d=>d.uuid==='2901')?.value;
+                characteristics.push( c )    
+            })
+            
         })
         return {services:this.services,characteristics}        
     }

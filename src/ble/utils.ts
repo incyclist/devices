@@ -1,4 +1,4 @@
-import { BlePeripheral } from "./types";
+import { BleCharacteristic, BlePeripheral } from "./types";
 
 export function uuid (s:string):string {
     //console.log(s)
@@ -36,5 +36,13 @@ export function getPeripheralInfo(p: BlePeripheral) {
     else {
         return {id,name,address,services}
     }
+}
 
+export function getCharachteristicsInfo(c:BleCharacteristic) {
+    const {uuid,properties,name,_serviceUuid} = c;
+
+    const nameStr= name ? ` (${name})` : ''
+    const serviceStr = _serviceUuid ? `${_serviceUuid}:` : ''
+
+    return `${serviceStr}${uuid}${nameStr} ${properties}`
 }

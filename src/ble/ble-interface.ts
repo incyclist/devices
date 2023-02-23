@@ -2,9 +2,9 @@ import { EventLogger } from 'gd-eventlog';
 import { BleScanProps, BleState,BleBinding, } from './ble'
 import BleAdapterFactory from './adapter-factory';
 
-import {BleInterfaceProps,BlePeripheral, BleDeviceSettings} from './types'
+import {BleInterfaceProps,BlePeripheral, BleDeviceSettings, BleProtocol} from './types'
 import { BleComms } from './base/comms';
-import { getPeripheralInfo, uuid } from './utils';
+import { getCharachteristicsInfo, getPeripheralInfo, uuid } from './utils';
 import { getBestDeviceMatch, getServicesFromProtocols } from './base/comms-utils';
 import { EventEmitter } from 'stream';
 import { IncyclistInterface } from '../types/interface';
@@ -278,7 +278,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
         this.peripheralCache.remove(peripheral)
     }
 
-    async getCharacteristics( peripheral) {
+    async getCharacteristics( peripheral:BlePeripheral) {
         let characteristics = undefined;
         let chachedPeripheralInfo = this.peripheralCache.find( {peripheral})
 
@@ -301,7 +301,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
                 
                 await connector.initialize();
                 characteristics = connector.getCharachteristics();
-                this.logEvent( {message:'characteristic info (+):', info:characteristics.map(c=>`${peripheral.address} ${c.uuid} ${c.properties}`)})
+                this.logEvent( {message:'characteristic info (+):', address:peripheral.address, info:characteristics.map(getCharachteristicsInfo)})
 
                 chachedPeripheralInfo.characteristics = characteristics
                 chachedPeripheralInfo.state = { isConfigured:true, isLoading:false, isInterrupted:false}
@@ -313,7 +313,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
         }
         else {
             characteristics = chachedPeripheralInfo.characteristics                        
-            this.logEvent( {message:'characteristic info (*):', info:characteristics.map(c=>`${peripheral.address} ${c.uuid} ${c.properties}`)})
+            this.logEvent( {message:'characteristic info (*):',address:peripheral.address, info:characteristics.map(getCharachteristicsInfo)})
 
         }
 
@@ -346,12 +346,12 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
 
     }
 
-    async onPeripheralFound (p:BlePeripheral, callback, props:{request?:BleDeviceSettings, comms?:BleComms} ={})   {                
+    async onPeripheralFound (p:BlePeripheral, callback, props:{request?:BleDeviceSettings, comms?:BleComms, protocolFilter?:BleProtocol[]|null} ={})   {                
         let peripheral = p;
         if ( !peripheral ||!peripheral.advertisement || !peripheral.advertisement.localName  || !peripheral.advertisement.serviceUuids ) 
             return
         
-        const scanForDevice = props.comms || (props.request!==undefined && props.request!==null)
+        const scanForDevice = props.comms || (props.request!==undefined && props.request!==null)    
         const request = props.comms ? props.comms.getSettings() : props.request
             
         this.logEvent({message:'BLE scan: found device',peripheral:getPeripheralInfo(peripheral)})
@@ -386,7 +386,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
             return callback(peripheral)
         }
         else { // normal scan
-
+            const {protocolFilter} = props;
             const connector = this.peripheralCache.getConnector(p);
             await this.getCharacteristics(p)
     
@@ -397,7 +397,9 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
             //const {id,name,address,advertisement={}} = connectedPeripheral;  
     
             const DeviceClasses = this.getAdapterFactory().getDeviceClasses(peripheral,{services}) || [];
-            const DeviceClass = getBestDeviceMatch(DeviceClasses);                        
+
+            const MatchingClasses = protocolFilter && DeviceClasses ? DeviceClasses.filter(C=> protocolFilter.includes(C.protocol)) : DeviceClasses
+            const DeviceClass = getBestDeviceMatch(MatchingClasses);                        
             this.logEvent({message:'BLE scan: device connected',peripheral:getPeripheralInfo(peripheral),services, protocols:DeviceClasses.map(c=>c.protocol) })                
     
             
@@ -406,15 +408,9 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
 
             const {id,name,address} = getPeripheralInfo(peripheral)
 
-            const settings = { protocol:DeviceClass.protocol, interface:'ble', id,name:peripheral.name||name, address:peripheral.address||address  }
-            const adapter = this.getAdapterFactory().createInstance(settings)
-            
+            const settings = { protocol:DeviceClass.protocol, interface:'ble', id,name:peripheral.name||name, address:peripheral.address||address  }           
             callback(settings)
-
         }
-
-
-
     }
        
 
@@ -497,7 +493,6 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
                             ble.stopScanning ( ()=> {
                                 ble.removeAllListeners('discover');
                                 this.scanState.isScanning = false;
-                                console.log('~~~ resolving', getPeripheralInfo(peripheral))
                                 resolve(peripheral)
                             })
             
@@ -586,16 +581,17 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
                     return reject(err)
                 }
                 ble.on('discover', (p )=> {
-                    this.onPeripheralFound(p,(device:BleDeviceSettings)=>{                        
-                        if (device) {
-                            this.emit('device',device)
-                            detected.push(device)
+                    this.onPeripheralFound(p,(deviceSettings:BleDeviceSettings)=>{                        
+                        if (deviceSettings) {
+                            this.emit('device',deviceSettings)
+                            detected.push(deviceSettings)
+                            this.getAdapterFactory().createInstance(deviceSettings)
+
                         }
-                    }) 
+                    },{protocolFilter}) 
                 })
 
                 const cachedItems = this.peripheralCache.filter(protocolFilter? services : [])
-                //console.log('~~~ cache', this.peripheralCache.peripherals.map( c => getPeripheralInfo(c.peripheral)))
                 if (cachedItems && cachedItems.length>0) {
                     cachedItems.map(c=>c.peripheral).forEach( peripheral=> {
                         this.logEvent({message:`${opStr}: adding peripheral from cache `, peripheral:getPeripheralInfo(peripheral)})
