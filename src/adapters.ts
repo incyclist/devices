@@ -1,4 +1,6 @@
 import { AntAdapterFactory, AntDeviceSettings } from "./antv2";
+import { BleAdapterFactory } from "./ble";
+import { BleDeviceSettings } from "./ble/types";
 import { SerialAdapterFactory } from "./serial";
 import { SerialDeviceSettings } from "./serial/adapter";
 import { IncyclistDeviceAdapter } from "./types/adapter";
@@ -26,7 +28,10 @@ export default class AdapterFactory {
             case INTERFACE.ANT:
                 adapter = AntAdapterFactory.getInstance().createInstance(settings as AntDeviceSettings,props)
                 break;
-        }
+            case INTERFACE.BLE:
+                adapter = BleAdapterFactory.getInstance().createInstance(settings as BleDeviceSettings,props)
+                break;
+            }
         if (adapter) {
             adapters.push(adapter)
         }

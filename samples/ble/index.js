@@ -96,8 +96,9 @@ const  main = async(props = {})=> {
 
         if (devices.length>0) {
             console.log('> info', `${devices.length} device(s) found`)
+            let adapter;
             devices.forEach( async device => {
-                const adapter = AdapterFactory.create(device)
+                adapter = AdapterFactory.create(device)
                 try {
                     const started = await adapter.start()
                     if (started) {
@@ -108,7 +109,8 @@ const  main = async(props = {})=> {
                 catch(err) {
 
                     console.log('> error',err.message)
-                    await adapter.close()
+                    if (adapter)
+                        adapter.close()
 
                 }
             })
