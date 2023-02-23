@@ -1,28 +1,28 @@
-import DeviceProtocolBase,{INTERFACE,DeviceSettings, DeviceProtocol} from '../protocol';
-import DeviceRegistry from '../registry';
-import DeviceAdapter from '../device';
+import DeviceAdapter, { ControllableDevice } from '../base/adpater';
 
 import {EventLogger} from 'gd-eventlog'
-import CyclingMode, { IncyclistBikeData } from '../cycling-mode';
+import CyclingMode, { IncyclistBikeData } from '../modes/cycling-mode';
 import SimulatorCyclingMode from '../modes/simulator';
-import { DeviceData } from '../device';
-import { DEFAULT_USER_WEIGHT, DEFAULT_BIKE_WEIGHT } from '../device';
+import { DeviceProperties, DeviceSettings } from '../types/device';
+import { IncyclistCapability } from '../types/capabilities';
+import { DeviceData } from '../types/data';
 
-const DEFAULT_SETTINGS = { name:'Simulator', port: '', isBot:false }
+const DEFAULT_SETTINGS = { name:'Simulator',protocol:'Simulator', port: ''}
+const DEFAULT_PROPS = {isBot:false }
 
-interface SimulatorSettings extends DeviceSettings { 
+interface SimulatorProperties extends DeviceProperties { 
     isBot?: boolean,
     settings?: any ,
+    activity?: any
 }
 
-export class Simulator extends DeviceAdapter {
+export class Simulator extends ControllableDevice {
     static NAME = 'Simulator';
 
     logger: EventLogger;
     speed: number;
     power: number;
     cadence: number;
-    paused: boolean;
     time: number;
     iv: any;
     started: boolean;
@@ -37,10 +37,10 @@ export class Simulator extends DeviceAdapter {
     userSettings: { weight?:number};
     bikeSettings: { weight?:number};
 
-    constructor (protocol?: DeviceProtocol, props: SimulatorSettings = DEFAULT_SETTINGS) {
+    constructor (settings:DeviceSettings,props:SimulatorProperties=DEFAULT_PROPS) {
 
-        const proto = protocol || DeviceRegistry.findByName('Simulator');
-        super(proto);
+        
+        super(settings,props);
 
         this.logger = new EventLogger  (Simulator.NAME)
         this.speed = 0;
@@ -60,38 +60,30 @@ export class Simulator extends DeviceAdapter {
 
         // create a fresh instance of the CycingMode processor
         const name = this.getCyclingMode().getName();        
-        const modeSettings = this.isBot ? props.settings || {} : this.getCyclingMode().getSettings();
+        
+        const modeSettings = this.isBot ? props.settings : this.getCyclingMode().getSettings();
         this.setCyclingMode(name,modeSettings);
+
+        this.capabilities = [ 
+            IncyclistCapability.Power, IncyclistCapability.Speed, IncyclistCapability.Cadence, IncyclistCapability.Gear,
+            IncyclistCapability.Control
+        ]
+
         
     }
 
-    isBike() { return true;}
-    isHrm() { return false;}
-    isPower() { return true;}
+    isEqual(settings: DeviceSettings): boolean {
+        return settings.interface===this.getInterface() && settings.name === this.settings.name
+    }
+
     isSame(device:DeviceAdapter):boolean {
         if (!(device instanceof Simulator))
             return false;
         return true;
     }
 
-
     getID() { return Simulator.NAME }
     getName() { return Simulator.NAME }
-    getPort() { return 'local'}
-
-    getWeight(): number { 
-        let userWeight = DEFAULT_USER_WEIGHT;
-        let bikeWeight = DEFAULT_BIKE_WEIGHT;
-
-        if ( this.userSettings && this.userSettings.weight) {
-            userWeight = Number(this.userSettings.weight);
-        }
-        if ( this.bikeSettings && this.bikeSettings.weight) {
-            bikeWeight = Number(this.bikeSettings.weight);
-        }        
-        return bikeWeight+userWeight;
-
-    }
 
 
     setIgnoreHrm(ignore) {
@@ -133,19 +125,17 @@ export class Simulator extends DeviceAdapter {
         }
         this.cyclingMode = selectedMode;        
         this.cyclingMode.setSettings(settings);
-        //console.log('~~~ Simulator.setCyclingMode',mode, settings, this.cyclingMode)
     }
 
 
 
 
-    async start(props?: any)  {
-        this.startProps = props;
+    async start(props?: SimulatorProperties):Promise<boolean>  {
 
-        if ( props && props.user)
-            this.userSettings = props.user;
-        if ( props && props.bikeSettings)
-            this.bikeSettings = props.bikeSettings;
+        
+        this.startProps = props;
+        if (props)
+            this.setBikeProps(props)
         
 
         return new Promise( (resolve) => {
@@ -154,7 +144,7 @@ export class Simulator extends DeviceAdapter {
                 this.logger.logEvent({message:'start',iv:this.iv});    
              
             if ( this.started) {
-                return resolve({started:true, error:undefined});  
+                return resolve(true);  
             }
 
             this.started = true;
@@ -174,7 +164,7 @@ export class Simulator extends DeviceAdapter {
             this.iv = setInterval( () => this.update(), 1000);
             if (!this.isBot)
                 this.logger.logEvent({message:'started'});      
-            resolve({started:true, error:undefined});    
+            resolve(true);    
         })
     }
 
@@ -291,9 +281,9 @@ export class Simulator extends DeviceAdapter {
         this.paused = (this.data.speed===0);
 
         if (this.ignoreHrm) delete data.heartrate;
-        if( this.onDataFn) {
-            this.onDataFn(data )
-        }
+        
+        this.emitData(data )
+        
         
     }
     
@@ -309,49 +299,4 @@ export class Simulator extends DeviceAdapter {
         return this.getCyclingMode().sendBikeUpdate(request)
     }
 
-
 }
-
-export default class SimulatorProtocol extends DeviceProtocolBase{
-
-    static NAME = 'Simulator';
-
-    constructor () {
-        super();        
-        this.devices = []
-    }
-    add ( settings: SimulatorSettings) {
-        let device = new Simulator(this,settings)
-        this.devices.push(device)
-        return device
-    }
-
-    getName() {
-        return SimulatorProtocol.NAME
-    }
-    getInterfaces() {
-        return [INTERFACE.SIMULATOR]
-    }
-    isBike() {
-        return true;
-    }
-
-    isHrm() {
-        return false;
-    }
-
-    isPower() {
-        return true;
-    }
-
-    getDevices() {
-        return this.devices;
-    }
-
-
-
-}
-
-// auto-instantiate & auto-register
-const simulator = new SimulatorProtocol();
-DeviceRegistry.register(simulator);

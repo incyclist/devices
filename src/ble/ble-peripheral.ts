@@ -1,7 +1,8 @@
-import { BleCharacteristic, BlePeripheral,uuid } from "./ble";
+import { BleCharacteristic, BlePeripheral, IBlePeripheralConnector } from './types';
 import BleInterface from "./ble-interface";
 import { EventLogger } from "gd-eventlog";
 import EventEmitter from "events";
+import { getCharachteristicsInfo, uuid } from "./utils";
 
 export type ConnectorState = {
     isConnected: boolean;
@@ -12,7 +13,9 @@ export type ConnectorState = {
     subscribed?: string[];
 }
 
-export default class BlePeripheralConnector {
+
+
+export default class BlePeripheralConnector implements IBlePeripheralConnector{
 
     private state: ConnectorState;
     private services: string [];
@@ -22,8 +25,8 @@ export default class BlePeripheralConnector {
     private logger?: EventLogger;
     private emitter: EventEmitter;
 
-    constructor( ble: BleInterface,  peripheral: BlePeripheral) {
-        this.ble = ble;
+    constructor( peripheral: BlePeripheral) {
+        this.ble = BleInterface.getInstance();
         this.peripheral = peripheral;
         this.emitter = new EventEmitter();
 
@@ -46,16 +49,15 @@ export default class BlePeripheralConnector {
     }  
 
 
-    async connect() {
+    async connect():Promise<void> {
         if ( this.state.isConnected)
             return;
 
-        this.logEvent( {message:'connect',peripheral:this.peripheral.address, state:this.state})
+        this.logEvent( {message:'connect peripheral',peripheral:this.peripheral.address, state:this.state})
 
         this.state.isConnecting = true;
         try {
-            this.peripheral.on('connect',()=> { console.log('~~~ peripheral connected', this.peripheral)})
-            //this.peripheral.once('disconnect',()=> { console.log('~~~ peripheral disconnected', this.peripheral)})
+            this.peripheral.on('connect',()=> { })
 
             this.peripheral.on('disconnect', ()=> {this.onDisconnect()})
 
@@ -71,8 +73,8 @@ export default class BlePeripheralConnector {
         this.state.isConnecting = false;
     }
 
-    async reconnect() {
-        this.connect()
+    async reconnect():Promise<void>  {
+        await this.connect()
     }
 
     onDisconnect() {
@@ -102,13 +104,14 @@ export default class BlePeripheralConnector {
 
         try {
             const res = await this.peripheral.discoverSomeServicesAndCharacteristicsAsync([],[])    
+            
             this.characteristics = res.characteristics
-            this.services = res.services                
+            this.services = res.services.map( s => typeof (s) === 'string' ? s : s.uuid)
     
         }
 
         catch(err) {
-
+            this.logEvent({message:'error', fn:'initialize', error:err.message, stack:err.stack})
         }
         this.state.isInitializing = false;
         this.state.isInitialized = this.characteristics!==undefined && this.services!==undefined
@@ -119,7 +122,6 @@ export default class BlePeripheralConnector {
     }
 
     async subscribeAll( callback:(characteristicUuid:string, data)=>void): Promise<string[]> {
-
         // note: 
         // we try to keep the subscriptions open even when the device disconnects, 
         // This improves the performance of subsequent launched
@@ -141,7 +143,6 @@ export default class BlePeripheralConnector {
                 const c = this.characteristics[i]
                 const isNotify = c.properties.find( p=> p==='notify');
                 if (isNotify && subscribed.find(uuid=> uuid===c.uuid)===undefined ) {
-
                     // register 
                     c.on('data', (data, _isNotification) => {
                         this.onData(uuid(c.uuid), data)
@@ -168,6 +169,7 @@ export default class BlePeripheralConnector {
 
             }
             catch(err) {
+                console.log('~~~~ ERROR',err)
                 this.logEvent({message:'error', fn:'subscribeAll()',error:err.message||err, stack:err.stack})
             }
         }
@@ -176,6 +178,8 @@ export default class BlePeripheralConnector {
         this.state.subscribed = subscribed;
         return subscribed;
     }
+
+  
 
     subscribe( characteristicUuid:string, timeout?:number): Promise<boolean> {
         
@@ -224,34 +228,52 @@ export default class BlePeripheralConnector {
         })
     } 
 
-    onData( characteristicUuid:string, data) {
+    unsubscribeAll() {
+        this.characteristics?.forEach(c=> {
+            const isNotify = c.properties.find( p=> p==='notify');
+            if (isNotify) {
+                this.unubscribe(c)
+                
+                
+            }
+        })
+        this.state.isSubscribing = false;
+        this.state.subscribed=[];
+    }
+
+    unubscribe(c:BleCharacteristic) {
+        c.unsubscribe(undefined)
+        c.removeAllListeners()
+    }
+
+    onData( characteristicUuid:string, data):void {
         this.emitter.emit(uuid(characteristicUuid), characteristicUuid,data)
     }
 
-    on( characteristicUuid:string, callback:(characteristicUuid:string, data)=>void)  {
+    on( characteristicUuid:string, callback:(characteristicUuid:string, data)=>void):void  {
         if (callback)
             this.emitter.on(uuid(characteristicUuid),callback)
     } 
 
-    off( characteristicUuid:string, callback:(characteristicUuid:string, data)=>void)  {
+    off( characteristicUuid:string, callback:(characteristicUuid:string, data)=>void):void  {
         if (callback)
             this.emitter.off(uuid(characteristicUuid),callback)
     } 
 
-    removeAllListeners(characteristicUuid:string) {
+    removeAllListeners(characteristicUuid:string):void {
         this.emitter.removeAllListeners(uuid(characteristicUuid))
     }
 
 
-    getState() {
+    getState():string {
         return this.peripheral.state;
     }
 
-    getCharachteristics() {
+    getCharachteristics():BleCharacteristic [] {
         return this.characteristics
     }
 
-    getServices() {
+    getServices():string[] {
         return this.services
     }
 

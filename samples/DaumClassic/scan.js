@@ -1,11 +1,11 @@
 const {EventLogger} = require( 'gd-eventlog');
-const SerialPort = require('serialport');
-const {DeviceRegistry,INTERFACE} = require('../../lib/DeviceSupport');
+const {useSerialPortProvider,DeviceRegistry,INTERFACE} = require('incyclist-devices');
 
 const logger = new EventLogger('DaumClassicSample')
 const DEFAULT_SCAN_TIMEOUT = 10000; 
 
 const _devices = [];
+const spp = useSerialPortProvider()
 
 const onDeviceFound = (device,protocol) => {
     _devices.push(device);
@@ -20,12 +20,11 @@ function scan(timeout=DEFAULT_SCAN_TIMEOUT) {
 
     return new Promise( resolve => {
         logger.log('starting scan...')
-        SerialPort.list().then( portList => {
+
+        spp.list('serial').then( portList => {
             const ports = portList.map( i => i.path)
             logger.logEvent( {message: 'found ports',ports})
             const scanner = DeviceRegistry.findByName('Daum Classic');
-            scanner.setSerialPort(SerialPort)
-
 
         
             ports.forEach( (port,idx) => {

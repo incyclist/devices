@@ -16,4 +16,7 @@ export const CSC               = '1816'
 export const CSC_MEASUREMENT   = '2a5b';
 
 export const WAHOO_ADVANCED_TRAINER_CP =  'a026e005'
+export const WAHOO_ADVANCED_FTMS =  'a026ee0b'  
 export const WAHOO_ADVANCED_TRAINER_CP_FULL = 'A026E005-0A7D-4AB3-97FA-F1500F9FEB8B'
+
+export const ELITE_TRAINER_SVC = '347b0001'

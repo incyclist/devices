@@ -1,20 +1,22 @@
 import EventEmitter from "events";
 import { EventLogger } from "gd-eventlog";
 import { Channel, IAntDevice, IChannel, ISensor } from "incyclist-ant-plus";
-import AntDeviceBinding from "./ant-binding";
-import { AntScannerProps, AntScanProps } from "./incyclist-protocol";
-import SensorFactory from "./sensor-factory";
+import { InterfaceProps } from "../types/interface";
+import AntDeviceBinding from "./binding";
+import { IncyclistInterface } from "../types/interface";
 
-export type AntInterfaceProps = {
-    binding?: typeof AntDeviceBinding, 
-    logger?:EventLogger,
+import SensorFactory from "./sensor-factory";
+import { AntDeviceSettings, AntScanProps } from "./types";
+
+export interface AntInterfaceProps extends InterfaceProps  {
     startupTimeout?: number
 }
 
-export default class AntInterface  extends EventEmitter  {
+export default class AntInterface   extends EventEmitter implements IncyclistInterface {
 
     // statics
     static _instance:AntInterface = undefined;
+    static INTERFACE_NAME = 'ant'
 
     static getInstance(props:AntInterfaceProps={}): AntInterface {
         if (AntInterface._instance===undefined)
@@ -53,9 +55,12 @@ export default class AntInterface  extends EventEmitter  {
         }
 
         if (binding) {
-            this.Binding = binding
+            this.Binding = binding as (typeof AntDeviceBinding)
 
         }
+    }
+    getName(): string {
+        return AntInterface.INTERFACE_NAME;
     }
 
     getBinding(): typeof AntDeviceBinding {
@@ -75,7 +80,7 @@ export default class AntInterface  extends EventEmitter  {
             this.logger.logEvent(event)
     }
 
-    async connect() {
+    async connect():Promise<boolean> {
         if (this.isConnected)
             return true;
 
@@ -120,13 +125,13 @@ export default class AntInterface  extends EventEmitter  {
         }
     }
 
-    async disconnect() {
+    async disconnect():Promise<boolean> {
         if (!this.device)
             return true;
-        this.logEvent({message:'disconnecting ...'})
+        this.logEvent({message:'ANT+ disconnecting ...'})
         const closed = await this.device.close();
         this.isConnected = !closed;
-        this.logEvent({message:'disconnected'})
+        this.logEvent({message:'ANT+ disconnected'})
         return closed;          
 
     }
@@ -141,7 +146,7 @@ export default class AntInterface  extends EventEmitter  {
     }
 
 
-    async scan(props:AntScannerProps={}) {
+    async scan(props:AntScanProps={}):Promise<AntDeviceSettings[]> {
         this.logEvent({message:'starting scan ..'})
 
         const detected = [];
@@ -157,8 +162,8 @@ export default class AntInterface  extends EventEmitter  {
         const onDetected = (profile:string,deviceID:number)=>{
             if (deviceID && detected.find( s => s.deviceID===deviceID && s.profile===profile)===undefined) {
                 try {
-                    detected.push( {profile,deviceID})                    
-                    this.emit('detected', profile,deviceID)
+                    detected.push( {interface:this.getName(),profile,deviceID})                    
+                    this.emit('device', {interface:'ant',profile,deviceID})
                 }
                 catch(err) {
                     this.logEvent({message:'error', fn:'onDerected', error:err.message, stack:err.stack})
@@ -276,6 +281,7 @@ export default class AntInterface  extends EventEmitter  {
         sensor.setChannel(channel);
 
         this.on('data',(profile,deviceID,data)=>{
+            //console.log(profile,sensor.getProfile(),deviceID,sensor.getDeviceID(),data,onDeviceData)
             if (profile===sensor.getProfile() && deviceID===sensor.getDeviceID())
             onDeviceData(data)
         })        
