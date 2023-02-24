@@ -4,7 +4,7 @@ import CyclingMode from '../../modes/cycling-mode';
 import PowerMeterCyclingMode from '../../modes/power-meter';
 import { IncyclistBikeData } from '../../modes/cycling-mode';
 import BleCyclingPowerDevice from './comm';
-import { BleControllableAdapter }  from '../adapter';
+import { BleControllableAdapter }  from '../base/adapter';
 import { DeviceProperties } from '../../types/device';
 import { PowerData } from './types';
 import { DeviceData } from '../../types/data';

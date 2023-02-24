@@ -1,10 +1,30 @@
 import { EventLogger } from "gd-eventlog";
 import { EventEmitter } from "stream";
 import { DeviceProperties, DeviceSettings, IncyclistScanProps } from "../types/device";
-import { IncyclistInterface, InterfaceProps } from "../types/interface";
-import { BleBinding } from "./ble";
+import { InterfaceProps } from "../types/interface";
 
 export type BleProtocol = 'hr' | 'fm' | 'cp' | 'tacx' | 'wahoo' | 'elite'
+export type BleInterfaceState  =  'unknown' | 'resetting' | 'unsupported' | 'unauthorized' | 'poweredOff'|  'poweredOn'
+
+
+export interface BleBinding extends EventEmitter {
+    startScanning(serviceUUIDs?: string[], allowDuplicates?: boolean, callback?: (error?: Error) => void): void;
+    stopScanning(callback?: () => void): void;
+//    open(): {err: Error, opened: boolean}
+    _bindings: any;
+    state: BleInterfaceState;
+    on(eventName: string | symbol, listener: (...args: any[]) => void):this
+
+}
+
+
+
+export interface BleScanProps extends IncyclistScanProps{
+    protocol?: BleProtocol
+    protocols?: BleProtocol[]    
+    isBackgroundScan?: boolean    
+}
+
 
 
 export interface BleDeviceConstructProps extends BleDeviceProps {

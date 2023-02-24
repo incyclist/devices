@@ -1,4 +1,4 @@
-import BleAdapter from "./adapter";
+import BleAdapter from "./base/adapter";
 import BlePeripheralConnector from "./ble-peripheral";
 import { BleCharacteristic, BlePeripheral } from "./types";
 import { getPeripheralInfo } from "./utils";

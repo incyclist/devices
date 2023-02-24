@@ -1,13 +1,13 @@
 
-import IncyclistDevice,{ DEFAULT_BIKE_WEIGHT, DEFAULT_PROPS, DEFAULT_USER_WEIGHT } from "../base/adpater";
-import CyclingMode from "../modes/cycling-mode";
-import { Bike } from "../types/adapter";
-import { DeviceData } from "../types/data";
-import { DeviceProperties, DeviceSettings } from "../types/device";
-import { User } from "../types/user";
-import { BleComms } from "./base/comms";
-import BleInterface from "./ble-interface";
-import { BleDeviceProperties, BleDeviceSettings } from "./types";
+import IncyclistDevice,{ DEFAULT_BIKE_WEIGHT, DEFAULT_PROPS, DEFAULT_USER_WEIGHT } from "../../base/adpater";
+import CyclingMode from "../../modes/cycling-mode";
+import { Bike } from "../../types/adapter";
+import { DeviceData } from "../../types/data";
+import { DeviceProperties, DeviceSettings } from "../../types/device";
+import { User } from "../../types/user";
+import { BleComms } from "./comms";
+import BleInterface from "../ble-interface";
+import { BleDeviceProperties, BleDeviceSettings } from "../types";
 
 const INTERFACE_NAME = 'ble'
 

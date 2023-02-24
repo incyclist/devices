@@ -1,7 +1,7 @@
 import {EventLogger} from 'gd-eventlog';
 import { BleFmAdapter, cRR, cwABike } from '../fm';
 import BleWahooDevice from './comms';
-import BleAdapter from '../adapter';
+import BleAdapter from '../base/adapter';
 import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from '../../base/adpater';
 import { BleDeviceProperties, BleDeviceSettings, BleStartProperties } from '../types';
 import { IncyclistCapability } from '../../types/capabilities';

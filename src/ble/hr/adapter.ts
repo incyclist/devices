@@ -1,5 +1,5 @@
 import { EventLogger } from 'gd-eventlog';
-import BleAdapter from '../adapter';
+import BleAdapter from '../base/adapter';
 import { DeviceProperties } from '../../types/device';
 import BleHrmDevice from './comm';
 import { BleDeviceSettings } from '../types';

@@ -1,4 +1,21 @@
-import { BleCharacteristic, BlePeripheral } from "./types";
+import { LegacyProfile } from "../antv2/types";
+import { BleCharacteristic, BlePeripheral, BleProtocol } from "./types";
+
+type MappingRecord = {
+    profile: LegacyProfile,
+    protocol: BleProtocol,
+}
+
+export function mapLegacyProfile(profile:string):MappingRecord {
+    switch (profile) {
+        case 'Smart Trainer': return { profile:'Smart Trainer', protocol:'fm' }
+        case 'Elite Smart Trainer': return { profile:'Smart Trainer', protocol:'elite' }
+        case 'Heartrate Monitor': return { profile:'Heartrate Monitor', protocol:'hr' }
+        case 'Power Meter': return { profile:'Power Meter', protocol:'cp' }
+        case 'Tacx Smart Trainer': return { profile:'Smart Trainer', protocol:'tacx' }
+        case 'Wahoo Smart Trainer': return { profile:'Smart Trainer', protocol:'wahoo' }
+    }
+}
 
 export function uuid (s:string):string {
     //console.log(s)

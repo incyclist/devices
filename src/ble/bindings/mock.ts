@@ -1,7 +1,6 @@
 import EventEmitter from 'events';
 import { sleep } from '../../utils/utils';
-import {BleBinding, BleState} from '../ble'
-import { BlePeripheral } from '../types';
+import { BleBinding, BlePeripheral, BleInterfaceState } from '../types';
 import { MockCharacteristic, PrimaryService } from './types';
 
 export type BleMockPeripheral = {
@@ -11,31 +10,40 @@ export type BleMockPeripheral = {
     address: string
 }
 
-export class BleMockBinding extends EventEmitter { 
-    static _instance
-    init() {}
-    static getInstance() {
-        if (!BleMockBinding._instance) {
-            BleMockBinding._instance = new BleMockBinding();
-        }
-        return BleMockBinding._instance;
-    } 
-}
-
 type ChannelState = 'IDLE' | 'SCANNING'
 
 class Binding extends EventEmitter implements BleBinding {
-    _bindings = BleMockBinding.getInstance() 
-    state = BleState.UNKNOWN
-    channelState:ChannelState = 'IDLE'
-    peripherals: BleMockPeripheral[] = []
+    static _instance
+    _bindings: any;
+    state: BleInterfaceState
+    channelState:ChannelState;
+    peripherals: BleMockPeripheral[];
+
+    constructor() {
+        super()
+
+        this._bindings = this;
+        this.state = 'unknown'
+        this.channelState = 'IDLE'
+        this.peripherals = []
+    
+    }
+
+    static getInstance() {
+        if (!Binding._instance) {
+            Binding._instance = new Binding();
+        }
+        return Binding._instance;
+    }
+
+    init() {}
 
     addMock(peripheral:BleMockPeripheral):void {
         this.peripherals.push(peripheral)
     }
     reset() {
         this.peripherals = []
-        this.state = BleState.UNKNOWN
+        this.state = 'unknown'
         this.channelState = 'IDLE'
     }
 
@@ -43,7 +51,8 @@ class Binding extends EventEmitter implements BleBinding {
         super.addListener(eventName,listener)    
         if (eventName==='stateChange') {         
             setTimeout( ()=>{
-                this.emit( 'stateChange',BleState.POWERED_ON)
+                this.state = 'poweredOn'
+                this.emit( 'stateChange',this.state)
             },100)   
             
         }
@@ -122,6 +131,6 @@ class MockPeripheral  extends EventEmitter implements BlePeripheral {
 }
 
 
-const mock = new Binding()
+const mock = Binding.getInstance()
 
 export default mock

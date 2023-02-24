@@ -1,5 +1,5 @@
 import {EventLogger} from 'gd-eventlog';
-import BleAdapter, { BleControllableAdapter } from '../adapter';
+import BleAdapter, { BleControllableAdapter } from '../base/adapter';
 import BleEliteDevice from './comms';
 import CyclingMode, { IncyclistBikeData } from '../../modes/cycling-mode';
 import PowerMeterCyclingMode from '../../modes/power-meter';

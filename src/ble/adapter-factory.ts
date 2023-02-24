@@ -1,9 +1,10 @@
 import { DeviceProperties } from "../types/device";
-import BleAdapter from "./adapter";
+import BleAdapter from "./base/adapter";
 import { BleDeviceSettings, BleProtocol } from "./types";
 import { LegacyProfile } from "../antv2/types";
 import { BleComms } from "./base/comms";
 import { getDevicesFromServices } from "./base/comms-utils";
+import { mapLegacyProfile } from "./utils";
 
 export interface BleAdapterInfo {
     protocol: BleProtocol,
@@ -11,21 +12,6 @@ export interface BleAdapterInfo {
     Comm: typeof BleComms
 }
 
-type MappingRecord = {
-    profile: LegacyProfile,
-    protocol: BleProtocol,
-}
-
-export function mapLegacyProfile(profile:string):MappingRecord {
-    switch (profile) {
-        case 'Smart Trainer': return { profile:'Smart Trainer', protocol:'fm' }
-        case 'Elite Smart Trainer': return { profile:'Smart Trainer', protocol:'elite' }
-        case 'Heartrate Monitor': return { profile:'Heartrate Monitor', protocol:'hr' }
-        case 'Power Meter': return { profile:'Power Meter', protocol:'cp' }
-        case 'Tacx Smart Trainer': return { profile:'Smart Trainer', protocol:'tacx' }
-        case 'Wahoo Smart Trainer': return { profile:'Smart Trainer', protocol:'wahoo' }
-    }
-}
 
 export default class BleAdapterFactory {
     static _instance:BleAdapterFactory;

@@ -1,7 +1,7 @@
 import {EventLogger} from 'gd-eventlog';
 import { BleFmAdapter, cRR, cwABike } from '../fm';
 import TacxAdvancedFitnessMachineDevice from './comms';
-import BleAdapter from '../adapter';
+import BleAdapter from '../base/adapter';
 import { DeviceProperties } from '../../types/device';
 import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from '../../base/adpater';
 import { BleDeviceSettings, BleStartProperties } from '../types';

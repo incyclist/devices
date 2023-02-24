@@ -1,14 +1,13 @@
 import { EventLogger } from 'gd-eventlog';
-import { BleScanProps, BleState,BleBinding, } from './ble'
 import BleAdapterFactory from './adapter-factory';
 
-import {BleInterfaceProps,BlePeripheral, BleDeviceSettings, BleProtocol} from './types'
+import {BleInterfaceProps,BlePeripheral, BleDeviceSettings, BleProtocol, BleBinding, BleInterfaceState, BleScanProps} from './types'
 import { BleComms } from './base/comms';
 import { getCharachteristicsInfo, getPeripheralInfo, uuid } from './utils';
 import { getBestDeviceMatch, getServicesFromProtocols } from './base/comms-utils';
 import { EventEmitter } from 'stream';
 import { IncyclistInterface } from '../types/interface';
-import BleAdapter from './adapter';
+import BleAdapter from './base/adapter';
 import { IncyclistScanProps } from '../types/device';
 import BlePeripheralCache from './peripheral-cache';
 
@@ -113,8 +112,8 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
     }
 
 
-    onStateChange(state) {        
-        if(state !== BleState.POWERED_ON){       
+    onStateChange(state:BleInterfaceState) {        
+        if(state !== 'poweredOn'){       
             this.connectState.isConnected = false;
         } else {
             this.connectState.isConnected = true;
@@ -151,7 +150,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
 
 
                 const state = this.getBinding().state
-                if(state === BleState.POWERED_ON ){
+                if(state === 'poweredOn' ){
                     clearTimeout(this.connectState.timeout)
                     this.connectState.timeout= null;       
 
@@ -177,8 +176,8 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
                         return reject(err)
                     })
     
-                    this.getBinding().on('stateChange', (state) => {
-                        if(state === BleState.POWERED_ON){
+                    this.getBinding().on('stateChange', (state:BleInterfaceState) => {
+                        if(state === 'poweredOn'){
                             clearTimeout(this.connectState.timeout)
                             this.connectState.timeout= null;       
     
