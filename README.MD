@@ -75,7 +75,7 @@ const ble = InterfaceFactory.create('ble',{logger, log:true, binding:noble})
 
 ### Check availability of interface
 
-For some interfaces (ANT and BLE) it cannot be guaranteed that the underlying hardware supports the interface ( e.f. a USB stick might be required). Therefore this library offers a `connect` method, that allows to check if the interface is availabe
+For some interfaces (ANT and BLE) it cannot be guaranteed that the underlying hardware supports the interface ( e.g. a USB stick might be required). Therefore this library offers a `connect` method, that allows to check if the interface is availabe
 
 __Ant Example__
 ```
@@ -134,7 +134,7 @@ The exact content if this object varies between the interfaces:
 
 These device adapters are used by Incyclist to communicate with the devices. The AdapterFactory will ensure that for a given device only one instance of a device adapter will be provided, to avoid that two classes will concurrently communicate with the same physical device.
 
-At the point a device adapter is created, it has not yet been tried to communicate with the device. I.e. the adapter can be created even if there is such device available
+At the point where a device adapter is created, the constructor will _not_ try to communicate with the device. I.e. the adapter can be created even if no such device is available/connected.
 
 __Example__
 
@@ -148,4 +148,91 @@ const device = AdapterFactory.create({interface:'ble, protocol:'fm', name:'KICKR
 
 ### Communicate with a device
 
-_TODO_
+In order to commuicate with the device, the device firstly has to be started
+
+
+#### __start( props?: DeviceProperties):Promise\<boolean\>__
+
+
+you then should register for events:
+
+- __data__ (device:DeviceSettings, data: DeviceData): is emitted whenever a device/sensor has sent data 
+    - device: describes the device that has sent data
+    - data: provides the data that the device/sensor has provided (power, speed, cadence,slope, heartrate, timestamp,... )
+
+- __disconnected__ (device:DeviceSettings): is emitted when the library has not recieved any udate for a configurable time or the underlying interface has recognized a connection loss
+    - device: describes the device that has sent data
+
+- __device-info__- (device:DeviceSettings, info:): signals that additional information about the device was received ( e.g. manufacturer, additional features/capabilities)
+    - device: describes the device that has sent data
+
+
+```
+try {
+    await device.start({timeout:5000, userWeight:90,bikeWeight:10})
+    device.on('data',(deviceInfo,data)=> { console.log('device data', deviceInfo,data) })
+    device.on('disconnected',(deviceInfo)=> { 
+        console.log('device disconnected', deviceInfo) 
+        // check if reconnect makes sense
+        device.disconnect()
+    })
+}
+catch(err) {
+    console.log('device could not be started, reason', err.message)
+}
+```
+
+#### __setMaxUpdateFrequency(ms:number):void__
+#### __getMaxUpdateFrequency():number__
+
+BLE and ANT devices might send data more frequently than you mihgt want to process in your app. Therefore you can control how often you want to receive updates from a device. 
+
+Default value is 1s
+
+A value of -1 indicates that the app wants to receive any data without delays
+
+```
+device.setMaxUpdateFrequency(1000) // send update every 1000ms
+const updateFrequency = device.getMaxUpdateFrequency()
+```
+
+
+#### __setPullFrequency(ms:number):void__
+#### __getPullFrequency():number__
+
+Serial Devices are typically not automatically sending data, but the app has to actively pull. Therefore the Serial device adapters also offer the capability to control how often the library will pull data from the device
+
+Default value is 1s
+
+_Warning_: Setting this value to low might overload the serial port and you might not receive any data
+
+#### __stop():Promise\<boolean\>__
+
+Once the commeunication is not required anymore, you can call stop() to close the connection. This will also automatically unregister the event listeners. 
+
+
+#### __pause():Promise\<boolean\>__
+#### __resume():Promise\<boolean\>__
+
+In some cases it might sense to not further receive any update from the device, but still keep the communication open. In thise case, pause() and resume() can be called. 
+
+During a paused state, no event will be emitted
+
+#### __sendUpdate(request:UpdateRequest):Promise\<boolean\>__
+
+Allows to send data to the device, typically one of the following data will be sent
+
+__slope__: (SIM Mode) sets the slope/incline. The smart trainer then will adjust power accordingly
+
+__targetPower__: (ERG Mode) sets the power that the smart trainer should 
+
+__reset__: returns to the default settings at the start of the training
+
+__resfresh__: repeats the previous update
+
+This method should only be called for SmartTrainers or PowerMeters
+
+
+## Examples
+
+Please have a look at the [example code](./samples)
