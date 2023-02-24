@@ -70,18 +70,18 @@ export default class AntHrAdapter extends AntAdapter{
                 return;
 
             this.logEvent( {message:'onDeviceData',data:deviceData})
-            const data = this.updateData(this.data,deviceData)
-            this.emitData(data)
+            this.mapData(deviceData)            
+            this.emitData(this.data)
         }
         catch ( err) {
         }
     }
    
-
-    updateData( data,deviceData) {
-        data.heartrate = deviceData.ComputedHeartRate;
-        return data;
+    mapData(deviceData:HeartRateSensorState) {
+        if (deviceData.ComputedHeartRate)
+            this.data.heartrate = deviceData.ComputedHeartRate;
     }
+
 
     hasData():boolean {
         return this.deviceData.ComputedHeartRate!==undefined && this.deviceData.ComputedHeartRate!==null

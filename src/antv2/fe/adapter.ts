@@ -1,9 +1,9 @@
-import { FitnessEquipmentSensor, ISensor, Profile } from "incyclist-ant-plus";
+import { FitnessEquipmentSensor, FitnessEquipmentSensorState, ISensor, Profile } from "incyclist-ant-plus";
 
 import  { ControllableAntAdapter } from "../adapter";
 import {getBrand} from '../utils'
 import { EventLogger } from "gd-eventlog";
-import CyclingMode, { IncyclistBikeData } from '../../modes/cycling-mode';
+import CyclingMode, { IncyclistBikeData,UpdateRequest } from '../../modes/cycling-mode';
 import AntStCyclingMode from "../modes/ant-fe-st-mode";
 import AntFeERGCyclingMode from "../modes/ant-fe-erg-mode";
 import AntAdvSimCyclingMode from "../modes/ant-fe-adv-st-mode";
@@ -41,6 +41,7 @@ export default class AntFEAdapter extends ControllableAntAdapter{
         this.dataMsgCount = 0;
         this.logger = new EventLogger('Ant+FE')
         this.isReconnecting = false
+        this.startProps = {};
 
         this.capabilities = [ 
             IncyclistCapability.Power, IncyclistCapability.Speed, IncyclistCapability.Cadence, 
@@ -89,23 +90,22 @@ export default class AntFEAdapter extends ControllableAntAdapter{
     }
 
 
-    async sendUpdate(request) {
+    async sendUpdate(request:UpdateRequest):Promise<void> {
 
         // don't send any commands if we are pausing
         if( this.paused || this.isReconnecting)
             return;
 
+        let isReset = request.reset && Object.keys(request).length===1 
+        const update = isReset ? this.getCyclingMode().getBikeInitRequest() : this.getCyclingMode().sendBikeUpdate(request)
+        if (!update)
+            return;
 
-        const update = this.getCyclingMode().sendBikeUpdate(request)
         this.logger.logEvent({message: 'send bike update requested', update, request})
 
         try {
             const fe = this.sensor as FitnessEquipmentSensor;
-
-            const isReset = ( !update || update.reset || Object.keys(update).length===0 );
-            if (isReset)
-                await fe.sendTrackResistance(0)
-
+            
             if (update.slope!==undefined) {
                 await fe.sendTrackResistance(update.slope)
             }
@@ -132,7 +132,7 @@ export default class AntFEAdapter extends ControllableAntAdapter{
     }
     
 
-    onDeviceData( deviceData) {
+    onDeviceData( deviceData:FitnessEquipmentSensorState) {
 
         this.dataMsgCount++;
         this.lastDataTS = Date.now();
@@ -154,7 +154,7 @@ export default class AntFEAdapter extends ControllableAntAdapter{
                 return;
             
             // transform data into internal structure of Cycling Modes
-            let incyclistData = this.mapData(deviceData)      
+            let incyclistData = this.mapToCycleModeData(deviceData)      
 
             // let cycling mode process the data
             incyclistData = this.getCyclingMode().updateData(incyclistData);   
@@ -164,7 +164,8 @@ export default class AntFEAdapter extends ControllableAntAdapter{
 
             this.emitData(data)
         }
-        catch ( err) {
+        catch ( err) {            
+            // istanbul ignore next
             this.logger.logEvent({message:'error',fn:'onDeviceData()',error:err.message||err, stack:err.stack})
         }
     }
@@ -174,7 +175,7 @@ export default class AntFEAdapter extends ControllableAntAdapter{
         return super.canSendUpdate()
     }
 
-    mapData(deviceData) : IncyclistBikeData {
+    mapToCycleModeData(deviceData:FitnessEquipmentSensorState) : IncyclistBikeData {
         // update data based on information received from ANT+FE sensor
         const data = {
             isPedalling: false,
@@ -197,7 +198,7 @@ export default class AntFEAdapter extends ControllableAntAdapter{
         return data;
     }
 
-    transformData( bikeData) {
+    transformData( bikeData:IncyclistBikeData) {
 
         if ( bikeData===undefined)
             return;
@@ -235,7 +236,7 @@ export default class AntFEAdapter extends ControllableAntAdapter{
 
         this.startProps = props;
 
-        this.logEvent( {message:'starting device -', props, isStarted: this.started, isReconnecting: this.isReconnecting})
+        this.logEvent( {message:'starting device', props, isStarted: this.started, isReconnecting: this.isReconnecting})
 
         const opts = props || {} as any;
         const {args ={}, user={}} = opts;
@@ -296,7 +297,7 @@ export default class AntFEAdapter extends ControllableAntAdapter{
                             catch {}        
                             this.started = false;
 
-                            return reject(new Error(`could not start device, reason: ${err.message}`))
+                            return reject(new Error('could not start device, reason:timeout'))
                         }
                     }
                     status = { userSent: false, slopeSent:false}

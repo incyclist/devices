@@ -69,9 +69,26 @@ describe( 'adapter', ()=>{
             }
             expect(adapter).toBeUndefined()
             expect(error).toBeDefined()
-
-
         })
+        test('legacy: incorrect profile',()=>{
+            const settings = {       
+                deviceID: '2606',
+                profile: 'Smart Trainer',
+                interface: 'ant',
+                protocol: 'Ant'
+            } as AntDeviceSettings
+
+            let adapter,error;
+            try {
+                adapter = new AntHrAdapter(settings,{})
+            }
+            catch(err) {
+                error = err;
+            }
+            expect(adapter).toBeUndefined()
+            expect(error).toBeDefined()
+        })
+
 
     })
 
@@ -208,7 +225,60 @@ describe( 'adapter', ()=>{
         })
     })
 
-    describe('udpateData',()=>{
+    describe('mapData',()=>{
+        let adapter;
+        beforeEach( ()=>{            
+            adapter = new AntHrAdapter({deviceID: '2606',profile: 'HR',interface: 'ant'})
+            adapter.startDataTimeoutCheck = jest.fn()
+            adapter.data={}
+
+        })
+
+        test('receiving only device information',()=>{
+            adapter.mapData({ManId:89,DeviceID:2606})
+            expect(adapter.data).toEqual({})
+        })
+
+        test('receiving a heartrate',()=>{
+            adapter.mapData({ManId:89,DeviceID:2606,ComputedHeartRate:60})
+            expect(adapter.data).toEqual({heartrate:60})
+
+            adapter.mapData({ManId:89,DeviceID:2606,ComputedHeartRate:90,SerialNumber:10})
+            expect(adapter.data).toEqual({heartrate:90})
+        })
+
+        test('receiving a heartrate, then a record without heartrate',()=>{
+            adapter.mapData({ManId:89,DeviceID:2606,ComputedHeartRate:60})
+            expect(adapter.data).toEqual({heartrate:60})
+
+            adapter.mapData({ManId:89,DeviceID:2606})
+            expect(adapter.data).toEqual({heartrate:60})
+        })
+
+    })
+
+
+    describe('hasData',()=>{
+        let adapter;
+        beforeEach( ()=>{            
+            adapter = new AntHrAdapter({deviceID: '2606',profile: 'HR',interface: 'ant'})
+            adapter.startDataTimeoutCheck = jest.fn() // mock to avoid open handle at end of test
+        })
+
+        test('receiving only device information',()=>{
+            adapter.deviceData={ManId:89,DeviceID:2606}
+            expect(adapter.hasData()).toBeFalsy()
+        })
+
+        test('receiving a heartrate',()=>{
+            adapter.deviceData = {ManId:89,DeviceID:2606,ComputedHeartRate:60}
+            expect(adapter.hasData()).toBeTruthy()
+        })
+
+        test('receiving a heartrate=0',()=>{
+            adapter.deviceData = {ManId:89,DeviceID:2606,ComputedHeartRate:0}
+            expect(adapter.hasData()).toBeTruthy()
+        })
 
     })
 
