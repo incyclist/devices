@@ -142,36 +142,36 @@ export default class AntFEAdapter extends ControllableAntAdapter{
         if (!this.started || this.isStopped())
             return;
 
-
         if ( !this.ivDataTimeout && this.dataMsgCount>0) {        
             this.startDataTimeoutCheck()
         }
-
 
         try {
             const logData = this.getLogData(deviceData, ['PairedDevices','RawData']);
             this.logger.logEvent( {message:'onDeviceData',data:logData})
 
-            if ( this.hasDataListeners() &&  !this.paused) {
-                if (!this.lastUpdate || (Date.now()-this.lastUpdate)>this.updateFrequency) {
+            if (!this.canSendUpdate()) 
+                return;
+            
+            // transform data into internal structure of Cycling Modes
+            let incyclistData = this.mapData(deviceData)      
 
-                    
-                    // transform data into internal structure of Cycling Modes
-                    let incyclistData = this.mapData(deviceData)      
+            // let cycling mode process the data
+            incyclistData = this.getCyclingMode().updateData(incyclistData);   
 
-                    // let cycling mode process the data
-                    incyclistData = this.getCyclingMode().updateData(incyclistData);   
+            // transform data into structure expected by the application
+            const data =  this.transformData(incyclistData);                          
 
-                    // transform data into structure expected by the application
-                    const data =  this.transformData(incyclistData);                          
-
-                    this.emitData(data)
-                }
-            }    
+            this.emitData(data)
         }
         catch ( err) {
             this.logger.logEvent({message:'error',fn:'onDeviceData()',error:err.message||err, stack:err.stack})
         }
+    }
+
+    canSendUpdate(): boolean {
+        if (!this.hasDataListeners() || this.paused) return false;
+        return super.canSendUpdate()
     }
 
     mapData(deviceData) : IncyclistBikeData {

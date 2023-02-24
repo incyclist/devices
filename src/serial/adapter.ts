@@ -9,12 +9,17 @@ export interface SerialDeviceSettings extends DeviceSettings {
     interface: string | SerialInterface,
 }
 
+const DEFAULT_PULL_FREQUENCY = 1000;
+
 export class SerialIncyclistDevice extends ControllableDevice  {
+
+    pullFrequency: number;
 
     async check(): Promise<boolean> { throw new Error('not implemnted')};
     
     constructor ( settings:SerialDeviceSettings,props?: DeviceProperties) { 
         super(settings,props)
+        this.pullFrequency = DEFAULT_PULL_FREQUENCY
     }
 
     isEqual( settings: SerialDeviceSettings) {
@@ -40,6 +45,23 @@ export class SerialIncyclistDevice extends ControllableDevice  {
 
     getInterface():string {
         return 'serial'
+    }
+
+    setMaxUpdateFrequency(ms:number) {
+        if (ms<=this.pullFrequency)
+            this.updateFrequency = -1
+        else    
+            this.updateFrequency = ms;
+    }
+
+    setPullFrequency(ms:number) {
+        this.pullFrequency = ms;
+        if (this.updateFrequency<=this.pullFrequency)
+            this.updateFrequency = -1;
+    }
+
+    getPullFrequency():number {
+        return this.pullFrequency
     }
 
 

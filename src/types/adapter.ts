@@ -1,10 +1,12 @@
 
+import { deprecate } from "util";
 import CyclingMode from "../modes/cycling-mode"
 import { IncyclistCapability } from "./capabilities";
 import { DeviceData } from "./data";
 import { DeviceProperties, DeviceSettings } from "./device"
 import { User } from "./user"
 
+const DEFAULT_UPDATE_FREQUENCY = 1000
 
 export type OnDeviceDataCallback = ( data:DeviceData ) => void;
 
@@ -31,6 +33,11 @@ export interface IncyclistDeviceAdapter {
     resume(): Promise<boolean> 
 
     sendUpdate(request)  
+
+    getMaxUpdateFrequency()
+    setMaxUpdateFrequency(value: number) 
+    
+    //@deprecate  ( use on('data) instead)
     onData( callback: OnDeviceDataCallback ) 
 }
 

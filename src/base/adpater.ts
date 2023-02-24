@@ -23,6 +23,7 @@ export default class IncyclistDevice extends EventEmitter implements IncyclistDe
     settings: DeviceSettings;
     props: DeviceProperties
     lastUpdate?: number;
+    updateFrequency: number;
 
     capabilities: IncyclistCapability[]
     protected logger: EventLogger
@@ -74,6 +75,12 @@ export default class IncyclistDevice extends EventEmitter implements IncyclistDe
             return;
         this.logger.logEvent(event)
     }
+    getMaxUpdateFrequency(): number {
+        return this.updateFrequency;
+    }
+    setMaxUpdateFrequency(value: number) {
+        this.updateFrequency = value;
+    }
 
 
     sendUpdate(request: any) { throw new Error("Method not implemented."); }
@@ -103,6 +110,24 @@ export default class IncyclistDevice extends EventEmitter implements IncyclistDe
         this.onDataFn = callback;
     }
 
+    canSendUpdate() {
+        if (this.getMaxUpdateFrequency()===-1)
+            return true
+
+        return (!this.lastUpdate || (Date.now()-this.lastUpdate)>this.updateFrequency)        
+    }
+
+    emitData(data:DeviceData) {
+        if (!this.canSendUpdate())
+            return;
+
+        if( this.onDataFn)
+            this.onDataFn(data)
+        this.emit('data', this.getSettings(), data)    
+        this.lastUpdate = Date.now();    
+    }
+
+
     isStopped() {
         return this.stopped;
     }
@@ -111,13 +136,6 @@ export default class IncyclistDevice extends EventEmitter implements IncyclistDe
     }
     isPaused() {
         return this.paused
-    }
-
-    emitData(data:DeviceData) {
-        if( this.onDataFn)
-            this.onDataFn(data)
-        this.emit('data', this.getSettings(), data)    
-        this.lastUpdate = Date.now();    
     }
 
     hasDataListeners() {

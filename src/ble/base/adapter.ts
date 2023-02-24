@@ -1,6 +1,6 @@
 
-import IncyclistDevice,{ DEFAULT_BIKE_WEIGHT, DEFAULT_PROPS, DEFAULT_USER_WEIGHT } from "../../base/adpater";
-import CyclingMode from "../../modes/cycling-mode";
+import IncyclistDevice,{ ControllableDevice, DEFAULT_BIKE_WEIGHT, DEFAULT_PROPS, DEFAULT_USER_WEIGHT } from "../../base/adpater";
+import CyclingMode, { IncyclistBikeData } from "../../modes/cycling-mode";
 import { Bike } from "../../types/adapter";
 import { DeviceData } from "../../types/data";
 import { DeviceProperties, DeviceSettings } from "../../types/device";
@@ -11,7 +11,6 @@ import { BleDeviceProperties, BleDeviceSettings } from "../types";
 
 const INTERFACE_NAME = 'ble'
 
-
 export default class BleAdapter  extends IncyclistDevice  { 
 
     ble: BleInterface
@@ -19,7 +18,6 @@ export default class BleAdapter  extends IncyclistDevice  {
     data: DeviceData
     dataMsgCount: number
     lastDataTS: number;
-    updateFrequency: number;
     device: BleComms
 
 
@@ -56,6 +54,7 @@ export default class BleAdapter  extends IncyclistDevice  {
         }
         return connected
     }
+
 
     async close():Promise<boolean> { 
         
@@ -129,7 +128,38 @@ export default class BleAdapter  extends IncyclistDevice  {
         this.lastDataTS = Date.now();
 
         this.deviceData = Object.assign( {},deviceData);        
+    
+        if (!this.started ||!this.canSendUpdate())
+            return;       
+
+        this.logger.logEvent( {message:'onDeviceData',data:deviceData})        
+
+        if (this instanceof ControllableDevice) {
+            // transform data into internal structure of Cycling Modes
+            let incyclistData = this.mapData(deviceData) as IncyclistBikeData       
+            
+            // let cycling mode process the data
+            incyclistData = this.getCyclingMode().updateData(incyclistData);                    
+
+            // transform data into structure expected by the application
+            this.data =  this.transformData(incyclistData);                  
+        }
+        else {
+            this.data =  this.mapData(this.deviceData)
+        }
+        this.emitData(this.data)
+   
     }
+
+    mapData(deviceData:any):DeviceData|IncyclistBikeData {
+        throw new Error('message not implemented')    
+    }
+
+    transformData( data:IncyclistBikeData): DeviceData {
+        throw new Error('message not implemented')    
+    }
+
+    
 
     getSettings(): BleDeviceSettings {
         return this.settings as BleDeviceSettings

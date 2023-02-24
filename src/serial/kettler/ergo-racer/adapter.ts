@@ -55,9 +55,6 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice   {
         super( settings,props);
 
         this.logger = new EventLogger('KettlerRacer');
-        this.ignoreHrm = false;
-        this.ignorePower = false;
-        this.ignoreBike = false;
         this.paused = false;
         this.iv = null;
         this.comms = new SerialComms<KettlerRacerCommand>({ interface:settings.interface, port: settings.port, logger:this.logger});
@@ -99,16 +96,6 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice   {
     getPort(): string {
         const settings = this.settings as SerialDeviceSettings
         return settings.port;
-    }
-
-    setIgnoreHrm(ignore: boolean): void {
-        this.ignoreHrm = ignore;
-    }
-    setIgnorePower(ignore: boolean): void {
-        this.ignorePower = ignore;
-    }
-    setIgnoreBike(ignore: boolean): void {
-        this.ignoreBike = ignore;
     }
 
     // -----------------------------------------------------------------
@@ -457,18 +444,14 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice   {
 
         this.logEvent({message:'start regular device update'});
 
-        // not neccessary of all device types should be ignored
-        if ( this.ignoreBike && this.ignoreHrm && this.ignorePower)
-            return;
-
         const ivSync = setInterval( ()=>{
             this.bikeSync();            
-        } ,1000)
+        }, this.pullFrequency)
 
         const ivUpdate = setInterval( ()=>{
-            this.sendData();
+            this.emitData(this.data);
             this.refreshRequests()
-        } ,1000)
+        }, this.pullFrequency)
 
         this.iv = {
             sync: ivSync,
@@ -476,6 +459,9 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice   {
         }
     }
 
+    canSendUpdate(): boolean {
+        return !this.isPaused()
+    }
 
     // stop a training session
     stop(): Promise<boolean> {
@@ -527,25 +513,15 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice   {
         data.heartrate = internalData.heartrate;
         data.timestamp = Date.now();
         data.deviceTime = bikeData.time;
-        if (!this.ignoreBike) {
-            data.speed = internalData.speed;
-            data.power = internalData.power;
-            data.cadence = internalData.pedalRpm;
-            data.distance = distance;
-            data.deviceDistanceCounter = bikeData.distance;
-            data.internalDistanceCounter = internalData.distanceInternal;
+        data.speed = internalData.speed;
+        data.power = internalData.power;
+        data.cadence = internalData.pedalRpm;
+        data.distance = distance;
+        data.deviceDistanceCounter = bikeData.distance;
+        data.internalDistanceCounter = internalData.distanceInternal;
 
-            this.prevDistance = internalData.distanceInternal;
-        }    
+        this.prevDistance = internalData.distanceInternal;
        
-        // check if we need to remove certain data
-        if (this.ignoreHrm) delete this.data.heartrate;
-
-        if (this.ignorePower) { 
-            delete this.data.power;
-            delete this.data.cadence;
-        }
-
         return data;
     }
 
@@ -658,12 +634,7 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice   {
         }
 
         this.logEvent({message:'bikeSync'});
-
-        // send bike commands unless we should "ignore" bike mode
-        if ( !this.ignoreBike) {
-            await this.sendRequests();
-        }
-
+        await this.sendRequests();
         await this.update()
     
 
@@ -677,10 +648,6 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice   {
         this.logEvent({message:'sendUpdate',request,waiting:this.requests.length});    
         return await this.processClientRequest(request);
     } 
-
-    sendData() {
-            this.emitData(this.data)
-    }
 
     refreshRequests() {
         // not pedaling => no need to generate a new request

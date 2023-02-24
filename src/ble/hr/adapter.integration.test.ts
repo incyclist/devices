@@ -31,7 +31,7 @@ describe( 'BleHrAdapter #Integration',()=>{
             const onData = jest.fn();
             const adapter = AdapterFactory.create( {interface:'ble', protocol:'hr',name:'HRM-Mock'} as DeviceSettings)
             adapter.on('data',onData)
-            adapter.updateFrequency=10;
+            adapter.updateFrequency=-1; // get every update
 
             const started = await adapter.start({})
             expect(started).toBeTruthy()           

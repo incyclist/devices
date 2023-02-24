@@ -282,9 +282,11 @@ export class Simulator extends ControllableDevice {
 
         if (this.ignoreHrm) delete data.heartrate;
         
-        this.emitData(data )
-        
-        
+        this.emitData(data )       
+    }
+
+    canSendUpdate(): boolean {
+        return true;
     }
     
     calculateDistance ( speedKps, timeS) {

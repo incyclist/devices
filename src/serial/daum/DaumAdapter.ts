@@ -184,12 +184,12 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
             this.bikeSync();
             
 
-        } ,1000)
+        } ,this.pullFrequency)
 
         const ivUpdate = setInterval( ()=>{
-            this.sendData();
+            this.emitData(this.deviceData);
             this.refreshRequests()
-        } ,1000)
+        } ,this.pullFrequency)
 
         this.iv = {
             sync: ivSync,
@@ -255,6 +255,12 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
         })
     }
 
+    canSendUpdate(): boolean {
+        if (this.paused || this.stopped)
+            return false
+        return super.canSendUpdate()
+    }
+    
     async sendUpdate(request) {
         // don't send any commands if we are pausing
         if( this.paused || this.stopped)
@@ -263,10 +269,6 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
         this.logEvent({message:'sendUpdate',request,waiting:this.requests.length});    
         return await this.processClientRequest(request);
     } 
-
-    sendData() {        
-            this.emitData(this.deviceData)
-    }
 
     async update() {
         // now get the latest data from the bike

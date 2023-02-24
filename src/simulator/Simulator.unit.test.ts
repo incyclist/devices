@@ -232,6 +232,7 @@ describe('Simulator',() => {
         test('setting twice',async () => {
             const onData1 = jest.fn();
             const onData2 = jest.fn();
+            s.setMaxUpdateFrequency(-1)
             s.onData(onData1);
             s.update()
             expect(onData1).toBeCalled();

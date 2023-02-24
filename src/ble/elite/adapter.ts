@@ -63,32 +63,6 @@ export default class BleEliteAdapter extends BleControllableAdapter {
         return [PowerMeterCyclingMode]
     }
 
-
-    onDeviceData(deviceData:PowerData):void {
-        super.onDeviceData(deviceData)
-
-        if (!this.started || this.paused || !this.hasDataListeners())
-            return;       
-
-        
-        this.logger.logEvent( {message:'onDeviceData',data:deviceData})        
-        if (!this.lastUpdate || (Date.now()-this.lastUpdate)>this.updateFrequency) { 
-            // transform data into internal structure of Cycling Modes
-            let incyclistData = this.mapData(deviceData)              
-            
-            // let cycling mode process the data
-            incyclistData = this.getCyclingMode().updateData(incyclistData);                    
-
-            // transform data into structure expected by the application
-            const data =  this.transformData(incyclistData);                  
-
-            this.emitData(data)
-            this.lastUpdate = Date.now();
-
-        }
-
-    }
-
     mapData(deviceData:PowerData): IncyclistBikeData{
         // update data based on information received from ANT+PWR sensor
         const data = {

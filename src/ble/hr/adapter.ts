@@ -50,31 +50,6 @@ export default class HrmAdapter extends BleAdapter {
         return `${name}${hrmStr}`
     }
 
-    getPort():string {
-        return 'ble' 
-    }
-    setIgnoreHrm(ignore) {
-        this.ignore = ignore;
-    }
-
-    onDeviceData(deviceData:HrmData) {
-        super.onDeviceData(deviceData)
-
-        if (!this.started || this.paused || !this.hasDataListeners())
-            return;       
-
-        if (!this.lastUpdate || (Date.now()-this.lastUpdate)>this.updateFrequency) {
-
-            this.logger.logEvent( {message:'onDeviceData',data:deviceData})        
-
-            // transform data into structure expected by the application
-            this.data =  this.mapData(this.deviceData)
-            this.emitData(this.data)
-            
-        }
-    
-    }
-
     mapData(deviceData:HrmData):DeviceData {
         const {heartrate} = deviceData
         return {heartrate}
