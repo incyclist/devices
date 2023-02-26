@@ -3,6 +3,7 @@ import { BleAdapterFactory } from "./ble";
 import { BleDeviceSettings } from "./ble/types";
 import { SerialAdapterFactory } from "./serial";
 import { SerialDeviceSettings } from "./serial/adapter";
+import { Simulator } from "./simulator/Simulator";
 import { IncyclistDeviceAdapter } from "./types/adapter";
 import { DeviceProperties, DeviceSettings, INTERFACE } from "./types/device";
 import { IncyclistInterface } from "./types/interface";
@@ -12,6 +13,16 @@ export default class AdapterFactory {
 
     static create( settings:DeviceSettings, props?:DeviceProperties) {
         const adapters = AdapterFactory.adapters
+
+        // special case Simulator (no interface specified)
+        if (!settings.interface && (settings as any).protocol==='Simulator') {
+            const adapter = new Simulator(settings);
+            if (adapter) {
+                adapters.push(adapter)
+            }
+            return adapter
+            
+        }
 
         const existing = adapters.find( a => a.isEqual(settings))
         if (existing)
@@ -31,7 +42,11 @@ export default class AdapterFactory {
             case INTERFACE.BLE:
                 adapter = BleAdapterFactory.getInstance().createInstance(settings as BleDeviceSettings,props)
                 break;
-            }
+            case INTERFACE.SIMULATOR:
+                adapter = new Simulator(settings)
+                break;
+        }
+
         if (adapter) {
             adapters.push(adapter)
         }

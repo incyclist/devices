@@ -14,13 +14,13 @@ import { DeviceData } from './types/data'
 // Serial devices support
 import {
     SerialPortProvider,useSerialPortProvider,SerialInterface,TCPBinding,
-    DaumPremiumAdapter,DaumClassicAdapter,KettlerRacerAdapter} 
+    DaumPremiumAdapter,DaumClassicAdapter,KettlerRacerAdapter,SerialDeviceSettings} 
 from './serial'
 
 // Ant+ devices support
 import {
     AntAdapterFactory,AntFEAdapter,AntHrAdapter,AntPwrAdapter,
-    AntDeviceSettings,AntScanProps, AntInterface
+    AntDeviceSettings,AntScanProps, AntInterface, 
 } from './antv2'
 
 
@@ -28,6 +28,7 @@ import {
 import {
     BleAdapterFactory,
     BleInterface,
+    BleDeviceSettings,
 
     BleHrmAdapter,
     BlePwrAdapter,
@@ -59,6 +60,7 @@ export {
     CyclingModeProperyType,
 
     BleAdapterFactory,
+    BleDeviceSettings,
     BleInterface,
     BleHrmAdapter,
     BlePwrAdapter,
@@ -69,6 +71,7 @@ export {
     SerialPortProvider,
     useSerialPortProvider,
     SerialInterface,
+    SerialDeviceSettings,
     TCPBinding,
     DaumClassicAdapter,
     DaumPremiumAdapter,

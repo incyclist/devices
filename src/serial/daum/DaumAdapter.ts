@@ -117,9 +117,10 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
     isEqual(settings: SerialDeviceSettings): boolean {
         const as = this.settings as SerialDeviceSettings
         if (settings.interface!==this.getInterface())
-            return
+            return false
         if (settings.protocol!==as.protocol || settings.port!==as.port)
             return false;        
+        return true;
     }
 
     isSame(device:SerialIncyclistDevice):boolean {

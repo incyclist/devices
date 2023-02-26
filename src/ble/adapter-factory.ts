@@ -44,7 +44,7 @@ export default class BleAdapterFactory {
 
         if (profile) { // legacy settings 
             const mapping = mapLegacyProfile(profile)
-            adapterSettings.protocol = mapping.protocol
+            protocol = adapterSettings.protocol = mapping.protocol
             delete adapterSettings.profile
         }
 

@@ -106,7 +106,7 @@ export default class AntAdapter  extends IncyclistDevice   {
 
         this.deviceData = Object.assign( {},deviceData);
         if (!ManId && deviceData.ManId) {
-            this.emit('device-info',{manufacturer: getBrand(deviceData.ManId)})
+            this.emit('device-info',{device:this.getSettings(), manufacturer: getBrand(deviceData.ManId)})
         }
 
     }

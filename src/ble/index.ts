@@ -7,6 +7,7 @@ import {BlePwrAdapter, BlePwrComms} from './cp'
 import {BleFmAdapter,BleFmComms} from './fm'
 import {BleWahooAdapter,BleWahooComms} from './wahoo'
 import { BleTacxAdapter, BleTacxComms } from './tacx'
+import { BleDeviceSettings } from './types'
 
 
 const af = BleAdapterFactory.getInstance()
@@ -20,6 +21,7 @@ af.register('tacx',BleTacxAdapter,BleTacxComms)
 export {
     BleAdapterFactory,
     BleInterface,
+    BleDeviceSettings,
 
     BleHrmAdapter,
     BlePwrAdapter,
