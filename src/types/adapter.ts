@@ -1,12 +1,8 @@
-
-import { deprecate } from "util";
 import CyclingMode from "../modes/cycling-mode"
 import { IncyclistCapability } from "./capabilities";
 import { DeviceData } from "./data";
 import { DeviceProperties, DeviceSettings } from "./device"
 import { User } from "./user"
-
-const DEFAULT_UPDATE_FREQUENCY = 1000
 
 export type OnDeviceDataCallback = ( data:DeviceData ) => void;
 
@@ -15,9 +11,10 @@ export interface IncyclistDeviceAdapter {
     close():Promise<boolean>
 
     check(): Promise<boolean> 
-    isEqual(settings: DeviceSettings)
+    isEqual(settings: DeviceSettings):boolean
     getCapabilities(): IncyclistCapability[]
-    hasCapability(capability:IncyclistCapability)
+    hasCapability(capability:IncyclistCapability):boolean
+    addCapability(capability:IncyclistCapability):void
 
     getName(): string    
     getUniqueName(): string

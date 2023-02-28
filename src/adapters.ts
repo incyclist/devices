@@ -11,6 +11,15 @@ import { IncyclistInterface } from "./types/interface";
 export default class AdapterFactory {
     static adapters: IncyclistDeviceAdapter[] = []
 
+    // @internal only required for testing
+    
+    static reset():void {
+        AdapterFactory.adapters = []
+        //SerialAdapterFactory.getInstance().adapters =[]
+        //AntAdapterFactory.getInstance().adapters =[]        
+        BleAdapterFactory.getInstance().instances =[]
+    }
+
     static create( settings:DeviceSettings, props?:DeviceProperties) {
         const adapters = AdapterFactory.adapters
 

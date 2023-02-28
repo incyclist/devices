@@ -110,13 +110,13 @@ describe( 'adapter', ()=>{
 
         test('has received ManId',()=>{
             adapter.deviceData.ManId = 123
-            expect(adapter.getDisplayName()).toBe('Polar Hrm 2606')
+            expect(adapter.getDisplayName()).toBe('Polar HR 2606')
         })
 
         test('has received ManId and HR data',()=>{
             adapter.deviceData.ManId = 123
             adapter.deviceData.ComputedHeartRate = 180
-            expect(adapter.getDisplayName()).toBe('Polar Hrm 2606 (180)')
+            expect(adapter.getDisplayName()).toBe('Polar HR 2606 (180)')
         })
 
     })
@@ -183,7 +183,7 @@ describe( 'adapter', ()=>{
             expect(adapter.lastDataTS).toBeDefined()
             expect(adapter.dataMsgCount).toBe(1)
             expect(adapter.startDataTimeoutCheck).toHaveBeenCalled()
-            expect(adapter.emit).toHaveBeenCalledWith('device-info',{manufacturer:'Tacx'})
+            expect(adapter.emit).toHaveBeenCalledWith('device-info',expect.objectContaining({manufacturer:'Tacx'}))
         })
 
         test('data update',()=>{

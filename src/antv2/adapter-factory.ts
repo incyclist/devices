@@ -28,6 +28,7 @@ export default class AntAdapterFactory {
     constructor() {
         this.adapters = []
     }
+    
 
     register( antProfile: Profile, incyclistProfile: LegacyProfile, Adapter: typeof AntAdapter)  {       
 

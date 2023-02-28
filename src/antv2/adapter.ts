@@ -3,7 +3,7 @@ import { IChannel, ISensor, Profile } from 'incyclist-ant-plus'
 import AntInterface from './ant-interface';
 
 import IncyclistDevice, { DEFAULT_BIKE_WEIGHT } from '../base/adpater';
-import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from './types';
+import { AntDeviceProperties, AntDeviceSettings, isLegacyProfile, LegacyProfile } from './types';
 import { DeviceProperties } from '../types/device';
 import { Bike, IncyclistDeviceAdapter, OnDeviceDataCallback } from '../types/adapter';
 import { sleep } from '../utils/utils';
@@ -41,6 +41,11 @@ export default class AntAdapter  extends IncyclistDevice   {
 
     constructor ( settings:AntDeviceSettings, props?:DeviceProperties) {
         super(settings, props)
+
+        const antSettings = this.settings as AntDeviceSettings
+
+        if (isLegacyProfile(antSettings.profile))
+            antSettings.profile = mapLegacyProfile(antSettings.profile as LegacyProfile)
         
         if (this.settings.interface!=='ant')
             throw new Error ('Incorrect interface')
@@ -67,7 +72,7 @@ export default class AntAdapter  extends IncyclistDevice   {
         if (as.interface!==settings.interface)
             return false;
 
-        if (as.deviceID!=settings.deviceID || as.profile!==settings.profile)
+        if (as.deviceID!==settings.deviceID || as.profile!==settings.profile)
             return false;
 
         return true;        

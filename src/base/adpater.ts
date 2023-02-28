@@ -49,12 +49,16 @@ export default class IncyclistDevice extends EventEmitter implements IncyclistDe
     close():Promise<boolean> { throw new Error('not implemented') }
     check(): Promise<boolean> {throw new Error("Method not implemented.");}
 
-    isEqual(settings: DeviceSettings) {throw new Error("Method not implemented.");}
+    isEqual(settings: DeviceSettings):boolean {throw new Error("Method not implemented.");}
     getCapabilities(): IncyclistCapability[] { return this.capabilities }
-    hasCapability(capability: IncyclistCapability) { 
-        
+    hasCapability(capability: IncyclistCapability):boolean {         
         return this.capabilities.find(c => c===capability)!==undefined
     }
+    addCapability(capability:IncyclistCapability ):void {
+        if (!this.capabilities.includes(capability))
+            this.capabilities.push(capability)
+    }
+
     update() {throw new Error("Method not implemented."); }
     start(props?: DeviceProperties): Promise<boolean> { throw new Error("Method not implemented.");}
     stop(): Promise<boolean> { throw new Error("Method not implemented.");}

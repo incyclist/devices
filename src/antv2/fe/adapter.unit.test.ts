@@ -198,7 +198,7 @@ describe( 'fe adapter', ()=>{
 
             adapter.onDeviceData({DeviceID:'2606', InstantaneousPower:60, ManId:89})
             expect(adapter.deviceData).toMatchObject({DeviceID:'2606', InstantaneousPower:60, ManId:89})
-            expect(adapter.emit).toHaveBeenCalledWith('device-info',{manufacturer:'Tacx'})
+            expect(adapter.emit).toHaveBeenCalledWith('device-info',expect.objectContaining({manufacturer:'Tacx'}))
         })
 
         test('data update #default cycle mode',()=>{
