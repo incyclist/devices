@@ -5,11 +5,11 @@ import {BleInterfaceProps,BlePeripheral, BleDeviceSettings, BleProtocol, BleBind
 import { BleComms } from './base/comms';
 import { getCharachteristicsInfo, getPeripheralInfo, uuid } from './utils';
 import { getBestDeviceMatch, getServicesFromProtocols } from './base/comms-utils';
-import { EventEmitter } from 'stream';
 import { IncyclistInterface } from '../types/interface';
 import BleAdapter from './base/adapter';
 import { IncyclistScanProps } from '../types/device';
 import BlePeripheralCache from './peripheral-cache';
+import EventEmitter from 'events';
 
 const CONNECT_TIMEOUT = 5000;
 const DEFAULT_SCAN_TIMEOUT = 20000;

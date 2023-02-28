@@ -1,5 +1,3 @@
-import { EventEmitter } from "stream";
-
 import CyclingMode from "../modes/cycling-mode";
 import { DeviceProperties, DeviceSettings } from "../types/device";
 import {Bike, IncyclistDeviceAdapter, OnDeviceDataCallback} from '../types/adapter'
@@ -7,6 +5,7 @@ import { User } from "../types/user";
 import { IncyclistCapability } from "../types/capabilities";
 import { EventLogger } from "gd-eventlog";
 import { DeviceData } from "../types/data";
+import EventEmitter from "events";
 
 export const DEFAULT_BIKE_WEIGHT = 10;
 export const DEFAULT_USER_WEIGHT = 75;

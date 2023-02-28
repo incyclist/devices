@@ -1,5 +1,5 @@
+import EventEmitter from "events";
 import { EventLogger } from "gd-eventlog";
-import { EventEmitter } from "stream";
 import { DeviceProperties, DeviceSettings, IncyclistScanProps } from "../types/device";
 import { InterfaceProps } from "../types/interface";
 
