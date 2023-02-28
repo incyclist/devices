@@ -210,7 +210,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
         }
     }
 
-    async disconnect(): Promise<Boolean> {
+    async disconnect(): Promise<boolean> {
         // TODO
         return true;
     }

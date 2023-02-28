@@ -7,6 +7,7 @@ import { IncyclistInterface } from './types/interface'
 import { IncyclistDeviceAdapter } from './types/adapter'
 import { IncyclistCapability } from './types/capabilities'
 import { DeviceData } from './types/data'
+import  {DeviceSettings} from './types/device'
 
 // import all supported device protocols, as they will auto-register in the DeviceRegistry
 
@@ -45,6 +46,7 @@ export {
     IncyclistInterface,
     INTERFACE,
     InterfaceFactory,
+    DeviceSettings,
 
     AdapterFactory,
 
