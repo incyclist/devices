@@ -47,14 +47,22 @@ export default class AntPwrAdapter extends ControllableAntAdapter {
         return `Ant+PWR ${deviceID}`        
     }
 
-    getDisplayName() {
-        const {DeviceID,ManId,Power} = this.deviceData;
-        const pwrStr = Power ? ` (${Power})` : '';
+    getUniqueName(): string {
+        if (this.settings.name)
+            return this.settings.name
+
+        const {DeviceID,ManId} = this.deviceData;
         const brand = getBrand(ManId)
         if (brand)
-            return `${brand} PWR ${DeviceID}${pwrStr}`
+            return `${brand} PWR ${DeviceID}`
         else 
-            return `${this.getName()}${pwrStr}`        
+            return `${this.getName()}`        
+    }
+
+    getDisplayName() {
+        const {Power} = this.deviceData;
+        const pwrStr = Power ? ` (${Power})` : '';
+        return `${this.getUniqueName()}${pwrStr}`        
     }
 
     getDefaultCyclingMode(): CyclingMode {

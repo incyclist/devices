@@ -62,15 +62,23 @@ export default class AntFEAdapter extends ControllableAntAdapter{
 
     }
 
-    getDisplayName() {
-        const {DeviceID,ManId,InstantaneousPower} = this.deviceData;
-        const pwrStr = InstantaneousPower ? ` (${InstantaneousPower})` : '';
+    getUniqueName(): string {
+        if (this.settings.name)
+            return this.settings.name
+
+        const {DeviceID,ManId} = this.deviceData;
         const brand = getBrand(ManId)
         if (brand)
-            return `${brand} FE ${DeviceID}${pwrStr}`
+            return `${brand} FE ${DeviceID}`
         else 
-            return `${this.getName()}${pwrStr}`        
+            return `${this.getName()}`        
+    }
 
+
+    getDisplayName() {
+        const {InstantaneousPower} = this.deviceData;
+        const pwrStr = InstantaneousPower ? ` (${InstantaneousPower})` : '';
+        return `${this.getUniqueName()}${pwrStr}`        
     }
 
     getSupportedCyclingModes() : Array<any> {

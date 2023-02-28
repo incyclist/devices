@@ -43,14 +43,23 @@ export default class AntHrAdapter extends AntAdapter{
 
     }
 
-    getDisplayName() {
-        const {DeviceID,ManId,ComputedHeartRate} = this.deviceData;
-        const hrmStr = ComputedHeartRate ? ` (${ComputedHeartRate})` : '';
+    getUniqueName(): string {
+        if (this.settings.name)
+            return this.settings.name
+
+        const {DeviceID,ManId} = this.deviceData;
         const brand = getBrand(ManId)
         if (brand)
-            return `${brand} Hrm ${DeviceID}${hrmStr}`
+            return `${brand} HR ${DeviceID}`
         else 
-            return `${this.getName()}${hrmStr}`
+            return `${this.getName()}`        
+    }
+
+    getDisplayName() {
+        const {ComputedHeartRate} = this.deviceData;
+        const hrmStr = ComputedHeartRate ? ` (${ComputedHeartRate})` : '';
+
+        return `${this.getUniqueName()}${hrmStr}`        
     }
 
     onDeviceData(deviceData:HeartRateSensorState) {

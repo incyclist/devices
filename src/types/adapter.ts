@@ -19,7 +19,8 @@ export interface IncyclistDeviceAdapter {
     getCapabilities(): IncyclistCapability[]
     hasCapability(capability:IncyclistCapability)
 
-    getName(): string
+    getName(): string    
+    getUniqueName(): string
     getSettings(): DeviceSettings
     getDisplayName(): string 
 

@@ -76,7 +76,15 @@ export default class DaumPremiumAdapter extends DaumAdapter{
     getName() {
         return 'Daum8i'
     }
-
+    getUniqueName(): string {
+        if (this.getInterface()==='tcpip') {
+            const port = this.getPort()
+            const [host] = port.split(':')
+            return `${this.getName()} (${host})`
+        }
+        return super.getUniqueName()
+    } 
+    
     getPort() {
         return this.bike.getPort();
     }

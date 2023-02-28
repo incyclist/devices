@@ -84,7 +84,8 @@ export class Simulator extends ControllableDevice {
 
     getID() { return Simulator.NAME }
     getName() { return Simulator.NAME }
-
+    getUniqueName(): string { return Simulator.NAME} 
+    
 
     setIgnoreHrm(ignore) {
         this.ignoreHrm = ignore;

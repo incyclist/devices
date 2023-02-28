@@ -32,6 +32,7 @@ describe( 'DaumPremiumAdapter', ()=>{
             // check simple getters
             expect(device.getName()).toBe('Daum8i')
             expect(device.getPort()).toBe('COM5')
+            expect(device.getUniqueName()).toBe('Daum8i (COM5)')
             expect(device.getInterface()).toBe('serial')
             expect(device.getProtocolName()).toBe('Daum Premium')
         })
@@ -45,6 +46,7 @@ describe( 'DaumPremiumAdapter', ()=>{
             // check simple getters
             expect(device.getName()).toBe('Daum8i')
             expect(device.getPort()).toBe('localhost:1234')
+            expect(device.getUniqueName()).toBe('Daum8i (localhost)')
             expect(device.getInterface()).toBe('tcpip')
             expect(device.getProtocolName()).toBe('Daum Premium')
         })
@@ -58,6 +60,7 @@ describe( 'DaumPremiumAdapter', ()=>{
             // check simple getters
             expect(device.getName()).toBe('Daum8i')
             expect(device.getPort()).toBe('localhost:51955')
+            expect(device.getUniqueName()).toBe('Daum8i (localhost)')
             expect(device.getInterface()).toBe('tcpip')
             expect(device.getProtocolName()).toBe('Daum Premium')
         })

@@ -42,6 +42,10 @@ export class SerialIncyclistDevice extends ControllableDevice  {
         const settings: SerialDeviceSettings = this.settings as SerialDeviceSettings
         return settings.port
     }
+    getUniqueName(): string {
+        return `${this.getName()} (${this.getPort()})`
+    } 
+    
 
     getInterface():string {
         return 'serial'

@@ -36,6 +36,18 @@ export default class BleAdapter  extends IncyclistDevice  {
         this.ble = BleInterface.getInstance()
     }
 
+
+    getUniqueName(): string {
+        const settings:BleDeviceSettings = this.settings as BleDeviceSettings
+
+        if (!settings.address)
+            return this.settings.name
+        else {
+            const addressHash = settings.address.substring(0,2) + settings.address.slice(-2)
+            return `${this.getName()} ${addressHash}`
+        }
+    }
+
     async connect():Promise<boolean> { 
         if (!this.device) {
             // should never happen

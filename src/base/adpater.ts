@@ -94,6 +94,9 @@ export default class IncyclistDevice extends EventEmitter implements IncyclistDe
     getName():string { 
         return this.settings.name
     }
+    getUniqueName(): string {
+        throw new Error("Method not implemented."); 
+    } 
     
 
     getSettings(): DeviceSettings {

@@ -29,7 +29,10 @@ describe( 'BleHrAdapter #Integration',()=>{
         test('HR Sensor is available',async ()=>{
 
             const onData = jest.fn();
-            const adapter = AdapterFactory.create( {interface:'ble', protocol:'hr',name:'HRM-Mock'} as DeviceSettings)
+            const adapter = AdapterFactory.create( {interface:'ble', protocol:'hr',name:'HRM-Mock',address:'44:0d:ec:12:40:61'} as DeviceSettings)
+
+            expect(adapter.getName()).toBe('HRM-Mock')
+            expect(adapter.getUniqueName()).toBe('HRM-Mock 4461')
             adapter.on('data',onData)
             adapter.updateFrequency=-1; // get every update
 
@@ -37,11 +40,11 @@ describe( 'BleHrAdapter #Integration',()=>{
             expect(started).toBeTruthy()           
             
             await sleep(50)
-            expect(onData).toHaveBeenCalledWith( {interface:'ble', protocol:'hr',name:'HRM-Mock'},{ heartrate: 60 }  )
+            expect(onData).toHaveBeenCalledWith( expect.objectContaining({interface:'ble', protocol:'hr',name:'HRM-Mock'}),{ heartrate: 60 }  )
 
             HrMock.setHeartrate(90)
             await sleep(50)
-            expect(onData).toHaveBeenCalledWith( {interface:'ble', protocol:'hr',name:'HRM-Mock'},{ heartrate: 90 }  )
+            expect(onData).toHaveBeenCalledWith( expect.objectContaining({interface:'ble', protocol:'hr',name:'HRM-Mock'}),{ heartrate: 90 }  )
 
 
         })
