@@ -1,11 +1,7 @@
-const {INTERFACE,SerialPortProvider,TCPBinding,SerialInterface,DaumPremiumAdapter, InterfaceFactory,IncyclistDevieAdapter} = require('incyclist-devices');
-const { autoDetect } = require('@serialport/bindings-cpp')
-
-
+const {INTERFACE,SerialPortProvider,TCPBinding,InterfaceFactory} = require('incyclist-devices');
 const {EventLogger,ConsoleAdapter} = require( 'gd-eventlog');
 const { AdapterFactory } = require('../../lib');
 const { Daum8iMock,Daum8iMockImpl,Daum8MockSimulator } = require('incyclist-devices/lib/serial/daum/premium/mock');
-const { MockBinding } = require('@serialport/binding-mock');
 
 EventLogger.registerAdapter(new ConsoleAdapter()) 
 const logger = new EventLogger('DaumPremiumSample');
@@ -44,7 +40,7 @@ async function run() {
     var args = process.argv.slice(2);
     if (args.length<1) {
 
-        scanner  = InterfaceFactory.create('tcpip',{logger, log:isDebug})
+        const scanner  = InterfaceFactory.create('tcpip',{logger, log:isDebug})
 
         //const scanner = SerialInterface.getInstance({ifaceName:'tcpip',logger});
         const devices = await scanner.scan( {port:51955, timeout: 10000, protocol:'Daum Premium'})

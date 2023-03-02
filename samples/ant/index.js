@@ -59,7 +59,7 @@ function runDevice(device) {
 async function main(props={}) {
 
     logger.logEvent({message:'Opening connection to ANT-Stick ...'})
-    connected = await ant.connect()
+    const connected = await ant.connect()
     if (!connected) {
         logger.logEvent({message:'Could not connect to ANT-Stick ...'})
         return;
