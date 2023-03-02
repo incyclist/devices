@@ -3,7 +3,7 @@
 import {INTERFACE} from './types/device'
 import InterfaceFactory from './interfaces'
 import AdapterFactory from './adapters'
-import { IncyclistInterface } from './types/interface'
+import { IncyclistInterface,InterfaceProps } from './types/interface'
 import { IncyclistDeviceAdapter } from './types/adapter'
 import { IncyclistCapability } from './types/capabilities'
 import { DeviceData } from './types/data'
@@ -14,21 +14,21 @@ import  {DeviceSettings} from './types/device'
 
 // Serial devices support
 import {
-    SerialPortProvider,useSerialPortProvider,SerialInterface,TCPBinding,
+    SerialPortProvider,useSerialPortProvider,SerialInterface,SerialInterfaceProps,TCPBinding,
     DaumPremiumAdapter,DaumClassicAdapter,KettlerRacerAdapter,SerialDeviceSettings} 
 from './serial'
 
 // Ant+ devices support
 import {
     AntAdapterFactory,AntFEAdapter,AntHrAdapter,AntPwrAdapter,
-    AntDeviceSettings,AntScanProps, AntInterface, 
+    AntDeviceSettings,AntScanProps, AntInterface, AntInterfaceProps
 } from './antv2'
 
 
 // BLE devices support
 import {
     BleAdapterFactory,
-    BleInterface,
+    BleInterface,BleInterfaceProps,
     BleDeviceSettings,
 
     BleHrmAdapter,
@@ -45,7 +45,7 @@ import { CyclingModeProperyType } from './modes/cycling-mode'
 export {
     IncyclistInterface,
     INTERFACE,
-    InterfaceFactory,
+    InterfaceFactory,InterfaceProps,
     DeviceSettings,
 
     AdapterFactory,
@@ -56,14 +56,14 @@ export {
     
 
     AntAdapterFactory,AntFEAdapter,AntHrAdapter,AntPwrAdapter,
-    AntDeviceSettings,AntScanProps,AntInterface,
+    AntDeviceSettings,AntScanProps,AntInterface,AntInterfaceProps,
 
     
     CyclingModeProperyType,
 
     BleAdapterFactory,
     BleDeviceSettings,
-    BleInterface,
+    BleInterface,BleInterfaceProps,
     BleHrmAdapter,
     BlePwrAdapter,
     BleFmAdapter,
@@ -72,7 +72,7 @@ export {
 
     SerialPortProvider,
     useSerialPortProvider,
-    SerialInterface,
+    SerialInterface,SerialInterfaceProps,
     SerialDeviceSettings,
     TCPBinding,
     DaumClassicAdapter,

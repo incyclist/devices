@@ -1,13 +1,14 @@
 /* istanbul ignore file */
 import SerialPortProvider,{useSerialPortProvider} from './serialport';
-import SerialInterface  from './serial-interface';
+import SerialInterface,{SerialInterfaceProps}  from './serial-interface';
 import SerialAdapterFactory from './adapter-factory';
-export { TCPBinding } from './bindings/tcp';
 import { SerialIncyclistDevice,SerialDeviceSettings } from './adapter'
 
 import DaumClassicAdapter from './daum/classic/adapter'
 import DaumPremiumAdapter from './daum/premium/adapter';
 import KettlerRacerAdapter  from './kettler/ergo-racer/adapter';
+
+export { TCPBinding } from './bindings/tcp';
 
 SerialAdapterFactory.getInstance().registerAdapter( 'Daum Classic',DaumClassicAdapter)
 SerialAdapterFactory.getInstance().registerAdapter( 'Daum Premium',DaumPremiumAdapter)
@@ -15,6 +16,6 @@ SerialAdapterFactory.getInstance().registerAdapter( 'Kettler Racer', KettlerRace
 
 
 export {
-    SerialPortProvider,useSerialPortProvider, SerialInterface,SerialDeviceSettings,
+    SerialPortProvider,useSerialPortProvider, SerialInterface,SerialInterfaceProps,SerialDeviceSettings,
     SerialAdapterFactory,DaumClassicAdapter,DaumPremiumAdapter,KettlerRacerAdapter,SerialIncyclistDevice
 }

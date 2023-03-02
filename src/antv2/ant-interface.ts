@@ -12,6 +12,11 @@ export interface AntInterfaceProps extends InterfaceProps  {
     startupTimeout?: number
 }
 
+export interface ConnectState {
+    connected: boolean;
+    connecting: boolean;
+}
+
 export default class AntInterface   extends EventEmitter implements IncyclistInterface {
 
     // statics
@@ -32,8 +37,7 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
     protected logger: EventLogger
     protected device: IAntDevice
     protected Binding: typeof AntDeviceBinding
-    protected isConnected: boolean
-    protected isConnecting: boolean
+    protected connectState: ConnectState
     protected props: AntInterfaceProps
     protected activeScan: IChannel
     
@@ -43,8 +47,10 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
 
         this.props = props;
         this.device = undefined;
-        this.isConnected = false;
-        this.isConnecting = false;
+        this.connectState = { 
+            connected: false,
+            connecting: false
+        }
 
         const {binding, logger} = props;
 
@@ -80,13 +86,17 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
             this.logger.logEvent(event)
     }
 
+    isConnected(): boolean {
+        return this.connectState.connected
+    }
+
     async connect():Promise<boolean> {
-        if (this.isConnected)
+        if (this.isConnected())
             return true;
 
-        if (!this.isConnecting) {
+        if (!this.connectState.connecting) {
 
-            this.isConnecting = true;
+            this.connectState.connecting = true;
             this.logEvent({message:'ANT+ connecting ...'})
 
             try {
@@ -96,29 +106,29 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
                 const opened = await device.open();
                 if (!opened) {
                     this.logEvent({message:'ANT+ not connected'})
-                    this.isConnecting = false;
+                    this.connectState.connecting = false;
                     return false;
                 }
 
                 this.device = device;  
-                this.isConnected = true          
-                this.isConnecting = false;
+                this.connectState.connected = true          
+                this.connectState.connecting = false;
                 this.logEvent({message:'ANT+ connected'})
 
 
                 return true
             }
             catch (err) {
-                this.isConnected = false;
-                this.isConnecting = false;
+                this.connectState.connected = false;
+                this.connectState.connecting = false;
                 return false;
             }
         }
         else {
             return new Promise (resolve => {
                 setInterval( ()=>{
-                    if (!this.isConnecting)
-                        resolve(this.isConnected)
+                    if (!this.connectState.connecting)
+                        resolve(this.connectState.connected)
                 },500)
             })
             
@@ -130,7 +140,7 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
             return true;
         this.logEvent({message:'ANT+ disconnecting ...'})
         const closed = await this.device.close();
-        this.isConnected = !closed;
+        this.connectState.connected = !closed;
         this.logEvent({message:'ANT+ disconnected'})
         return closed;          
 
@@ -150,14 +160,11 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         this.logEvent({message:'starting scan ..'})
 
         const detected = [];
-
-        if (!this.isConnected) {
+        if (!this.isConnected()) {
             const connected = await this.connect()
             if (!connected)
                 return [];   
         }
-
-        
 
         const onDetected = (profile:string,deviceID:number)=>{
             if (deviceID && detected.find( s => s.deviceID===deviceID && s.profile===profile)===undefined) {
@@ -264,7 +271,7 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
     }
 
     async startSensor(sensor:ISensor, onDeviceData: (data)=>void ): Promise<boolean> {
-        if (!this.isConnected) {
+        if (!this.isConnected()) {
             const connected = await this.connect()
             if (!connected)
                 return false;   
@@ -302,7 +309,7 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
     }
 
     async stopSensor(sensor:ISensor): Promise<boolean> {
-        if (!this.isConnected || !this.device) 
+        if (!this.isConnected() || !this.device) 
         return true
 
         const channel = sensor.getChannel() as Channel

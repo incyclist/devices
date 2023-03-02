@@ -135,6 +135,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
     scanEvents: EventEmitter;
     logger: EventLogger;
     toScan: NodeJS.Timeout;
+    connected: boolean
     
 
     static _instances: SerialInterface[] = []    
@@ -174,6 +175,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
         this.isStopScanRequested = false;
         this.scanEvents = new EventEmitter()
         this.logger = props.logger || new EventLogger( `Serial:${ifaceName}`)
+        this.connected = false;
         
         this.logger.logEvent({message:'new serial interface', ifaceName})
 
@@ -192,26 +194,35 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
         return this.ifaceName
     }
 
+    isConnected(): boolean {
+        // serial interface can always be used
+        return this.connected;
+    }   
+
 
     // connect just verifies that the Binding is valid - no ports are yet opened
     async connect(): Promise<boolean> {
 
         const binding = SerialPortProvider.getInstance().getBinding(this.ifaceName)
-        if (!binding || !this.binding)
+        if (!binding || !this.binding) {
+            this.connected = false;
             return false;
+        }
 
         try {
             const SerialPort = this.binding;
             await SerialPort.list()
+            this.connected = true;
             return true;
         }
         catch(err) {
+            this.connected = false;
             return false;
         }
     }
 
     async disconnect(): Promise<boolean> {
-        // TODO
+        this.connected = false;
         return true;
     }
 
@@ -284,6 +295,9 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
         
         if (this.isScanning)
             return [];
+
+        if (!this.isConnected())
+            await this.connect()
 
         const binding = SerialPortProvider.getInstance().getBinding(this.ifaceName)
         if (!binding || !this.binding)
