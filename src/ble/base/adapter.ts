@@ -97,7 +97,10 @@ export default class BleAdapter  extends IncyclistDevice  {
             return (as.protocol===settings.protocol && as.profile===settings.profile && as.name===settings.name)
         }
         else {
-            return (as.protocol===settings.protocol && (as.name===settings.name || as.address===settings.address || as.id===settings.id)  ) 
+            return (as.protocol===settings.protocol && (
+                (as.name && settings.name && as.name===settings.name) || 
+                (as.address && settings.address && as.address===settings.address) || 
+                (as.id && settings.id && as.id===settings.id))  ) 
         }
 
     }
