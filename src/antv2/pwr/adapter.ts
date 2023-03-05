@@ -1,4 +1,4 @@
-import { ISensor, Profile } from "incyclist-ant-plus";
+import { BicyclePowerSensorState, ISensor, Profile } from "incyclist-ant-plus";
 import { ControllableAntAdapter } from "../adapter";
 import {getBrand} from '../utils'
 import { EventLogger } from "gd-eventlog";
@@ -7,9 +7,17 @@ import PowerMeterCyclingMode from "../../modes/power-meter";
 import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "../types";
 import SensorFactory from "../sensor-factory";
 import { IncyclistCapability } from "../../types/capabilities";
-import { DeviceData } from "../../types/data";
 
-export default class AntPwrAdapter extends ControllableAntAdapter {
+type PowerSensorData = {
+    speed: number;
+    slope: number;
+    power: number;
+    cadence: number;
+    distance: number;
+    timestamp: number;
+}
+
+export default class AntPwrAdapter extends ControllableAntAdapter<BicyclePowerSensorState, PowerSensorData> {
 
     static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Power Meter'
     static ANT_PROFILE_NAME:Profile = 'PWR'
@@ -29,7 +37,7 @@ export default class AntPwrAdapter extends ControllableAntAdapter {
 
         this.deviceData = {
             DeviceID: this.sensor.getDeviceID()
-        }       
+        } as BicyclePowerSensorState;
         this.logger = new EventLogger('Ant+PWR')
         this.capabilities = [ 
             IncyclistCapability.Power, IncyclistCapability.Cadence, IncyclistCapability.Speed
@@ -51,7 +59,7 @@ export default class AntPwrAdapter extends ControllableAntAdapter {
         if (this.settings.name)
             return this.settings.name
 
-        const {DeviceID,ManId} = this.deviceData;
+        const {DeviceID,ManId} = this.deviceData as any// TODO: ManId missing in ant-plus project;
         const brand = getBrand(ManId)
         if (brand)
             return `${brand} PWR ${DeviceID}`
@@ -157,7 +165,7 @@ export default class AntPwrAdapter extends ControllableAntAdapter {
     }
 
 
-    transformData( bikeData:IncyclistBikeData): DeviceData {
+    transformData( bikeData:IncyclistBikeData): PowerSensorData {
         
         if ( bikeData===undefined)
             return;
@@ -170,15 +178,14 @@ export default class AntPwrAdapter extends ControllableAntAdapter {
             this.distanceInternal = bikeData.distanceInternal;
         
 
-        let data =  {
+        const data: PowerSensorData = {
             speed: bikeData.speed,
             slope: bikeData.slope,
             power: bikeData.power,
             cadence: bikeData.pedalRpm,
             distance,
             timestamp: Date.now()
-        } as any;
-
+        } 
 
         return data;
     }
