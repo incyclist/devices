@@ -1,3 +1,4 @@
+import EventEmitter from "events";
 import CyclingMode from "../modes/cycling-mode"
 import { IncyclistCapability } from "./capabilities";
 import { DeviceData } from "./data";
@@ -6,7 +7,7 @@ import { User } from "./user"
 
 export type OnDeviceDataCallback = ( data:DeviceData ) => void;
 
-export interface IncyclistDeviceAdapter {
+export interface IncyclistDeviceAdapter extends EventEmitter{
     connect():Promise<boolean>
     close():Promise<boolean>
 

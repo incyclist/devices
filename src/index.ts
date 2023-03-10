@@ -9,38 +9,13 @@ import { IncyclistCapability } from './types/capabilities'
 import { DeviceData } from './types/data'
 import  {DeviceSettings} from './types/device'
 
-// import all supported device protocols, as they will auto-register in the DeviceRegistry
+
+export * from './modes/cycling-mode'
 
 
-// Serial devices support
-import {
-    SerialPortProvider,useSerialPortProvider,SerialInterface,SerialInterfaceProps,TCPBinding,
-    DaumPremiumAdapter,DaumClassicAdapter,KettlerRacerAdapter,SerialDeviceSettings} 
-from './serial'
-
-// Ant+ devices support
-import {
-    AntAdapterFactory,AntFEAdapter,AntHrAdapter,AntPwrAdapter,
-    AntDeviceSettings,AntScanProps, AntInterface, AntInterfaceProps
-} from './antv2'
-
-
-// BLE devices support
-import {
-    BleAdapterFactory,
-    BleInterface,BleInterfaceProps,
-    BleDeviceSettings,
-
-    BleHrmAdapter,
-    BlePwrAdapter,
-    BleFmAdapter,
-    BleWahooAdapter,
-    BleTacxAdapter
-
-} from './ble'
-
-
-import { CyclingModeProperyType } from './modes/cycling-mode'
+export * from './serial'
+export * from './ble'
+export * from './antv2'
 
 export {
     IncyclistInterface,
@@ -53,31 +28,5 @@ export {
     IncyclistDeviceAdapter,
     DeviceData,
     IncyclistCapability,
-    
 
-    AntAdapterFactory,AntFEAdapter,AntHrAdapter,AntPwrAdapter,
-    AntDeviceSettings,AntScanProps,AntInterface,AntInterfaceProps,
-
-    
-    CyclingModeProperyType,
-
-    BleAdapterFactory,
-    BleDeviceSettings,
-    BleInterface,BleInterfaceProps,
-    BleHrmAdapter,
-    BlePwrAdapter,
-    BleFmAdapter,
-    BleWahooAdapter,
-    BleTacxAdapter,
-
-    SerialPortProvider,
-    useSerialPortProvider,
-    SerialInterface,SerialInterfaceProps,
-    SerialDeviceSettings,
-    TCPBinding,
-    DaumClassicAdapter,
-    DaumPremiumAdapter,
-    KettlerRacerAdapter
-
-    
 }
