@@ -44,6 +44,15 @@ export default class PowerBasedCyclingModeBase extends CyclingModeBase  {
         const EkinPrev = 1/2*m*vPrev*vPrev;
                 
         let powerToMaintainSpeed = calc.calculatePower(m,vPrev,slope,props);
+
+        //no update for more than 30s - we need to reset
+        if (t>=30) {
+            const speed = calc.calculateSpeed(m,power,slope,props)            
+            return { speed,distance:0}
+        }
+
+
+
         const powerDelta = powerToMaintainSpeed - power;
         const Ekin = EkinPrev-powerDelta*t;
         if (Ekin>0) {
