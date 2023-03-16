@@ -59,7 +59,7 @@ export default class AntPwrAdapter extends ControllableAntAdapter<BicyclePowerSe
         if (this.settings.name)
             return this.settings.name
 
-        const {DeviceID,ManId} = this.deviceData as any// TODO: ManId missing in ant-plus project;
+        const {DeviceID,ManId} = this.deviceData;
         const brand = getBrand(ManId)
         if (brand)
             return `${brand} PWR ${DeviceID}`
