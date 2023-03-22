@@ -40,7 +40,7 @@ export default class BleAdapter  extends IncyclistDevice  {
     getUniqueName(): string {
         const settings:BleDeviceSettings = this.settings as BleDeviceSettings
 
-        if (settings.name.match(/[0-9]/g))      
+        if (settings.name.match(/[0-9]/g) || settings.address===undefined)      
             return this.settings.name
         else {
             const addressHash = settings.address.substring(0,2) + settings.address.slice(-2)
