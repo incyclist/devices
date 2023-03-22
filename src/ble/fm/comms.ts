@@ -1,5 +1,5 @@
 import { BleProtocol, BleWriteProps, IBlePeripheralConnector } from "../types";
-import { FTMS, FTMS_CP, FTMS_STATUS, INDOOR_BIKE_DATA } from "../consts";
+import { CSC_MEASUREMENT, CSP_MEASUREMENT, FTMS, FTMS_CP, FTMS_STATUS, HR_MEASUREMENT, INDOOR_BIKE_DATA } from "../consts";
 import { IndoorBikeData, IndoorBikeFeatures } from "./types";
 import { BleComms } from "../base/comms";
 import { LegacyProfile } from "../../antv2/types";
@@ -135,7 +135,7 @@ export default class BleFitnessMachineDevice extends BleComms {
         this.services = BleFitnessMachineDevice.services;
     }
 
-    isMatching(characteristics: string[]): boolean {
+    static isMatching(characteristics: string[]): boolean {
         if (!characteristics)
             return false;
 
@@ -180,49 +180,17 @@ export default class BleFitnessMachineDevice extends BleComms {
     }
 
     subscribeAll(conn?: IBlePeripheralConnector):Promise<void> {
-        return new Promise ( resolve => {
-            const characteristics = [ INDOOR_BIKE_DATA, FTMS_STATUS,FTMS_CP]
-            const timeout = Date.now()+5500;
 
-            const iv = setInterval( ()=> {
-                const subscriptionStatus = characteristics.map( c => this.subscribedCharacteristics.find( s=> s===c)!==undefined)
-                const done = subscriptionStatus.filter(s=> s===true).length === characteristics.length;
-                if (done || Date.now()>timeout) {
-                    clearInterval(iv)
-                    resolve();
-                }
+        const characteristics = [ INDOOR_BIKE_DATA, FTMS_STATUS,FTMS_CP ]
 
+        if (!this.features || (this.features && this.features.cadence))
+            characteristics.push(CSC_MEASUREMENT)
+        if (!this.features || (this.features && this.features.power))
+            characteristics.push(CSP_MEASUREMENT)
+        if (!this.features || (this.features && this.features.heartrate))
+            characteristics.push(HR_MEASUREMENT)           
 
-
-            },100)
-
-            try {
-                const connector = conn || this.ble.peripheralCache.getConnector(this.peripheral)
-    
-    
-                
-                for (let i=0; i<characteristics.length;i++)
-                {
-                    const c = characteristics[i]
-                    const isAlreadySubscribed = connector.isSubscribed(c)            
-                    if ( !isAlreadySubscribed) {   
-                        connector.removeAllListeners(c);
-    
-                        connector.on(c, (uuid,data)=>{  
-                            this.onData(uuid,data)
-                        })
-                        connector.subscribe(c);
-                        this.subscribedCharacteristics.push(c)
-                    }
-                }
-    
-            }
-            catch (err) {
-                this.logEvent({message:'Error', fn:'subscribeAll()', error:err.message, stack:err.stack})
-    
-            }
-            
-        })
+        return this.subscribeMultiple(characteristics,conn)
 
     }
 
@@ -235,19 +203,18 @@ export default class BleFitnessMachineDevice extends BleComms {
             await super.initDevice();
             await this.getFitnessMachineFeatures();
             this.logEvent({message: 'device info', deviceInfo:this.deviceInfo, features:this.features })
-
-            
+            return true;
             
         }
         catch (err) {
             this.logEvent( {message:'error',fn:'BleFitnessMachineDevice.init()',error:err.message||err, stack:err.stack})
 
-            return Promise.resolve(false)
+            return false
         }
     }
 
 
-    onDisconnect() {
+    async onDisconnect():Promise<void> {
         super.onDisconnect();
         this.hasControl = false;
     }
@@ -264,25 +231,6 @@ export default class BleFitnessMachineDevice extends BleComms {
         return BleFitnessMachineDevice.services;
     }
 
-    isBike(): boolean {
-        return this.features===undefined || 
-            ((this.features.targetSettings & TargetSettingFeatureFlag.IndoorBikeSimulationParametersSupported)!==0)
-    }
-
-    isPower(): boolean {
-        if (this.hasService('1818'))
-            return true;
-        if (this.features===undefined)
-            return false;
-        const {fitnessMachine} = this.features
-
-        if (fitnessMachine & FitnessMachineFeatureFlag.PowerMeasurementSupported)
-            return true;
-    }
-
-    isHrm(): boolean {
-        return this.hasService('180d') || (this.features && (this.features.fitnessMachine & FitnessMachineFeatureFlag.HeartRateMeasurementSupported)!==0);
-    }
 
     parseHrm(_data: Uint8Array):IndoorBikeData { 
         const data = Buffer.from(_data);
@@ -422,8 +370,19 @@ export default class BleFitnessMachineDevice extends BleComms {
             if (buffer) {
                 const fitnessMachine = buffer.readUInt32LE(0)
                 const targetSettings = buffer.readUInt32LE(4)
-                this.features = {fitnessMachine, targetSettings}
-                this.logEvent( {message:'supported Features: ',fatures:this.features})
+                const power = (fitnessMachine & FitnessMachineFeatureFlag.PowerMeasurementSupported) !== 0
+                const heartrate = (fitnessMachine & FitnessMachineFeatureFlag.HeartRateMeasurementSupported) !==0
+                const cadence = (fitnessMachine & FitnessMachineFeatureFlag.CadenceSupported)!==0
+
+                const setSlope = (targetSettings & TargetSettingFeatureFlag.IndoorBikeSimulationParametersSupported)!==0  
+                                || (targetSettings & TargetSettingFeatureFlag.InclinationTargetSettingSupported)!==0  
+
+                const setPower = (targetSettings & TargetSettingFeatureFlag.PowerTargetSettingSupported)!==0  
+
+                this.features = {fitnessMachine, targetSettings,power, heartrate, cadence, setPower, setSlope}
+
+                
+                this.logEvent( {message:'supported Features: ',fatures:this.features, power, heartrate, cadence})
             }
     
         }
@@ -435,7 +394,6 @@ export default class BleFitnessMachineDevice extends BleComms {
     }
 
     onData(characteristic:string,data: Buffer):boolean {       
-           
         const hasData = super.onData(characteristic,data);
         if (!hasData)
             return false;

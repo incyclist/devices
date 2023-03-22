@@ -62,7 +62,7 @@ export class SinglePathScanner {
     }
 
     async scan  (): Promise<SerialDeviceSettings|undefined>  {
-        
+        console.log('~~~ start SERIAL Scan', this.isScanning)
         if (this.isScanning)
             return;
 
@@ -77,6 +77,7 @@ export class SinglePathScanner {
             while (!found && this.isScanning ) {
                 try {
 
+                    console.log('~~~ adapter check attempt') 
 
                     const  {protocol} = this.props;
 
@@ -97,13 +98,16 @@ export class SinglePathScanner {
                         const name = adapter.getName();
 
                         resolve( {...adapterSettings,name} )
-                        await this.serial.closePort(this.path).catch()
+                        
+                        //await this.serial.closePort(this.path).catch()
                     }
-    
+                    await sleep(100)
                 }
                 catch(err) {
                     /* ignore*/
+                    console.log('~~~ERROR',err)
                     this.logger.logEvent({message:'error', fn:'scan()', error:err.message||err, stack:err.stack})
+                    await sleep(100)
                 }
     
             }
@@ -114,16 +118,6 @@ export class SinglePathScanner {
 
 
 }
-/*
-export abstract class AbstractIncyclistInterface extends  {
-    abstract getName():string;
-    abstract setBinding(binding:any):void;
-    abstract connect(): Promise<boolean>;
-    abstract disconnect(): Promise<Boolean> 
-    abstract scan(props:IncyclistScanProps):Promise<DeviceSettings[]> 
-}
-*/
-
 
 export default class SerialInterface  extends EventEmitter implements IncyclistInterface { 
 
@@ -202,7 +196,6 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
 
     // connect just verifies that the Binding is valid - no ports are yet opened
     async connect(): Promise<boolean> {
-
         const binding = SerialPortProvider.getInstance().getBinding(this.ifaceName)
         if (!binding || !this.binding) {
             this.connected = false;
@@ -211,7 +204,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
 
         try {
             const SerialPort = this.binding;
-            await SerialPort.list()
+            const res = await SerialPort.list()
             this.connected = true;
             return true;
         }
@@ -227,6 +220,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
     }
 
     async openPort(path:string): Promise< SerialPortStream|null> {
+        console.log('~~~ SerialPort.openPort',this.ifaceName,path)
         this.logger.logEvent({message:'opening port',path})
         
         const port = SerialPortProvider.getInstance().getSerialPort(this.ifaceName, {path});
@@ -245,16 +239,18 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
         }
             
         return new Promise( (resolve) => {
-            port.on('error',(err)=>{ 
+            port.once('error',(err)=>{ 
+
                 this.logger.logEvent({message:'error', path, error:err||err.message})
-                resolve(null); 
                 port.removeAllListeners()
+                resolve(null); 
             })
             port.once('open',()=>{
+
                 this.logger.logEvent({message:'port opened',path})
-                resolve(port); 
                 port.removeAllListeners()
                 this.ports.push({path,port})
+                resolve(port); 
             })
             port.open()
     
@@ -262,6 +258,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
     }
 
     async closePort(path:string): Promise<Boolean> {
+        console.log('~~~ SerialPort.closePort',this.ifaceName,path)
         const existing = this.ports.findIndex( p=> p.path===path)
         if (existing===-1)
             return true;
@@ -279,7 +276,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
             port.close( err=> {
                 if (!err) {
                     this.ports.splice(existing,1)
-                    port.removeAllListeners();
+                    port.removeAllListeners();                   
                     resolve(true)
                 }
                 resolve(false)
@@ -292,7 +289,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
     
 
     async scan(props:SerialScannerProps):Promise< SerialDeviceSettings[]> {
-        
+        console.log('~~serial scan', this.isScanning, this.isConnected())
         if (this.isScanning)
             return [];
 
@@ -318,26 +315,35 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
             },timeout)
         }
 
+        this.logger.logEvent({message:'checking for ports '})
         this.isScanning = true;
         do {
-            if (this.getName()==='tcpip') {
-                const _binding = binding as typeof TCPBinding
-                paths = await _binding.list(port)|| []
-                
+            try {
+                if (this.getName()==='tcpip') {
+                    const _binding = binding as typeof TCPBinding
+                    paths = await _binding.list(port)|| []
+                    
+                }
+                else {
+                    paths = await binding.list() || []
+                }
+    
             }
-            else {
-                paths = await binding.list() || []
+            catch(err) {
+                console.log('~~~ERROR',err)
             }
-            if (paths.length===0) {
+            if (!paths || paths.length===0) {
                 this.logger.logEvent({message:'scanning: no ports detected',interface:this.ifaceName, paths:paths.map(p=>p.path),timeout})
-                sleep(1000)
+                await sleep(1000)
             }
             if (Date.now()>toExpiresAt)
                 timeOutExpired = true;
+
         }
         while (this.isScanning && !timeOutExpired && paths.length===0)
         
         if (paths.length===0) {
+            this.logger.logEvent({message:'nothing to scan '})
             if (this.toScan) {
                 clearTimeout(this.toScan)
                 this.toScan = null;
@@ -354,9 +360,12 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
             await Promise.all( scanners.map( s =>  
                 s.scan()
                     .then( device=> { 
-                    
-                        detected.push(device)
-                        this.emit('device',device)          
+
+                        
+                        if (device) {
+                            detected.push(device)
+                            this.emit('device',device)              
+                        }
                     })
                     .catch()
                 ))    

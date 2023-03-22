@@ -3,6 +3,8 @@ import { EventLogger } from 'gd-eventlog';
 import { networkInterfaces } from 'os';
 import net from 'net'
 
+
+
 export interface TCPOpenOptions extends OpenOptions {
     timeout? : number
 }
@@ -109,14 +111,14 @@ export const TCPBinding: TCPBindingInterface = {
      * Provides a list of hosts that have port #PORT opened
      */
     async list( port?:number): Promise<PortInfo[]> {
+
         if (!port)
             return []
 
 
         
 
-        const subnets = getSubnets()        
-    
+        const subnets = getSubnets()     
         const hosts:string[] = [];
         await Promise.all( 
             subnets.map( sn=> scanSubNet(sn,port).then( found=> { hosts.push(...found) }))             
@@ -138,6 +140,7 @@ export const TCPBinding: TCPBindingInterface = {
      * Opens a connection to the serial port referenced by the path.
      */
     async open(options: TCPOpenOptions): Promise<TCPPortBinding> {
+
         const asyncOpen = ():Promise<net.Socket> =>  {
             return new Promise( (resolve,reject) => {
 
@@ -189,6 +192,7 @@ export const TCPBinding: TCPBindingInterface = {
         }
 
         const socket = await asyncOpen()
+
         return new TCPPortBinding(socket,openOptions)
 
     }
@@ -200,7 +204,7 @@ export class TCPPortBinding implements BindingPortInterface  {
     openOptions: Required<OpenOptions>;
     socket:any;
     logger:EventLogger;
-    writeOperation: null | Promise<void>;
+    writeOperation: null | Promise<any>;
     data: Buffer;
     private pendingRead: null | ((err: null | Error) => void)
 
@@ -213,6 +217,10 @@ export class TCPPortBinding implements BindingPortInterface  {
         this.data = null
 
         this.socket.on('data', this.onData.bind(this))
+        this.socket.on('error', this.onError.bind(this))
+        this.socket.on('close', ()=>{this.close()})
+        this.socket.on('end', ()=>{this.close()})
+        this.socket.on('timeout',()=>{this.onError(new Error('socket timeout'))})
     }
 
     get isOpen() {
@@ -221,13 +229,22 @@ export class TCPPortBinding implements BindingPortInterface  {
 
     onData(data:Buffer) {
         if (!this.data) this.data = Buffer.alloc(0)
-
-        this.data = Buffer.concat([this.data,data])
+        const buffer = Buffer.from(data)
+        this.data = Buffer.concat([this.data,buffer])
 
         if (this.pendingRead) {
             process.nextTick(this.pendingRead)
             this.pendingRead = null
         }
+    }
+
+    onError(err:Error) {
+
+        if (this.pendingRead) {
+            this.pendingRead(err)
+            this.socket = null;
+        }
+
     }
 
     
@@ -247,13 +264,13 @@ export class TCPPortBinding implements BindingPortInterface  {
         socket.on('error',()=>{ /*ignore*/})            
         setTimeout( ()=>{ socket.removeAllListeners()}, 500);
 
+        this.socket = null;
         if (this.pendingRead) {
             this.pendingRead(new CanceledError('port is closed'))          
         }
 
 
             
-        this.socket = null;
     }
 
 
@@ -283,10 +300,10 @@ export class TCPPortBinding implements BindingPortInterface  {
         if (!this.data || this.data.length===0) {
             return new Promise((resolve, reject) => {
                 this.pendingRead = err => {
-                if (err) {
-                    return reject(err)
-                }
-                this.read(buffer, offset, length).then(resolve, reject)
+                    if (err) {
+                        return reject(err)
+                    }
+                    this.read(buffer, offset, length).then(resolve, reject)
                 }
             })
                           
@@ -297,21 +314,29 @@ export class TCPPortBinding implements BindingPortInterface  {
         const toCopy = this.data.slice(0, lengthToRead)
         const bytesRead = toCopy.copy(buffer,offset)
         this.data = this.data.slice(lengthToRead)
+        this.pendingRead = null;
 
         return ({buffer,bytesRead})
         
     }
 
     write(buffer: Buffer): Promise<void> {
+
         if (!this.isOpen) {
             throw new Error('Port is not open')
         }
 
-        this.writeOperation = (async () => {
+        this.writeOperation = new Promise<void> ( async (resolve,reject)=>{
             await resolveNextTick()
-            this.socket.write(buffer)
-        })()
+            //this.socket.on('error', reject)
+            this.socket.write(buffer,()=>{
+                //this.socket.off('error',reject)
+                resolve()
+            })
+            
+        })
 
+        
         return this.writeOperation;
     }
 

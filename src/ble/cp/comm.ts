@@ -3,7 +3,7 @@ import {CSP, CSP_MEASUREMENT,CSP_FEATURE}  from '../consts'
 import { matches } from '../utils';
 import { BleComms } from '../base/comms';
 import { LegacyProfile } from '../../antv2/types';
-import { BleProtocol } from '../types';
+import { BleProtocol, IBlePeripheralConnector } from '../types';
 
 
 export default class BleCyclingPowerDevice extends BleComms {
@@ -21,7 +21,7 @@ export default class BleCyclingPowerDevice extends BleComms {
     currentCrankData: CrankData = undefined
     prevCrankData: CrankData = undefined
     
-    isMatching(characteristics: string[]): boolean {
+    static isMatching(characteristics: string[]): boolean {
         if (!characteristics)
             return false;
 
@@ -31,14 +31,6 @@ export default class BleCyclingPowerDevice extends BleComms {
         return hasCPMeasurement && hasCPFeature
     }
 
-    async init(): Promise<boolean> {
-        try {
-            await super.init();
-        }
-        catch (err) {
-            return Promise.resolve(false)
-        }
-    }
 
     getProfile(): LegacyProfile {
         return 'Power Meter';
@@ -51,6 +43,10 @@ export default class BleCyclingPowerDevice extends BleComms {
     getServiceUUids(): string[] {
         return BleCyclingPowerDevice.services;
     }
+
+    subscribeAll(conn?: IBlePeripheralConnector):Promise<void> {
+        return  this.subscribeMultiple( [ CSP_MEASUREMENT ], conn)
+    }    
 
     parseCrankData(crankData) {
         if (!this.prevCrankData) this.prevCrankData= {revolutions:0,time:0, cntUpdateMissing:-1}

@@ -16,6 +16,7 @@ export interface IncyclistDeviceAdapter extends EventEmitter{
     getCapabilities(): IncyclistCapability[]
     hasCapability(capability:IncyclistCapability):boolean
     addCapability(capability:IncyclistCapability):void
+    isControllable():boolean
 
     getName(): string    
     getUniqueName(): string

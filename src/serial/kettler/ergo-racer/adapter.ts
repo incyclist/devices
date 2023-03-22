@@ -542,6 +542,7 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice   {
                     data = this.getCyclingMode().updateData(data);
                     this.internalData = data;
                     this.data = this.transformData(data,bikeData);
+                    this.emitData(this.data)
         
                 }
                 catch( err) {

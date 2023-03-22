@@ -305,6 +305,10 @@ export class ControllableAntAdapter extends AntAdapter implements Bike {
         this.user = {}
     }
 
+    isControllable(): boolean {
+        return true;
+    }
+    
     setUser(user: User): void {
         this.user = user;
         if (!user.weight)

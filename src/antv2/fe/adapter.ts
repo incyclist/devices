@@ -50,7 +50,8 @@ export default class AntFEAdapter extends ControllableAntAdapter{
     }
 
     createSensor(settings:AntDeviceSettings):ISensor {
-        return SensorFactory.create(AntFEAdapter.ANT_PROFILE_NAME, Number(settings.deviceID)) 
+        const sensor = SensorFactory.create(AntFEAdapter.ANT_PROFILE_NAME, Number(settings.deviceID)) 
+        return sensor
     }
 
     getName() {
@@ -98,10 +99,10 @@ export default class AntFEAdapter extends ControllableAntAdapter{
     }
 
 
-    async sendUpdate(request:UpdateRequest):Promise<void> {
+    async sendUpdate(request:UpdateRequest, forced=false):Promise<void> {
 
         // don't send any commands if we are pausing
-        if( this.paused || this.isReconnecting)
+        if( (this.paused || this.isReconnecting) && !forced)
             return;
 
         let isReset = request.reset && Object.keys(request).length===1 
@@ -147,7 +148,7 @@ export default class AntFEAdapter extends ControllableAntAdapter{
 
         super.onDeviceData(deviceData)
         
-        if (!this.started || this.isStopped())
+        if (!this.started || this.isStopped() || this.paused)
             return;
 
         if ( !this.ivDataTimeout && this.dataMsgCount>0) {        
@@ -168,9 +169,9 @@ export default class AntFEAdapter extends ControllableAntAdapter{
             incyclistData = this.getCyclingMode().updateData(incyclistData);   
 
             // transform data into structure expected by the application
-            const data =  this.transformData(incyclistData);                          
+            this.data =  this.transformData(incyclistData);                          
 
-            this.emitData(data)
+            this.emitData(this.data)
         }
         catch ( err) {            
             // istanbul ignore next
@@ -235,12 +236,18 @@ export default class AntFEAdapter extends ControllableAntAdapter{
 
 
     async start( props?: any ): Promise<any> {
-        if (this.started)
+        const wasPaused = this.paused 
+
+        this.paused = false;
+
+        if (this.started && !wasPaused) {
             return true;
+        }
+
+
         const connected = await this.connect()
         if (!connected)
             throw new Error(`could not start device, reason:could not connect`)
-
 
         this.startProps = props;
 
@@ -325,10 +332,24 @@ export default class AntFEAdapter extends ControllableAntAdapter{
                         const defaultBikeWeight = bikeType==='mountain' ? DEFAULT_BIKE_WEIGHT_MOUNTAIN : DEFAULT_BIKE_WEIGHT; 
                         const userWeight = args.userWeight || user.weight ||DEFAULT_USER_WEIGHT;
                         const bikeWeight = args.bikeWeight||defaultBikeWeight;
-    
+
                         status.userSent = status.userSent || await fe.sendUserConfiguration( userWeight, bikeWeight, args.wheelDiameter, args.gearRatio);
-                        status.slopeSent = status.slopeSent || await fe.sendTrackResistance(0.0)
-        
+                        if (!status.slopeSent) {
+                            const startRequest = this.getCyclingMode().getBikeInitRequest()
+                            if (startRequest){
+                                if (startRequest.targetPower!==undefined && startRequest.targetPower!==null) {
+                                    status.slopeSent = await fe.sendTargetPower(startRequest.targetPower) 
+                                }
+                                else if (startRequest.slope!==undefined && startRequest.slope!==null) {
+                                    status.slopeSent = await fe.sendTrackResistance(startRequest.slope)
+                                }                            
+                                else
+                                    status.slopeSent = true;
+                            }
+                            else {
+                                status.slopeSent = await fe.sendTrackResistance(0.0)                            
+                            }
+                        }
         
                     }
                     catch(err) {
@@ -399,6 +420,23 @@ export default class AntFEAdapter extends ControllableAntAdapter{
         }
 
 
+    }
+
+    setCyclingMode(mode: string | CyclingMode, settings?: any): void {
+        const modeChange = this.cyclingMode.getName()!==mode
+        super.setCyclingMode(mode,settings)
+
+        console.log( '~~~ setCyclingMode', mode, modeChange, this.started, this.stopped, this.paused, this.isReconnecting, this.data)
+        // update during current ride
+        if (modeChange && this.started && !this.stopped) {
+            if (this.getCyclingMode() instanceof AntFeERGCyclingMode) {
+                
+                const power = this.data.power
+                const request = power ? {targetPower:power} : this.getCyclingMode().getBikeInitRequest()
+                this.sendUpdate(request,true)
+                
+            }
+        }
     }
 
 }

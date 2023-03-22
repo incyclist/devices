@@ -7,7 +7,6 @@ import { DeviceProperties, DeviceSettings } from '../types/device';
 import { IncyclistCapability } from '../types/capabilities';
 import { DeviceData } from '../types/data';
 
-const DEFAULT_SETTINGS = { name:'Simulator',protocol:'Simulator', port: ''}
 const DEFAULT_PROPS = {isBot:false }
 
 interface SimulatorProperties extends DeviceProperties { 
@@ -135,6 +134,8 @@ export class Simulator extends ControllableDevice {
 
         
         this.startProps = props;
+        this.paused = false;
+
         if (props)
             this.setBikeProps(props)
         
@@ -256,6 +257,8 @@ export class Simulator extends ControllableDevice {
             return;
         }
 
+        if (this.paused)
+            return;
 
         const prevDist = this.data.distanceInternal;
         const d = this.data as DeviceData;
@@ -278,8 +281,6 @@ export class Simulator extends ControllableDevice {
         if (this.isBot) {
             this.logger.logEvent( {message:'Coach update',prevDist, prevTime, ...data})    
         }
-
-        this.paused = (this.data.speed===0);
 
         if (this.ignoreHrm) delete data.heartrate;
         

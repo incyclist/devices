@@ -95,7 +95,7 @@ export default class BleTacxFEAdapter extends BleFmAdapter {
                 this.started = true;
                 this.paused = false;
 
-                if (comms.isHrm() && !this.hasCapability(IncyclistCapability.HeartRate)) {
+                if (comms.features.heartrate && !this.hasCapability(IncyclistCapability.HeartRate)) {
                     this.capabilities.push(IncyclistCapability.HeartRate)
                 }
 

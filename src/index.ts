@@ -4,10 +4,12 @@ import {INTERFACE} from './types/device'
 import InterfaceFactory from './interfaces'
 import AdapterFactory from './adapters'
 import { IncyclistInterface,InterfaceProps } from './types/interface'
-import { IncyclistDeviceAdapter } from './types/adapter'
+import { IncyclistDeviceAdapter,Bike as Controllable } from './types/adapter'
+import { ControllableDevice as ControllableDeviceAdapter } from './base/adpater'
 import { IncyclistCapability } from './types/capabilities'
 import { DeviceData } from './types/data'
 import  {DeviceSettings} from './types/device'
+import  CyclingMode from './modes/cycling-mode'
 
 
 export * from './modes/cycling-mode'
@@ -22,10 +24,10 @@ export {
     INTERFACE,
     InterfaceFactory,InterfaceProps,
     DeviceSettings,
-
+    CyclingMode,
     AdapterFactory,
 
-    IncyclistDeviceAdapter,
+    IncyclistDeviceAdapter,Controllable,ControllableDeviceAdapter,
     DeviceData,
     IncyclistCapability,
 

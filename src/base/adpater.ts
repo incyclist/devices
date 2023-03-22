@@ -48,7 +48,9 @@ export default class IncyclistDevice extends EventEmitter implements IncyclistDe
     connect():Promise<boolean> { throw new Error('not implemented') }
     close():Promise<boolean> { throw new Error('not implemented') }
     check(): Promise<boolean> {throw new Error("Method not implemented.");}
-
+    isControllable(): boolean {
+        return false;
+    }   
     isEqual(settings: DeviceSettings):boolean {throw new Error("Method not implemented.");}
     getCapabilities(): IncyclistCapability[] { return this.capabilities }
     hasCapability(capability: IncyclistCapability):boolean {         
@@ -74,7 +76,8 @@ export default class IncyclistDevice extends EventEmitter implements IncyclistDe
     }
 
     logEvent( event) {
-        if (!this.logger)
+
+        if (!this.logger || this.paused)
             return;
         this.logger.logEvent(event)
     }
@@ -117,10 +120,11 @@ export default class IncyclistDevice extends EventEmitter implements IncyclistDe
     }
 
     canSendUpdate() {
-        if (this.getMaxUpdateFrequency()===-1)
+        const updateFrequency = this.getMaxUpdateFrequency()
+        if (updateFrequency===-1 || updateFrequency===undefined)
             return true
 
-        return (!this.lastUpdate || (Date.now()-this.lastUpdate)>this.updateFrequency)        
+        return (!this.lastUpdate || (Date.now()-this.lastUpdate)>updateFrequency)        
     }
 
     emitData(data:DeviceData) {
@@ -163,6 +167,10 @@ export class ControllableDevice extends IncyclistDevice implements Bike{
         this.user = {}
     }
 
+    isControllable(): boolean {
+        return true
+    }
+    
     setUser(user: User): void {
         this.user = user;
         if (!user.weight)
@@ -172,7 +180,7 @@ export class ControllableDevice extends IncyclistDevice implements Bike{
 
     setBikeProps(props:DeviceProperties) {
 
-        const {user,userWeight,bikeWeight} = props||{}
+        const {user,userWeight} = props||{}
         if (user) 
             this.setUser(user)
         if (userWeight)

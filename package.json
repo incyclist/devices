@@ -8,7 +8,7 @@
     "@serialport/parser-readline": "^10.5.0",
     "@serialport/stream": "^10.5.0",
     "gd-ant-plus": "^0.0.33",
-    "incyclist-ant-plus": "^0.1.17",
+    "incyclist-ant-plus": "^0.1.18",
     "win32filetime": "^1.0.2"
   },
   "peerDependencies": {

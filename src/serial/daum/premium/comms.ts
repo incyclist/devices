@@ -72,7 +72,6 @@ export default class Daum8i  {
     ====================================== Comstructor ==============================================
     */
     constructor( props: SerialCommProps) {
-
         
         this.props  = props || {};
 
@@ -80,7 +79,7 @@ export default class Daum8i  {
 
         this.serial = serial;
         this.path = validatePath(path);
-        this.logger = logger || process.env.DEBUG? DEBUG_LOGGER as EventLogger : new EventLogger('DaumPremium') ;
+        this.logger = logger || (process.env.DEBUG? DEBUG_LOGGER as EventLogger : new EventLogger('DaumPremium')) ;
 
         
 
@@ -138,6 +137,7 @@ export default class Daum8i  {
     
         try {
             const port = await this.serial.openPort(this.path)
+
             if (port!==null) {
                 this.connected = true;
                 this.sp = port;
@@ -216,12 +216,15 @@ export default class Daum8i  {
 
     // port was closed
     async onPortClose() {
-        await this.close()
+        this.connected = false;
+        if (this.sp) {
+            this.sp.removeAllListeners()
+            this.sp = null;
+        }
 
     }
 
     async onPortError(error) {
-
 
         this.logEvent({message:"port error:",port:this.path,error:error.message,connected:this.connected,state:this.getLogState()});
         this.error = error;
@@ -583,7 +586,10 @@ export default class Daum8i  {
                     done()
                 }); 
             }
-            catch(err) {}
+            catch(err) {
+                this.state.writeBusy =false;        
+                done()
+            }
     
         })
 

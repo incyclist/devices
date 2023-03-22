@@ -123,8 +123,8 @@ export default class DaumPremiumAdapter extends DaumAdapter{
     async check():Promise<boolean> {
         var info = {} as any
 
-        if (this.isStopped())
-            return false;
+        //if (this.isStopped())
+        //    return false;
 
         return new Promise(  async (resolve, reject ) => {
             this.logger.logEvent( {message:"checking device",port:this.getPort()});
@@ -223,6 +223,9 @@ export default class DaumPremiumAdapter extends DaumAdapter{
                     info.version = await this.bike.getProtocolVersion();
                 }
 
+                console.log('~~~~ starting Daum8i', this.getCyclingMode().getName(),this.getCyclingMode().getModeProperty('eppSupport'))
+
+                
                 if ( this.getCyclingMode().getModeProperty('eppSupport') ) {
                     const bikeType = this.getCyclingMode().getSetting('bikeType')
 

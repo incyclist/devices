@@ -60,7 +60,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 
     }
 
-    isMatching(characteristics: string[]): boolean {
+    static isMatching(characteristics: string[]): boolean {
         if (!characteristics)
             return false;
 
@@ -81,57 +81,17 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 
 
     subscribeAll(conn?: IBlePeripheralConnector):Promise<void> {
-        return new Promise ( resolve => {
-            const characteristics = [ CSC_MEASUREMENT, CSP_MEASUREMENT, INDOOR_BIKE_DATA, FTMS_STATUS,FTMS_CP]
-            const timeout = Date.now()+5500;
-
-            const iv = setInterval( ()=> {
-                const subscriptionStatus = characteristics.map( c => this.subscribedCharacteristics.find( s=> s===c)!==undefined)
-                const done = subscriptionStatus.filter(s=> s===true).length === characteristics.length;
-                if (done || Date.now()>timeout) {
-                    clearInterval(iv)
-                    resolve();
-                }
-
-
-
-            },100)
-
-            try {
-                const connector = conn || this.ble.peripheralCache.getConnector(this.peripheral)
-    
-    
-                
-                for (let i=0; i<characteristics.length;i++)
-                {
-                    const c = characteristics[i]
-                    const isAlreadySubscribed = connector.isSubscribed(c)            
-                    if ( !isAlreadySubscribed) {   
-                        connector.removeAllListeners(c);
-    
-                        connector.on(c, (uuid,data)=>{  
-                            this.onData(uuid,data)
-                        })
-                        connector.subscribe(c);
-                        this.subscribedCharacteristics.push(c)
-                    }
-                }
-    
-            }
-            catch (err) {
-                this.logEvent({message:'Error', fn:'subscribeAll()', error:err.message, stack:err.stack})
-    
-            }
             
-        })
+        const characteristics = [ CSC_MEASUREMENT, CSP_MEASUREMENT, INDOOR_BIKE_DATA, FTMS_STATUS,FTMS_CP, TACX_FE_C_RX]
+        return this.subscribeMultiple(characteristics,conn)
+
 
     }
 
 
     async init(): Promise<boolean> {
         try {
-            await super.initDevice();            
-            return true;
+            return await super.initDevice();                        
         }
         catch (err) {
             this.logEvent( {message:'error',fn:'TacxAdvancedFitnessMachineDevice.init()',error:err.message||err, stack:err.stack})                        
@@ -152,17 +112,6 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         return TacxAdvancedFitnessMachineDevice.services;
     }
 
-    isBike(): boolean {
-        return true;
-    }
-
-    isPower(): boolean {
-        return true;
-    }
-
-    isHrm(): boolean {
-        return this.hasService('180d');
-    }
     async requestControl(): Promise<boolean> {
         return true;
     }
