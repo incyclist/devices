@@ -137,11 +137,14 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
     static getInstance(props:SerialInterfaceProps) {
         const {ifaceName, binding,logger} = props;
 
+        console.log('~~~ new instance #1', ifaceName, SerialPortProvider.getInstance().getBinding(ifaceName))
+
         let instance = SerialInterface._instances.find( i => i.ifaceName===ifaceName)
         if (!instance) {
             if (binding)
                 instance = new SerialInterface(props)
             else {
+                console.log('~~~ new instance', ifaceName, SerialPortProvider.getInstance().getBinding(ifaceName))
                 instance = new SerialInterface({ifaceName,binding:SerialPortProvider.getInstance().getBinding(ifaceName),logger})
                 if (instance)
                     SerialInterface._instances.push(instance)
