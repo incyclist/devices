@@ -427,7 +427,7 @@ describe( 'fe adapter', ()=>{
                 await adapter.start({startupTimeout:100})         
             }
             catch(err) { error=err} 
-            expect(adapter.started).toBeTruthy()   
+            expect(adapter.started).toBeFalsy()   
             expect(error.message).toBe('could not start device, reason: could not send FE commands')              
         })
 
@@ -463,7 +463,7 @@ describe( 'fe adapter', ()=>{
                 await adapter.start({startupTimeout:100})         
             }
             catch(err) { error=err} 
-            expect(adapter.started).toBeTruthy()   
+            expect(adapter.started).toBeFalsy()   
             expect(error.message).toBe('could not start device, reason: could not send FE commands')              
         })
 

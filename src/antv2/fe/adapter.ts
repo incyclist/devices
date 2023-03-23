@@ -238,7 +238,9 @@ export default class AntFEAdapter extends ControllableAntAdapter{
     async start( props?: any ): Promise<any> {
         const wasPaused = this.paused 
 
-        this.paused = false;
+
+        if (wasPaused)
+            this.resume()
 
         if (this.started && !wasPaused) {
             return true;
@@ -291,11 +293,11 @@ export default class AntFEAdapter extends ControllableAntAdapter{
                 retry++;
 
                 if (!this.started) {
-                    this.logger.logEvent( {message:'start sensor', props })
+                    this.logEvent( {message:'start sensor', props })
                     this.started = await this.ant.startSensor(this.sensor,this.onDeviceData.bind(this))
 
                     if (this.started) {
-                        this.logger.logEvent( {message:'sensor started', props })
+                        this.logEvent( {message:'sensor started', props })
                         startSuccess++;
                     }
 
@@ -335,6 +337,7 @@ export default class AntFEAdapter extends ControllableAntAdapter{
 
                         status.userSent = status.userSent || await fe.sendUserConfiguration( userWeight, bikeWeight, args.wheelDiameter, args.gearRatio);
                         if (!status.slopeSent) {
+
                             const startRequest = this.getCyclingMode().getBikeInitRequest()
                             if (startRequest){
                                 if (startRequest.targetPower!==undefined && startRequest.targetPower!==null) {
@@ -343,8 +346,9 @@ export default class AntFEAdapter extends ControllableAntAdapter{
                                 else if (startRequest.slope!==undefined && startRequest.slope!==null) {
                                     status.slopeSent = await fe.sendTrackResistance(startRequest.slope)
                                 }                            
-                                else
+                                else {
                                     status.slopeSent = true;
+                                }
                             }
                             else {
                                 status.slopeSent = await fe.sendTrackResistance(0.0)                            
@@ -360,7 +364,6 @@ export default class AntFEAdapter extends ControllableAntAdapter{
                         catch {}
                         this.started = false;                
                     }
-    
                     success = status.userSent && status.slopeSent    
                 }
                 else {
@@ -375,17 +378,19 @@ export default class AntFEAdapter extends ControllableAntAdapter{
 
             
             if (success) {
-                this.logger.logEvent( {message:'start success'})
+                this.logEvent( {message:'start success'})
                 stopTimeoutCheck()
                 resolve(true)
             }
             else {
-                this.logger.logEvent( {message:'start failed'})
+                this.logEvent( {message:'start failed'})
                 stopTimeoutCheck()
-                if (this.started)
+                if (this.started) {                    
                     reject(new Error('could not start device, reason: could not send FE commands'))
+                }
                 else 
                     reject(new Error('could not start device, reason: could not connect'))
+                this.started = false;
 
             }
     
@@ -426,7 +431,6 @@ export default class AntFEAdapter extends ControllableAntAdapter{
         const modeChange = this.cyclingMode.getName()!==mode
         super.setCyclingMode(mode,settings)
 
-        console.log( '~~~ setCyclingMode', mode, modeChange, this.started, this.stopped, this.paused, this.isReconnecting, this.data)
         // update during current ride
         if (modeChange && this.started && !this.stopped) {
             if (this.getCyclingMode() instanceof AntFeERGCyclingMode) {

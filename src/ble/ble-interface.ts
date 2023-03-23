@@ -54,6 +54,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
     binding: BleBinding
     connectedDevices: BleAdapter[]
     sensorIsConnecting : boolean
+    emittingAdapters: {comms:BleComms, cb:(data)=>void}[] = []
     
     
     static _instance: BleInterface;
@@ -439,7 +440,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
             const {id,name,address} = getPeripheralInfo(peripheral)
 
             const settings = { protocol:DeviceClass.protocol, interface:'ble', id,name:peripheral.name||name, address:peripheral.address||address  }           
-            callback(settings, characteristics)
+            callback(settings, characteristics, peripheral)
         }
     }
        
@@ -619,6 +620,14 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
                     this.scanState.isScanning = false;
                     resolve(detected)
                 })
+
+                this.emittingAdapters.forEach( a=> {
+                    a.comms.off('data',a.cb)                    
+                    a.comms.unsubscribeAll()
+                })
+                this.emittingAdapters = []
+        
+
             }
 
             this.logEvent({message:`${opStr}: start scanning`, requested ,timeout})           
@@ -631,11 +640,23 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
                     return reject(err)
                 }
                 ble.on('discover', (p )=> {
-                    this.onPeripheralFound(p,(deviceSettings:BleDeviceSettings, characteristics: BleCharacteristic[])=>{                        
+                    this.onPeripheralFound(p, async (deviceSettings:BleDeviceSettings, characteristics: BleCharacteristic[],peripheral:BlePeripheral)=>{                        
                         if (deviceSettings) {
                             detected.push(deviceSettings)
-                            const device = this.getAdapterFactory().createInstance(deviceSettings)
+                            const device = this.getAdapterFactory().createInstance(deviceSettings) as BleAdapter
+                            
                             device.getComms().characteristics = characteristics
+                            device.getComms().peripheral = peripheral
+
+                            try {
+                                await device.getComms().subscribeAll()
+                                const cb = (deviceData) => { this.emit('data', deviceSettings, deviceData)}
+                                device.getComms().on('data', cb)
+                                this.emittingAdapters.push( {comms:device.getComms(),cb})
+                            }
+                            catch {}
+                            
+                            
                             this.emit('device',deviceSettings)
 
                         }
@@ -657,6 +678,8 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
         })            
     
     }
+
+    
     
     async stopScan() : Promise<boolean> {
         this.logEvent({message:'scan stop request'});
@@ -673,6 +696,13 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
         ble.removeAllListeners('discover');
         this.peripheralCache.handleStopScan()       
         ble.stopScanning();
+
+
+        this.emittingAdapters.forEach( a=> {
+            a.comms.unsubscribeAll()
+            a.comms.off('data',a.cb)
+        })
+        this.emittingAdapters = []
 
         this.scanState.isScanning = false;
         this.logEvent({message:'scan stop result: success'});
