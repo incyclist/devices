@@ -237,6 +237,7 @@ export default class AntFEAdapter extends ControllableAntAdapter{
 
     async start( props?: any ): Promise<any> {
         const wasPaused = this.paused 
+        this.startProps = props||{};
 
 
         if (wasPaused)
@@ -247,11 +248,11 @@ export default class AntFEAdapter extends ControllableAntAdapter{
         }
 
 
+        
         const connected = await this.connect()
         if (!connected)
             throw new Error(`could not start device, reason:could not connect`)
 
-        this.startProps = props;
 
         this.logEvent( {message:'starting device', props, isStarted: this.started, isReconnecting: this.isReconnecting})
 
@@ -304,7 +305,9 @@ export default class AntFEAdapter extends ControllableAntAdapter{
                     // on initial connection we wait for data before trying to send commands
                     if (this.started && startSuccess===1) {
                         try {
+                            console.log('~~~ Device: waiting for data', 'timeout=',timeout||'unknown')
                             await this.waitForData(timeout)
+                            console.log('~~~ Device: data received')
                         }
                         catch (err) {
                             stopTimeoutCheck();
