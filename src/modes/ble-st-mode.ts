@@ -38,7 +38,7 @@ export default class FtmsCyclingMode extends PowerBasedCyclingModeBase implement
     }
 
     getBikeInitRequest(): UpdateRequest {
-
+        this.prevRequest = {slope:0}
         return { slope:0};
     }    
 

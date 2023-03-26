@@ -26,5 +26,10 @@ export type IndoorBikeData = {
 export type IndoorBikeFeatures = {
     fitnessMachine: number;
     targetSettings: number;
+    power?: boolean;
+    heartrate?: boolean;
+    cadence?: boolean;
+    setSlope?: boolean;
+    setPower?: boolean;
 }
 

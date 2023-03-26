@@ -1,4 +1,3 @@
-import BleInterface from '../ble-interface';
 import {EventLogger} from 'gd-eventlog';
 import PowerMeterCyclingMode from '../../modes/power-meter';
 import FtmsCyclingMode from '../../modes/ble-st-mode';
@@ -20,6 +19,7 @@ import { BleFmComms } from '.';
 export default class BleFmAdapter extends BleControllableAdapter {
    
     distanceInternal: number = 0;
+    connectPromise: Promise<boolean>
 
     constructor( settings:BleDeviceSettings, props?:DeviceProperties) {
         super(settings,props);
@@ -57,12 +57,36 @@ export default class BleFmAdapter extends BleControllableAdapter {
     }
 
     getSupportedCyclingModes() : Array<any> {
-        return [FtmsCyclingMode,BleERGCyclingMode, PowerMeterCyclingMode]
+
+        const modes =[PowerMeterCyclingMode]
+
+        const features = (this.getComms() as BleFmComms)?.features
+        if (!features)
+            return [PowerMeterCyclingMode, FtmsCyclingMode,BleERGCyclingMode] 
+
+        if (features.setPower===undefined || features.setPower) 
+            modes.push(BleERGCyclingMode)
+
+        if (features.setSlope===undefined || features.setSlope) 
+            modes.push(FtmsCyclingMode)
+
+        return modes;
     }
    
  
     getDefaultCyclingMode(): CyclingMode {
-        return new FtmsCyclingMode(this);
+
+        const features = (this.getComms() as BleFmComms)?.features
+        if (!features)
+            return new FtmsCyclingMode(this);
+
+        if (features.setSlope===undefined || features.setSlope) 
+            return new FtmsCyclingMode(this);
+
+        if (features.setPower===undefined || features.setPower) 
+            return new BleERGCyclingMode(this)
+
+        return new PowerMeterCyclingMode(this);
     }
 
     mapData(deviceData:IndoorBikeData): IncyclistBikeData{
@@ -82,6 +106,7 @@ export default class BleFmAdapter extends BleControllableAdapter {
         data.pedalRpm = (deviceData.cadence!==undefined? deviceData.cadence :data.pedalRpm) ;
         data.time = (deviceData.time!==undefined? deviceData.time :data.time);
         data.isPedalling = data.pedalRpm>0 || (data.pedalRpm===undefined && data.power>0);
+        data.heartrate = deviceData.heartrate || data.heartrate
         return data;
     }
 
@@ -104,6 +129,7 @@ export default class BleFmAdapter extends BleControllableAdapter {
             power: bikeData.power!==undefined ? Math.round(bikeData.power) : undefined,
             cadence: bikeData.pedalRpm!==undefined ? Math.round(bikeData.pedalRpm) : undefined,
             distance,
+            heartrate: bikeData.heartrate,
             timestamp: Date.now()
         } as DeviceData;
 
@@ -112,100 +138,188 @@ export default class BleFmAdapter extends BleControllableAdapter {
 
 
     async start( props: BleStartProperties={} ): Promise<any> {
-        if (this.started)
+        const wasPaused = this.paused
+
+        this.resume()
+
+        if (this.started && !wasPaused)
             return true;
 
-
-
         
-        this.logger.logEvent({message: 'start requested', protocol:this.getProtocolName(),props})
+        this.logEvent({message: 'start requested', ...this.getSettings(),  protocol:this.getProtocolName(),props })
 
-        const {restart} = props;
+        const {restart=wasPaused} = props;
 
-        if ( !restart && this.ble.isScanning())
-            await this.ble.stopScan();
+        if ( !restart && this.ble.isScanning() && !this.getComms().isConnected()) {
+            //await this.ble.stopScan();
+        }
+
+        let scanOnly = props.scanOnly
+        if (this.ble.isScanning() && this.getComms().isConnected()) {
+            scanOnly = true;
+        }
+        else {
+
+            const {timeout=20000} = props||{}            
+
+            if (!this.connectPromise)
+                this.connectPromise = this.connect()
+            const res = await Promise.race( [ 
+                this.connectPromise.then((connected)=> {
+                    this.connectPromise = undefined;
+                    return {connected, reason:connected?null:'could not connect' }
+                }) ,
+                sleep(timeout).then(()=> ({connected: false, reason:'timeout'})) 
+            ])
+
+            const connected = res.connected
+            if (!connected) {                
+                throw new Error(`could not start device, reason:${res.reason}`)   
+            }
             
-        const connected = await this.connect()
-        if (!connected)
-            throw new Error(`could not start device, reason:could not connect`)
+            
+        }
+            
             
         try {
+            
             const comms = this.device as BleFmComms
             if (comms) {                
 
-                const mode = this.getCyclingMode()
-                if (mode && mode.getSetting('bikeType')) {
-                    const bikeType = mode.getSetting('bikeType').toLowerCase();
-                    comms.setCrr(cRR);
-                    
-                    switch (bikeType)  {
-                        case 'race': comms.setCw(cwABike.race); break;
-                        case 'triathlon': comms.setCw(cwABike.triathlon); break;
-                        case 'mountain': comms.setCw(cwABike.mountain); break;
-                    }        
-                }
+                if (!scanOnly) {
 
-                let hasControl = await comms.requestControl();
-                if ( !hasControl) {
-                    let retry = 1;
-                    while(!hasControl && retry<3) {
-                        await sleep(1000);
-                        hasControl = await comms.requestControl();
-                        retry++;
+                    const mode = this.getCyclingMode()
+                    if (mode && mode.getSetting('bikeType')) {
+                        const bikeType = mode.getSetting('bikeType').toLowerCase();
+                        comms.setCrr(cRR);
+                        
+                        switch (bikeType)  {
+                            case 'race': comms.setCw(cwABike.race); break;
+                            case 'triathlon': comms.setCw(cwABike.triathlon); break;
+                            case 'mountain': comms.setCw(cwABike.mountain); break;
+                        }        
                     }
+
+                    let hasControl = await comms.requestControl();
+                    if ( !hasControl) {
+                        let retry = 1;
+                        while(!hasControl && retry<3) {
+                            await sleep(1000);
+                            hasControl = await comms.requestControl();
+                            retry++;
+                        }
+                    }
+                    if (!hasControl)
+                        throw new Error( 'could not establish control')
+
+                
+                    const startRequest = this.getCyclingMode().getBikeInitRequest()
+                    await this.sendUpdate(startRequest);
                 }
-                if (!hasControl)
-                    throw new Error( 'could not establish control')
 
-               
-                const startRequest = this.getCyclingMode().getBikeInitRequest()
-                await this.sendUpdate(startRequest);
+                if (!this.started && !wasPaused) {
+                    comms.on('data', (data)=> {
+                        this.onDeviceData(data)
+                        
+                    })
+                    comms.on('disconnected', this.emit)
+                }
 
-                comms.on('data', (data)=> {
-                    this.onDeviceData(data)
-                    
-                })
-                comms.on('disconnected', this.emit)
+                const before = this.capabilities.join(',')
 
-                if (comms.isHrm() && !this.hasCapability(IncyclistCapability.HeartRate)) {
+                if (comms.features.heartrate && !this.hasCapability(IncyclistCapability.HeartRate)) {
                     this.capabilities.push(IncyclistCapability.HeartRate)
                 }
+                if (comms.features.cadence && !this.hasCapability(IncyclistCapability.Cadence)) {
+                    this.capabilities.push(IncyclistCapability.Cadence)
+                }
+                if (comms.features.power && !this.hasCapability(IncyclistCapability.Power)) {
+                    this.capabilities.push(IncyclistCapability.Power)
+                }
+                const after = this.capabilities.join(',')
 
+                if (before !== after) {
+                    this.emit('device-info', this.getSettings(), {capabilities:this.capabilities})
+                }
+
+                
+
+                
                 this.resetData();      
                 this.stopped = false;    
                 this.started = true;
-                this.paused = false;
+                this.resume()
                 
                 return true;
             }    
         }
         catch(err) {
-            this.logger.logEvent({message: 'start result: error', error: err.message, profile:this.getProfile()})
+            this.logEvent({message: 'start result: error', error: err.message, profile:this.getProfile()})
             throw new Error(`could not start device, reason:${err.message}`)
 
         }
     }
 
     async sendUpdate(request) {
-        // don't send any commands if we are pausing
-        if( this.paused ||!this.device)
+        // don't send any commands if we are pausing, unless mode change was triggered
+        if( this.paused  || !this.device)
             return;
+    
+        
+        try {
 
-        const update = this.getCyclingMode().sendBikeUpdate(request)
-        this.logger.logEvent({message: 'send bike update requested',profile:this.getProfile(), update, request})
+            const update = this.getCyclingMode().sendBikeUpdate(request)
+            this.logEvent({message: 'send bike update requested',profile:this.getProfile(), update, request})
 
-        const device = this.device as BleFitnessMachineDevice
-        if (update.slope!==undefined) {
-            await device.setSlope(update.slope)
-        } 
+            const device = this.device as BleFitnessMachineDevice
 
-        if (update.targetPower!==undefined) {
-            await device.setTargetPower(update.targetPower)
-        } 
+            if (update.slope!==undefined) {
+                await device.setSlope(update.slope)
+            } 
+
+            if (update.targetPower!==undefined) {
+                await device.setTargetPower(update.targetPower)
+            } 
+
+        }
+        catch(err) {
+            this.logEvent({message:'error', fn:'sendUpdate()', request, error:err.message, stack:err.stack})
+        }
 
         //this.logger.logEvent({message:'sendUpdate',request});    
         
     } 
+
+    setCyclingMode(mode: string | CyclingMode, settings?: any): void {
+        const modeChange = this.cyclingMode.getName()!==mode;
+        const prevMode = this.getCyclingMode();
+
+        super.setCyclingMode(mode,settings)
+
+        const isPaused = this.isPaused()
+        
+        
+        // update during current ride
+        if (modeChange && this.started && !this.stopped) {
+            if (prevMode instanceof FtmsCyclingMode) {
+
+                const power = this.data.power
+                const request = power ? {targetPower:power} : this.getCyclingMode().getBikeInitRequest()
+
+                // unpause, so that updates can be sent
+                if (isPaused)
+                    this.resume()
+                this.sendUpdate(request).then().catch().finally( ()=> {
+                    // if we were paused, pause again
+                    if (isPaused)
+                        this.pause()
+                })
+                
+            }
+        }
+
+    }
+
 
 }
 

@@ -1,10 +1,11 @@
 import EventEmitter from "events";
 import { EventLogger } from "gd-eventlog";
 import { LegacyProfile } from "../../antv2/types";
+import { sleep } from "../../utils/utils";
 import BleInterface from "../ble-interface";
 import BlePeripheralConnector from "../ble-peripheral";
-import { BleCharacteristic, BleCommsConnectProps, BleDetectedDevice, BleDeviceConstructProps, BleDeviceInfo, BleDeviceSettings, BlePeripheral, BleProtocol, BleWriteProps, ConnectState } from "../types";
-import { getPeripheralInfo, matches, uuid } from "../utils";
+import { BleCharacteristic, BleCommsConnectProps, BleDeviceConstructProps, BleDeviceInfo, BleDeviceSettings, BlePeripheral, BleProtocol, BleWriteProps, ConnectState, IBlePeripheralConnector } from "../types";
+import { matches, uuid } from "../utils";
 
 const CONNECT_WAIT_TIMEOUT = 10000;
 const BLE_TIMEOUT = 1000;
@@ -30,12 +31,13 @@ export class BleComms extends  EventEmitter  {
     static protocol: BleProtocol;
 
     id: string;
+    paused: boolean;
     address: string;
     name: string;
     services: string[];
     ble: BleInterface;
     peripheral?: BlePeripheral;
-    characteristics = []
+    characteristics:BleCharacteristic[] = []
     state?: string;
     logger?: EventLogger;
     deviceInfo: BleDeviceInfo = {};
@@ -61,6 +63,7 @@ export class BleComms extends  EventEmitter  {
         this.writeQueue = [];
         this.workerIv = null;
         this.prevMessages = []
+        this.paused = false;
 
         if (props.peripheral) {
             const {id,address,advertisement,state} = props.peripheral;
@@ -90,6 +93,13 @@ export class BleComms extends  EventEmitter  {
         return this.connectState.isConnected;
     }
 
+    pause() {
+        this.paused = true;
+    }
+
+    resume() {
+        this.paused = false;
+    }
 
     getServiceUUids(): string[] {
         throw new Error("Method not implemented.");
@@ -111,6 +121,9 @@ export class BleComms extends  EventEmitter  {
     }
 
     logEvent(event) {
+        if (this.paused)
+            return;
+
         if ( this.logger) {
             this.logger.logEvent(event)
         }
@@ -127,12 +140,13 @@ export class BleComms extends  EventEmitter  {
         this.ble = ble;
     }
 
-    isMatching(characteristics: string[]) {
+    static isMatching(characteristics: string[]) {
         return true;
     }
 
     reset() {
-
+        if (this.connectState.isConnecting)
+            this.ble.stopConnectSensor()
     }
 
     cleanupListeners():void { 
@@ -141,34 +155,52 @@ export class BleComms extends  EventEmitter  {
             this.characteristics = []
         }
         else {
-            const connector = this.ble.peripheralCache.getConnector(this.peripheral);
+            if (this.peripheral) {
+                const connector = this.ble.peripheralCache.getConnector(this.peripheral);
 
-            this.characteristics.forEach( c => {            
-                connector.removeAllListeners(uuid(c.uuid));
-            })
-            //this.characteristics = []
+                this.characteristics.forEach( c => {            
+                    connector.removeAllListeners(uuid(c.uuid));
+                })
+    
+            }
+            else  {
+                this.characteristics = []
+            }
         }    
     }
 
-    onDisconnect() { 
+    async onDisconnect() { 
         this.logEvent( {message:'device disconnected', address:this.address, profile:this.getProfile()})
         this.state = "disconnected"
+
+        const wasConnecting = this.connectState.isConnecting
+
+        this.connectState.isConnecting = false;
+        this.connectState.isConnected = false;
 
         // reconnect
         if ( !this.connectState.isDisconnecting) {
             this.peripheral.state= 'disconnected'
-            this.connectState.isConnecting = false;
-            this.connectState.isConnected = false;
 
             this.cleanupListeners();
             this.subscribedCharacteristics  = [];
             
             this.ble.onDisconnect(this.peripheral)
 
-            // reconnect
-            this.connect( {reconnect:true}) 
+            if (wasConnecting) {
+                this.emit('connection-failed')
+                // reconnect after 1.5s
+                // await sleep(1500)
+                // this.connect( {reconnect:true}) 
+            
+            }
+            else {
+                this.connect( {reconnect:true}) 
+            }
+    
+
         }
-        this.emit('disconnected')    
+        //this.emit('disconnected')    
     }
 
 
@@ -225,32 +257,123 @@ export class BleComms extends  EventEmitter  {
     async connectPeripheral  (peripheral: BlePeripheral)   {
         this.connectState.isConnecting = true;
 
+        let disconnectSignalled = false
 
-        try {
-            const connector = this.ble.peripheralCache.getConnector(peripheral)
+        return new Promise<boolean>( async (done) => {
+            try {
+                const connector = this.ble.peripheralCache.getConnector(peripheral)
 
-            connector.on('disconnect',()=>{this.onDisconnect()})
-            await connector.connect();
-            await connector.initialize();
-            await this.subscribeAll(connector)
+                const disconnectHandler = ()=>{                
+                    this.logEvent( {message:'device disconnected', address:this.address, profile:this.getProfile()})
+                    this.state = "disconnected"
+                    disconnectSignalled = true;
+            
+                    this.cleanupListeners();
+                    this.subscribedCharacteristics  = [];
+                    this.connectState.isConnecting = false;
+                    this.connectState.isConnected = false;                    
+                    this.ble.onDisconnect(this.peripheral)
+                    done(false)                          
+                }
 
-            this.connectState.isConnected = true;
-            this.state = "connected"
-            this.emit('connected')
+                connector.removeAllListeners('disconnect')
+                connector.once('disconnect',disconnectHandler)
+    
+                await connector.connect();
+    
+                // we might have received a disconnect during connnection request
+                if (disconnectSignalled)
+                    return;
+                
+                await connector.initialize();   
+                // we might have received a disconnect during initialization request
+                if (disconnectSignalled)
+                    return;
 
-            await this.init();
 
-        }
-        catch (err) {
-            this.logEvent({message:'Error', fn:'connectPeripheral()', error:err.message, stack:err.stack})
+                await this.subscribeAll(connector)    
+                // we might have received a disconnect during subscribe request
+                if (disconnectSignalled)
+                    return;
+                this.connectState.isConnected = true;
+    
+                this.state = "connected"
+                this.emit('connected')
+    
+                // if we have reached this point, we should have a stable connection
+                // all further disconnects should be handled 
+                connector.removeAllListeners('disconnect')
+                connector.on('disconnect', this.onDisconnect.bind(this))
+                
+                const success = await this.init();
+                done(success)
+                return 
+    
+            }
+            catch (err) {
+                this.logEvent({message:'Error', fn:'connectPeripheral()', error:err.message, stack:err.stack})
+    
+            }
+            this.connectState.isConnecting = false;
 
-        }
-        this.connectState.isConnecting = false;
+            if (disconnectSignalled)
+                return;
+
+            done(true);
+    
+        } )
+
                   
 
     }
 
+    subscribeMultiple( characteristics: string[], conn?: IBlePeripheralConnector):Promise<void> {
+        return new Promise ( resolve => {
+            
+
+            try {
+                const connector = conn || this.ble.peripheralCache.getConnector(this.peripheral)
     
+                const subscribeSingle = (c) => {
+                    connector.removeAllListeners(c);
+                    connector.on(c, (uuid,data)=>{  
+                        this.onData(uuid,data)
+                    })
+        
+                    return connector.subscribe(c).then ( res => {
+                        this.subscribedCharacteristics.push(c)
+                        return res;
+                    }).catch(err => {
+                        this.logEvent( {message:'subscription failed', characteristic:c, error:err.message})
+                    });
+                    
+
+                }
+                
+                const promises = characteristics
+                    
+                    .filter(c => {
+                        if (this.characteristics) {
+                            const existing = this.characteristics.find( rc=> rc.uuid===c || uuid(rc.uuid)===c );
+                            if (!existing)
+                                return false;
+                        }
+                        const isAlreadySubscribed = connector.isSubscribed(c)    
+                        return !isAlreadySubscribed
+                    })
+                    .map (c => subscribeSingle(c))
+
+                Promise.all( promises).then( ()=> resolve() )
+    
+            }
+            catch (err) {
+                this.logEvent({message:'Error', fn:'subscribeMultiple()', error:err.message, stack:err.stack})    
+            }
+            
+        })
+
+    }    
+
 
     async subscribeAll(conn?: BlePeripheralConnector):Promise<void> {
         
@@ -273,9 +396,28 @@ export class BleComms extends  EventEmitter  {
 
 
     async connect(props?: BleCommsConnectProps): Promise<boolean> {
+
+        if (!this.ble.isConnected()) {
+            try {
+                await this.ble.connect()
+                if (!this.ble.isConnected())
+                    return false;
+            }
+            catch(err) {
+                return false;
+            }
+        }
+
+        
+        await sleep( Math.random()*100)
+
+        await this.ble.waitForSensorConnectionFinish()
+        this.ble.startConnectSensor()
+
+
         const {reconnect} = props||{}
         try {
-            this.logEvent( {message: reconnect? 'reconnect': 'connect',address: this.peripheral? this.peripheral.address: this.address, state:this.connectState})
+            this.logEvent( {message: reconnect? 'reconnect': 'connect',name:this.name, id:this.id, address: this.peripheral? this.peripheral.address: this.address, state:this.connectState})
             if (!reconnect && this.connectState.isConnecting) {
                 await this.waitForConnectFinished(CONNECT_WAIT_TIMEOUT)
             }
@@ -289,9 +431,12 @@ export class BleComms extends  EventEmitter  {
                 }
                 catch(err) {
                     this.logEvent({message:'cannot reconnect', error: err.message||err })
+
+                    this.ble.stopConnectSensor()
                     return false;
                 }
 
+                this.ble.stopConnectSensor()
                 return true;
             }
 
@@ -307,14 +452,19 @@ export class BleComms extends  EventEmitter  {
                     this.logEvent({message:'error',fn:'connect()', error:err.message, stack:err.stack})
                 }
             }
-    
+
             if ( this.peripheral) {
                 const {id,address,advertisement } = this.peripheral;
                 const name = advertisement?.localName;
                 this.logEvent({message:'connect requested',mode:'peripheral', device: { id, name, address:address} })
-                await this.connectPeripheral(this.peripheral)
-                this.logEvent({message:'connect result: success',mode:'peripheral', device: { id, name, address} })
-                return true;            
+                const connected = await this.connectPeripheral(this.peripheral)
+                this.logEvent({message:'connect result: ',connected,mode:'peripheral', device: { id, name, address} })
+
+                this.connectState.isConnecting = false;
+                this.connectState.isConnected = connected;
+
+                this.ble.stopConnectSensor()
+                return connected;            
             }
             
             else {                
@@ -331,22 +481,26 @@ export class BleComms extends  EventEmitter  {
                             await this.ble.stopScan();
                         }            
         
-                        const peripheral = await this.ble.scanForDevice(this,{}) ;
+                        const peripheral = await this.ble.scanForDevice(this,{}).catch( ()=> null) ;
+
+
                         if ( peripheral) {
                             
                             this.peripheral = peripheral;
-                            await this.connectPeripheral(this.peripheral)
-                            this.logEvent({message:'connect result: success',mode:'device', device:  { id, name, address}  })
+                            const connected = await this.connectPeripheral(this.peripheral)
+                            this.logEvent({message:'connect result: ',connected,mode:'device', device:  { id, name, address}  })
 
                             this.connectState.isConnecting = false;
-                            this.connectState.isConnected = true;
+                            this.connectState.isConnected = connected;
             
 
-                            return true;
+                            this.ble.stopConnectSensor()
+                            return connected;
                         }
         
                     }
                     catch (err) {
+                        console.log('~~~ ERROR',err)
                         error = err;
                     }
                     
@@ -355,6 +509,7 @@ export class BleComms extends  EventEmitter  {
                 this.logEvent({message:'connect result: failure',mode:'device', device:  { id, name, address} , error:error.message, stack:error.stack })
                 this.connectState.isConnecting = false;
                 this.connectState.isConnected = false;
+                this.ble.stopConnectSensor()
                 return false;
             }
     
@@ -363,6 +518,7 @@ export class BleComms extends  EventEmitter  {
             this.connectState.isConnecting = false;
             this.connectState.isConnected = false;
             this.logEvent({message:'connect result: error', error:err.message})
+            this.ble.stopConnectSensor()
             return false;
 
         }
@@ -374,6 +530,7 @@ export class BleComms extends  EventEmitter  {
         const {id,name,address } = this;
         this.logEvent({message:'disconnect requested',device: { id, name, address} })
 
+        
 
         this.connectState.isDisconnecting = true;
 

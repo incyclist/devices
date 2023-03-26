@@ -102,11 +102,10 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
             try {
                 const device = new this.Binding( {...this.props, logger:this.logger} );
 
-        
                 const opened = await device.open();
                 if (!opened) {
                     this.logEvent({message:'ANT+ not connected'})
-                    this.connectState.connecting = false;
+                    this.connectState.connecting = false;                    
                     return false;
                 }
 
@@ -119,6 +118,7 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
                 return true
             }
             catch (err) {
+                this.logEvent({message:'error', fn:'connect', error:err.message, stack:err.stack})
                 this.connectState.connected = false;
                 this.connectState.connecting = false;
                 return false;
@@ -160,11 +160,6 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         this.logEvent({message:'starting scan ..'})
 
         const detected = [];
-        if (!this.isConnected()) {
-            const connected = await this.connect()
-            if (!connected)
-                return [];   
-        }
 
         const onDetected = (profile:string,deviceID:number)=>{
             if (deviceID && detected.find( s => s.deviceID===deviceID && s.profile===profile)===undefined) {
@@ -182,6 +177,12 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
 
         if (!this.activeScan) {   
 
+            while (!this.isConnected()) {
+                const connected = await this.connect()
+                if (!connected)
+                    return [];   
+            }
+    
             channel = this.device.getChannel()
             channel.setProps({logger:this.logger})
             if (!channel) 
@@ -264,7 +265,7 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
             return stopped
         }
         catch(err) {
-            console.log('ERROR',err)
+            this.logEvent({message:'error', fn:'stopScan()', error:err.message, stack:err.stack})
             return false;
         }       
 
@@ -309,8 +310,10 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
     }
 
     async stopSensor(sensor:ISensor): Promise<boolean> {
-        if (!this.isConnected() || !this.device) 
-        return true
+
+        if (!this.isConnected() || !this.device) {
+            return true
+        }
 
         const channel = sensor.getChannel() as Channel
         if (channel) {
@@ -329,7 +332,9 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
                 }
                 channel.flush();
                 channel.removeAllListeners('data')
-                return await channel.stopSensor(sensor)
+                
+                const stopped = await channel.stopSensor(sensor)
+                return stopped
             }
             catch(err) {
                 this.logEvent( {message:'could not stop sensor', error:err.message||err, stack:err.stack})

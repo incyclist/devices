@@ -1,6 +1,6 @@
 import EventEmitter from "events";
 import { EventLogger } from "gd-eventlog";
-import { DeviceProperties, DeviceSettings, IncyclistScanProps } from "../types/device";
+import { DeviceProperties, DeviceSettings, DeviceStartProperties, IncyclistScanProps } from "../types/device";
 import { InterfaceProps } from "../types/interface";
 
 export type BleProtocol = 'hr' | 'fm' | 'cp' | 'tacx' | 'wahoo' | 'elite'
@@ -51,8 +51,11 @@ export interface BleDeviceProperties extends DeviceProperties {
     gearRatio?:number
 }
 
-export interface BleStartProperties extends BleDeviceProperties {
+export interface BleStartProperties extends DeviceStartProperties {
+    wheelDiameter?:number, 
+    gearRatio?:number
     restart?:boolean
+    scanOnly?:boolean
 }
 
 export interface BleInterfaceProps extends InterfaceProps {

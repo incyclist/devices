@@ -1,13 +1,12 @@
 {
   "name": "incyclist-devices",
-  "version": "2.0.0-beta.1",
+  "version": "2.0.3",
   "dependencies": {
     "@serialport/bindings-interface": "^1.2.2",
     "@serialport/parser-byte-length": "^9.0.1",
     "@serialport/parser-delimiter": "^9.0.1",
     "@serialport/parser-readline": "^10.5.0",
     "@serialport/stream": "^10.5.0",
-    "gd-ant-plus": "^0.0.33",
     "incyclist-ant-plus": "^0.1.18",
     "win32filetime": "^1.0.2"
   },

@@ -99,6 +99,25 @@ describe('PowerMeterMode', () => {
             
         })
 
+        test('accelerate from 30km/h with 307W ,0%, 70kg for 30s re more', ()=>{
+            let res
+            mode.data.speed = 30;
+            res = mode.calculateSpeedAndDistance(307, 0,70, 30)                        
+            expect(res.speed).toBeCloseTo(40,0)
+            expect(res.distance).toBe(0)
+
+            mode.data.speed = 30;
+            res = mode.calculateSpeedAndDistance(307, 0,70, 300)                        
+            expect(res.speed).toBeCloseTo(40,0)
+            expect(res.distance).toBe(0)
+
+            mode.data.speed = 30;            
+            res = mode.calculateSpeedAndDistance(307, 0,70, 29.99)                        
+            expect(res.distance).toBeGreaterThan(0)
+
+        })
+
+
     })
     describe ( 'calculatePowerAndDistance', () => { 
 

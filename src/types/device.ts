@@ -1,4 +1,3 @@
-import EventEmitter from "events"
 import { EventLogger } from "gd-eventlog"
 import { IncyclistInterface } from "./interface"
 import { User } from "./user"
@@ -23,6 +22,10 @@ export type DeviceProperties = {
     user?:User
     userWeight?: number;
     bikeWeight?: number
+}
+
+export interface DeviceStartProperties extends DeviceProperties {
+    timeout?: number
 }
 
 export type IncyclistScanProps = {

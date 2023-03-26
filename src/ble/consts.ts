@@ -12,6 +12,8 @@ export const CSP               = '1818'
 export const CSP_MEASUREMENT   = '2a63';
 export const CSP_FEATURE       = '2a65'
 
+export const HR_MEASUREMENT    = '2a37';
+
 export const CSC               = '1816'
 export const CSC_MEASUREMENT   = '2a5b';
 

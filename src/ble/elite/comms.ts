@@ -3,7 +3,7 @@ import { LegacyProfile } from "../../antv2/types";
 import { BleComms } from "../base/comms";
 import { CSP_FEATURE, CSP_MEASUREMENT, ELITE_TRAINER_SVC } from "../consts";
 import { CrankData, PowerData } from "../cp";
-import { BleProtocol } from "../types";
+import { BleProtocol, IBlePeripheralConnector } from "../types";
 import { matches } from "../utils";
 
 export default class BleEliteDevice extends BleComms {
@@ -25,7 +25,7 @@ export default class BleEliteDevice extends BleComms {
         super(props)
     }
 
-    isMatching(characteristics: string[]): boolean {
+    static isMatching(characteristics: string[]): boolean {
         if (!characteristics)
             return false;
 
@@ -33,15 +33,6 @@ export default class BleEliteDevice extends BleComms {
         const hasCPFeature = characteristics.find( c => c===CSP_FEATURE)!==undefined
         
         return hasCPMeasurement && hasCPFeature
-    }
-
-    async init(): Promise<boolean> {
-        try {
-            await super.init();
-        }
-        catch (err) {
-            return Promise.resolve(false)
-        }
     }
 
     getProfile(): LegacyProfile {
@@ -146,6 +137,16 @@ export default class BleEliteDevice extends BleComms {
         return true;
   
     }
+
+    subscribeAll(conn?: IBlePeripheralConnector):Promise<void> {
+        
+        const characteristics = [ CSP_MEASUREMENT  ]
+
+
+        return this.subscribeMultiple(characteristics,conn)
+
+    }
+
 
     reset() {
         this.instantaneousPower = undefined;

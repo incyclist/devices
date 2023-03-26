@@ -1,13 +1,13 @@
 
-import IncyclistDevice,{ ControllableDevice, DEFAULT_BIKE_WEIGHT, DEFAULT_PROPS, DEFAULT_USER_WEIGHT } from "../../base/adpater";
+import IncyclistDevice,{ DEFAULT_BIKE_WEIGHT, DEFAULT_PROPS, DEFAULT_USER_WEIGHT } from "../../base/adpater";
 import CyclingMode, { IncyclistBikeData } from "../../modes/cycling-mode";
 import { Bike } from "../../types/adapter";
 import { DeviceData } from "../../types/data";
-import { DeviceProperties, DeviceSettings } from "../../types/device";
+import { DeviceProperties } from "../../types/device";
 import { User } from "../../types/user";
 import { BleComms } from "./comms";
 import BleInterface from "../ble-interface";
-import { BleDeviceProperties, BleDeviceSettings } from "../types";
+import { BleDeviceProperties, BleDeviceSettings, BleStartProperties } from "../types";
 
 const INTERFACE_NAME = 'ble'
 
@@ -40,7 +40,7 @@ export default class BleAdapter  extends IncyclistDevice  {
     getUniqueName(): string {
         const settings:BleDeviceSettings = this.settings as BleDeviceSettings
 
-        if (!settings.address)
+        if (settings.name.match(/[0-9]/g) || settings.address===undefined)      
             return this.settings.name
         else {
             const addressHash = settings.address.substring(0,2) + settings.address.slice(-2)
@@ -85,7 +85,6 @@ export default class BleAdapter  extends IncyclistDevice  {
         return this.device
     }
 
-    check(): Promise<boolean> {throw new Error("Method not implemented.");}
 
     isEqual(settings: BleDeviceSettings): boolean {
         const as = this.settings as BleDeviceSettings;
@@ -97,7 +96,10 @@ export default class BleAdapter  extends IncyclistDevice  {
             return (as.protocol===settings.protocol && as.profile===settings.profile && as.name===settings.name)
         }
         else {
-            return (as.protocol===settings.protocol && (as.name===settings.name || as.address===settings.address || as.id===settings.id)  ) 
+            return (as.protocol===settings.protocol && (
+                (as.name && settings.name && as.name===settings.name) || 
+                (as.address && settings.address && as.address===settings.address) || 
+                (as.id && settings.id && as.id===settings.id))  ) 
         }
 
     }
@@ -144,14 +146,16 @@ export default class BleAdapter  extends IncyclistDevice  {
         if (!this.started ||!this.canSendUpdate())
             return;       
 
-        this.logger.logEvent( {message:'onDeviceData',data:deviceData})        
+        this.logEvent( {message:'onDeviceData',data:deviceData, isControllable:(this instanceof BleControllableAdapter)})        
 
-        if (this instanceof ControllableDevice) {
+        if (this instanceof BleControllableAdapter) {
+            
             // transform data into internal structure of Cycling Modes
-            let incyclistData = this.mapData(deviceData) as IncyclistBikeData       
+            const mappedData = this.mapData(deviceData) as IncyclistBikeData       
             
             // let cycling mode process the data
-            incyclistData = this.getCyclingMode().updateData(incyclistData);                    
+            const incyclistData = this.getCyclingMode().updateData(mappedData);    
+                            
 
             // transform data into structure expected by the application
             this.data =  this.transformData(incyclistData);                  
@@ -180,15 +184,15 @@ export default class BleAdapter  extends IncyclistDevice  {
         this.props = props
     }
 
-    async start( props: DeviceProperties={} ): Promise<any> {
+    check(): Promise<boolean> {
+        return this.start( {scanOnly:true })    
+    }
+
+
+    async start( props: BleStartProperties={} ): Promise<any> {
 
         if (this.started)
             return true;
-
-        if ( this.ble.isScanning()) {
-            this.logger.logEvent({message:'stop previous scan',isScanning:this.ble.isScanning()})
-            await this.ble.stopScan();
-        }
 
         const connected = await this.connect()
         if (!connected)
@@ -234,6 +238,17 @@ export default class BleAdapter  extends IncyclistDevice  {
         return false;
     }
 
+    async pause(): Promise<boolean> {
+        const res = await super.pause()    
+        this.getComms()?.pause()
+        return res;
+    }
+
+    async resume(): Promise<boolean> {
+        const res = await super.resume()    
+        this.getComms()?.resume()
+        return res;
+    }
 
 }
 
@@ -254,10 +269,14 @@ export class BleControllableAdapter  extends BleAdapter implements Bike  {
             this.user.weight = DEFAULT_USER_WEIGHT
     }
 
+    isControllable(): boolean {
+        return true;
+    }
+
 
     setBikeProps(props:DeviceProperties) {
 
-        const {user,userWeight,bikeWeight} = props||{}
+        const {user,userWeight} = props||{}
         if (user) 
             this.setUser(user)
         if (userWeight)

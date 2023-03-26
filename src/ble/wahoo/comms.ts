@@ -1,11 +1,11 @@
 import { BleWahooComms } from ".";
 import { LegacyProfile } from "../../antv2/types";
 import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/adpater";
-import { CSP, FTMS_CP, WAHOO_ADVANCED_TRAINER_CP, WAHOO_ADVANCED_TRAINER_CP_FULL } from "../consts";
+import { CSP, CSP_MEASUREMENT, FTMS_CP, FTMS_STATUS, HR_MEASUREMENT, INDOOR_BIKE_DATA, WAHOO_ADVANCED_TRAINER_CP, WAHOO_ADVANCED_TRAINER_CP_FULL } from "../consts";
 import { CrankData } from "../cp";
 import { IndoorBikeData } from "../fm";
 import BleFitnessMachineDevice from "../fm/comms";
-import { BleProtocol, BleWriteProps } from "../types";
+import { BleProtocol, BleWriteProps, IBlePeripheralConnector } from "../types";
 import { matches } from "../utils";
 
 export const enum OpCode   {
@@ -52,7 +52,7 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
         this.wahooCP = WAHOO_ADVANCED_TRAINER_CP;
     }
 
-    isMatching(characteristics: string[]): boolean {
+    static isMatching(characteristics: string[]): boolean {
         if (!characteristics)
             return false;
 
@@ -73,8 +73,8 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
 
             }
 
-            await super.initDevice();
-            return true;
+            return await super.initDevice();
+            
             
         }
         catch (err) {
@@ -103,18 +103,6 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
 
     getServiceUUids(): string[] {
         return BleWahooDevice.services;
-    }
-
-    isBike(): boolean {
-        return true;
-    }
-
-    isPower(): boolean {
-        return true;
-    }
-
-    isHrm(): boolean {
-        return this.hasService('180d');
     }
 
     parseCrankData(crankData) {
@@ -202,16 +190,16 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
 
         let res = undefined
         switch(uuid) {
-            case '2a63': 
+            case CSP_MEASUREMENT: 
                 res = this.parsePower(data)
                 break;
-            case '2ad2':    //  name: 'Indoor Bike Data',
+            case INDOOR_BIKE_DATA:    //  name: 'Indoor Bike Data',
                 res = this.parseIndoorBikeData(data)
                 break;
-            case '2a37':     //  name: 'Heart Rate Measurement',
+            case HR_MEASUREMENT:     //  name: 'Heart Rate Measurement',
                 res = this.parseHrm(data)
                 break;
-            case '2ada':     //  name: 'Fitness Machine Status',
+            case FTMS_STATUS:     //  name: 'Fitness Machine Status',
                 res = this.parseFitnessMachineStatus(data)
                 break;
             default:    // ignore
@@ -226,6 +214,13 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
         return true;
  
     }
+
+
+    subscribeAll(conn?: IBlePeripheralConnector):Promise<void> {
+        return  this.subscribeMultiple( [ CSP_MEASUREMENT, INDOOR_BIKE_DATA, HR_MEASUREMENT, FTMS_STATUS, this.wahooCP ], conn)
+    }    
+
+
 
     async writeWahooFtmsMessage(requestedOpCode:number, data:Buffer,props?:BleWriteProps) {
         

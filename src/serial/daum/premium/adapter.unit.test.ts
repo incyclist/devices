@@ -209,10 +209,15 @@ describe( 'DaumPremiumAdapter', ()=>{
             const device = new DaumPremiumAdapter( {interface:'serial', port:'COM5', protocol:'Daum Premium'})
 
             device.isStopped = jest.fn( ()=>true)
+            device.connect = jest.fn( ()=>Promise.resolve(true))
+
+            device.bike.isConnected = jest.fn( ()=>false)
+            device.bike.getDeviceType = jest.fn( ()=>Promise.resolve( 'bike'))
+            device.bike.getProtocolVersion = jest.fn( ()=>Promise.resolve( '2.01'))
 
             const res = await device.check()
 
-            expect(res).toBe(false)
+            expect(res).toBe(true)
         })
 
 

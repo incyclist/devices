@@ -282,13 +282,15 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
         this.getCurrentBikeData()
         .then( bikeData => {
             
+            console.log('~~~ bike data',bikeData)
             // update Data based on information received from bike
             this.updateData(this.cyclingData, bikeData)
 
             // transform  ( rounding / remove ignored values)
-            this.transformData();
+            const data = this.transformData();
 
             this.updateBusy = false;
+            this.emitData(data)
         })
         .catch(err => {
             this.logEvent({message:'bike update error',error:err.message,stack:err.stack })
@@ -422,6 +424,7 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
         }
 
         this.deviceData = data;
+        return data
     }
 
     async sendRequest(request) {

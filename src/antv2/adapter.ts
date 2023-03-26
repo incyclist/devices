@@ -76,7 +76,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData, TData> exten
         if (as.interface!==settings.interface)
             return false;
 
-        if (as.deviceID!==settings.deviceID || as.profile!==settings.profile)
+        if (Number(as.deviceID)!==Number(settings.deviceID) || as.profile!==settings.profile)
             return false;
 
         return true;        
@@ -230,6 +230,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData, TData> exten
 
         if (this.started)
             return true;
+
         const connected = await this.connect()
         if (!connected)
             throw new Error(`could not start device, reason:could not connect`)
@@ -283,16 +284,21 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData, TData> exten
 
 
     async stop(): Promise<boolean> {
-        this.stopDataTimeoutCheck()
+        let stopped;
+        try {
+            this.stopDataTimeoutCheck()
 
-        let stopped = await this.ant.stopSensor(this.sensor)
-        if (!stopped)
-            return false;
+            stopped = await this.ant.stopSensor(this.sensor)
+        }
+        catch(err) {
+            this.logEvent({message:'stop sensor failed', reason:err.message})
+        }
 
         this.started = false;
         this.stopped = true; 
+        this.paused = false
         this.removeAllListeners()
-        return true;
+        return stopped;
     }
 
 
@@ -309,6 +315,10 @@ export class ControllableAntAdapter<TDeviceData extends BaseDeviceData, TData> e
         this.user = {}
     }
 
+    isControllable(): boolean {
+        return true;
+    }
+    
     setUser(user: User): void {
         this.user = user;
         if (!user.weight)
