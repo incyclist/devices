@@ -18,19 +18,23 @@ export const DEFAULT_UPDATE_FREQUENCY  = 1000;
 const NO_DATA_TIMEOUT = 5000;
 const INTERFACE_NAME = 'ant'
 
+export type BaseDeviceData = {
+    DeviceID: number;
+    ManId?: number;
+}
 
-export default class AntAdapter  extends IncyclistDevice   {
+export default class AntAdapter<TDeviceData extends BaseDeviceData, TData> extends IncyclistDevice {
 
     sensor: ISensor;
     lastUpdate?: number;
-    data: any;
-    deviceData: any;
+    data: TData;
+    deviceData: TDeviceData;
     updateFrequency: number;
     channel: IChannel;
     ant: AntInterface
     userSettings: { weight?:number};
     bikeSettings: { weight?:number};
-    onDataFn: OnDeviceDataCallback
+    onDataFn: (data: TData) => void
     startupRetryPause: number = 1000;
     
     protected ivDataTimeout: NodeJS.Timer
@@ -51,8 +55,8 @@ export default class AntAdapter  extends IncyclistDevice   {
             throw new Error ('Incorrect interface')
 
         this.sensor = this.createSensor(settings)
-        this.deviceData = {}
-        this.data = {}
+        this.deviceData = {} as TDeviceData
+        this.data = {} as TData
         this.dataMsgCount = 0;
         this.updateFrequency = DEFAULT_UPDATE_FREQUENCY;
         this.channel = undefined;
@@ -90,7 +94,7 @@ export default class AntAdapter  extends IncyclistDevice   {
     resetData() {
         this.dataMsgCount = 0;
         const {DeviceID} = this.deviceData;
-        this.deviceData = { DeviceID}
+        this.deviceData = { DeviceID } as TDeviceData
         this.lastDataTS = undefined
     }
 
@@ -98,7 +102,7 @@ export default class AntAdapter  extends IncyclistDevice   {
     isSame(device:IncyclistDeviceAdapter):boolean {
         if (!(device instanceof AntAdapter))
             return false;
-        const adapter = device as AntAdapter;
+        const adapter = device;
         return  (adapter.getID()===this.getID() && adapter.getProfile()===this.getProfile())
     }
 
@@ -301,7 +305,7 @@ export default class AntAdapter  extends IncyclistDevice   {
 
 }
 
-export class ControllableAntAdapter extends AntAdapter implements Bike {
+export class ControllableAntAdapter<TDeviceData extends BaseDeviceData, TData> extends AntAdapter<TDeviceData, TData> implements Bike {
     cyclingMode: CyclingMode;
     user?:User;
 

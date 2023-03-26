@@ -16,8 +16,17 @@ import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/adpater";
 const DEFAULT_BIKE_WEIGHT_MOUNTAIN = 14.5;
 const MAX_RETRIES = 3;
 
-export default class AntFEAdapter extends ControllableAntAdapter{
+type FitnessEquipmentSensorData = {
+    speed: number;
+    slope: number;
+    power: number;
+    cadence: number;
+    heartrate: number;
+    distance: number;
+    timestamp: number;
+}
 
+export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmentSensorState, FitnessEquipmentSensorData>{
     static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Smart Trainer'
     static ANT_PROFILE_NAME:Profile = 'FE'
 
@@ -37,7 +46,7 @@ export default class AntFEAdapter extends ControllableAntAdapter{
 
         this.deviceData = {
             DeviceID: this.sensor.getDeviceID()
-        }       
+        } as FitnessEquipmentSensorState;
         this.dataMsgCount = 0;
         this.logger = new EventLogger('Ant+FE')
         this.isReconnecting = false
@@ -207,7 +216,7 @@ export default class AntFEAdapter extends ControllableAntAdapter{
         return data;
     }
 
-    transformData( bikeData:IncyclistBikeData) {
+    transformData( bikeData:IncyclistBikeData): FitnessEquipmentSensorData {
 
         if ( bikeData===undefined)
             return;
@@ -220,7 +229,7 @@ export default class AntFEAdapter extends ControllableAntAdapter{
             this.distanceInternal = bikeData.distanceInternal;
         
 
-        let data =  {
+        const data: FitnessEquipmentSensorData = {
             speed: bikeData.speed,
             slope: bikeData.slope,
             power: bikeData.power!==undefined ? Math.round(bikeData.power) : undefined,
@@ -228,7 +237,7 @@ export default class AntFEAdapter extends ControllableAntAdapter{
             heartrate: bikeData.heartrate!==undefined ?  Math.round(bikeData.heartrate) : undefined,
             distance,
             timestamp: Date.now()
-        } as any;
+        };
 
         return data;
     }

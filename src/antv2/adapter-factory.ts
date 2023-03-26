@@ -1,13 +1,14 @@
 
 import { Profile } from "incyclist-ant-plus";
-import AntAdapter from "./adapter";
+import { DeviceData } from "../types/data";
+import AntAdapter, { BaseDeviceData } from "./adapter";
 import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "./types";
 
 
 export type AntAdapterInfo = {
     antProfile: Profile,
     incyclistProfile: LegacyProfile,
-    Adapter: typeof AntAdapter
+    Adapter: typeof AntAdapter<BaseDeviceData, DeviceData>
 }
 
 export type AdapterQuery = {
@@ -30,7 +31,7 @@ export default class AntAdapterFactory {
     }
     
 
-    register( antProfile: Profile, incyclistProfile: LegacyProfile, Adapter: typeof AntAdapter)  {       
+    register<TDeviceData extends BaseDeviceData, TData>(antProfile: Profile, incyclistProfile: LegacyProfile, Adapter: typeof AntAdapter<TDeviceData, TData>) { 
 
         const info = Object.assign({},{antProfile, incyclistProfile, Adapter})
         const existing = this.adapters.findIndex( a => a.antProfile===antProfile) 
