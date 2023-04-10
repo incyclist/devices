@@ -377,7 +377,7 @@ describe( 'fe adapter', ()=>{
             expect(adapter.started).toBeFalsy()   
         })
 
-        test('start timeout',async ()=>{
+        test('no data',async ()=>{
             adapter.connect.mockResolvedValue(true)
             adapter.ant.startSensor.mockResolvedValue(true)
             adapter.stop.mockResolvedValue(true)
@@ -389,9 +389,28 @@ describe( 'fe adapter', ()=>{
             }
             catch(err) { error=err} 
             expect(error).toBeDefined()  
+            expect(error.message).toBe('could not start device, reason:no data received')
+            expect(adapter.started).toBeFalsy()   
+        })
+
+        test('start timeout',async ()=>{
+            adapter.connect.mockResolvedValue(true)
+            adapter.ant.startSensor.mockResolvedValue(true)
+            adapter.stop.mockResolvedValue(true)
+            adapter.waitForData.mockResolvedValue(true)
+            adapter.sensor.sendTrackResistance = jest.fn( async ()=>{ await sleep(20000)})
+            adapter.sensor.sendTargetPower = jest.fn( async ()=>{ await sleep(20000)})
+            
+            let error;
+            try {
+                await adapter.start({startupTimeout:100})         
+            }
+            catch(err) { error=err} 
+            expect(error).toBeDefined()  
             expect(error.message).toBe('could not start device, reason:timeout')
             expect(adapter.started).toBeFalsy()   
         })
+
 
         test('start sensor fails once',async ()=>{
             adapter.connect.mockResolvedValue(true)
@@ -406,7 +425,7 @@ describe( 'fe adapter', ()=>{
             
             let error;
             try {
-                await adapter.start({startupTimeout:100})         
+                await adapter.start({startupTimeout:100, reconnectTimeout:10})         
             }
             catch(err) { error=err} 
             expect(error).toBeUndefined()              

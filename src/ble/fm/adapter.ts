@@ -140,13 +140,14 @@ export default class BleFmAdapter extends BleControllableAdapter {
     async start( props: BleStartProperties={} ): Promise<any> {
         const wasPaused = this.paused
 
-        this.resume()
+        if (wasPaused)
+            this.resume()
 
         if (this.started && !wasPaused)
             return true;
 
         
-        this.logEvent({message: 'start requested', ...this.getSettings(),  protocol:this.getProtocolName(),props })
+        this.logEvent({message: 'starting device', ...this.getSettings(),  protocol:this.getProtocolName(),props,isStarted:this.started })
 
         const {restart=wasPaused} = props;
 
@@ -214,7 +215,7 @@ export default class BleFmAdapter extends BleControllableAdapter {
 
                 
                     const startRequest = this.getCyclingMode().getBikeInitRequest()
-                    await this.sendUpdate(startRequest);
+                    await this.sendUpdate(startRequest,true);
                 }
 
                 if (!this.started && !wasPaused) {
@@ -260,9 +261,9 @@ export default class BleFmAdapter extends BleControllableAdapter {
         }
     }
 
-    async sendUpdate(request) {
+    async sendUpdate(request, enforced=false) {
         // don't send any commands if we are pausing, unless mode change was triggered
-        if( this.paused  || !this.device)
+        if( !enforced && ( this.paused  || !this.device))
             return;
     
         
@@ -290,35 +291,28 @@ export default class BleFmAdapter extends BleControllableAdapter {
         
     } 
 
-    setCyclingMode(mode: string | CyclingMode, settings?: any): void {
-        const modeChange = this.cyclingMode.getName()!==mode;
-        const prevMode = this.getCyclingMode();
 
-        super.setCyclingMode(mode,settings)
+    async sendInitCommands():Promise<boolean> {
 
-        const isPaused = this.isPaused()
-        
-        
-        // update during current ride
-        if (modeChange && this.started && !this.stopped) {
-            if (prevMode instanceof FtmsCyclingMode) {
-
-                const power = this.data.power
-                const request = power ? {targetPower:power} : this.getCyclingMode().getBikeInitRequest()
-
-                // unpause, so that updates can be sent
-                if (isPaused)
-                    this.resume()
-                this.sendUpdate(request).then().catch().finally( ()=> {
-                    // if we were paused, pause again
-                    if (isPaused)
-                        this.pause()
-                })
+        if (this.started && !this.stopped) {
+            try {
+                if (this.getCyclingMode() instanceof BleERGCyclingMode) {
                 
+                    const power = this.data.power
+                    const request = power ? {targetPower:power} : this.getCyclingMode().getBikeInitRequest()
+                    await this.sendUpdate(request,true)
+                    return true
+                }
+            }
+            catch {
+                return false
             }
         }
-
+        else {
+            return false
+        }
     }
+
 
 
 }

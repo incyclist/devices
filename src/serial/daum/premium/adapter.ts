@@ -19,7 +19,6 @@ const DEFAULT_GEAR = 10;
 
 
 const getBikeProps = ( props:SerialDeviceSettings) => {
-    console.log('~~~getBikeProps',props)
     const {host,port=DAUM_PREMIUM_DEFAULT_PORT,interface: ifaceName} = props;
     let serial;
 
@@ -56,7 +55,6 @@ export default class DaumPremiumAdapter extends DaumAdapter{
 
     constructor ( settings:SerialDeviceSettings,props?:DeviceProperties) {
 
-        console.log('~~~ new premium adapter')
         const logger  = new EventLogger('DaumPremium')
         const commProps:SerialCommProps = {...getBikeProps(settings), logger}
         const bike = new Daum8i(commProps)
@@ -224,10 +222,7 @@ export default class DaumPremiumAdapter extends DaumAdapter{
                 if (!info.version) {
                     info.version = await this.bike.getProtocolVersion();
                 }
-
-                console.log('~~~~ starting Daum8i', this.getCyclingMode().getName(),this.getCyclingMode().getModeProperty('eppSupport'))
-
-                
+               
                 if ( this.getCyclingMode().getModeProperty('eppSupport') ) {
                     const bikeType = this.getCyclingMode().getSetting('bikeType')
 

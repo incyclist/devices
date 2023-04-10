@@ -80,6 +80,10 @@ export default class IncyclistDevice extends EventEmitter implements IncyclistDe
         if (!this.logger || this.paused)
             return;
         this.logger.logEvent(event)
+        if (process.env.BLE_DEBUG || process.env.ANT_DEBUG) {
+            const logText = '~~~'+this.getInterface().toUpperCase()
+            console.log(logText,event)
+        }
     }
     getMaxUpdateFrequency(): number {
         return this.updateFrequency;
@@ -227,6 +231,11 @@ export class ControllableDevice extends IncyclistDevice implements Bike{
         this.cyclingMode = selectedMode;        
         this.cyclingMode.setSettings(settings);
     }
+
+    async sendInitCommands():Promise<boolean> {
+        return true;
+    }
+
 
     getCyclingMode(): CyclingMode {
         if (!this.cyclingMode)

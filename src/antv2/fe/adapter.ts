@@ -33,7 +33,8 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
     protected distanceInternal?: number;
     protected startProps : AntDeviceProperties;
     protected isReconnecting: boolean
-    
+    protected sensorConnected: boolean
+
     constructor ( settings:AntDeviceSettings, props?:AntDeviceProperties) {
         // check against legacy settings (using protocol and Incyclist profile name)
         if (settings.protocol && settings.profile!==AntFEAdapter.INCYCLIST_PROFILE_NAME)
@@ -51,6 +52,7 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
         this.logger = new EventLogger('Ant+FE')
         this.isReconnecting = false
         this.startProps = {};
+        this.sensorConnected = false;      
 
         this.capabilities = [ 
             IncyclistCapability.Power, IncyclistCapability.Speed, IncyclistCapability.Cadence, 
@@ -151,7 +153,6 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
     
 
     onDeviceData( deviceData:FitnessEquipmentSensorState) {
-
         this.dataMsgCount++;
         this.lastDataTS = Date.now();
 
@@ -272,9 +273,9 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
         return new Promise ( async (resolve, reject) => {
 
 
-            const {timeout=20000} = props||{}
+            const {startupTimeout=20000, reconnectTimeout=2000} = props||{}
 
-            const totalTimeout = timeout+10000;
+            const totalTimeout = Math.min( startupTimeout+10000, startupTimeout*2);
 
             let to ;
             const stopTimeoutCheck = ()=>{
@@ -285,8 +286,9 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
             }
 
             to = setTimeout( async ()=>{
-                await this.stop();
+                //await this.stop();
                 reject(new Error(`could not start device, reason:timeout`))
+                this.started = false
                 to = null;
 
             }, totalTimeout)
@@ -297,43 +299,44 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
             let success = false;
             let status = { userSent: false, slopeSent:false}
             let retry =0;
-            let startSuccess = 0;
+            let hasData = false;
 
             while (!success && retry<MAX_RETRIES) {
                 retry++;
 
-                if (!this.started) {
+                if (!this.sensorConnected) {
                     this.logEvent( {message:'start sensor', props })
-                    this.started = await this.ant.startSensor(this.sensor,this.onDeviceData.bind(this))
+                    this.sensorConnected = await this.ant.startSensor(this.sensor,this.onDeviceData.bind(this))
+                    
 
-                    if (this.started) {
+                    if (this.sensorConnected) {
                         this.logEvent( {message:'sensor started', props })
-                        startSuccess++;
                     }
-
-                    // on initial connection we wait for data before trying to send commands
-                    if (this.started && startSuccess===1) {
-                        try {
-                            console.log('~~~ Device: waiting for data', 'timeout=',timeout||'unknown')
-                            await this.waitForData(timeout)
-                            console.log('~~~ Device: data received')
-                        }
-                        catch (err) {
-                            stopTimeoutCheck();
-                            try {
-                                await await this.ant.stopSensor(this.sensor)                        
-                            }
-                            catch {}        
-                            this.started = false;
-
-                            return reject(new Error('could not start device, reason:timeout'))
-                        }
-                    }
-                    status = { userSent: false, slopeSent:false}
                 }
 
-                if (!this.started) {
-                    await sleep(2000)
+                // on initial connection we wait for data before trying to send commands
+                if (this.sensorConnected && !hasData) {
+                    try {
+                        await this.waitForData(startupTimeout)
+                        hasData = true;
+                    }
+                    catch (err) {
+                        stopTimeoutCheck();
+                        try {
+                            await await this.ant.stopSensor(this.sensor)                        
+                            this.sensorConnected = false
+                        }
+                        catch {}        
+                        this.started = false;
+
+                        return reject(new Error('could not start device, reason:no data received'))
+                    }
+                }
+                status = { userSent: false, slopeSent:false}
+                
+
+                if (!hasData) {
+                    await sleep(reconnectTimeout)
                     continue
                 }
 
@@ -370,10 +373,6 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
                     }
                     catch(err) {
                         this.logger.logEvent( { message:'sending FE message error', error:err.message })
-                        try {
-                            await this.ant.stopSensor(this.sensor)                        
-                        }
-                        catch {}
                         this.started = false;                
                     }
                     success = status.userSent && status.slopeSent    
@@ -384,24 +383,25 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
                 
             }
 
-            while (success && this.dataMsgCount===0) {
-                await sleep(500)
-            }
-
             
             if (success) {
                 this.logEvent( {message:'start success'})
+                this.started = true;
                 stopTimeoutCheck()
                 resolve(true)
             }
             else {
-                this.logEvent( {message:'start failed'})
+                this.logEvent( {message:'start failed'})                
                 stopTimeoutCheck()
-                if (this.started) {                    
+                if (!hasData) {          
+                    reject(new Error('could not start device, reason: no data received'))
+                }
+                else if (this.sensorConnected) {                    
                     reject(new Error('could not start device, reason: could not send FE commands'))
                 }
-                else 
+                else { 
                     reject(new Error('could not start device, reason: could not connect'))
+                }
                 this.started = false;
 
             }
@@ -414,6 +414,12 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
         
         fe.setSendTimeout(5000);
         
+    }
+
+    stop(): Promise<boolean> {
+        const stopped = super.stop()
+        this.sensorConnected = false;
+        return stopped
     }
 
 
@@ -439,20 +445,25 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
 
     }
 
-    setCyclingMode(mode: string | CyclingMode, settings?: any): void {
-        const modeChange = this.cyclingMode.getName()!==mode
-        super.setCyclingMode(mode,settings)
-
-        // update during current ride
-        if (modeChange && this.started && !this.stopped) {
-            if (this.getCyclingMode() instanceof AntFeERGCyclingMode) {
+    async sendInitCommands():Promise<boolean> {
+        if (this.started && !this.stopped) {
+            try {
+                if (this.getCyclingMode() instanceof AntFeERGCyclingMode) {
                 
-                const power = this.data.power
-                const request = power ? {targetPower:power} : this.getCyclingMode().getBikeInitRequest()
-                this.sendUpdate(request,true)
-                
+                    const power = this.data.power
+                    const request = power ? {targetPower:power} : this.getCyclingMode().getBikeInitRequest()
+                    await this.sendUpdate(request,true)
+                    return true
+                }
+            }
+            catch {
+                return false
             }
         }
+        else {
+            return false
+        }
     }
+
 
 }

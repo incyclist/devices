@@ -87,6 +87,28 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
         this.cyclingMode = selectedMode;        
         this.cyclingMode.setSettings(settings);
     }
+    
+    async sendInitCommands():Promise<boolean> {
+
+        if (this.started && !this.stopped) {
+            try {
+                if (this.getCyclingMode() instanceof ERGCyclingMode) {
+                
+                    const power = this.deviceData.power
+                    const request = power ? {targetPower:power} : this.getCyclingMode().getBikeInitRequest()
+                    await this.sendUpdate(request)
+                    return true
+                }
+            }
+            catch {
+                return false
+            }
+        }
+        else {
+            return false
+        }
+        
+    }
 
 
     getSupportedCyclingModes() : Array<any> {         
@@ -282,7 +304,6 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
         this.getCurrentBikeData()
         .then( bikeData => {
             
-            console.log('~~~ bike data',bikeData)
             // update Data based on information received from bike
             this.updateData(this.cyclingData, bikeData)
 

@@ -128,6 +128,9 @@ export class Simulator extends ControllableDevice {
     }
 
 
+    async sendInitCommands():Promise<boolean> {
+        return true;
+    }
 
 
     async start(props?: SimulatorProperties):Promise<boolean>  {

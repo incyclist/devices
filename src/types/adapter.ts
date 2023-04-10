@@ -42,7 +42,7 @@ export interface IncyclistDeviceAdapter extends EventEmitter{
 }
 
 export interface Bike {
-    setCyclingMode(mode: CyclingMode|string, settings?:any):void
+    setCyclingMode(mode: CyclingMode|string, settings?:any,sendInitCommands?:boolean):void
     getSupportedCyclingModes() : Array<any>     
     getCyclingMode(): CyclingMode
     getDefaultCyclingMode():CyclingMode

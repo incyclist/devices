@@ -153,9 +153,6 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
 
     onData( profile,id, data,tag) {
         this.emit( 'data', profile, id, data,tag)
-        //
-        
-        console.log( 'DATA:', profile, data)
     }
 
 
@@ -165,7 +162,6 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         const detected = [];
 
         const onDetected = (profile:string,deviceID:number)=>{
-            console.log('~~~ detected',profile, deviceID)
             if (deviceID && detected.find( s => s.deviceID===deviceID && s.profile===profile)===undefined) {
                 try {
                     detected.push( {interface:this.getName(),profile,deviceID})                    

@@ -324,6 +324,11 @@ export class BleControllableAdapter  extends BleAdapter implements Bike  {
         this.cyclingMode.setSettings(settings);
     }
 
+    async sendInitCommands():Promise<boolean> {
+        return true;
+    }
+
+
     getCyclingMode(): CyclingMode {
         if (!this.cyclingMode)
             this.setCyclingMode( this.getDefaultCyclingMode());

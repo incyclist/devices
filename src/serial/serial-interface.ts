@@ -62,7 +62,6 @@ export class SinglePathScanner {
     }
 
     async scan  (): Promise<SerialDeviceSettings|undefined>  {
-        console.log('~~~ start SERIAL Scan', this.isScanning)
         if (this.isScanning)
             return;
 
@@ -76,8 +75,6 @@ export class SinglePathScanner {
             let found = false;
             while (!found && this.isScanning ) {
                 try {
-
-                    console.log('~~~ adapter check attempt') 
 
                     const  {protocol} = this.props;
 
@@ -105,7 +102,6 @@ export class SinglePathScanner {
                 }
                 catch(err) {
                     /* ignore*/
-                    console.log('~~~ERROR',err)
                     this.logger.logEvent({message:'error', fn:'scan()', error:err.message||err, stack:err.stack})
                     await sleep(100)
                 }
@@ -137,14 +133,11 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
     static getInstance(props:SerialInterfaceProps) {
         const {ifaceName, binding,logger} = props;
 
-        console.log('~~~ new instance #1', ifaceName, SerialPortProvider.getInstance().getBinding(ifaceName))
-
         let instance = SerialInterface._instances.find( i => i.ifaceName===ifaceName)
         if (!instance) {
             if (binding)
                 instance = new SerialInterface(props)
             else {
-                console.log('~~~ new instance', ifaceName, SerialPortProvider.getInstance().getBinding(ifaceName))
                 instance = new SerialInterface({ifaceName,binding:SerialPortProvider.getInstance().getBinding(ifaceName),logger})
                 if (instance)
                     SerialInterface._instances.push(instance)
@@ -171,6 +164,8 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
         this.isScanning = false;
         this.isStopScanRequested = false;
         this.scanEvents = new EventEmitter()
+        this.scanEvents.setMaxListeners(100)
+        
         this.logger = props.logger || new EventLogger( `Serial:${ifaceName}`)
         this.connected = false;
         
@@ -223,7 +218,6 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
     }
 
     async openPort(path:string): Promise< SerialPortStream|null> {
-        console.log('~~~ SerialPort.openPort',this.ifaceName,path)
         this.logger.logEvent({message:'opening port',path})
         
         const port = SerialPortProvider.getInstance().getSerialPort(this.ifaceName, {path});
@@ -261,7 +255,6 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
     }
 
     async closePort(path:string): Promise<Boolean> {
-        console.log('~~~ SerialPort.closePort',this.ifaceName,path)
         const existing = this.ports.findIndex( p=> p.path===path)
         if (existing===-1)
             return true;
@@ -292,7 +285,6 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
     
 
     async scan(props:SerialScannerProps):Promise< SerialDeviceSettings[]> {
-        console.log('~~serial scan', this.isScanning, this.isConnected())
         if (this.isScanning)
             return [];
 

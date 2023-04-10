@@ -328,11 +328,15 @@ export class TCPPortBinding implements BindingPortInterface  {
 
         this.writeOperation = new Promise<void> ( async (resolve,reject)=>{
             await resolveNextTick()
-            //this.socket.on('error', reject)
-            this.socket.write(buffer,()=>{
-                //this.socket.off('error',reject)
-                resolve()
-            })
+
+            try {
+                this.socket.write(buffer,()=>{
+                    resolve()
+                })    
+            }
+            catch(err) {
+                this.onError(err)
+            }
             
         })
 
