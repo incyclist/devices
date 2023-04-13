@@ -79,9 +79,9 @@ export default class Daum8i  {
 
         this.serial = serial;
         this.path = validatePath(path);
-        this.logger = logger || (process.env.DEBUG? DEBUG_LOGGER as EventLogger : new EventLogger('DaumPremium')) ;
-
-        
+        const w = global.window as any
+    
+        this.logger = logger || (w?.DEVICE_DEBUG||process.env.DEBUG? DEBUG_LOGGER as EventLogger : new EventLogger('DaumPremium')) ;
 
         this.isLoggingPaused = false;
         this.connected = false;        
@@ -127,6 +127,11 @@ export default class Daum8i  {
     logEvent(e) {
         if(!this.isLoggingPaused)
             this.logger.logEvent(e)
+        const w = global.window as any
+        if (w?.DEVICE_DEBUG) {
+            console.log('~~~ DaumPremium', e)
+        }
+
     }
 
 
@@ -172,6 +177,7 @@ export default class Daum8i  {
 
         this.connected = false;
         if (this.sp) {
+            console.log('~~~ removing all listeners')
             this.sp.removeAllListeners()
             this.sp = null;
         }
@@ -218,6 +224,7 @@ export default class Daum8i  {
     async onPortClose() {
         this.connected = false;
         if (this.sp) {
+            console.log('~~~ removing all listeners')
             this.sp.removeAllListeners()
             this.sp = null;
         }
@@ -578,13 +585,14 @@ export default class Daum8i  {
 
 
     async write(buffer:Buffer):Promise<void> {
-        return new Promise( done=> {
+
+        return new Promise( async done=> {
             this.state.writeBusy =true;
             try {
-                this.sp.write( buffer,()=>{
-                    this.state.writeBusy =false;        
-                    done()
-                }); 
+                await this.sp.write( buffer) 
+                this.state.writeBusy =false;        
+                done()
+                
             }
             catch(err) {
                 this.state.writeBusy =false;        

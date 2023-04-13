@@ -88,7 +88,7 @@ export interface BlePeripheral extends EventEmitter, BlePeripheralIdentifier{
 export interface IBlePeripheralConnector {
     connect():Promise<void>,
     reconnect():Promise<void> 
-    initialize(enforce:boolean):Promise<void>
+    initialize(enforce:boolean):Promise<boolean>
     isSubscribed( characteristicUuid:string):boolean
     subscribeAll( callback:(characteristicUuid:string, data)=>void): Promise<string[]> 
     subscribe( characteristicUuid:string, timeout?:number): Promise<boolean>

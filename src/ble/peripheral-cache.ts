@@ -28,6 +28,9 @@ export default class BlePeripheralCache {
     }
 
     getConnector( peripheral:BlePeripheral):BlePeripheralConnector {
+        if(!peripheral)
+            return;
+
         const info = this.find({address:peripheral.address})
 
         if (!info) {
@@ -133,7 +136,7 @@ export default class BlePeripheralCache {
             cachedItemIdx = this._findIndex({address})
         }
         
-        if (cachedItemIdx==-1)
+        if (cachedItemIdx===-1)
             return;
         this.peripherals.splice(cachedItemIdx)
     }

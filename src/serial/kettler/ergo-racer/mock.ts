@@ -205,7 +205,7 @@ export class KettlerRacerMockBinding extends MockPortBinding {
                 handler(payload)
             }
             else {
-                this,this.emitData('ERROR'+CRLF)
+                this.emitData('ERROR'+CRLF)
             }
             
         })

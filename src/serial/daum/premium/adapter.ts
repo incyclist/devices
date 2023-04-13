@@ -73,6 +73,22 @@ export default class DaumPremiumAdapter extends DaumAdapter{
         this.initData();
     }
 
+
+    logEvent(event) {
+        if ( this.logger) {
+            this.logger.logEvent(event)
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const w = global.window as any
+    
+        if (w?.DEVICE_DEBUG||process.env.BLE_DEBUG) {
+            console.log( '~~~ DaumPremium', event)
+        }
+
+    }
+
+
     getName() {
         return 'Daum8i'
     }
@@ -127,23 +143,24 @@ export default class DaumPremiumAdapter extends DaumAdapter{
         //    return false;
 
         return new Promise(  async (resolve, reject ) => {
-            this.logger.logEvent( {message:"checking device",port:this.getPort()});
+            this.logEvent( {message:"checking device",port:this.getPort()});
 
             try {                
+                await this.bike.close()
                 const connected = await this.connect();
                 if (!connected)
                     resolve(false)
 
                 info.deviceType = await this.bike.getDeviceType()
                 info.version = await this.bike.getProtocolVersion();
-                await this.bike.close()
+                //await this.bike.close()
 
-                this.logger.logEvent( {message:"checking device success",port:this.getPort(),info});
+                this.logEvent( {message:"checking device success",port:this.getPort(),info});
 
                 resolve(true)
             }
             catch (err) {
-                this.logger.logEvent( {message:"checking device failed", port:this.getPort(), reason:err.message||err});
+                this.logEvent( {message:"checking device failed", port:this.getPort(), reason:err.message||err});
                 resolve(false)
             }
 
@@ -165,14 +182,14 @@ export default class DaumPremiumAdapter extends DaumAdapter{
     }
 
     async startRide(props:Daum8iDeviceProperties={}) {
-        this.logger.logEvent({message:'relaunch of device'});        
+        this.logEvent({message:'relaunch of device'});        
         try {
             await this.launch(props,true)
             return true;
         }
         catch(err) {
 
-            this.logger.logEvent({message: 'start result: error', error: err.message})
+            this.logEvent({message: 'start result: error', error: err.message})
             throw new Error(`could not start device, reason:${err.message}`)
 
         }
@@ -180,7 +197,7 @@ export default class DaumPremiumAdapter extends DaumAdapter{
     }
 
     async start(props:Daum8iDeviceProperties={}) {
-        this.logger.logEvent({message:'initial start of device'});        
+        this.logEvent({message:'initial start of device'});        
 
         try {
             await this.launch(props,false)
@@ -188,7 +205,7 @@ export default class DaumPremiumAdapter extends DaumAdapter{
         }
         catch(err) {
 
-            this.logger.logEvent({message: 'start result: error', error: err.message})
+            this.logEvent({message: 'start result: error', error: err.message})
             throw new Error(`could not start device, reason:${err.message}`)
 
         }

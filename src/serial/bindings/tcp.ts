@@ -209,6 +209,7 @@ export class TCPPortBinding implements BindingPortInterface  {
     private pendingRead: null | ((err: null | Error) => void)
 
     constructor(socket:net.Socket, options: Required<OpenOptions>) {
+
         this.logger = new EventLogger('TCPPort')
         this.socket = socket
         this.openOptions = options

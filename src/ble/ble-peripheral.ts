@@ -2,7 +2,7 @@ import { BleCharacteristic, BlePeripheral, IBlePeripheralConnector } from './typ
 import BleInterface from "./ble-interface";
 import { EventLogger } from "gd-eventlog";
 import EventEmitter from "events";
-import { getCharachteristicsInfo, uuid } from "./utils";
+import { uuid } from "./utils";
 
 export type ConnectorState = {
     isConnected: boolean;
@@ -11,6 +11,7 @@ export type ConnectorState = {
     isInitializing: boolean;
     isSubscribing: boolean;
     subscribed?: string[];
+    connectPromise?: Promise<void>
 }
 
 
@@ -43,8 +44,11 @@ export default class BlePeripheralConnector implements IBlePeripheralConnector{
         if ( this.logger) {
             this.logger.logEvent(event)
         }
-        if (process.env.BLE_DEBUG) {
-            console.log( '~~~BLE:', event)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const w = global.window as any
+    
+        if (w?.DEVICE_DEBUG||process.env.BLE_DEBUG) {
+            console.log( '~~~ BLE', event)
         }
     }  
 
@@ -54,20 +58,31 @@ export default class BlePeripheralConnector implements IBlePeripheralConnector{
 
         this.logEvent( {message:'connect peripheral',peripheral:this.peripheral.address, state:this.state, peripheralState:this.peripheral.state})
 
+        const wasConnecting = this.state.isConnecting
+
         this.state.isConnecting = true;
         try {
-            this.peripheral.on('disconnect', ()=> {this.onDisconnect()})
+            if (!wasConnecting) {
+                this.peripheral.once('disconnect', ()=> {this.onDisconnect()})
 
-            if ( !this.state.isConnected || (this.peripheral && this.peripheral.state!=='connected')) {
-                await this.peripheral.connectAsync();                    
+                if ( !this.state.isConnected || (this.peripheral && this.peripheral.state!=='connected')) {
+                    this.state.connectPromise = this.peripheral.connectAsync();                    
+                }
             }
+
+            if (this.state.connectPromise)
+                await this.state.connectPromise
+
             this.state.isConnected = this.peripheral.state==='connected'
+            this.state.connectPromise = undefined;
+            //this.peripheral.removeAllListeners('disconnect')
             return;
     
         }
         catch (err) {            
             this.logEvent( {message:'Error', fn:'connect()', error: err.message})
         }
+        this.state.connectPromise = undefined;
         this.state.isConnecting = false;
     }
 
@@ -79,58 +94,72 @@ export default class BlePeripheralConnector implements IBlePeripheralConnector{
         this.peripheral.removeAllListeners('connect');
         this.peripheral.removeAllListeners('disconnect');
         this.logEvent( {message:'onDisconnected',peripheral:this.peripheral.address, state:this.state})
+
         this.state.isConnected = false;
         this.state.isConnecting = false;
         this.state.isInitialized = false;
         this.state.isInitializing = false;
+        this.state.connectPromise = undefined
+        this.state.isSubscribing = false;
+        this.state.subscribed = []
         this.emitter.emit('disconnect')
         //this.reconnect();
     }
 
     // get all services and characteristics
-    async initialize( enforce=false) {
-        if (this.state.isInitialized && !enforce)
-            return;
+    async initialize( enforce=false):Promise<boolean> {
 
         this.logEvent( {message:'initialize',peripheral:this.peripheral.address, state:this.state, enforce})
+
+        if (this.state.isInitialized && !enforce)
+            return true;
 
         if ( this.state.isInitialized && enforce) {
             this.state.isInitialized = false;
         }
 
-        this.state.isInitializing = true;
-        this.characteristics = undefined;
-        this.services = undefined;
-
-        try {
-            const res = await this.peripheral.discoverSomeServicesAndCharacteristicsAsync([],[])    
-
-            // we might have received a disconnect while sending the previous request
-            if (this.state.isInitializing) {
-                this.characteristics = res.characteristics
-                this.services = res.services.map( s => typeof (s) === 'string' ? s : s.uuid)
+        return new Promise( async done => {
+            this.state.isInitializing = true;
+            this.characteristics = undefined;
+            this.services = undefined;
+    
+            try {
+                this.emitter.once('disconnect',()=>{
+                    done(false)
+                })
+    
+                const res = await this.peripheral.discoverSomeServicesAndCharacteristicsAsync([],[])    
+    
+    
+                // we might have received a disconnect while sending the previous request
+                if (this.state.isInitializing) {
+                    this.characteristics = res.characteristics
+                    this.services = res.services.map( s => typeof (s) === 'string' ? s : s.uuid)
+                    this.state.isInitializing = false;
+                    this.state.isInitialized = this.characteristics!==undefined && this.services!==undefined
+                    this.logEvent( {message:'initialize done',peripheral:this.peripheral.address, state:this.state})
+                    return done(true)
+                }
+                else {
+                    this.logEvent( {message:'initialize interrupted',peripheral:this.peripheral.address})
+                
+                }
+                
+            }
+    
+            catch(err) {
+                this.logEvent({message:'error', fn:'initialize', error:err.message, stack:err.stack})
                 this.state.isInitializing = false;
-                this.state.isInitialized = this.characteristics!==undefined && this.services!==undefined
-                this.logEvent( {message:'initialize done',peripheral:this.peripheral.address, state:this.state})
-       
-            }
-            else {
-                this.logEvent( {message:'initialize interrupted',peripheral:this.peripheral.address})
+                this.state.isInitialized = false
+                done(false)
             }
     
-        }
-
-        catch(err) {
-            this.logEvent({message:'error', fn:'initialize', error:err.message, stack:err.stack})
-            this.state.isInitializing = false;
-            this.state.isInitialized = false
-    
-        }
+        })
 
     }
 
     isSubscribed( characteristicUuid:string):boolean {
-        return this.state.subscribed.find( c=> c===characteristicUuid || uuid(c)===characteristicUuid || c===uuid(characteristicUuid) )!==undefined
+        return this.state.subscribed?.find( c=> c===characteristicUuid || uuid(c)===characteristicUuid || c===uuid(characteristicUuid) )!==undefined
     }
 
     async subscribeAll( callback:(characteristicUuid:string, data)=>void): Promise<string[]> {
@@ -167,7 +196,7 @@ export default class BlePeripheralConnector implements IBlePeripheralConnector{
                     this.logEvent({message:'subscribe', peripheral:this.peripheral.address, characteristic:c.uuid,uuid:uuid(c.uuid)})
 
                     // don't resubscribe 
-                    if ( this.state.subscribed.find( uuid => uuid===c.uuid)===undefined) {
+                    if ( this.state.subscribed?.find( uuid => uuid===c.uuid)===undefined) {
                         try {
                             await this.subscribe(c.uuid,3000)
                             subscribed.push(c.uuid)

@@ -80,8 +80,13 @@ export default class IncyclistDevice extends EventEmitter implements IncyclistDe
         if (!this.logger || this.paused)
             return;
         this.logger.logEvent(event)
-        if (process.env.BLE_DEBUG || process.env.ANT_DEBUG) {
-            const logText = '~~~'+this.getInterface().toUpperCase()
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const w = global.window as any
+  
+
+        if (w?.DEVICE_DEBUG||process.env.BLE_DEBUG || process.env.ANT_DEBUG) {
+            const logText = '~~~ '+this.getInterface().toUpperCase()
             console.log(logText,event)
         }
     }

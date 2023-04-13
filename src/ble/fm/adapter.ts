@@ -147,7 +147,7 @@ export default class BleFmAdapter extends BleControllableAdapter {
             return true;
 
         
-        this.logEvent({message: 'starting device', ...this.getSettings(),  protocol:this.getProtocolName(),props,isStarted:this.started })
+        this.logEvent({message: 'starting device', ...this.getSettings(),  protocol:this.getProtocolName(),props,isStarted:this.started, isConnected:this.getComms().isConnected() })
 
         const {restart=wasPaused} = props;
 
@@ -165,14 +165,14 @@ export default class BleFmAdapter extends BleControllableAdapter {
 
             if (!this.connectPromise)
                 this.connectPromise = this.connect()
+                
             const res = await Promise.race( [ 
                 this.connectPromise.then((connected)=> {
-                    this.connectPromise = undefined;
                     return {connected, reason:connected?null:'could not connect' }
                 }) ,
                 sleep(timeout).then(()=> ({connected: false, reason:'timeout'})) 
             ])
-
+            this.connectPromise = undefined;
             const connected = res.connected
             if (!connected) {                
                 throw new Error(`could not start device, reason:${res.reason}`)   

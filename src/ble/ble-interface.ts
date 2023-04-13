@@ -20,6 +20,7 @@ export interface ScanState {
     isBackgroundScan: boolean;
     timeout?: NodeJS.Timeout;
     peripherals?: Map<string, BlePeripheral>;
+    detected?: string[]
 }
 
 export interface ConnectState {
@@ -122,15 +123,22 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
         if ( this.logger) {
             this.logger.logEvent(event)
         }
-        if (process.env.BLE_DEBUG) {
-            console.log( '~~BLE:', event)
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const w = global.window as any
+    
+        if (w?.DEVICE_DEBUG||process.env.BLE_DEBUG) {
+            console.log( '~~~ BLE', event)
         }
     }
 
 
     onStateChange(state:BleInterfaceState) {        
         if(state !== 'poweredOn'){       
+            this.logEvent({message:'Ble disconnected',});
+
             this.connectState.isConnected = false;
+            this.stopConnectSensor()
         } else {
             this.connectState.isConnected = true;
         }         
@@ -290,7 +298,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
 
 
     onDisconnect(peripheral):void {        
-        this.peripheralCache.remove(peripheral)
+        this.peripheralCache.remove(peripheral)        
     }
 
     async getCharacteristics( peripheral:BlePeripheral):Promise<BleCharacteristic[]> {
@@ -314,7 +322,10 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
                 await connector.connect();
                 peripheral.state = connector.getState();
                 
-                await connector.initialize();
+                const initialized = await connector.initialize();
+                if (!initialized)
+                    return null;
+
                 characteristics = connector.getCharachteristics();
                 this.logEvent( {message:'characteristic info (+):', address:peripheral.address, info:characteristics.map(getCharachteristicsInfo)})
 
@@ -371,6 +382,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
         const request = props.comms ? props.comms.getSettings() : props.request
 
         if (scanForDevice && this.scanState.peripherals.size>0) {
+            //this.logEvent({message:'search device: found device - above limits',peripheral:getPeripheralInfo(peripheral), })
             return;
         }
 
@@ -390,25 +402,35 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
             return;
         }
 
+        if (scanForDevice) {
+            const alreadyDetected = this.scanState.detected?.find( p => p===peripheral.address)!==undefined
+            if (alreadyDetected)
+                return;
+            this.scanState.detected.push(peripheral.address)
+        }
 
         // If we are in a device scan, check if we have found the requested device, otherwise stop
         if (scanForDevice) {
             let found:boolean = false;
             found = 
-                (request.name && peripheral.advertisement && request.name===peripheral.advertisement.localName) ||
-                (request.address && request.address===peripheral.address)           
+                (request.name!==undefined && peripheral.advertisement && request.name===peripheral.advertisement.localName) ||
+                (request.address!==undefined && request.address===peripheral.address)           
+            this.logEvent({message:'search device: found device',peripheral:getPeripheralInfo(peripheral), scanForDevice, matching:found})
             if (!found) {
                 return;
             }
-            this.logEvent({message:'search device: found device',peripheral:getPeripheralInfo(peripheral), scanForDevice, callback: callback!==undefined})
 
             // mark peripheral as processed in current scan
             this.scanState.peripherals.set(peripheral.address,peripheral)
 
             const characteristics = await this.getCharacteristics(peripheral)   
-
-            
-            callback(peripheral,characteristics)
+            if (characteristics) {
+                callback(peripheral,characteristics)
+            }
+            else {
+                callback(null)
+            }
+            this.stopScan()
             return;
         }
         else { // normal scan
@@ -420,6 +442,10 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
             const {protocolFilter} = props;
             const connector = this.peripheralCache.getConnector(p);
             const characteristics = await this.getCharacteristics(p)
+            if (!characteristics) {
+                return callback(null);
+            }
+
     
             const announcedServices = connector.getServices();
             
@@ -431,7 +457,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
 
             const MatchingClasses = protocolFilter && DeviceClasses ? DeviceClasses.filter(C=> protocolFilter.includes(C.protocol)) : DeviceClasses
             const DeviceClass = getBestDeviceMatch(MatchingClasses.filter(C=> C.isMatching(characteristics.map(c=>c.uuid))))
-            this.logEvent({message:'BLE scan: device connected',peripheral:getPeripheralInfo(peripheral),services, protocols:DeviceClasses.map(c=>c.protocol) })                
+            this.logEvent({message:'BLE scan: device connected',peripheral:getPeripheralInfo(peripheral),services, protocols:DeviceClasses.map(c=>c.protocol), found:DeviceClass!==undefined })                
     
             
             if (!DeviceClass)
@@ -481,6 +507,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
 
             this.scanState.isScanning = true;
             this.scanState.peripherals = new Map<string,BlePeripheral>()
+            this.scanState.detected = []
 
             const onTimeout = ()=>{                               
                 if (!this.scanState.isScanning || !this.scanState.timeout)
@@ -505,7 +532,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
                 services  = (device.getComms().getServices()) || []                        
             }
 
-            ble.startScanning(services, false, (err) => {                
+            ble.startScanning(services, true, (err) => {                
                 if (err) {
                     this.logEvent({message:`${opStr} result: error`, request,error:err.message});
                     this.scanState.isScanning = false;
@@ -514,6 +541,9 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
                 ble.on('discover', (p:BlePeripheral )=> {
                     
                     this.onPeripheralFound(p,(peripheral:BlePeripheral,characteristics:BleCharacteristic[])=>{
+
+                        if (!peripheral)
+                            return reject( new Error('could not connect'))
 
                         device.getComms().characteristics = characteristics
 

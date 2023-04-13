@@ -283,8 +283,6 @@ describe( 'Daum8i', ()=> {
         test('getProtocolVersion',async ()=> {
         
             //MockSerialPort.setResponse( 'V00' , ( command, sendData) => { sendData( [0x06]); sendData( buildMessage( 'V00', getAsciiArrayFromStr('201') ) ) } )            
-
-        
             simulator.protoVersion = '201'
             const version1 = await bike.getProtocolVersion();
             expect(version1).toBe('2.01');
@@ -293,6 +291,8 @@ describe( 'Daum8i', ()=> {
             simulator.protoVersion = '301'
             const version2 = await bike.getProtocolVersion();           
             expect(version2).toBe('3.01');
+    
+        
         })
     
         

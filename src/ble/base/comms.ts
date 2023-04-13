@@ -127,8 +127,12 @@ export class BleComms extends  EventEmitter  {
         if ( this.logger) {
             this.logger.logEvent(event)
         }
-        if (process.env.BLE_DEBUG) {
-            console.log( '~~~BLE:', event)
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const w = global.window as any
+
+        if (w?.DEVICE_DEBUG|| process.env.BLE_DEBUG) {
+            console.log( '~~~ BLE', event)
         }
     }  
 
@@ -263,7 +267,7 @@ export class BleComms extends  EventEmitter  {
             try {
                 const connector = this.ble.peripheralCache.getConnector(peripheral)
 
-                const disconnectHandler = ()=>{                
+                const disconnectHandler = ()=>{            
                     this.logEvent( {message:'device disconnected', address:this.address, profile:this.getProfile()})
                     this.state = "disconnected"
                     disconnectSignalled = true;
@@ -285,16 +289,17 @@ export class BleComms extends  EventEmitter  {
                 if (disconnectSignalled)
                     return;
                 
-                await connector.initialize();   
+                const initialized = await connector.initialize();   
                 // we might have received a disconnect during initialization request
-                if (disconnectSignalled)
-                    return;
+                if (!initialized || disconnectSignalled)
+                    return done(false);
 
 
                 await this.subscribeAll(connector)    
                 // we might have received a disconnect during subscribe request
                 if (disconnectSignalled)
-                    return;
+                    return done(false);
+
                 this.connectState.isConnected = true;
     
                 this.state = "connected"
@@ -328,6 +333,7 @@ export class BleComms extends  EventEmitter  {
     }
 
     subscribeMultiple( characteristics: string[], conn?: IBlePeripheralConnector):Promise<void> {
+        this.logEvent( {message:'subscribe', characteristics})
         return new Promise ( resolve => {
             
 
@@ -447,6 +453,10 @@ export class BleComms extends  EventEmitter  {
                 // is there already a peripheral in the cache (from background scan or previous scan)?
                 try {
                     this.peripheral = this.ble.peripheralCache.getPeripheral({id,name,address})
+                    const connector = this.ble.peripheralCache.getConnector(this.peripheral)
+                    if (!connector) {
+
+                    }
                 }
                 catch(err) {
                     this.logEvent({message:'error',fn:'connect()', error:err.message, stack:err.stack})
@@ -481,7 +491,7 @@ export class BleComms extends  EventEmitter  {
                             await this.ble.stopScan();
                         }            
         
-                        const peripheral = await this.ble.scanForDevice(this,{}).catch( ()=> null) ;
+                        const peripheral = await this.ble.scanForDevice(this,{});
 
 
                         if ( peripheral) {
@@ -500,13 +510,14 @@ export class BleComms extends  EventEmitter  {
         
                     }
                     catch (err) {
-                        console.log('~~~ ERROR',err)
                         error = err;
                     }
                     
     
                 }
-                this.logEvent({message:'connect result: failure',mode:'device', device:  { id, name, address} , error:error.message, stack:error.stack })
+                this.logEvent({message:'connect result: failure',mode:'device', device:  { id, name, address} , error:error.message})
+
+                
                 this.connectState.isConnecting = false;
                 this.connectState.isConnected = false;
                 this.ble.stopConnectSensor()
@@ -517,7 +528,7 @@ export class BleComms extends  EventEmitter  {
         catch (err) {
             this.connectState.isConnecting = false;
             this.connectState.isConnected = false;
-            this.logEvent({message:'connect result: error', error:err.message})
+            this.logEvent({message:'connect result: error', error:err.message, stack:err.stack})
             this.ble.stopConnectSensor()
             return false;
 

@@ -189,9 +189,11 @@ export class Daum8iMockBinding extends MockPortBinding {
 
           this.writeOperation = (async () => {
             await resolveNextTick()
+            /*
             if (!this.isOpen || !this.port) {
               throw new Error('Write canceled')
             }
+            */
 
             if (this.simulator._isSimulateACKTimeout) {
                 this.simulator._isSimulateACKTimeout = false;                

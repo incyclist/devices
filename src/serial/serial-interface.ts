@@ -52,10 +52,23 @@ export class SinglePathScanner {
         this.logger = props.logger || new EventLogger('SerialScanner')
     }
 
+    logEvent(event) {
+        if ( this.logger) {
+            this.logger.logEvent(event)
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const w = global.window as any
+    
+        if (w?.DEVICE_DEBUG||process.env.BLE_DEBUG) {
+            console.log( '~~~ SerialScanner', event)
+        }
+
+    }
 
 
     async onStopRequest(resolve):Promise<void> {
-        this.logger.logEvent({message:'stopping scan',path:this.path})
+        this.logEvent({message:'stopping scan',path:this.path})
         await this.serial.closePort(this.path)
         this.isScanning=false;
         resolve(this.result)
@@ -67,7 +80,7 @@ export class SinglePathScanner {
 
         this.isScanning = true;
         return new Promise<SerialDeviceSettings|undefined> ( async (resolve,reject) => {
-            this.logger.logEvent({message:'starting scan',path:this.path})
+            this.logEvent({message:'starting scan',path:this.path})
 
             this.serial.scanEvents.on('timeout',()=> this.onStopRequest(resolve) )
             this.serial.scanEvents.on('stop',()=> this.onStopRequest(resolve))
@@ -93,16 +106,16 @@ export class SinglePathScanner {
                     found = await adapter.check()
                     if (found) {
                         const name = adapter.getName();
-
+                        await this.serial.closePort(this.path).catch()
                         resolve( {...adapterSettings,name} )
                         
-                        //await this.serial.closePort(this.path).catch()
+                        
                     }
                     await sleep(100)
                 }
                 catch(err) {
                     /* ignore*/
-                    this.logger.logEvent({message:'error', fn:'scan()', error:err.message||err, stack:err.stack})
+                    this.logEvent({message:'error', fn:'scan()', error:err.message||err, stack:err.stack})
                     await sleep(100)
                 }
     
@@ -169,12 +182,26 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
         this.logger = props.logger || new EventLogger( `Serial:${ifaceName}`)
         this.connected = false;
         
-        this.logger.logEvent({message:'new serial interface', ifaceName})
+        this.logEvent({message:'new serial interface', ifaceName})
 
         if (binding) {
             this.setBinding(binding)
         }
         SerialInterface._add(this)
+    }
+
+    logEvent(event) {
+        if ( this.logger) {
+            this.logger.logEvent(event)
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const w = global.window as any
+    
+        if (w?.DEVICE_DEBUG||process.env.BLE_DEBUG) {
+            console.log( '~~~ Serial', event)
+        }
+
     }
 
     setBinding(binding: BindingInterface):void {
@@ -202,7 +229,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
 
         try {
             const SerialPort = this.binding;
-            const res = await SerialPort.list()
+            await SerialPort.list()
             this.connected = true;
             return true;
         }
@@ -218,7 +245,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
     }
 
     async openPort(path:string): Promise< SerialPortStream|null> {
-        this.logger.logEvent({message:'opening port',path})
+        this.logEvent({message:'opening port',path})
         
         const port = SerialPortProvider.getInstance().getSerialPort(this.ifaceName, {path});
         if (!port) {            
@@ -228,23 +255,23 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
         const existing = this.ports.findIndex( p=> p.path===path)
         if (existing!==-1) {
             const port = this.ports[existing].port;
-            if (port.isOpen)
+            if (port.isOpen) {
                 return port;
+            }
             else {
                 this.ports.splice(existing,1)
             }
         }
-            
+
         return new Promise( (resolve) => {
             port.once('error',(err)=>{ 
-
-                this.logger.logEvent({message:'error', path, error:err||err.message})
+                this.logEvent({message:'error', path, error:err||err.message})
                 port.removeAllListeners()
                 resolve(null); 
             })
             port.once('open',()=>{
 
-                this.logger.logEvent({message:'port opened',path})
+                this.logEvent({message:'port opened',path})
                 port.removeAllListeners()
                 this.ports.push({path,port})
                 resolve(port); 
@@ -255,6 +282,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
     }
 
     async closePort(path:string): Promise<Boolean> {
+        this.logEvent( {message:'closing port'})
         const existing = this.ports.findIndex( p=> p.path===path)
         if (existing===-1)
             return true;
@@ -272,7 +300,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
             port.close( err=> {
                 if (!err) {
                     this.ports.splice(existing,1)
-                    port.removeAllListeners();                   
+                    port.removeAllListeners();  
                     resolve(true)
                 }
                 resolve(false)
@@ -310,7 +338,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
             },timeout)
         }
 
-        this.logger.logEvent({message:'checking for ports '})
+        this.logEvent({message:'checking for ports'})
         this.isScanning = true;
         do {
             try {
@@ -328,7 +356,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
                 console.log('~~~ERROR',err)
             }
             if (!paths || paths.length===0) {
-                this.logger.logEvent({message:'scanning: no ports detected',interface:this.ifaceName, paths:paths.map(p=>p.path),timeout})
+                this.logEvent({message:'scanning: no ports detected',interface:this.ifaceName, paths:paths.map(p=>p.path),timeout})
                 await sleep(1000)
             }
             if (Date.now()>toExpiresAt)
@@ -338,7 +366,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
         while (this.isScanning && !timeOutExpired && paths.length===0)
         
         if (paths.length===0) {
-            this.logger.logEvent({message:'nothing to scan '})
+            this.logEvent({message:'nothing to scan '})
             if (this.toScan) {
                 clearTimeout(this.toScan)
                 this.toScan = null;
@@ -346,7 +374,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
             return[]
         }
         
-        this.logger.logEvent({message:'scanning on ',paths:paths.map(p=>p.path),timeout})
+        this.logEvent({message:'scanning on ',paths:paths.map(p=>p.path),timeout})
 
 
         const scanners: SinglePathScanner[] = paths.map( p=> new SinglePathScanner(p.path, this,{...props,logger:this.logger}))
@@ -366,7 +394,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
                 ))    
         }
         catch (err) {
-            this.logger.logEvent({message:'error', fn:'scan()',error:err.message||err, stack:err.stack})
+            this.logEvent({message:'error', fn:'scan()',error:err.message||err, stack:err.stack})
         }
         if (this.toScan) {
             clearTimeout(this.toScan)
@@ -376,7 +404,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
 
 
 
-        this.logger.logEvent({message:'scan finished on',interface:this.ifaceName,paths:paths.map(p=>p.path),devices:detected.map(d=> {            
+        this.logEvent({message:'scan finished on',interface:this.ifaceName,paths:paths.map(p=>p.path),devices:detected.map(d=> {            
             const res = Object.assign({},d)
             res.interface = this.ifaceName
             return res
