@@ -188,9 +188,8 @@ export default class DaumPremiumAdapter extends DaumAdapter{
             return true;
         }
         catch(err) {
-
             this.logEvent({message: 'start result: error', error: err.message})
-            throw new Error(`could not start device, reason:${err.message}`)
+            throw err
 
         }
 
@@ -204,10 +203,8 @@ export default class DaumPremiumAdapter extends DaumAdapter{
             return true;
         }
         catch(err) {
-
             this.logEvent({message: 'start result: error', error: err.message})
-            throw new Error(`could not start device, reason:${err.message}`)
-
+            throw err
         }
     }
 

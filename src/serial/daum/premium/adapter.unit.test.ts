@@ -318,7 +318,7 @@ describe( 'DaumPremiumAdapter', ()=>{
         })
 
         test('launch failure',async ()=>{
-            device.launch = jest.fn ( ()=>Promise.reject(new Error('test')))
+            device.launch = jest.fn ( ()=>Promise.reject(new Error('could not start device, reason:test')))
             const {started,error} = await run()
 
             expect(started).toBeFalsy();
@@ -357,7 +357,7 @@ describe( 'DaumPremiumAdapter', ()=>{
         })
 
         test('launch failure',async ()=>{
-            device.launch = jest.fn ( ()=>Promise.reject(new Error('test')))
+            device.launch = jest.fn ( ()=>Promise.reject(new Error('could not start device, reason:test')))
             const {started,error} = await run()
 
             expect(started).toBeFalsy();
