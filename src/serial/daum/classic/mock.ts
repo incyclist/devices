@@ -100,6 +100,8 @@ export type DaumClassicUser  = {
 }
 interface BikeData {    
     cockpitVersion: number
+    cockpitType: number
+    serialNo: string
     isPedalling: boolean
     bikeType:number
     person: DaumClassicUser 
@@ -107,8 +109,10 @@ interface BikeData {
 
 const DEFAULT_BIKE_DATA:BikeData = {
     cockpitVersion: 3,
+    serialNo: '4464:<;8',   
+    cockpitType: 50,        // 8080
     isPedalling: false,
-    bikeType:0, // RACE
+    bikeType:0,             // RACE
     person: { weight:75, length:180, age:30, sex:0 } 
 }
 
@@ -299,7 +303,10 @@ export class DaumClassicMockBinding extends MockPortBinding {
     onGetVersion(payload:Buffer):void {
         const bikeNo = payload.readUInt8(0)
         if (bikeNo>=0 && bikeNo<10) {
-            const response = Buffer.from( [0x73,bikeNo,this.simulator.bikes[bikeNo].cockpitVersion])
+            const {cockpitType,serialNo} = this.simulator.bikes[bikeNo] || {}
+            const response = Buffer.from( [0x73,bikeNo,0,0,0,0,0,0,0,0,cockpitType])
+            for ( let i=0;i<serialNo.length && i<8;i++)
+                response.writeUInt8( serialNo.charCodeAt(i), i+2)
             this.emitData(response)
         }
     }

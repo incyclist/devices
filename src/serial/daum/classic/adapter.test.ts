@@ -84,6 +84,35 @@ describe( 'DaumClassicAdapter', ()=>{
 
     })
 
+    describe('startRide',()=>{
+        let device
+        beforeEach( ()=>{
+            device = new DaumClassicAdapter( {interface:'serial', port:'COM5', protocol:'Daum Classic'})
+            device.launch = jest.fn ()
+        })
+
+        const run = async(props?) => {
+            let started:boolean = false;
+            let error:Error|undefined = undefined
+
+            try {
+                started = await device.startRide(props)
+            }
+            catch(err) {
+                error = err                
+            }
+            return {started,error}
+        }
+
+
+        test('launch ok',async ()=>{
+            const {started,error} = await run()
+
+            expect(device.launch).toHaveBeenCalledWith({}, true)
+            expect(started).toBeTruthy();
+            expect(error).toBeUndefined()
+        })
+    })
     /*
 
     describe('getCurrentBikeData',()=>{

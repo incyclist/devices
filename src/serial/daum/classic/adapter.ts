@@ -158,14 +158,32 @@ export default class DaumClassicAdapter extends DaumAdapter{
 
 
 
-    async startRide(props:DaumClassicDeviceProperties) {
-        this.logger.logEvent({message:'relaunch of device'});        
-        return await this.launch(props,true)
+    async startRide(props:DaumClassicDeviceProperties={}) {
+        this.logger.logEvent({message:'relaunch of device'});
+        try {        
+            await this.launch(props,true)
+            return true;
+        }
+        catch(err) {
+            this.logEvent({message: 'start result: error', error: err.message})
+            throw err
+
+        }
+
     }
 
-    async start(props:DaumClassicDeviceProperties) {
+    async start(props:DaumClassicDeviceProperties={}) {
         this.logger.logEvent({message:'initial start of device'});        
-        return await this.launch(props,false)
+        try {
+            await this.launch(props,false)
+            return true;
+        }
+        catch(err) {
+            this.logEvent({message: 'start result: error', error: err.message})
+            throw err
+
+        }
+        
     }
 
     async launch(props:DaumClassicDeviceProperties, isRelaunch=false) {
@@ -216,7 +234,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
                 this.logger.logEvent({message: 'start attempt',   isRelaunch, isConnected:this.bike.isConnected()})
 
                 if (!isRelaunch && !this.bike.isConnected())
-                    await this.bike.saveConnect();
+                    await this.connect();
                     
                 await this.getBike().resetDevice();
 
