@@ -265,7 +265,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
 
         return new Promise( (resolve) => {
             port.once('error',(err)=>{ 
-                this.logEvent({message:'error', path, error:err||err.message})
+                this.logEvent({message:'error', path, error:err.message||err})
                 port.removeAllListeners()
                 resolve(null); 
             })
