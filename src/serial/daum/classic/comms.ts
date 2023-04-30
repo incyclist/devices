@@ -101,6 +101,14 @@ export default class Daum8008  {
     logEvent(e) {
         if(!this.isLoggingPaused)
             this.logger.logEvent(e)
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const w = global.window as any
+ 
+        if (w?.DEVICE_DEBUG) {
+            console.log('~~~ DaumClassic',e)
+        }
+
     }
 
     async connect():Promise<boolean> {
@@ -109,8 +117,10 @@ export default class Daum8008  {
         }
     
         try {
+            this.logEvent({message:'connect attempt',port:this.portName})
             const port = await this.serial.openPort(this.portName)
             if (port!==null) {
+                this.logEvent({message:'connect success',port:this.portName})
                 this.connected = true;
                 this.sp = port;
 
@@ -119,10 +129,12 @@ export default class Daum8008  {
                 return true;   
             }
             else {
-                return false;
+                this.logEvent({message:'connect failure'})
+                return false;   
             }
         }
-        catch {
+        catch (err){
+            this.logEvent({message:'connect failure',reason:err.message})
             return false;
         }
 

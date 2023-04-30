@@ -248,6 +248,14 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
         if (!this.logger)
             return;
         this.logger.logEvent(event);
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const w = global.window as any
+ 
+        if (w?.DEVICE_DEBUG) {
+            console.log('~~~ Serial',event)
+        }
+
     }
 
           

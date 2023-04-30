@@ -106,11 +106,11 @@ export default class DaumClassicAdapter extends DaumAdapter{
             return false;
 
         return new Promise(  async (resolve, reject ) => {
-            this.logger.logEvent( {message:"checking device",port:this.getPort()});
+            this.logEvent( {message:"checking device",port:this.getPort()});
 
             
             const iv = setTimeout( async () => {
-                this.logger.logEvent( {message:"checking device failed", port:this.getPort(), reason:'timeout'});
+                this.logEvent( {message:"checking device failed", port:this.getPort(), reason:'timeout'});
                 resolve(false)
             },5000)
 
@@ -120,6 +120,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
                 if (!connected) {
                     clearTimeout(iv);
                     resolve(false)
+                    return;
                 }
                 
                 const address = await this.bike.getAddress() ||  {}
@@ -131,11 +132,11 @@ export default class DaumClassicAdapter extends DaumAdapter{
                 this.setID(info.serialNo);
 
                 clearTimeout(iv);
-                this.logger.logEvent( {message:"checking device success",port:this.getPort(),info});
+                this.logEvent( {message:"checking device success",port:this.getPort(),info});
                 resolve(true)               
             }
             catch (err) {
-                this.logger.logEvent( {message:"checking device failed", port:this.getPort(), reason:err.message||err});
+                this.logEvent( {message:"checking device failed", port:this.getPort(), reason:err.message||err});
                 resolve(false)
             }
 
@@ -159,7 +160,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
 
 
     async startRide(props:DaumClassicDeviceProperties={}) {
-        this.logger.logEvent({message:'relaunch of device'});
+        this.logEvent({message:'relaunch of device'});
         try {        
             await this.launch(props,true)
             return true;
@@ -173,7 +174,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
     }
 
     async start(props:DaumClassicDeviceProperties={}) {
-        this.logger.logEvent({message:'initial start of device'});        
+        this.logEvent({message:'initial start of device'});        
         try {
             await this.launch(props,false)
             return true;
@@ -205,11 +206,11 @@ export default class DaumClassicAdapter extends DaumAdapter{
                 catch {}
             }
 
-            this.logger.logEvent({message: 'start result: success'})
+            this.logEvent({message: 'start result: success'})
             return true;
         }
         catch(err) {
-            this.logger.logEvent({message: 'start result: error', error: err.message})
+            this.logEvent({message: 'start result: error', error: err.message})
             throw new Error(`could not start device, reason:${err.message}`)
         }
 
@@ -231,10 +232,13 @@ export default class DaumClassicAdapter extends DaumAdapter{
         let startState = { } as any;        
         return runWithRetries( async ()=>{
             try {
-                this.logger.logEvent({message: 'start attempt',   isRelaunch, isConnected:this.bike.isConnected()})
+                this.logEvent({message: 'start attempt',   isRelaunch, isConnected:this.bike.isConnected()})
 
-                if (!isRelaunch && !this.bike.isConnected())
-                    await this.connect();
+                if (!isRelaunch && !this.bike.isConnected()) {
+                    const connected = await this.connect();
+                    if (!connected) 
+                        throw new Error('Could not connect')
+                }
                     
                 await this.getBike().resetDevice();
 
@@ -280,7 +284,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
                 
             }
             catch (err) {
-                this.logger.logEvent({message: 'start attempt failed',  error:err.message})
+                this.logEvent({message: 'start attempt failed',  error:err.message})
                 
                 if ( startState.checkRunData ) { 
                     startState = { } as any
