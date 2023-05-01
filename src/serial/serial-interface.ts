@@ -245,22 +245,23 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
     }
 
     async openPort(path:string): Promise< SerialPortStream|null> {
-        this.logEvent({message:'opening port',path})
-        
-        const port = SerialPortProvider.getInstance().getSerialPort(this.ifaceName, {path});
-        if (!port) {            
-            return null;
-        }
-        
+        this.logEvent({message:'opening port',path})              
         const existing = this.ports.findIndex( p=> p.path===path)
         if (existing!==-1) {
             const port = this.ports[existing].port;
             if (port.isOpen) {
+                this.logEvent({message:'opening port - port already exists',path})
                 return port;
             }
             else {
                 this.ports.splice(existing,1)
             }
+        }
+
+        this.logEvent({message:'opening port - getSerialPort()',path})
+        const port = SerialPortProvider.getInstance().getSerialPort(this.ifaceName, {path});
+        if (!port) {            
+            return null;
         }
 
         return new Promise( (resolve) => {
