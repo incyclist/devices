@@ -84,7 +84,13 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
     logEvent(event) {
         if (this.logger)
             this.logger.logEvent(event)
-        console.log('~~~ ANT', event)
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const w = global.window as any
+    
+        if (w?.DEVICE_DEBUG||process.env.ANT_DEBUG) {
+            console.log( '~~~ ANT', event)
+        }
     }
 
     isConnected(): boolean {

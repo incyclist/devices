@@ -177,7 +177,6 @@ export default class Daum8i  {
 
         this.connected = false;
         if (this.sp) {
-            console.log('~~~ removing all listeners')
             this.sp.removeAllListeners()
             this.sp = null;
         }
@@ -224,7 +223,6 @@ export default class Daum8i  {
     async onPortClose() {
         this.connected = false;
         if (this.sp) {
-            console.log('~~~ removing all listeners')
             this.sp.removeAllListeners()
             this.sp = null;
         }
