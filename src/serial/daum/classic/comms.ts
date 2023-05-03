@@ -1,5 +1,6 @@
+/* eslint-disable react-hooks/rules-of-hooks */
 import {EventLogger} from 'gd-eventlog'
-import {hexstr, getCockpit,getBikeType,getGender,getLength,getWeight,buildError,Float32ToIntArray, parseRunData, DEFAULT_AGE,DEFAULT_USER_WEIGHT,DEFAULT_BIKE_WEIGHT} from './utils'
+import {hexstr, getCockpit,getBikeType,getGender,getLength,getWeight,buildError,Float32ToIntArray, parseRunData, DEFAULT_AGE} from './utils'
 import {Queue} from '../../../utils/utils'
 import { User } from '../../../types/user'
 import { SerialInterface, SerialPortProvider, useSerialPortProvider } from '../..'
@@ -9,8 +10,6 @@ const ByteLength = require('@serialport/parser-byte-length')
 
 
 const nop = ()=>{}
-const TIMEOUT_START = 15000;
-const TIMEOUT_CLOSE = 5000;    // 5s
 const TIMEOUT_SEND  = 2000;    // 2s
 
 
@@ -125,7 +124,7 @@ export default class Daum8008  {
                 this.sp = port;
 
                 this.sp.on('close', this.onPortClose.bind(this));            
-                this.sp.on('error', (error)=>{this.onPortError(error)} );    
+                this.sp.on('error', this.onPortError.bind(this));    
                 return true;   
             }
             else {
@@ -147,7 +146,11 @@ export default class Daum8008  {
         this.stopWorker()
         await this.flush();
     
-        await this.serial.closePort(this.portName)
+        try {
+            await this.serial.closePort(this.portName)
+        }
+        catch {}
+
         this.connected = false;
         if (this.sp)
             this.sp.removeAllListeners()
@@ -199,7 +202,7 @@ export default class Daum8008  {
             return;
 
         const state = { opening:this.opening, connected:this.connected, closing:this.closing, closed:this.closed, busy:this.cmdBusy}
-        this.logEvent({message:"port error:",port:this.getPort(),error:err.message,stack:err.stack,state});
+        this.logEvent({message:"port error:",port:this.getPort(),error:err.message,state});
         this.error = err;
         this.cmdBusy=false;
     }

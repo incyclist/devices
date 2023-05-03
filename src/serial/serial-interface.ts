@@ -261,6 +261,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
         this.logEvent({message:'opening port - getSerialPort()',path})
         const port = SerialPortProvider.getInstance().getSerialPort(this.ifaceName, {path});
         if (!port) {            
+            this.logEvent({message:'opening port - port does not exist',path})
             return null;
         }
 
@@ -294,8 +295,12 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
             return true;
         
         port.on('error',()=>{})
-        port.flush();
-        await port.drain();
+
+        try {
+            port.flush();
+            await port.drain();
+        }
+        catch {}
 
         return new Promise( resolve=> {
             port.close( err=> {
