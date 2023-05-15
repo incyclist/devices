@@ -124,9 +124,12 @@ export default class Daum8i  {
     resumeLogging() {
         this.isLoggingPaused =false;
     }
+
     logEvent(e) {
-        if(!this.isLoggingPaused)
-            this.logger.logEvent(e)
+        if(this.isLoggingPaused)
+            return;
+
+        this.logger.logEvent(e)
         const w = global.window as any
         if (w?.DEVICE_DEBUG) {
             console.log('~~~ DaumPremium', e)

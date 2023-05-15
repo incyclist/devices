@@ -209,8 +209,9 @@ export default class DaumPremiumAdapter extends DaumAdapter{
     }
 
     async launch(props:Daum8iDeviceProperties={}, isRelaunch=false) {
-        
 
+        const isPaused = this.isPaused()!==false
+        
         this.setBikeProps(props)
 
         const user: User = this.user
@@ -272,9 +273,11 @@ export default class DaumPremiumAdapter extends DaumAdapter{
 
         }, 5, this._startRetryTimeout )
         .then ( () => {
+
             this.stopped = false;
             this.paused = false;
-            
+            if (isPaused)
+                this.resume()
             this.startUpdatePull();
             return true;
         })
