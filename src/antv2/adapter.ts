@@ -37,10 +37,10 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData, TData> exten
     onDataFn: (data: TData) => void
     startupRetryPause: number = 1000;
     
-    protected ivDataTimeout: NodeJS.Timer
+    protected ivDataTimeout: NodeJS.Timeout
     protected lastDataTS: number;
     protected dataMsgCount: number;
-    protected ivWaitForData: NodeJS.Timer
+    protected ivWaitForData: NodeJS.Timeout
 
 
     constructor ( settings:AntDeviceSettings, props?:DeviceProperties) {
