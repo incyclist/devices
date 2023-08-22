@@ -85,7 +85,7 @@ export class StaticWriteCharacteristic extends MockCharacteristic {
 
 export abstract class StaticNotifyCharacteristic extends MockCharacteristic {
     cntSubscriptions: number
-    iv: NodeJS.Timer
+    iv: NodeJS.Timeout
     notifyFrequency: number
 
     constructor( uuid:string, description:string) {
