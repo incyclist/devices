@@ -398,8 +398,8 @@ describe( 'fe adapter', ()=>{
             adapter.ant.startSensor.mockResolvedValue(true)
             adapter.stop.mockResolvedValue(true)
             adapter.waitForData.mockResolvedValue(true)
-            adapter.sensor.sendTrackResistance = jest.fn( async ()=>{ await sleep(20000)})
-            adapter.sensor.sendTargetPower = jest.fn( async ()=>{ await sleep(20000)})
+            adapter.sensor.sendTrackResistance = jest.fn( async ()=>{ await sleep(500)})
+            adapter.sensor.sendTargetPower = jest.fn( async ()=>{ await sleep(500)})
             
             let error;
             try {

@@ -23,6 +23,7 @@ describe( 'TCPPort' ,()=> {
         let server;
         let serverSocket
         const fnReceive = jest.fn()
+        const ports: Array<any> = []
         
 
         beforeEach( async ()=>{            
@@ -41,7 +42,7 @@ describe( 'TCPPort' ,()=> {
                 })
 
                 serverSocket.on('connected',(info)=>{ 
-                    console.log('connected',info)
+                    /*console.log('connected',info)*/
                 })
             })
 
@@ -53,21 +54,45 @@ describe( 'TCPPort' ,()=> {
 
 
         })
-        afterEach( ()=>{
-            if (serverSocket)
+        afterEach( async ()=>{
+            // close all client connections
+
+            for ( let i=0; i<ports.length; i++) {
+                const sp = ports[i]
+                try { 
+//                    if (sp.isOpen)
+                        await sp.close( ()=> {});
+                }
+                catch {}
+
+            }
+
+
+            // terminate server
+            if (serverSocket) {
+                serverSocket.removeAllListeners();
                 serverSocket.destroy();
+            }
             server.close();
+
+
+
+          
+            
             
         })
+
         const connect = (port:string):Promise<any> => new Promise( resolve=> {
             const sp = spp.getSerialPort('tcp', {path:port});
+            ports.push(sp)
+
             if (!sp) {
                 resolve(false)
                 return;
             }
             
-            sp.on('error',()=>{ resolve({connected:false}); sp.removeAllListeners()})
-            sp.once('open',()=>{resolve({connected:true, sp}); sp.removeAllListeners()})
+            sp.on('error',(err)=>{ resolve({connected:false}); sp.removeAllListeners()})
+            sp.once('open',()=>{ resolve({connected:true, sp}); sp.removeAllListeners(); })
             sp.open()
     
         })
@@ -100,6 +125,7 @@ describe( 'TCPPort' ,()=> {
         test('getSerialPort tcp valid path - read ByteLength Parser',async ()=>{
  
             const sp = spp.getSerialPort('tcp', {path:TEST_PATH});
+            ports.push(sp)
             
             const read = (): Promise<Buffer>=> {
                 return new Promise( done => {
@@ -125,6 +151,7 @@ describe( 'TCPPort' ,()=> {
         test('getSerialPort tcp valid path - "data" event',async ()=>{
  
             const sp = spp.getSerialPort('tcp', {path:TEST_PATH});
+            ports.push(sp)
             
             const read = (): Promise<Buffer>=> {
                 return new Promise( done => {
@@ -149,7 +176,7 @@ describe( 'TCPPort' ,()=> {
 
 
             // even on Windows, this should not fail, as we are not (yet) opening
-            const res = await connect('localhost:80123')
+            const res = await connect('localhost:65535')
             expect(res.connected).toBeFalsy()
 
         })

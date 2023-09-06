@@ -37,7 +37,10 @@ describe('DaumClassicAdapter #integration',()=>{
     })
 
     afterEach( async ()=>{
-        await device.close().catch()
+        try {
+            await device.close()
+        }
+        catch {}
     })
 
     test('constructor',()=>{
@@ -64,7 +67,7 @@ describe('DaumClassicAdapter #integration',()=>{
         const res = await device.start()
         expect(res).toBeTruthy()
         
-    })
+    },5000)
 
 
 

@@ -28,6 +28,7 @@
     "lint": "eslint . --ext .ts",
     "build": "tsc",
     "test": "jest --coverage",
+    "test:ci": "jest --coverage --forceExit",
     "dev": "tsc --watch"
   },
   "files": [

@@ -2,9 +2,10 @@ import { BindingPortInterface, OpenOptions, PortStatus, PortInfo, SetOptions, Up
 import { EventLogger } from 'gd-eventlog';
 import { networkInterfaces } from 'os';
 import net from 'net'
+import { sleep } from "../../utils/utils";
 
 
-
+const DEFAULT_TIMEOUT = 3000
 export interface TCPOpenOptions extends OpenOptions {
     timeout? : number
 }
@@ -164,8 +165,7 @@ export const TCPBinding: TCPBindingInterface = {
 
 
                 const socket = new net.Socket();
-                if (options.timeout)
-                    socket.setTimeout(options.timeout)
+                socket.setTimeout(options.timeout||DEFAULT_TIMEOUT)
 
                 socket.once('timeout',()=>{ reject(new Error('timeout'))})
                 socket.once('error',(err)=>{ reject(err)})
@@ -217,6 +217,8 @@ export class TCPPortBinding implements BindingPortInterface  {
         this.writeOperation = null;
         this.data = null
 
+        this.socket.removeAllListeners();
+
         this.socket.on('data', this.onData.bind(this))
         this.socket.on('error', this.onError.bind(this))
         this.socket.on('close', ()=>{this.close()})
@@ -256,18 +258,29 @@ export class TCPPortBinding implements BindingPortInterface  {
         // reset data
         this.data = Buffer.alloc(0);
 
-        const socket = this.socket;
 
+        const close = async () => {
 
-        socket.removeAllListeners();
-        socket.destroy()
-        // catch error event, so that process will not be killed in case there is such an event fired
-        socket.on('error',()=>{ /*ignore*/})            
-        setTimeout( ()=>{ socket.removeAllListeners()}, 500);
+            return new Promise( done => {
+                const socket = this.socket;
 
-        this.socket = null;
-        if (this.pendingRead) {
-            this.pendingRead(new CanceledError('port is closed'))          
+                //socket.removeAllListeners();
+                socket.on('error',()=>{ done(false) })            
+                socket.on('close',()=>{ socket.removeAllListeners(); done(true) })            
+
+                socket.destroy()
+    
+            })
+    
+        }
+        
+        const closed = await close();
+        if (closed) {
+            this.socket = null;
+            if (this.pendingRead) {
+                this.pendingRead(new CanceledError('port is closed'))          
+            }
+    
         }
 
 

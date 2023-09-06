@@ -29,7 +29,7 @@ describe('serialport',()=>{
             resolve(false)
             return;
         }
-        setTimeout( ()=>{ resolve(true); sp.removeAllListeners()}, 500)
+        setTimeout( ()=>{ resolve(true); sp.removeAllListeners()}, 100)
         sp.on('error',()=>{ resolve(false); sp.removeAllListeners()})
     })
 
