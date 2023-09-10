@@ -10,7 +10,7 @@ import { IncyclistCapability } from './types/capabilities'
 import { DeviceData } from './types/data'
 import  {DeviceSettings} from './types/device'
 import  CyclingMode from './modes/cycling-mode'
-
+import calc from './utils/calculations'
 
 export * from './modes/cycling-mode'
 
@@ -30,5 +30,7 @@ export {
     IncyclistDeviceAdapter,Controllable,ControllableDeviceAdapter,
     DeviceData,
     IncyclistCapability,
+
+    calc,
 
 }
