@@ -1,7 +1,6 @@
 import { DeviceProperties } from "../types/device";
 import BleAdapter from "./base/adapter";
 import { BleDeviceSettings, BleProtocol } from "./types";
-import { LegacyProfile } from "../antv2/types";
 import { BleComms } from "./base/comms";
 import { getDevicesFromServices } from "./base/comms-utils";
 import { mapLegacyProfile } from "./utils";
