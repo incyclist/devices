@@ -60,15 +60,26 @@ export default class AntAdapterFactory {
     createInstance(settings:AntDeviceSettings,props?:AntDeviceProperties) {
         let info
         const {profile,protocol} = settings
+
+        let isLegacy = false;
         if (protocol) { // legacy settings
-            const incyclistProfile = profile as LegacyProfile
-            info = this.getAdapter({incyclistProfile})
+        
+            try {
+                const incyclistProfile = profile as LegacyProfile
+                info = this.getAdapter({incyclistProfile})
+                isLegacy = true
+            }
+            catch {
+                isLegacy = false;
+            }
         }
-        else {
+
+        if (!isLegacy) {
             const antProfile = profile as Profile
             info = this.getAdapter({antProfile})
     
         }
+
         if (info && info.Adapter)
             return new info.Adapter(settings,props)
     }

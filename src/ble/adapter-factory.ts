@@ -42,10 +42,19 @@ export default class BleAdapterFactory {
         const adapterSettings = Object.assign( {}, settings)
 
         if (profile) { // legacy settings 
-            const mapping = mapLegacyProfile(profile)
-            protocol = adapterSettings.protocol = mapping.protocol
-            delete adapterSettings.profile
+            try {
+                const mapping = mapLegacyProfile(profile)
+                protocol = adapterSettings.protocol = mapping.protocol
+                delete adapterSettings.profile
+            }
+            catch {
+
+                // incorrect legacy settings
+                delete settings.profile
+               
+            }
         }
+
 
         const existing = this.find(adapterSettings)
         if (existing) {
