@@ -681,6 +681,7 @@ export class BleComms extends  EventEmitter  {
 
             const {withoutResponse,timeout} = props||{};
 
+            let fireAndForget = withoutResponse;
             const connector = this.ble.peripheralCache.getConnector( this.peripheral)
             const isAlreadySubscribed = connector.isSubscribed(characteristicUuid)
 
@@ -696,8 +697,14 @@ export class BleComms extends  EventEmitter  {
                 })
 
                 this.logEvent({message:'write:subscribing ', characteristic:characteristicUuid})
-                await connector.subscribe(characteristicUuid)
-                this.subscribedCharacteristics.push(characteristicUuid)
+                try {
+                    await connector.subscribe(characteristicUuid)
+                    this.subscribedCharacteristics.push(characteristicUuid)
+                }
+                catch(err) {
+                    this.logEvent({message:'write:subscribing failed', characteristic:characteristicUuid, error:err.message})
+                    fireAndForget = true;
+                }
             }
 
             return new Promise ( (resolve,reject) => {
@@ -707,9 +714,9 @@ export class BleComms extends  EventEmitter  {
                     return;
                 }
 
-                if (withoutResponse) {
-                    this.logEvent({message:'writing', data:data.toString('hex'),withoutResponse})
-                    characteristic.write(data,withoutResponse);
+                if (fireAndForget) {
+                    this.logEvent({message:'writing', data:data.toString('hex'),withoutResponse:'true'})
+                    characteristic.write(data,true);
                     resolve(new ArrayBuffer(0));
                     return;
                 }

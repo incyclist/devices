@@ -35,8 +35,8 @@ export default class BlePeripheralConnector implements IBlePeripheralConnector{
             throw new Error('Illegal Arguments')
 
         this.state = { subscribed:[], isConnected:false, isConnecting:false, isInitialized:false, isInitializing:false, isSubscribing:false}
-        this.services = undefined;
-        this.characteristics = undefined;
+        this.services = [];
+        this.characteristics = [];
         this.logger = new EventLogger( 'BLE')
     }
 
@@ -120,8 +120,8 @@ export default class BlePeripheralConnector implements IBlePeripheralConnector{
 
         return new Promise( async done => {
             this.state.isInitializing = true;
-            this.characteristics = undefined;
-            this.services = undefined;
+            this.characteristics = [];
+            this.services = [];
     
             try {
                 this.emitter.once('disconnect',()=>{
@@ -133,10 +133,11 @@ export default class BlePeripheralConnector implements IBlePeripheralConnector{
     
                 // we might have received a disconnect while sending the previous request
                 if (this.state.isInitializing) {
-                    this.characteristics = res.characteristics
-                    this.services = res.services.map( s => typeof (s) === 'string' ? s : s.uuid)
+                    this.characteristics = res.characteristics || []
+                    const services = res.services || [] 
+                    this.services = services.map( s => typeof (s) === 'string' ? s : s.uuid)
                     this.state.isInitializing = false;
-                    this.state.isInitialized = this.characteristics!==undefined && this.services!==undefined
+                    this.state.isInitialized = this.characteristics!==undefined && this.services!==undefined && this.characteristics.length>0 && this.services.length>0
                     this.logEvent( {message:'initialize done',peripheral:this.peripheral.address, state:this.state})
                     return done(true)
                 }
