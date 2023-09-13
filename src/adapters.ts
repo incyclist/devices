@@ -52,7 +52,7 @@ export default class AdapterFactory {
                 adapter = BleAdapterFactory.getInstance().createInstance(settings as BleDeviceSettings,props)
                 break;
             case INTERFACE.SIMULATOR:
-                adapter = new Simulator(settings)
+                adapter = new Simulator(settings,props)
                 break;
         }
 
