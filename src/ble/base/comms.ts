@@ -710,7 +710,8 @@ export class BleComms extends  EventEmitter  {
             return new Promise ( (resolve,reject) => {
                 const characteristic: BleCharacteristic = this.characteristics.find( c=> c.uuid===characteristicUuid || uuid(c.uuid)===characteristicUuid );
                 if (!characteristic) {
-                    reject(new Error( 'Characteristic not found'))
+                    this.logEvent({message:'write: Characteristic not found',characteristicUuid,characteristics:this.characteristics.map(c => c.uuid)})
+                    reject(new Error( `Characteristic not found`))
                     return;
                 }
 
@@ -763,6 +764,7 @@ export class BleComms extends  EventEmitter  {
 
             const characteristic: BleCharacteristic = this.characteristics.find( c=> c.uuid===characteristicUuid || uuid(c.uuid)===characteristicUuid );
             if (!characteristic) {
+                this.logEvent({message:'read: Characteristic not found',characteristicUuid,characteristics:this.characteristics.map(c => c.uuid)})
                 reject(new Error( 'Characteristic not found'))
                 return;
             }

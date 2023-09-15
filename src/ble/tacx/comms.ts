@@ -536,6 +536,8 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 	}
 
     async sendMessage(message:Buffer):Promise<boolean> {
+        this.logEvent({message:'write',characteristic: this.tacxTx,data:message.toString('hex')})
+
         await this.write( this.tacxTx, message, {withoutResponse:true} )
         return true;
     }
