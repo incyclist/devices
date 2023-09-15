@@ -192,11 +192,26 @@ export default class AntPwrAdapter extends ControllableAntAdapter<BicyclePowerSe
 
     hasData():boolean {
         const {Power,Cadence,TimeStamp} = this.deviceData
-        return Power!==undefined && Power!==null || 
-               Cadence!==undefined || Cadence!==null ||
-               TimeStamp!==undefined || TimeStamp!==null
+
+        const hasData = (Power!==undefined && Power!==null) ||  (Cadence!==undefined && Cadence!==null) || (TimeStamp!==undefined && TimeStamp!==null)
+        return hasData
     }
 
+    
+    async start( props?: any ): Promise<any> {
+        const wasPaused = this.paused 
+     
+        if (wasPaused)
+            this.resume()
+
+        if (this.started && !wasPaused) {
+            return true;
+        }
+    
+        return await super.start(props)
+
+    }
+    
 
 
 }
