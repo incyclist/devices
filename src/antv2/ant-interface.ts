@@ -343,12 +343,12 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
                 return stopped
             }
             catch(err) {
-                this.logEvent( {message:'could not stop sensor', error:err.message||err, stack:err.stack})
+                this.logEvent( {message:'could not stop sensor', error:err.message||err,deviceID:sensor.getDeviceID(), stack:err.stack})
                 return false;
             }
         }
         else {
-            this.logEvent( {message:'could not stop sensor', error:'no channel attached'})
+            this.logEvent( {message:'could not stop sensor', deviceID:sensor.getDeviceID(), error:'no channel attached'})
             return false;
         }
     }

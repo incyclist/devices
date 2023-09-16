@@ -158,7 +158,7 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
 
         super.onDeviceData(deviceData)
         
-        if (!this.started || this.isStopped() || this.paused)
+        if (!this.started || this.isStopped() /*|| this.paused */)
             return;
 
         if ( !this.ivDataTimeout && this.dataMsgCount>0) {        
@@ -167,7 +167,7 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
 
         try {
             const logData = this.getLogData(deviceData, ['PairedDevices','RawData']);
-            this.logger.logEvent( {message:'onDeviceData',data:logData})
+            this.logger.logEvent( {message:'onDeviceData',data:logData, paused:this.paused})
 
             if (!this.canSendUpdate()) 
                 return;
@@ -385,13 +385,14 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
 
             
             if (success) {
-                this.logEvent( {message:'start success'})
+                this.logEvent( {message:'ANT FE start success'})
                 this.started = true;
+                this.paused = false;
                 stopTimeoutCheck()
                 resolve(true)
             }
             else {
-                this.logEvent( {message:'start failed'})                
+                this.logEvent( {message:'ANT FE start failed'})                
                 stopTimeoutCheck()
                 if (!hasData) {          
                     reject(new Error('could not start device, reason: no data received'))
