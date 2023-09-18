@@ -44,9 +44,18 @@ export default class BleTacxFEAdapter extends BleFmAdapter {
 
     async start( props:BleStartProperties={}): Promise<any> {
 
-        if (this.started)
+        const wasPaused = this.paused
+        const wasStopped = this.stopped
+
+        if (wasPaused)
+            this.resume()
+        if (wasStopped)
+            this.stopped = false
+
+        if (this.started && !wasPaused && !wasStopped)
             return true;
 
+            
         if ( this.ble.isScanning()) {
             this.logger.logEvent({message:'stop previous scan',isScanning:this.ble.isScanning()})
             await this.ble.stopScan();

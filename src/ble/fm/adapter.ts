@@ -139,11 +139,14 @@ export default class BleFmAdapter extends BleControllableAdapter {
 
     async start( props: BleStartProperties={} ): Promise<any> {
         const wasPaused = this.paused
+        const wasStopped = this.stopped
 
         if (wasPaused)
             this.resume()
+        if (wasStopped)
+            this.stopped = false
 
-        if (this.started && !wasPaused)
+        if (this.started && !wasPaused && !wasStopped)
             return true;
 
         

@@ -191,9 +191,17 @@ export default class BleAdapter  extends IncyclistDevice  {
 
     async start( props: BleStartProperties={} ): Promise<any> {
 
-        if (this.started)
-            return true;
+        const wasPaused = this.paused
+        const wasStopped = this.stopped
 
+        if (wasPaused)
+            this.resume()
+        if (wasStopped)
+            this.stopped = false
+
+        if (this.started && !wasPaused && !wasStopped)
+            return true;
+        
         const connected = await this.connect()
         if (!connected)
             throw new Error(`could not start device, reason:could not connect`)

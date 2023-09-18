@@ -247,18 +247,19 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
 
     async start( props?: any ): Promise<any> {
         const wasPaused = this.paused 
-        this.startProps = props||{};
+        const wasStopped = this.stopped;
 
+        this.startProps = props||{};
 
         if (wasPaused)
             this.resume()
+        if (wasStopped)
+            this.stopped = false;
 
-        if (this.started && !wasPaused) {
+        if (this.started && !wasPaused && !wasStopped) {
             return true;
         }
-
-
-        
+       
         const connected = await this.connect()
         if (!connected)
             throw new Error(`could not start device, reason:could not connect`)

@@ -39,6 +39,18 @@ export default class BleWahooAdapter extends BleFmAdapter {
 
 
     async start( props: BleStartProperties={} ): Promise<any> {
+
+        const wasPaused = this.paused
+        const wasStopped = this.stopped
+
+        if (wasPaused)
+            this.resume()
+        if (wasStopped)
+            this.stopped = false
+
+        if (this.started && !wasPaused && !wasStopped)
+            return true;
+                
         this.logger.logEvent({message: 'start requested', protocol:this.getProtocolName(),props})
             
         try {

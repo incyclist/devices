@@ -5,7 +5,7 @@ import AntInterface from './ant-interface';
 import IncyclistDevice, { DEFAULT_BIKE_WEIGHT } from '../base/adpater';
 import { AntDeviceProperties, AntDeviceSettings, isLegacyProfile, LegacyProfile } from './types';
 import { DeviceProperties } from '../types/device';
-import { Bike, IncyclistDeviceAdapter, OnDeviceDataCallback } from '../types/adapter';
+import { Bike, IncyclistDeviceAdapter } from '../types/adapter';
 import { sleep } from '../utils/utils';
 import { IncyclistCapability } from '../types/capabilities';
 import CyclingMode from '../modes/cycling-mode';
@@ -228,8 +228,10 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData, TData> exten
 
     async start( props: AntDeviceProperties={} ): Promise<boolean> {
 
-        if (this.started)
+        if (this.started && !this.stopped)
             return true;
+
+        this.stopped = false;
 
         const connected = await this.connect()
         if (!connected)

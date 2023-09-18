@@ -200,11 +200,14 @@ export default class AntPwrAdapter extends ControllableAntAdapter<BicyclePowerSe
     
     async start( props?: any ): Promise<any> {
         const wasPaused = this.paused 
+        const wasStopped = this.stopped;
      
         if (wasPaused)
             this.resume()
+        if (wasStopped)
+            this.stopped = false;
 
-        if (this.started && !wasPaused) {
+        if (this.started && !wasPaused && !wasStopped) {
             return true;
         }
     
