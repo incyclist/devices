@@ -318,12 +318,13 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
         this.updateBusy = true;
         this.getCurrentBikeData()
         .then( bikeData => {
+            this.logEvent({message:'bike data',data: bikeData})
             
             // update Data based on information received from bike
-            this.updateData(this.cyclingData, bikeData)
+            const incyclistData = this.updateData(this.cyclingData, bikeData)
 
             // transform  ( rounding / remove ignored values)
-            const data = this.transformData();
+            const data = this.transformData(incyclistData);
 
             this.updateBusy = false;
             this.emitData(data)
@@ -333,8 +334,8 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
 
             // use previous values
             const {isPedalling,power,pedalRpm, speed, distanceInternal,heartrate,slope} = this.cyclingData;
-            this.updateData(this.cyclingData, { isPedalling,power,pedalRpm, speed, distanceInternal,heartrate,slope})
-            this.transformData();
+            const incyclistData =this.updateData(this.cyclingData, { isPedalling,power,pedalRpm, speed, distanceInternal,heartrate,slope})
+            this.transformData(incyclistData);
 
             this.updateBusy = false;
         })
@@ -425,29 +426,26 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
     }
 
 
-    transformData( ): DeviceData {
-
-        if ( this.cyclingData===undefined)
-            return;
-    
+    transformData(cyclingData:IncyclistBikeData ): DeviceData {
+   
         let distance=0;
-        if ( this.distanceInternal!==undefined && this.cyclingData.distanceInternal!==undefined ) {
-            distance = this.cyclingData.distanceInternal-this.distanceInternal
+        if ( this.distanceInternal!==undefined && cyclingData.distanceInternal!==undefined ) {
+            distance = cyclingData.distanceInternal-this.distanceInternal
         }
-        if (this.cyclingData.distanceInternal!==undefined)
-            this.distanceInternal = this.cyclingData.distanceInternal;
+        if (cyclingData.distanceInternal!==undefined)
+            this.distanceInternal = cyclingData.distanceInternal;
         
 
         let data =  {
-            speed: this.cyclingData.speed,
-            slope: this.cyclingData.slope,
-            power: intVal(this.cyclingData.power),
-            cadence: intVal(this.cyclingData.pedalRpm),
-            heartrate: intVal(this.cyclingData.heartrate),
+            speed: cyclingData.speed||0,
+            slope: cyclingData.slope,
+            power: intVal(cyclingData.power||0),
+            cadence: intVal(cyclingData.pedalRpm),
+            heartrate: intVal(cyclingData.heartrate),
             distance,
             timestamp: Date.now(),
-            deviceTime: this.cyclingData.time,
-            deviceDistanceCounter: this.cyclingData.distanceInternal
+            deviceTime: cyclingData.time,
+            deviceDistanceCounter: cyclingData.distanceInternal
         } as DeviceData;
 
         if (this.ignoreHrm) delete data.heartrate;

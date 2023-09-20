@@ -207,6 +207,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
             if (!this.startPromise) {
                 if (isRelaunch) {
                     await this.stop();              // stop the worker intervals
+                    this.bike.resumeLogging()   
                 }
     
                 this.startPromise = this.performStart(props, isRelaunch)   
