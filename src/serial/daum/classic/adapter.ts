@@ -42,6 +42,8 @@ export default class DaumClassicAdapter extends DaumAdapter{
 
     name: string;
     id: string;
+    started: boolean;
+    startPromise: Promise<unknown>
 
     constructor ( settings:SerialDeviceSettings,props?:DeviceProperties) {
         super(settings,props)
@@ -56,9 +58,12 @@ export default class DaumClassicAdapter extends DaumAdapter{
         this.ignorePower    = false;
         this.ignoreBike     = false;
 
+        this.stopped    = false
+        this.started    = false;
         this.paused     = undefined;
         this.iv         = undefined;
         this.distanceInternal = undefined;
+        this.startPromise = undefined
 
         this.initData();
     }
@@ -174,9 +179,16 @@ export default class DaumClassicAdapter extends DaumAdapter{
     }
 
     async start(props:DaumClassicDeviceProperties={}) {
-        this.logEvent({message:'initial start of device'});        
+
+
+
+        const isRelaunch = this.started
+        const message = isRelaunch ? 'relaunch of device' :'initial start of device';
+        
+        this.logEvent({message});
+
         try {
-            await this.launch(props,false)
+            await this.launch(props,isRelaunch)
             return true;
         }
         catch(err) {
@@ -191,11 +203,21 @@ export default class DaumClassicAdapter extends DaumAdapter{
 
 
         try {
-            if (isRelaunch) {
-                await this.stop();              // stop the worker intervals
+
+            if (!this.startPromise) {
+                if (isRelaunch) {
+                    await this.stop();              // stop the worker intervals
+                }
+    
+                this.startPromise = this.performStart(props, isRelaunch)   
+            }
+            else {
+                this.logEvent({message: 'start already ongoing'})
+
             }
 
-            await this.performStart(props, isRelaunch)
+            await this.startPromise
+            this.startPromise = undefined
         
             if (!isRelaunch) {
                 try {
@@ -207,10 +229,14 @@ export default class DaumClassicAdapter extends DaumAdapter{
             }
 
             this.logEvent({message: 'start result: success'})
+            this.started = true;
             return true;
         }
         catch(err) {
             this.logEvent({message: 'start result: error', error: err.message})
+
+            this.startPromise = undefined
+            this.started = false;
             throw new Error(`could not start device, reason:${err.message}`)
         }
 

@@ -195,6 +195,9 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
     }
 
     startUpdatePull() {
+
+        this.logger.logEvent({message:'start update pull', iv:this.iv, ignoreBike:this.ignoreBike,ignoreHrm: this.ignoreHrm, ignorePower:this.ignorePower })
+
         // ignore if already  started
         if (this.iv)
             return;
@@ -304,6 +307,10 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
     } 
 
     async update() {
+
+        // temp log
+        this.logEvent({message:'bike update request',stopped:this.stopped, updateBusy:this.updateBusy});    
+
         // now get the latest data from the bike
         if (this.stopped)
             return;
@@ -381,7 +388,7 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
             return;
         }
 
-        this.logEvent({message:'bikeSync'});
+        this.logEvent({message:'bikeSync', ignoreBike:this.ignoreBike});
 
         // send bike commands unless we should "ignore" bike mode
         if ( !this.ignoreBike) {
