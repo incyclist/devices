@@ -94,7 +94,7 @@ export default class Daum8008  {
     pauseLogging() {
         this.isLoggingPaused =true;
     }
-    resumLogging() {
+    resumeLogging() {
         this.isLoggingPaused =false;
     }
     logEvent(e) {

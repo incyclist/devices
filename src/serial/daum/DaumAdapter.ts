@@ -308,9 +308,6 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
 
     async update() {
 
-        // temp log
-        this.logEvent({message:'bike update request',stopped:this.stopped, updateBusy:this.updateBusy});    
-
         // now get the latest data from the bike
         if (this.stopped)
             return;
@@ -318,8 +315,7 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
         this.updateBusy = true;
         this.getCurrentBikeData()
         .then( bikeData => {
-            this.logEvent({message:'bike data',data: bikeData})
-            
+           
             // update Data based on information received from bike
             const incyclistData = this.updateData(this.cyclingData, bikeData)
 
