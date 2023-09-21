@@ -86,7 +86,7 @@ export default class IncyclistDevice extends EventEmitter implements IncyclistDe
   
 
         if (w?.DEVICE_DEBUG||process.env.BLE_DEBUG || process.env.ANT_DEBUG) {
-            const logText = '~~~ '+this.getInterface().toUpperCase()
+            const logText = '~~~ '+this.logger.getName()
             console.log(logText,event)
         }
     }

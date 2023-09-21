@@ -61,9 +61,24 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData, TData> exten
         this.updateFrequency = DEFAULT_UPDATE_FREQUENCY;
         this.channel = undefined;
         this.ant = AntInterface.getInstance()
-        
-
     }
+
+    logEvent( event) {
+
+        if (!this.logger || this.paused)
+            return;
+        this.logger.logEvent(event)
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const w = global.window as any
+  
+
+        if (w?.DEVICE_DEBUG||process.env.BLE_DEBUG || process.env.ANT_DEBUG) {
+            const logText = '~~~ ANT:'+this.logger.getName()
+            console.log(logText,event)
+        }
+    }
+
 
     /* istanbul ignore next */
     createSensor(settings:AntDeviceSettings):ISensor {

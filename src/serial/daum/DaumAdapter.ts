@@ -196,7 +196,7 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
 
     startUpdatePull() {
 
-        this.logger.logEvent({message:'start update pull', iv:this.iv, ignoreBike:this.ignoreBike,ignoreHrm: this.ignoreHrm, ignorePower:this.ignorePower })
+        this.logEvent({message:'start update pull', iv:this.iv, ignoreBike:this.ignoreBike,ignoreHrm: this.ignoreHrm, ignorePower:this.ignorePower })
 
         // ignore if already  started
         if (this.iv)

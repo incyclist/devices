@@ -82,6 +82,9 @@ export default class AntHrAdapter extends AntAdapter<HeartRateSensorState, Heart
                 return;
 
             this.logEvent( {message:'onDeviceData',data:deviceData})
+            if (this.paused)
+                return;
+            
             this.mapData(deviceData)            
             this.emitData(this.data)
         }

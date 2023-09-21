@@ -121,7 +121,7 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
         if (!update)
             return;
 
-        this.logger.logEvent({message: 'send bike update requested', update, request})
+        this.logEvent({message: 'send bike update requested', update, request})
 
         try {
             const fe = this.sensor as FitnessEquipmentSensor;
@@ -145,7 +145,7 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
                 }
             }
 
-            this.logger.logEvent( {message:'sendBikeUpdate() error',error:err.message})
+            this.logEvent( {message:'sendBikeUpdate() error',error:err.message})
         }
 
 
@@ -167,7 +167,7 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
 
         try {
             const logData = this.getLogData(deviceData, ['PairedDevices','RawData']);
-            this.logger.logEvent( {message:'onDeviceData',data:logData, paused:this.paused})
+            this.logEvent( {message:'onDeviceData',data:logData, paused:this.paused})
 
             if (!this.canSendUpdate()) 
                 return;
@@ -185,7 +185,7 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
         }
         catch ( err) {            
             // istanbul ignore next
-            this.logger.logEvent({message:'error',fn:'onDeviceData()',error:err.message||err, stack:err.stack})
+            this.logEvent({message:'error',fn:'onDeviceData()',error:err.message||err, stack:err.stack})
         }
     }
 
@@ -373,7 +373,7 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
         
                     }
                     catch(err) {
-                        this.logger.logEvent( { message:'sending FE message error', error:err.message })
+                        this.logEvent( { message:'sending FE message error', error:err.message })
                         this.started = false;                
                     }
                     success = status.userSent && status.slopeSent    
@@ -426,7 +426,7 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
 
 
     async reconnect(): Promise<boolean> {
-        this.logger.logEvent( {message:'reconnect to device'})
+        this.logEvent( {message:'reconnect to device'})
 
         this.isReconnecting = true;
         try {
@@ -435,11 +435,11 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
             await this.start(this.startProps)
             this.started = true;
             this.isReconnecting = false;
-            this.logger.logEvent( {message:'reconnect success'})
+            this.logEvent( {message:'reconnect success'})
             return true;
         }
         catch(err) {
-            this.logger.logEvent( {message:'reconnect failed'})
+            this.logEvent( {message:'reconnect failed'})
             this.isReconnecting = false;
             return false;
         }
