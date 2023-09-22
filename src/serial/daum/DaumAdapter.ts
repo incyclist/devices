@@ -236,6 +236,7 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
             return connected
         }
         catch(err) {
+            await this.bike.close()
             return false;
         }
 

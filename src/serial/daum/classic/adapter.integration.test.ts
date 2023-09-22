@@ -7,6 +7,7 @@ import DaumPowerMeterCyclingMode from "../DaumPowerMeterCyclingMode";
 import ERGCyclingMode from "../ERGCyclingMode";
 import SmartTrainerCyclingMode from "../SmartTrainerCyclingMode";
 import { DaumClassicMock, DaumClassicMockImpl, DaumClassicSimulator } from "./mock";
+import { sleep } from "../../../utils/utils";
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
@@ -41,7 +42,7 @@ describe('DaumClassicAdapter #integration',()=>{
             await device.close()
         }
         catch {}
-    })
+    },50000)
 
     test('constructor',()=>{
         // check simple getters
@@ -62,6 +63,24 @@ describe('DaumClassicAdapter #integration',()=>{
         expect(res).toBeTruthy()
         expect(device.getName()).toBe('Daum 8080')            
     })
+
+    test.skip('check with device not responding',async ()=>{
+
+        simulator.simulateNoResponse(100)
+
+        // start 1st check
+        device.check()
+        
+        // simulate chancel after 1s
+        await sleep(6000)
+        device.getBike().serial.closePort('COM1')
+
+        // run 2nd check
+        await sleep(9000)
+        const res = await device.check()
+        
+        expect(res).toBeFalsy()
+    },50000)
 
     test('start',async ()=>{
         const res = await device.start()

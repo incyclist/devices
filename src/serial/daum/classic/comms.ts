@@ -143,23 +143,32 @@ export default class Daum8008  {
         if (!this.serial)
             return;
 
+        this.closing = true;
         this.stopWorker()
-        await this.flush();
+
+        if (this.isConnected()) {
+            try {
+                await this.flush();
+            }
+            catch {}
     
-        try {
-            await this.serial.closePort(this.portName)
+            try {
+                await this.serial.closePort(this.portName)
+            }
+            catch {}
         }
-        catch {}
 
         this.connected = false;
-        if (this.sp)
+        this.cmdBusy=false;
+
+        if (this.sp) {
             this.sp.removeAllListeners()
-        this.sp = null;
+            this.sp = null;
+        }
 
         this.error = undefined;
         this.closing = false;
         this.closed = true;
-        this.cmdBusy=false;
 
         return;
     }
@@ -169,18 +178,15 @@ export default class Daum8008  {
             return;
 
         return new Promise( done=> {
-
+            const tsStart = Date.now()
             
-                const iv = setInterval( ()=>{
-                    if (!this.cmdBusy) {
-                        clearInterval(iv)
-                        done()
-                    }
-                    
-                }, 100)
-            
-            
-    
+            const iv = setInterval( ()=>{
+                if (!this.cmdBusy || (Date.now()-tsStart>TIMEOUT_SEND+500)) {
+                    clearInterval(iv)
+                    done()
+                }
+                
+            }, 100)
         })
 
     }
@@ -261,7 +267,7 @@ export default class Daum8008  {
             }
         }
 
-        if ( this.connected && this.cmdBusy) { 
+        if ( this.connected && this.cmdBusy && !this.closing) { 
             if( this.cmdCurrent!==undefined  && this.cmdCurrent.start!==undefined) {      
                 const cmdInfo = this.cmdCurrent;
                 const timeout =  ( cmdInfo.options && cmdInfo.options.timeout) ? cmdInfo.options.timeout :  this._timeoutSend;
@@ -296,7 +302,10 @@ export default class Daum8008  {
         }
 
         const cmd = this.queue.dequeue()
-        this.send(cmd);
+
+        // double-check again that we are not closing
+        if (this.connected && !this.closing && !this.closed)
+            this.send(cmd);
     }
 
     sendDaum8008Command( logStr, payload, expected, callback?,callbackErr?, options?) {        

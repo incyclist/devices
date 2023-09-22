@@ -44,6 +44,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
     id: string;
     started: boolean;
     startPromise: Promise<unknown>
+    checkPromise: Promise<boolean>
 
     constructor ( settings:SerialDeviceSettings,props?:DeviceProperties) {
         super(settings,props)
@@ -63,7 +64,9 @@ export default class DaumClassicAdapter extends DaumAdapter{
         this.paused     = undefined;
         this.iv         = undefined;
         this.distanceInternal = undefined;
+
         this.startPromise = undefined
+        this.checkPromise = undefined
 
         this.initData();
     }
@@ -104,13 +107,36 @@ export default class DaumClassicAdapter extends DaumAdapter{
     }
 
     async check():Promise<boolean> {
-
-        var info = {} as any
-
         if (this.isStopped())
             return false;
 
-        return new Promise(  async (resolve, reject ) => {
+        if (this.checkPromise) {
+            this.logEvent( {message:"waiting for previous check device",port:this.getPort()});
+            try {
+                await this.checkPromise
+            } catch{}
+            this.logEvent( {message:"previous check device completed",port:this.getPort()});
+            this.checkPromise = undefined
+        }
+        
+
+        this.checkPromise = this.performCheck()
+        try {
+            const res = await this.checkPromise
+            this.checkPromise = undefined
+            return res
+        }
+        catch(err) {
+            this.checkPromise = undefined
+            throw err;
+        }
+    }
+
+    async performCheck():Promise<boolean> {
+
+        var info = {} as any
+
+        return  new Promise(  async (resolve, reject ) => {
             this.logEvent( {message:"checking device",port:this.getPort()});
 
             
@@ -141,6 +167,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
                 resolve(true)               
             }
             catch (err) {
+                clearTimeout(iv);
                 this.logEvent( {message:"checking device failed", port:this.getPort(), reason:err.message||err});
                 resolve(false)
             }

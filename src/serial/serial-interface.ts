@@ -245,12 +245,12 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
     }
 
     async openPort(path:string): Promise< SerialPortStream|null> {
-        this.logEvent({message:'opening port',path})              
+        this.logEvent({message:'opening port',port:path})              
         const existing = this.ports.findIndex( p=> p.path===path)
         if (existing!==-1) {
             const port = this.ports[existing].port;
             if (port.isOpen) {
-                this.logEvent({message:'opening port - port already exists',path})
+                this.logEvent({message:'opening port - port already exists',port:path})
                 return port;
             }
             else {
@@ -260,7 +260,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
 
         const port = SerialPortProvider.getInstance().getSerialPort(this.ifaceName, {path});
         if (!port) {            
-            this.logEvent({message:'opening port - port does not exist',path})
+            this.logEvent({message:'opening port - port does not exist',port:path})
             return null;
         }
 
@@ -282,7 +282,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
     }
 
     async closePort(path:string): Promise<Boolean> {
-        this.logEvent( {message:'closing port'})
+        this.logEvent( {message:'closing port', port:path})
         const existing = this.ports.findIndex( p=> p.path===path)
         if (existing===-1)
             return true;
