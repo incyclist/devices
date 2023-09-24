@@ -58,10 +58,10 @@ export function scanPort( host:string,port:number): Promise<boolean> {
 
 //async function scanPort1(host,port) { console.log('checking',host, port); return true}
 
-export function scanSubNet( sn:string,port:number,excludeHosts:string[]  ):Promise<string[]> {
+export function scanSubNet( sn:string,port:number,excludeHosts?:string[]  ):Promise<string[]> {
     const range = [];
     for (let i=1;i<255;i++) 
-        if (!excludeHosts.includes(`${sn}.${i}`)) range.push(i)
+        if (!excludeHosts || !excludeHosts.includes(`${sn}.${i}`)) range.push(i)
 
     return Promise.all( range.map( j => scanPort(`${sn}.${j}`,port).then( success => success ? `${sn}.${j}`: null).catch() ))        
         .then( hosts => hosts.filter( h => h!==null)) 
@@ -259,13 +259,11 @@ export class TCPPortBinding implements BindingPortInterface  {
     async close(): Promise<void> {
         if (!this.isOpen)    
             return
-        console.log('~~~ CLOSE')
         // reset data
         this.data = Buffer.alloc(0);
 
 
         const close = async () => {
-            console.log('~~~ CLOSING')
 
             return new Promise( done => {
                 const socket = this.socket;
@@ -281,7 +279,7 @@ export class TCPPortBinding implements BindingPortInterface  {
         }
         
         const closed = await close();
-        
+
         if (closed) {
             this.socket = null;
             if (this.pendingRead) {
