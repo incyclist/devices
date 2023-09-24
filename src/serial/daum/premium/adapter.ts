@@ -73,7 +73,7 @@ export default class DaumPremiumAdapter extends DaumAdapter{
         this.initData();
     }
 
-
+    /* istanbul ignore next */
     logEvent(event) {
         if ( this.logger) {
             this.logger.logEvent(event)
@@ -116,11 +116,16 @@ export default class DaumPremiumAdapter extends DaumAdapter{
     isEqual(settings: SerialDeviceSettings): boolean {
 
         if (this.getInterface()===INTERFACE.TCPIP) {
-            const equal = super.isEqual(settings)
-            if (!equal)
-                return false;
-    
+
             const as = this.settings as SerialDeviceSettings
+
+            if (settings.interface!==this.getInterface())
+                return false
+            if (settings.protocol!==as.protocol)
+                return false;        
+            if ((settings.port||DAUM_PREMIUM_DEFAULT_PORT)!==(as.port||DAUM_PREMIUM_DEFAULT_PORT))
+                return false;           
+    
             return (settings.host ===as.host);
         }
         else {

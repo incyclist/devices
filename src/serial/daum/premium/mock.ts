@@ -1,10 +1,10 @@
-import {MockBindingInterface, MockPortBinding,CreatePortOptions, MockBinding,MockPortInternal} from '@serialport/binding-mock'
-import { BindingInterface, BindingPortInterface, PortStatus, SetOptions, UpdateOptions, OpenOptions, PortInfo } from '@serialport/bindings-interface'
+/* istanbul ignore file */
+import {MockBindingInterface, MockPortBinding,CreatePortOptions, MockBinding} from '@serialport/binding-mock'
+import { BindingInterface } from '@serialport/bindings-interface'
 import { SerialInterface, SerialPortProvider } from '../../';
 import { Gender, User } from '../../../types/user';
 import { sleep,resolveNextTick } from '../../../utils/utils';
-import { ACTUAL_BIKE_TYPE } from '../constants';
-import { bin2esc, buildMessage, checkSum, esc2bin, parsePersonData, ReservedCommands } from './utils';
+import { buildMessage, checkSum, esc2bin, parsePersonData, ReservedCommands } from './utils';
 
 export type MockProps = {
     interface: string;
