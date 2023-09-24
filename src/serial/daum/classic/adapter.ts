@@ -106,6 +106,11 @@ export default class DaumClassicAdapter extends DaumAdapter{
         return new DaumClassicCyclingMode(this)        
     }
 
+    getSerialInterface():SerialInterface {
+        return this.bike?.serial
+    }
+
+
     async check():Promise<boolean> {
         if (this.isStopped())
             return false;

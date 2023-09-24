@@ -112,6 +112,9 @@ export default class DaumPremiumAdapter extends DaumAdapter{
     getProtocolName(): string {
         return PROTOCOL_NAME
     }
+    getSerialInterface():SerialInterface {
+        return this.bike?.serial
+    }
 
     isEqual(settings: SerialDeviceSettings): boolean {
 
@@ -142,6 +145,7 @@ export default class DaumPremiumAdapter extends DaumAdapter{
     }    
 
     async check():Promise<boolean> {
+
         var info = {} as any
 
         //if (this.isStopped())

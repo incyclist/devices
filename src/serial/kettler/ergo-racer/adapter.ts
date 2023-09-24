@@ -10,6 +10,7 @@ import ERGCyclingMode from "./modes/erg";
 import { SerialDeviceSettings, SerialIncyclistDevice } from "../../adapter";
 import { IncyclistCapability } from "../../../types/capabilities";
 import { DeviceData } from "../../../types/data";
+import SerialInterface from "../../serial-interface";
 
 export interface KettlerRacerCommand extends Command  {
     
@@ -97,6 +98,12 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice   {
         const settings = this.settings as SerialDeviceSettings
         return settings.port;
     }
+
+    getSerialInterface():SerialInterface {
+        if (this.comms)
+            return this.comms.getSerialInterface()
+    }
+
 
     // -----------------------------------------------------------------
     // getters/setters

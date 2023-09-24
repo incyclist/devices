@@ -2,7 +2,6 @@ import { BindingPortInterface, OpenOptions, PortStatus, PortInfo, SetOptions, Up
 import { EventLogger } from 'gd-eventlog';
 import { networkInterfaces } from 'os';
 import net from 'net'
-import { sleep } from "../../utils/utils";
 
 
 const DEFAULT_TIMEOUT = 3000
@@ -11,7 +10,7 @@ export interface TCPOpenOptions extends OpenOptions {
 }
 
 export declare interface TCPBindingInterface<T extends BindingPortInterface = BindingPortInterface, R extends OpenOptions = OpenOptions, P extends PortInfo = PortInfo> extends BindingInterface<TCPPortBinding,TCPOpenOptions> {
-    list(port?:number): Promise<P[]>;
+    list(port?:number, excludeList?:string[]): Promise<P[]>;
 }
 
 //export type TCPBindingInterface = BindingInterface<TCPPortBinding,TCPOpenOptions>
@@ -59,9 +58,10 @@ export function scanPort( host:string,port:number): Promise<boolean> {
 
 //async function scanPort1(host,port) { console.log('checking',host, port); return true}
 
-export function scanSubNet( sn:string,port:number  ):Promise<string[]> {
+export function scanSubNet( sn:string,port:number,excludeHosts:string[]  ):Promise<string[]> {
     const range = [];
-    for (let i=1;i<255;i++) range.push(i)
+    for (let i=1;i<255;i++) 
+        if (!excludeHosts.includes(`${sn}.${i}`)) range.push(i)
 
     return Promise.all( range.map( j => scanPort(`${sn}.${j}`,port).then( success => success ? `${sn}.${j}`: null).catch() ))        
         .then( hosts => hosts.filter( h => h!==null)) 
@@ -111,7 +111,9 @@ export const TCPBinding: TCPBindingInterface = {
     /**
      * Provides a list of hosts that have port #PORT opened
      */
-    async list( port?:number): Promise<PortInfo[]> {
+    async list( port?:number , excludeList?:string[]): Promise<PortInfo[]> {
+
+        
 
         if (!port)
             return []
@@ -120,9 +122,12 @@ export const TCPBinding: TCPBindingInterface = {
         
 
         const subnets = getSubnets()     
-        const hosts:string[] = [];
+        let hosts:string[] = [];
+
+        const excludeHosts = excludeList.map( e=>  e && e.includes(':') ? e.split(':')[0] : e)
+
         await Promise.all( 
-            subnets.map( sn=> scanSubNet(sn,port).then( found=> { hosts.push(...found) }))             
+            subnets.map( sn=> scanSubNet(sn,port, excludeHosts).then( found=> { hosts.push(...found) }))             
         )
             
         return hosts.map( host => ({
@@ -254,12 +259,13 @@ export class TCPPortBinding implements BindingPortInterface  {
     async close(): Promise<void> {
         if (!this.isOpen)    
             return
-        
+        console.log('~~~ CLOSE')
         // reset data
         this.data = Buffer.alloc(0);
 
 
         const close = async () => {
+            console.log('~~~ CLOSING')
 
             return new Promise( done => {
                 const socket = this.socket;
@@ -275,6 +281,7 @@ export class TCPPortBinding implements BindingPortInterface  {
         }
         
         const closed = await close();
+        
         if (closed) {
             this.socket = null;
             if (this.pendingRead) {

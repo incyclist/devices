@@ -270,8 +270,12 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
             return Promise.resolve(true);
 
         this.logEvent({message:'stop request'});        
+
+        if (this.paused)
+            this.resume()
+
         this.stopped = true;
-        return new Promise( (resolve,reject) => {
+        return new Promise( async (resolve,reject) => {
             try {
                 if ( this.iv ) {
                     if ( this.iv.sync) clearInterval(this.iv.sync);
@@ -281,8 +285,9 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
                 // Daum Classic has a worker intervall, which needs to be stopped
                 if (this.bike.stopWorker && typeof this.bike.stopWorker === 'function')
                     this.bike.stopWorker();
+
+                await this.bike.close()
                 this.logEvent({message:'stop request completed'});        
-                this.paused=undefined;
                 resolve(true);
             }
             catch (err) {

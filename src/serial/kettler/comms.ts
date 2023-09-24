@@ -135,6 +135,10 @@ export default class KettlerSerialComms< T extends Command > extends EventEmitte
         }
     }
 
+    getSerialInterface() {
+        return this.serial
+    }
+
     onPortOpen() {
         this.logger.logEvent( {message:'port opened', port:this.getPort()});
         this.state = SerialCommsState.Connected;

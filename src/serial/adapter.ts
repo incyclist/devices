@@ -46,6 +46,9 @@ export class SerialIncyclistDevice extends ControllableDevice  {
         return `${this.getName()} (${this.getPort()})`
     } 
     
+    getSerialInterface():SerialInterface {
+        throw new Error('not implemented')
+    }
 
     getInterface():string {
         return 'serial'

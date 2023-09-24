@@ -39,8 +39,6 @@ const validatePath = (path:string):string => {
     return `${host}:${port}`
 }
 
-const drain = (sp)=> new Promise( resolve=> { sp.drain( resolve)})
-
 export default class Daum8i  {
     
     logger: EventLogger;
