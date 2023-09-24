@@ -92,10 +92,6 @@ export default class BleWahooAdapter extends BleFmAdapter {
                     
                 })
 
-                if (comms.features.heartrate && !this.hasCapability(IncyclistCapability.HeartRate)) {
-                    this.capabilities.push(IncyclistCapability.HeartRate)
-                }
-
                 this.resetData();      
                 this.stopped = false;    
                 this.started = true;
