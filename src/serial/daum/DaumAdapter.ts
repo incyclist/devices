@@ -345,8 +345,7 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
     }
 
     async sendRequests() {
-
-        if (this.stopped)
+        if (this.stopped || this.paused)
             return;
 
         // if we have updates, send them to the device
@@ -495,6 +494,10 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
     }
 
     refreshRequests() {
+
+        if (this.isPaused() || this.isStopped())
+            return;
+
         // not pedaling => no need to generate a new request
         if (!this.cyclingData.isPedalling || this.cyclingData.pedalRpm===0) 
             return;
