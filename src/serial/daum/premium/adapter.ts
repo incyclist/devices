@@ -229,9 +229,7 @@ export default class DaumPremiumAdapter extends DaumAdapter{
         var info = {} as any
         this.initData();   
         
-        if (isRelaunch) {
-            await this.stop();
-        }
+        await this.stop();
         
         return runWithRetries( async ()=>{
            
@@ -294,11 +292,13 @@ export default class DaumPremiumAdapter extends DaumAdapter{
 
 
     async getCurrentBikeData() {
+        
         if(!this.bike.isConnected()) {
             const connected = await this.bike.connect();
             if(!connected)
-                return;
+                throw new Error('not connected')
         }
+        
         return this.getBike().getTrainingData()
     }
 

@@ -1,13 +1,14 @@
 import {ACTUAL_BIKE_TYPE} from "../constants"
 import {buildMessage,hexstr,ascii,bin2esc, esc2bin,parseTrainingData, checkSum, getAsciiArrayFromStr, getPersonData, ReservedCommands, routeToEpp, getBikeType} from './utils'
 import {SerialInterface, SerialPortProvider } from '../..'
-import {Queue} from '../../../utils/utils';
 import {EventLogger} from 'gd-eventlog'
 import { User } from "../../../types/user";
 import { Route } from "../../../types/route";
 import { SerialCommProps } from "../../comm";
 import { SerialPortStream } from "@serialport/stream";
 import { OnDeviceStartCallback } from "./types";
+import { Queue, sleep } from "../../../utils/utils";
+
 
 const DEFAULT_TIMEOUT = 10000;
 const MAX_DATA_BLOCK_SIZE = 512;
@@ -16,6 +17,7 @@ const DS_BITS_OFF = 0;
 //const DS_BITS_NO_PROGRAM_ADAPTION = 1;
 const DS_BITS_ENDLESS_RACE = 2;
 
+/* istanbul ignore next*/
 const DEBUG_LOGGER = {
     log: (e,...args) => console.log(e,...args),
     logEvent: (event) => console.log(JSON.stringify(event))
@@ -39,6 +41,52 @@ const validatePath = (path:string):string => {
     return `${host}:${port}`
 }
 
+export type ResponseObject = {
+    type: ResponseType
+    data?: string
+    error?: Error
+}
+
+export type ResponseType = 'ACK'|'NAK'|'Response'|'Error'
+
+export type Daum8iCommsState = {
+    waitingForStart?:boolean
+    waitingForACK?:boolean
+    waitingForEnd?:boolean
+    partialCmd?
+    data: Queue<ResponseObject>
+}
+
+export type ConnectionState = 'Connecting' | 'Connected' | 'Disconnected' | 'Disconnecting'
+
+export class CheckSumError extends Error {
+    constructor() {
+        super();
+        this.message = 'checksum incorrect'
+    }
+}
+
+export class ACKTimeout extends Error {
+    constructor() {
+        super();
+        this.message = 'ACK timeout'
+    }
+}
+
+export class BusyTimeout extends Error {
+    constructor() {
+        super();
+        this.message = 'BUSY timeout'
+    }
+}
+
+export class ResponseTimeout extends Error {
+    constructor() {
+        super();
+        this.message = 'RESP timeout'
+    }
+}
+
 export default class Daum8i  {
     
     logger: EventLogger;
@@ -48,21 +96,20 @@ export default class Daum8i  {
     tcpipConnection: { host:string, port:string}
     port: string;
     settings: any;
-    sp: SerialPortStream;
     props: any;
 
-    connected: boolean;
-    blocked: boolean;
-    state: any;
+    protected sp: SerialPortStream;
+    protected connectState: ConnectionState;
+    protected connectPromise:Promise<SerialPortStream>
+    protected disconnectPromise:Promise<boolean>
+    protected writePromise: Promise<void>   
+    protected sendCmdPromise: Promise<string>
+    protected actualBikeType?:string
+    protected recvState: Daum8iCommsState;
+
     bikeData: any;
-    processor: any;
-    error: Error;
-    queue: Queue<any>
-    cmdCurrent: any;
-    cmdStart: number;
     isLoggingPaused: boolean;
     spp: SerialPortProvider;
-
     serialportProps: any
 
 
@@ -79,15 +126,15 @@ export default class Daum8i  {
         this.path = validatePath(path);
         const w = global.window as any
     
+        /* istanbul ignore next*/   
         this.logger = logger || (w?.DEVICE_DEBUG||process.env.DEBUG? DEBUG_LOGGER as EventLogger : new EventLogger('DaumPremium')) ;
 
         this.isLoggingPaused = false;
-        this.connected = false;        
-        this.blocked = false;
-        this.state = {
-            ack: { wait:false, startWait: undefined},
-            commandsInQueue: {},
-        }
+
+        this.connectState = 'Disconnected'
+
+        this.connectPromise = null
+        this.recvState = { data: new Queue<ResponseObject>()}
         this.settings = {}
 
         this.bikeData = {
@@ -112,7 +159,7 @@ export default class Daum8i  {
     }
 
     isConnected() {
-        return this.connected;
+        return this.connectState==='Connected' || this.connectState==='Disconnecting';
     }
 
 
@@ -129,6 +176,8 @@ export default class Daum8i  {
 
         this.logger.logEvent(e)
         const w = global.window as any
+
+        /* istanbul ignore next*/
         if (w?.DEVICE_DEBUG) {
             console.log('~~~ DaumPremium', e)
         }
@@ -140,200 +189,154 @@ export default class Daum8i  {
         if ( this.isConnected()  && this.sp) {            
             return true;
         }
+
+        // already connecting?, wait until previous connection is finished
+        if (this.connectState === 'Connecting') {
+            if (this.connectPromise)  {
+                try {
+                    await this.connectPromise
+                }
+                catch {
+                    // ignore - original caller will catch it
+                }
+            }
+            return this.isConnected()
+        }
+
     
         try {
-            const port = await this.serial.openPort(this.path)
+            this.connectState = 'Connecting'
+            this.connectPromise = this.serial.openPort(this.path);
+
+            const port = await this.connectPromise
+            this.connectPromise = null;
 
             if (port!==null) {
-                this.connected = true;
+                this.connectState = 'Connected';
                 this.sp = port;
 
-                this.sp.on('close', this.onPortClose.bind(this));            
-                this.sp.on('error', (error)=>{this.onPortError(error)} );    
-                this.sp.on('data', (data)=>{ this.onData(data)} );  
+                this.sp.on('close', this.onPortClose.bind(this));
+                this.sp.on('error', this.onPortError.bind(this) );    
+                this.sp.on('data',  this.onData.bind(this) );  
+
+
+                //this.response.on('ACK',this.onACK.bind(this) )
+                //this.response.on('NAK',this.onNAK.bind(this))        
+    
                 return true;   
             }
             else {
+                this.connectState = 'Disconnected';
                 return false;
             }
         }
         catch {
+            this.connectState = 'Disconnected';
             return false;
         }
 
+    }
+
+    async closePort():Promise<boolean> {
+
+        if (!this.sp)
+            return true;
+
+        try {  
+            await this.flush();    
+            await this.serial.closePort(this.path)
+            return true;
+        }
+        catch(err) {
+            this.logEvent({message:'could not close ', reason:err.message})
+            return false
+        }
+    }
+
+    cleanupPort() {
+        if (this.sp) {
+            this.sp.removeAllListeners()
+        }
+        this.sp = null;
+
+        this.recvState.data.clear()
     }
 
     async close():Promise<boolean> {
+        let isDisconnected = false;
 
-        if (this.isConnected() && this.serial && this.sp) {     
-            try {  
-                await this.flush();    
-                await this.serial.closePort(this.path)
+        if (this.disconnectPromise) {
+            try {
+                isDisconnected = await this.disconnectPromise;
             }
-            catch(err) {
-                this.logEvent({message:'could not close ', reason:err.message})
-                return false
+            catch {
+                // ignore - original caller will catch
             }
+            
+            return isDisconnected;
         }
 
-        this.connected = false;
-        if (this.sp) {
-            this.sp.removeAllListeners()
-            this.sp = null;
+        if (this.connectState==='Disconnected') {
+            this.cleanupPort()
+            return true;
         }
+        else if (this.connectState==='Disconnecting' || this.connectState==='Connected' || this.connectState==='Connecting') {     
+            this.connectState='Disconnecting'
 
-        return true;
+            this.disconnectPromise = this.closePort()
+            isDisconnected = await this.disconnectPromise
+
+            this.connectPromise  = null
+            this.disconnectPromise = null;
+
+            if (isDisconnected)
+                this.connectState = 'Disconnected'
+            this.cleanupPort()
+
+        }
+        return isDisconnected
     }
 
     async flush():Promise<void> {
-        if (!this.state.writeBusy)
-            return;
-
-        return new Promise( done=> {
-
-            
-                const iv = setInterval( ()=>{
-                    if (!this.state.writeBusy) {
-                        clearInterval(iv)
-                        this.writeDone()
-                        done()
-                    }
-                    
-                }, 100)
-            
-            
-    
-        })
-
-    }
-
-    
-    getLogState() {
-        let s = undefined;
-        const {sending, busy, opening, connecting,writeBusy,waitingForStart,waitingForAck,waitingForEnd,retry} = this.state;
-        if (sending) {
-            s = {};
-            s.command = sending.command;
-            s.payload = sending.payload;
+        // in case we are currently writing, wait a maximum of 1s to finish writing
+        if (this.writePromise) {            
+            await this.waitWithTimeout( this.writePromise, 1000)
+            this.writePromise = null
         }
-        return {sending:s, busy, writeBusy,opening, connecting, waitingForStart,waitingForEnd,waitingForAck,retry}
-
     }
 
     // port was closed
-    async onPortClose() {
-        this.connected = false;
-        if (this.sp) {
-            this.sp.removeAllListeners()
-            this.sp = null;
-        }
+    async onPortClose():Promise<void> {
 
+        if (this.connectState!=='Disconnected' && this.connectState!=='Disconnecting')
+            this.logEvent({message:"port closed:",port:this.path});
+
+        this.connectState = 'Disconnected'
+        this.cleanupPort();
     }
 
-    async onPortError(error) {
-
-        this.logEvent({message:"port error:",port:this.path,error:error.message,connected:this.connected,state:this.getLogState()});
-        this.error = error;
-
-        if ( this.blocked) {
-            if ( !this.state.closed) {                
-                await this.close()
-            }
+    async onPortError(error:Error):Promise<void> {
+        if (this.connectState==='Disconnecting' || this.connectState==='Disconnected') {
             return;
         }
 
-        if (this.state.sending) {
+        this.logEvent({message:"port error:",port:this.path,error:error.message,connected:this.isConnected(), state: this.connectState});
 
-            if (this.state.sending.reject)
-                this.state.sending.reject(error)
-            this.writeDone();
-            //this.state.error = error;
-            await this.close()
-            return;
+
+        if (this.isSending()) {
+            this.rejectCurrent(error);
         }
 
-        this.state.busy=false;
-        
+        if (this.connectState==='Connected')
+            this.close()
     }
 
-
-    async forceClose(updateState=false) {
-        if ( !this.sp )
-            return;
-        
-        try {
-            await this.close()
-            this.writeDone();
-            if ( this.queue!==undefined )
-                this.queue.clear();
-        }
-        catch {}
-
-
-        this.connected = false;
-        
-        if (updateState)
-            this.state = { opened:false, closed:true, busy:false}
+    isSending(): boolean {
+        return  (this.writePromise!==undefined && this.writePromise!==null) || (this.sendCmdPromise!==null && this.sendCmdPromise!==undefined)
     }
 
-
-
-    sendTimeout  (message) {
-        this.logEvent({message:`sendCommand:${message||'timeout'}`,port:this.path,cmd:this.cmdCurrent});
-        delete this.state.commandsInQueue[this.cmdCurrent.command];
-        if (this.cmdCurrent.callbackErr!==undefined) {
-            let cb = this.cmdCurrent.callbackErr;
-            this.state.busy=false;
-            this.cmdCurrent=undefined;
-            this.cmdStart=undefined;
-            cb(408,{ message: message || "timeout"} )            
-        }
-    } 
-
-    checkForResponse( ): boolean {      
-
-        const d = Date.now();
-        const s = this.state.sending;
-        if ( s===undefined)
-            return false;
-
-        const rejectFn = s.reject;
-        const reject = (err) => {
-            
-            if ( rejectFn && typeof rejectFn === 'function') {
-                rejectFn(err);
-            }
-        }
-
-        const error = this.state.error
-        if ( error!==undefined) {
-            reject(error);
-            return false;
-        }
-
-        try {
-
-            if ( this.state.waitingForACK ) {
-                const timeoutACK  =  this.state.ack ? this.state.ack.timeout : this.state.sending.timeout;
-                if ( d<timeoutACK)
-                    return true;
-
-                reject( new Error('ACK timeout') )
-                return false;
-            }
-
-            if ( d<this.state.sending.timeout)
-                return true;
-
-            reject( new Error('RESP timeout') )            
-            return false;
-    
-        }
-        catch ( err) {
-            this.logEvent({message:'checkForResponse: Exception', port:this.path, error:err.message, stack:err.stack})
-        }
-        return true;
-
+    rejectCurrent(error:Error) {
+        this.recvState.data.enqueue({type:'Error', error})
     }
 
     getTimeoutValue(cmd?) {
@@ -351,28 +354,19 @@ export default class Daum8i  {
     /*
         Daum 8i Commands
     */
-
     async onData (data, depth=0)  {
         let cmd ='';
         const MAX_DEPTH = 5
 
-        if ( this.state.waitingForEnd) {
-            cmd = this.state.partialCmd;
+        if ( this.recvState.waitingForEnd) {
+            cmd = this.recvState.partialCmd;
         }
-
         
         const bufferData = Buffer.isBuffer(data) ? data: Buffer.from(data,'latin1') 
-
-        const s = this.state.sending;
-        if ( s===undefined ) {
-            this.logEvent({message:'onData:IGNORED',data:bufferData.toString('hex') })
-            return;
-        }
-
-        const {portName, resolve} = this.state.sending;
         
         let incoming = bufferData;
-        this.logEvent({message:'sendCommand:RECV',data:hexstr(incoming) })
+        if (depth===0)
+            this.logEvent({message:'sendCommand:RECV',data:hexstr(incoming), state:this.recvState })
 
         for (let i=0;i<incoming.length;i++)
         //incoming.forEach( async (c,i)=> 
@@ -388,70 +382,46 @@ export default class Daum8i  {
             }
 
             const c= incoming.readUInt8(i)
-            if ( c===0x06) {
-                this.state.waitingForStart = true;
-                this.state.waitingForACK = false;
+            if ( c===0x06) {        // 0x06=ACK
+                this.recvState.waitingForStart = true;
+                this.recvState.waitingForACK = false;
                 const remaining = getRemaining()
-                this.logEvent({message:"sendCommand:ACK received:",port:portName,remaining:hexstr(remaining)});
+
+                this.recvState.data.enqueue( {type:'ACK'})
                 if (  remaining && remaining!=='' && depth<MAX_DEPTH) return this.onData(remaining, depth+1)
             }
-            else if ( c===0x15) {
-                this.state.waitingForStart = true;
-                this.state.waitingForACK = false;
+            else if ( c===0x15) {   // 0x15=NAK
+                this.recvState.waitingForStart = true;
+                this.recvState.waitingForACK = false;
                 const remaining = getRemaining()
-                this.logEvent({message:"sendCommand:NAK received:",port:portName,remaining:hexstr(remaining)});
+                this.recvState.data.enqueue( {type:'NAK'})
                 if (  remaining && remaining!=='' && depth<MAX_DEPTH) return this.onData(remaining,depth+1)
-
-                // TODO: retries
-            }
-            
-            else if ( c===0x01) {
-                this.state.waitingForEnd = true;    
+            }           
+            else if ( c===0x01) {   // 0x01=SOH
+                this.recvState.waitingForStart = false;
+                this.recvState.waitingForEnd = true;    
             }
 
-            else if ( c===0x17) {
+            else if ( c===0x17) {   // 0x17=End
                 const remaining = getRemaining();
-                // special case: receiving and "echo" of previous command while waiting for ACK
-                if (this.state.waitingForACK) {
-                    // ignore command
-                    this.logEvent({message:"sendCommand:ignored:",duration: Date.now()-this.state.sending.tsRequest,port:portName,cmd: `${cmd} [${hexstr(cmd)}]`,remaining: hexstr(remaining)});
-                    this.state.waitingForEnd = false;   
 
+                this.recvState.waitingForEnd = false;   
+                const cmdStr = cmd.substring(0,cmd.length-2)
+                const checksumExtracted  = cmd.slice(-2)
+                const checksumCalculated = checkSum( getAsciiArrayFromStr(cmdStr),[])
 
-
-
+                if ( checksumExtracted===checksumCalculated) {
+                    const payload = cmd.substring(3,cmd.length-2)   
+                    this.recvState.data.enqueue( {type:'Response', data: payload})
                 }
                 else {
-                    this.logEvent({message:"sendCommand:received:",duration: Date.now()-this.state.sending.tsRequest,port:portName,cmd: `${cmd} [${hexstr(cmd)}]`,remaining: hexstr(remaining)});
-                    this.state.waitingForEnd = false;   
-                    const cmdStr = cmd.substring(0,cmd.length-2)
-                    const checksumExtracted  = cmd.slice(-2)
-                    const checksumCalculated = checkSum( getAsciiArrayFromStr(cmdStr),[])
-    
-                    if ( checksumExtracted===checksumCalculated) {
-                        await this.sendACK();
-                        if (this.state.sending && this.state.sending.responseCheckIv) { 
-                            clearInterval(this.state.sending.responseCheckIv);
-                        }
-                        this.state= {
-                            sending: undefined,
-                            busy:false,
-                            writeBusy: false,        
-                            waitingForStart: false,
-                            waitingForEnd: false,
-                            waitingForACK: false,
-                        }    
-                        const payload = cmd.substring(3,cmd.length-2)
-        
-                        resolve(payload);        
-                    }
-                    else {
-                        await this.sendNAK();
-                    }
-    
+                    const error = new CheckSumError()
+                    this.recvState.data.enqueue( {type:'Error', error, data: cmd})
+
+                    this.recvState.waitingForACK = false;
+                    this.recvState.waitingForStart = true;   
+                    this.recvState.waitingForEnd = false;   
                 }
-
-
                 cmd = '';
                 if ( remaining && depth<5)
                     return this.onData( remaining,depth+1);
@@ -459,158 +429,286 @@ export default class Daum8i  {
                 
             }
             else {
-                if ( this.state.waitingForEnd)
+                if ( this.recvState.waitingForEnd)
                     cmd += String.fromCharCode(c)
             }
 
 
         }
 
-        if ( this.state.waitingForEnd) {
-            this.state.partialCmd = cmd;
+        if ( this.recvState.waitingForEnd) {
+            this.recvState.partialCmd = cmd;
         }
 
     }
+ 
+
+    async waitWithTimeout( promise:Promise<any>, timeout:number, onTimeout?:()=>void) {
+        let to;
+        
+        const toPromise =  (ms) => { 
+            return new Promise( resolve => { to = setTimeout(resolve, ms)})
+        }
+
+        let res;
+        try {
+            res = await Promise.race( [promise,toPromise(timeout).then( ()=> { if (onTimeout) onTimeout()})])
+        }
+        catch {
+            // ignore error - the original caller should catch it
+        }
+
+        clearTimeout(to)
+        return res;        
+    }
 
 
-    sendDaum8iCommand( command:string, payload:string|any[]=''):Promise<string> {
+    async sendDaum8iCommand( command:string, payload:string|any[]=''):Promise<string> {
 
+        const message = buildMessage( command,payload)
         const tsRequest = Date.now();        
 
-        return new Promise ( async (resolve,reject) => {
+        if (this.sendCmdPromise) {
+            this.logEvent({message:'sendCommand:waiting',port:this.path,cmd:command,hex:hexstr(message)})
 
-            if ( this.blocked)
-                return reject( new Error('blocked'))
-
-            if ( !this.state.busy) {
-                this.state.busy = true;
-            }
-            else 
-            {             
-                const message = buildMessage( command,payload)
-                this.logEvent({message:'sendCommand:waiting',port:this.path,cmd:command,hex:hexstr(message)})
-                
-                const busyWait = ()=> {
-                    return new Promise ( (done) => {
-
-                        let start = Date.now();
-                        let timeout = start+5000;
-                        const iv = setInterval(()=> {
-                            if ( this.state.busy) {  
-                                if (Date.now()>timeout) {
-                                    clearInterval(iv);
-                                    done(false);
-                                } 
-                            }
-                            else {
-                                clearInterval(iv);
-                                done(true);
-                            }
-                        }, 10) 
-    
-                    })
-                }
-
-                const res = await busyWait();
-                if (!res) {
-                    this.logEvent({message:'sendCommand:busy timeout',port:this.path,cmd:command,hex:hexstr(message),duration: Date.now()-tsRequest})
-                    return reject( new Error('BUSY timeout'))        
-                }
-                this.state.busy = true;
+            const onTimeout = () => {
+                this.logEvent({message:'sendCommand:busy timeout',port:this.path,cmd:command,hex:hexstr(message),duration: Date.now()-tsRequest}) 
+                throw new Error('BUSY timeout')
             }
 
-            const port = this.sp;
-            const portName = this.path;
-            this.state.received = [];
-        
-    
+            this.waitWithTimeout( this.sendCmdPromise, 5000, onTimeout)
+            this.sendCmdPromise = null;
+        }
+
+        this.sendCmdPromise =  new Promise ( async (resolve,reject) => {
+   
             try {    
-                const message = buildMessage( command,payload)
-                const start= Date.now();
-                const timeout =  start+this.getTimeoutValue() ;
+
                 this.logEvent({message:"sendCommand:sending:",port:this.path,cmd:command,hex:hexstr(message)});
-    
 
+                if (!this.isConnected()) {
+                    const connected = await this.connect()
+                    if (!connected) {
 
-                this.state.writeBusy =true;
-                if(!this.connected || port===undefined) {
-                    this.logEvent({message:"sendCommand:error: not connected",port:this.path});
-                    this.writeDone()
-                    return reject( new Error('not connected'))
-                }    
-
-                await this.write( Buffer.from(message));
-
-                this.state.waitingForACK = true;
-                this.state.writeBusy =false;
-                this.state.retry = 0;
-
-                this.state.ack= { start, timeout }
-                this.state.sending = { command,payload, start, timeout,port, portName,tsRequest, resolve,reject}
-
-                const iv = setInterval( ()=>{ 
-                    const stillWaiting = this.checkForResponse();
-                    if (!stillWaiting) {
-                        clearInterval(iv);                        
-                        this.writeDone();    
+                        reject( new Error('not connected'))
+                        return
                     }
-                },10)
+                }
 
-                this.state.sending.responseCheckIv = iv;
-                    
+                let retryCnt = 0
+                let ok = false;
+
+                do {
+                
+                    await this.write( Buffer.from(message));
+                    ok = await this.waitForACK()
+                    if (!ok) { // NAK 
+                        await sleep(1000)
+
+                        // TODO: resend
+                        retryCnt++;                        
+                    }
+                }
+                while (!ok && retryCnt<5)
+
+                const res = await this.waitForResponse()
+                this.sendCmdPromise = null;
+
+                resolve(res)
         
             }
             catch (err)  {
-                this.logEvent({message:"sendCommand:error:",port:portName,error:err.message,stack:err.stack});
-                this.writeDone();
+                this.logEvent({message:"sendCommand:error:",port:this.path,error:err.message,stack:err.stack});
+                this.sendCmdPromise = null;
+
                 reject(err)
             }          
     
         });
+
+        return this.sendCmdPromise
     }
 
-
-    writeDone ()  {
-        this.state.writeBusy =false;
-        this.state.busy = false;
-        if (this.state.sending && this.state.sending.responseCheckIv) { 
-            clearInterval(this.state.sending.responseCheckIv);
-        }
-        this.state.sending = undefined;
-        this.state.waitingForStart = false;
-        this.state.waitingForEnd = false;
-        this.state.waitingForACK = false;
-    }
-
-
-    async write(buffer:Buffer):Promise<void> {
-
-        return new Promise( async done=> {
-            this.state.writeBusy =true;
-            try {
-                await this.sp.write( buffer) 
-                this.state.writeBusy =false;        
-                done()
-                
-            }
-            catch(err) {
-                this.state.writeBusy =false;        
-                done()
-            }
     
+    onIgnored(payload:string) {
+        this.logEvent({message:'onData:IGNORED',port:this.path, data:payload })
+    }
+
+    onACK ():void   {                
+        //this.logEvent({message:"sendCommand:ACK received:",port:this.path});
+        //this.recvState.ACK = { ack:true, ts:Date.now()}                
+    }
+    onNAK = () => {
+        //this.logEvent({message:"sendCommand:NAK received:",port:this.path});
+        //this.recvState.ACK = { ack:false, ts:Date.now()}                
+    }
+
+
+    async waitForACK():Promise<boolean> {
+        this.recvState.waitingForACK = true;
+
+        const timeout = this.getTimeoutValue()
+
+        let waitingForACK = true;
+        let start = Date.now()
+        let tsTimeout = start+timeout
+
+        while( waitingForACK && Date.now()<tsTimeout) {
+            const response = this.recvState.data.dequeue()
+            if (!response) {
+                await sleep(5)
+            }
+            else {
+                if (response.type==='ACK' || response.type==='NAK') {
+                    this.logEvent({message:`sendCommand:${response.type} received:`,port:this.path});
+                    waitingForACK = false;
+                    return ( response.type==='ACK' )
+                }
+
+            }
+        }
+        throw new ACKTimeout()
+    }
+
+
+
+    async waitForResponse():Promise<string> {
+
+        const timeout = this.getTimeoutValue()
+
+        let waitingForResponse = true;
+        let start = Date.now()
+        let tsTimeout = start+timeout
+        let retry = 0;
+
+        while( waitingForResponse && Date.now()<tsTimeout && retry<5) {
+            const response = this.recvState.data.dequeue()
+            if (!response) {
+                await sleep(5)
+            }
+            else {
+                if (response.type==='Response') {
+                    this.logEvent({message:`sendCommand:received:`,port:this.path, cmd:response.data});
+                    await this.sendACK();
+
+                    waitingForResponse = false;
+                    return response.data
+                }
+                if (response.type==='Error') {
+                    this.logEvent({message:`sendCommand:received:ERROR`,port:this.path, error:response.error.message});
+
+                    if (response.error instanceof CheckSumError && retry<5) {
+                        await this.sendNAK();
+                        retry++;
+                    }
+                    else {
+                        throw response.error
+                    }
+                }
+
+            }
+        }
+        throw new ResponseTimeout()
+
+        /*
+
+
+
+
+        let onResponse
+        let onError
+        let retry = 0;
+
+        const clearListeners = ()=>{
+            this.response.off('response',onResponse)
+            this.response.off('response.error',onError)   
+        }
+
+        const wait = new Promise<string>( async (resolve,reject) => {   
+
+            console.log('~~~wait')
+
+            onResponse = async (payload) =>  {                
+                this.logEvent({message:"sendCommand:received",port:this.path, cmd:`${payload} [${hexstr[payload]}]`});
+
+                await this.sendACK();
+
+                clearListeners()
+                resolve(payload)
+            }
+            onError = async (payload, err) => {
+
+                console.log('~~~ Error', payload, err)
+
+                this.logEvent({message:"sendCommand:ERROR",port:this.path,cmd:`${payload} [${hexstr[payload]}]`, error:err.message});
+                await this.sendNAK();
+
+                if (err instanceof CheckSumError && retry<5) {
+                    retry++;
+                }
+                else {
+                    clearListeners()
+                    throw err
+                }
+            }
+
+            this.response.on('response',onResponse)
+            this.response.on('response.error',onError)        
         })
 
+        const timeout = this.getTimeoutValue()        
+
+        return await this.waitWithTimeout( wait,timeout,  ()=> { clearListeners(); throw new Error('RESP timeout')})        
+
+
+        */
+    }
+
+    async portWrite(buffer:Buffer):Promise<void> {        
+
+        if (!this.sp) {
+            this.logEvent({message:'write failed', error:'port is not opened'})
+            return;
+        }
+
+        try {
+            await this.sp.write( buffer)                                 
+        }
+        catch(err) {
+            this.logEvent({message:'write failed', error:err.message})
+        }    
+    }
+
+    async write(buffer:Buffer, ackExpected=true):Promise<void> {
+
+        // previous write still busy? wait for it to finish
+        if (this.writePromise) {
+            try {
+                await this.writePromise                
+            } catch {
+                // ignore error - original caller will catch it
+            }
+            this.writePromise = null
+        }
+
+        this.writePromise = this.portWrite(buffer)
+
+        if (ackExpected)
+            this.recvState.waitingForACK = true;
+        
+        await this.writePromise
+        this.writePromise = null        
     }
 
 
     async sendACK() {       
-        this.logEvent({message:"sendCommand:sending ACK",port:this.path,queue:this.state.commandsInQueue});
-        await this.write( Buffer.from([0x06]))
+        this.logEvent({message:"sendCommand:sending ACK",port:this.path});
+        await this.write( Buffer.from([0x06]), false)
     }
 
     async sendNAK() {
-        this.logEvent({message:"sendCommand:sending NAK",port:this.path,queue:this.state.commandsInQueue});
-        await this.write( Buffer.from([0x15]))
+        this.logEvent({message:"sendCommand:sending NAK",port:this.path});
+        await this.write( Buffer.from([0x15]),false)
     }
 
     sendReservedDaum8iCommand( command:ReservedCommands, data?:Buffer)  {
@@ -686,7 +784,7 @@ export default class Daum8i  {
             else {
                 throw( new Error(`unknown actual device type ${ typeof str ==='string' ? ascii(str.charAt(0)): str }`))
             }
-            this.state.actualBikeType = deviceType;
+            this.actualBikeType = deviceType;
             return deviceType
         });          
     }
@@ -716,7 +814,7 @@ export default class Daum8i  {
                 else if ( str === '2' ) deviceType= ACTUAL_BIKE_TYPE.MOUNTAIN;
                 else 
                     throw( new Error('unknown actual device type'))
-            this.state.actualBikeType = deviceType;
+            this.actualBikeType = deviceType;
             return deviceType
         });          
     }

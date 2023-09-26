@@ -108,6 +108,25 @@ describe( 'DaumPremiumAdapter', ()=>{
 
     })
 
+    describe('getSerialInterface',()=>{
+        let device
+        beforeEach( ()=>{
+            device = new DaumPremiumAdapter( {interface:'tcpip', host:'localhost', protocol:'Daum Premium'})
+        })
+
+        test('bike is defined',()=>{
+            device.bike = { serial: new SerialInterface({ifaceName:'serial-1'})}
+            const res = device.getSerialInterface()
+            expect(res.ifaceName).toBe('serial-1')
+        })
+        test('bike is not defined',()=>{
+            device.bike = undefined
+            const res = device.getSerialInterface()
+            expect(res).toBeUndefined()
+        })
+
+    })
+
     describe('isEqual',()=>{
 
         describe('serial', ()=>{
@@ -574,7 +593,7 @@ describe( 'DaumPremiumAdapter', ()=>{
                 expect(started).toBeTruthy()                
                 expect(error).toBeUndefined()
 
-                expect(device.stop).not.toHaveBeenCalled()
+                expect(device.stop).toHaveBeenCalled()
                 expect(device.startUpdatePull).toBeCalled();
                 expect(device.stopped).toBeFalsy()
                 expect(device.paused).toBeFalsy()
@@ -629,7 +648,7 @@ describe( 'DaumPremiumAdapter', ()=>{
                 expect(started).toBeTruthy()                
                 expect(error).toBeUndefined()
 
-                expect(device.stop).not.toHaveBeenCalled()
+                expect(device.stop).toHaveBeenCalled()
                 expect(device.startUpdatePull).toBeCalled();
                 expect(device.stopped).toBeFalsy()
                 expect(device.paused).toBeFalsy()
@@ -648,7 +667,7 @@ describe( 'DaumPremiumAdapter', ()=>{
                 expect(started).toBeTruthy()                
                 expect(error).toBeUndefined()
 
-                expect(device.stop).not.toHaveBeenCalled()
+                expect(device.stop).toHaveBeenCalled()
                 expect(device.resume).toHaveBeenCalled()
                 expect(device.startUpdatePull).toBeCalled();
                 expect(device.stopped).toBeFalsy()
@@ -665,7 +684,7 @@ describe( 'DaumPremiumAdapter', ()=>{
                 expect(started).toBeTruthy()                
                 expect(error).toBeUndefined()
 
-                expect(device.stop).not.toHaveBeenCalled()
+                expect(device.stop).toHaveBeenCalled()
                 expect(device.startUpdatePull).toBeCalled();
                 expect(device.stopped).toBeFalsy()
                 expect(device.paused).toBeFalsy()
@@ -682,7 +701,7 @@ describe( 'DaumPremiumAdapter', ()=>{
                 expect(started).toBeTruthy()                
                 expect(error).toBeUndefined()
 
-                expect(device.stop).not.toHaveBeenCalled()
+                expect(device.stop).toHaveBeenCalled()
                 expect(device.startUpdatePull).toBeCalled();
                 expect(device.stopped).toBeFalsy()
                 expect(device.paused).toBeFalsy()
@@ -780,7 +799,13 @@ describe( 'DaumPremiumAdapter', ()=>{
             bike.isConnected = jest.fn(()=>false)
             bike.connect = jest.fn(()=>Promise.resolve(false))
 
-            await device.getCurrentBikeData() 
+            let error;
+            try {
+                await device.getCurrentBikeData() 
+            }
+            catch(err) { error=err}
+
+            expect(error).toBeDefined()
             expect(bike.connect).toHaveBeenCalled();
             expect(bike.getTrainingData).not.toHaveBeenCalled();
 

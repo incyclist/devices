@@ -67,21 +67,11 @@ describe('DaumPremiumAdapter #integration',()=>{
 
 
     test('start after stop',async ()=>{
-        console.log('~~~CHECK')
         await device.check()
-        console.log('~~~CHECK DONE')
-
-        console.log('~~~PAUSE')
         await device.pause()
-        console.log('~~~PAUSE DONE')
-
-        console.log('~~~STOP')
         await device.stop()
-        console.log('~~~STOP DONE')
 
-        console.log('~~~START')
         const res = await device.start()
-        console.log('~~~START DONE')
         expect(res).toBeTruthy()
         expect(device.getName()).toBe('Daum8i')            
     })

@@ -1,16 +1,17 @@
 import { EventLogger } from 'gd-eventlog';
 import Daum8i from './comms'
-import { MockBinding, MockBindingInterface } from '@serialport/binding-mock';
+import { MockBinding } from '@serialport/binding-mock';
 import { SerialPortProvider,SerialInterface } from '../..';
 
 import {Daum8iMock, Daum8iMockImpl, Daum8MockSimulator} from './mock'
 import { ACTUAL_BIKE_TYPE } from '../constants';
 import { Gender } from '../../../types/user';
 import { EventEmitter } from 'stream';
+import { sleep } from '../../../utils/utils';
+import { hexstr } from './utils';
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
-
 
 
 describe( 'Daum8i', ()=> {
@@ -68,6 +69,21 @@ describe( 'Daum8i', ()=> {
 
     })
 
+    describe( 'getInterface',()=>{
+        test('serial defined',()=>{
+            const bike = new Daum8i( {serial:SerialInterface.getInstance({ifaceName:'tcpip'}), path:'192.168.2.11:51955'})            
+            const res = bike.getInterface()
+            expect(res).toBe('tcpip')
+        })
+        
+        test('serial not defined',()=>{ // Due to use of Typescript, this should never happen
+            const bike = new Daum8i( {serial:SerialInterface.getInstance({ifaceName:'tcpip'}), path:'192.168.2.11:51955'})            as any
+            bike.serial = undefined;
+            const res = bike.getInterface()
+            expect(res).toBeUndefined()
+        })
+    })
+
     describe('pause Logging',()=>{
         test('not paused',()=>{
             const bike = new Daum8i( {serial:SerialInterface.getInstance({ifaceName:'tcpip'}), path:'192.168.2.11:51955'})
@@ -97,6 +113,20 @@ describe( 'Daum8i', ()=> {
             expect(bike.isLoggingPaused).toBeFalsy()    
         })
     })
+
+    describe('logEvent',()=>{
+        test('does not log when paused',()=>{
+            const bike = new Daum8i( {serial:SerialInterface.getInstance({ifaceName:'tcpip'}), path:'192.168.2.11:51955'})
+            
+            bike.isLoggingPaused = true;
+            bike.logger.logEvent = jest.fn()
+
+            bike.logEvent({message:'test'})
+            
+            expect(bike.logger.logEvent).not.toHaveBeenCalled()
+        })
+    })
+
 
     describe('connect',()=>{
         let bike;
@@ -156,22 +186,152 @@ describe( 'Daum8i', ()=> {
             expect(bike.serial.openPort).toHaveBeenCalled()
         })
 
+        test('error during connection',async ()=>{
+            bike.serial.openPort.mockRejectedValue(new Error('error'))
+
+            bike.isConnected = jest.fn().mockReturnValue(true)
+            bike.sp = {}
+            const connected = bike.connect()
+            expect(connected).toBeTruthy()
+            expect(bike.serial.openPort).not.toHaveBeenCalled()
+        })
+        test('error after connection',async ()=>{
+            const sp = new EventEmitter();
+            bike.serial.openPort.mockReturnValue(sp)
+            bike.isConnected = jest.fn().mockReturnValue(false)
+            bike.onPortError = jest.fn()
+
+            
+            const connected = await bike.connect()
+            sp.emit('error', new Error('Some Error') )
+
+            expect(connected).toBeTruthy()
+            expect(bike.onPortError).toHaveBeenCalled( )
+        })
+
+        test('concurrent connections',async ()=>{
+            const sp = new EventEmitter();          
+            
+            bike.serial.openPort = jest.fn( async ()=>{ await sleep(500); return sp;} )
+
+            let connected1 = false;
+            let connected2 = false;
+
+            // first connection attempt
+            const promise1 = bike.connect().then( (connected)=>connected1=connected)
+            
+            await sleep(100)
+            expect(connected1).toBeFalsy()
+            expect(bike.isConnected()).toBeFalsy()
+
+            // 2nd conenction attempt
+            const promise2 =  bike.connect().then( (connected)=>connected2=connected)
+            await Promise.all( [promise1,promise2])
+
+            expect(connected1).toBeTruthy()
+            expect(connected2).toBeTruthy()
+            expect(bike.serial.openPort).toHaveBeenCalled()
+        })
+
 
     })
+
+    describe('onPortError',()=>{ 
+        let bike
+        let sp;
+        let error;
+        let onPortError
+
+        beforeEach( async ()=>{
+            error = new Error('TEST')
+
+            sp = new EventEmitter();                      
+            sp.removeAllListeners  = jest.fn();
+            
+            bike = new Daum8i( {serial:SerialInterface.getInstance({ifaceName:'tcpip'}), path:'192.168.2.11:51955'})            
+            bike.serial.openPort = jest.fn( ()=>{return sp;} )
+            bike.logger.logEvent = jest.fn()
+            bike.close = jest.fn();
+            bike.rejectCurrent = jest.fn();
+            onPortError = jest.spyOn( bike, 'onPortError')
+
+            await bike.connect()
+
+        })
+
+        test('onPortError is called on error event',async ()=>{
+            bike.sp.emit('error',error)                       
+            expect(onPortError).toHaveBeenCalled()           
+        })
+
+        test('open, but idle',async ()=>{
+            bike.sp.emit('error',error)
+
+            expect(bike.logger.logEvent).toHaveBeenCalled()     // Event is logged
+            expect(bike.rejectCurrent).not.toHaveBeenCalled()   // nothing to reject
+            expect(bike.close).toHaveBeenCalled()               // port will be closed
+
+        })
+
+        test('error while opening',async ()=>{
+            bike.connectState = 'Connecting'
+
+            bike.sp.emit('error',error)
+
+            expect(bike.logger.logEvent).toHaveBeenCalled()     // Event is logged
+            expect(bike.rejectCurrent).not.toHaveBeenCalled()   // nothing to reject
+            expect(bike.close).not.toHaveBeenCalled()           // port will not be closed
+
+        })
+
+        test('open, currently sending',async ()=>{
+            bike.isSending = jest.fn().mockReturnValue(true)
+            
+            sp.emit('error',error)                       
+
+            expect(bike.logger.logEvent).toHaveBeenCalled()     // Event is logged
+            expect(bike.rejectCurrent).toHaveBeenCalled()       // current command will be rejected
+            expect(bike.close).toHaveBeenCalled()               // port will be closed
+
+        })
+
+        test('closing',async ()=>{
+            bike.connectState = 'Disconnecting'
+
+            bike.sp.emit('error',error)
+
+            expect(bike.logger.logEvent).not.toHaveBeenCalled() // Event is not logged
+            expect(bike.rejectCurrent).not.toHaveBeenCalled()   // nothing to reject
+            expect(bike.close).not.toHaveBeenCalled()           // port will not be closed
+
+        })
+
+        test('already closed',async ()=>{
+            bike.connectState = 'Disconnected'
+            bike.sp.emit('error',error)
+
+            expect(bike.logger.logEvent).not.toHaveBeenCalled() // Event is not logged
+            expect(bike.rejectCurrent).not.toHaveBeenCalled()   // nothing to reject
+            expect(bike.close).not.toHaveBeenCalled()           // port will not be closed
+            
+            
+        })
+    })
+
+
 
     describe('close',()=>{
         let bike;
 
         beforeEach( ()=>{
             bike = new Daum8i( {serial:SerialInterface.getInstance({ifaceName:'tcpip'}), path:'192.168.2.11:51955'})            
-            bike.isConnected = jest.fn()
             bike.flush = jest.fn()
             bike.serial.closePort = jest.fn()
             bike.sp  = new EventEmitter();
         })
 
         test('not connected',async ()=>{            
-            bike.isConnected.mockReturnValue(false)
+            bike.connectState = 'Disconnected'
                         
             const closed = await bike.close()
             expect(closed).toBeTruthy()
@@ -180,7 +340,15 @@ describe( 'Daum8i', ()=> {
         })
 
         test('properly connected',async ()=>{            
-            bike.isConnected.mockReturnValue(true)
+            bike.connectState = 'Connected'
+            
+            const closed = await bike.close()
+            expect(closed).toBeTruthy()
+            expect(bike.sp).toBeNull()                        
+            expect(bike.flush).toHaveBeenCalled()
+        })
+        test('connecting',async ()=>{            
+            bike.connectState = 'Connecting'
             
             const closed = await bike.close()
             expect(closed).toBeTruthy()
@@ -190,7 +358,7 @@ describe( 'Daum8i', ()=> {
 
 
         test('connected but sp missing',async ()=>{            
-            bike.isConnected.mockReturnValue(true)
+            bike.connectState = 'Connected'
             bike.sp = null;
             
             const closed = await bike.close()
@@ -199,26 +367,38 @@ describe( 'Daum8i', ()=> {
             expect(bike.flush).not.toHaveBeenCalled()
         })
 
-        test('properly connected',async ()=>{            
-            bike.isConnected.mockReturnValue(true)
-            bike.serial = undefined
-            
-            const closed = await bike.close()
-            expect(closed).toBeTruthy()
-            expect(bike.sp).toBeNull()                        
-            expect(bike.flush).not.toHaveBeenCalled()
-        })
-
         test('closePort throws error',async ()=>{            
-            bike.isConnected.mockReturnValue(true)
+            bike.connectState = 'Connected'
             bike.serial.closePort.mockRejectedValue( new Error('error text'))
             bike.logEvent = jest.fn()
 
             const closed = await bike.close()
             expect(closed).toBeFalsy()
-            expect(bike.sp).not.toBeNull()                        
+            expect(bike.sp).toBeNull()                        
+            expect(bike.connectState).toBe('Disconnecting')                        
             expect(bike.flush).toHaveBeenCalled()
             expect(bike.logEvent).toHaveBeenCalledWith( expect.objectContaining({reason:'error text'}))
+        })
+
+        test('concurrent close requests',async ()=>{                       
+            bike.connectState = 'Connected'
+
+            bike.flush = jest.fn( async ()=> { await sleep(100); return true})
+            const closePort = jest.spyOn( bike.serial,'closePort')
+
+            let closed1 = false, closed2=false
+
+            const promise1 = bike.close().then( closed => {closed1=closed})   
+            await sleep(10)         
+            const promise2 = bike.close().then( closed => {closed2=closed})
+            await Promise.all([promise1,promise2])
+
+            expect(closed1).toBeTruthy()
+            expect(closed2).toBeTruthy()
+
+            expect(bike.sp).toBeNull()                        
+            expect(bike.flush).toHaveBeenCalledTimes(1)
+            expect(closePort).toHaveBeenCalledTimes(1)
         })
 
     })
@@ -230,24 +410,53 @@ describe( 'Daum8i', ()=> {
             bike = new Daum8i( {serial:SerialInterface.getInstance({ifaceName:'tcpip'}), path:'192.168.2.11:51955'})            
         })
 
+
         test('not writing',async ()=>{            
-            bike.state.writeBusy = false
+            bike.writePromise = null
                         
             await bike.flush()
-            expect(bike.state.writeBusy).toBeFalsy()
+            expect(bike.writePromise).toBeFalsy()
         })
 
-        test('is writing',async ()=>{            
-            bike.state.writeBusy = true
-            const ts = Date.now()
-            setTimeout( ()=>{
-                bike.state.writeBusy = false
-            } ,50)
+        test('writing is ongoing',async ()=>{            
+            bike.writePromise = sleep(100)
                         
             await bike.flush()
+            expect(bike.writePromise).toBeFalsy()
+        })
 
-            expect(bike.state.writeBusy).toBeFalsy()
-            expect(Date.now()-ts).toBeGreaterThanOrEqual(50)
+
+    })
+
+    describe('write',()=>{
+        let bike;
+
+        beforeEach( ()=>{
+            bike = new Daum8i( {serial:SerialInterface.getInstance({ifaceName:'tcpip'}), path:'192.168.2.11:51955'})            
+            bike.connectState= 'Connected'
+        })
+
+        test('concurrent writes',async ()=>{            
+
+            let msg = ""
+            bike.portWrite = jest.fn( (buffer) => { msg = msg+ hexstr(buffer)})
+
+            bike.write(Buffer.from([0x06]))
+            await bike.write(Buffer.from([0x15]))
+            expect(msg).toBe('0615')
+            
+        })
+
+        test('error during write',async ()=>{            
+            let error = new Error('XXX')
+
+            bike.sp = { write: jest.fn( () => { throw error})}
+            bike.logger.logEvent = jest.fn()
+
+            await bike.write()
+
+            expect(bike.logger.logEvent).toBeCalledWith({message:'write failed',error:error.message})
+            expect(bike.writePromise).toBeNull()
         })
 
 
