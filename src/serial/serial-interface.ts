@@ -85,7 +85,7 @@ export class SinglePathScanner {
 
         this.isScanning = true;
         return new Promise<SerialDeviceSettings|undefined> ( async (resolve,reject) => {
-            this.logEvent({message:'starting scan',path:this.path})
+            this.logEvent({message:'starting scan',path:this.path, interface:this.serial.getName()})
 
             this.serial.scanEvents.on('timeout',()=> this.onStopRequest(resolve) )
             this.serial.scanEvents.on('stop',()=> this.onStopRequest(resolve))
@@ -114,6 +114,8 @@ export class SinglePathScanner {
                         this.isFound = true;    
                         const name = adapter.getName();
                         //await this.serial.closePort(this.path).catch()
+
+                        await adapter.close()
                         resolve( {...adapterSettings,name} )
                         
                         
@@ -246,9 +248,13 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
 
     // connect just verifies that the Binding is valid - no ports are yet opened
     async connect(): Promise<boolean> {
+        this.logEvent({message:'connecting',interface:this.ifaceName})              
+
         const binding = SerialPortProvider.getInstance().getBinding(this.ifaceName)
         if (!binding || !this.binding) {
             this.connected = false;
+            this.logEvent({message:'connecting error',interface:this.ifaceName, reason:'no binfing found'})              
+
             return false;
         }
 
@@ -259,6 +265,8 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
             return true;
         }
         catch(err) {
+            this.logEvent({message:'connecting error',interface:this.ifaceName, reason:err.message})              
+
             this.connected = false;
             return false;
         }
@@ -291,7 +299,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
 
         return new Promise( (resolve) => {
             port.once('error',(err)=>{ 
-                this.logEvent({message:'error', path, error:err.message||err})
+                this.logEvent({message:'error', path, error:err.message||err, stack:err.stack})
                 port.removeAllListeners()
                 resolve(null); 
             })
@@ -369,16 +377,17 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
 
         this.isScanning = true;
         let attemptNo = 0
+        const isTcpip = this.getName()==='tcpip'
         do {
 
             if (attemptNo===0)
-                this.logEvent({message:'checking for ports', port, excludes:this.inUse})
+                this.logEvent({message:'checking for ports',interface:this.ifaceName, port, excludes:this.inUse})
             else 
-                this.logEvent({message:'checking for ports retry', retry: attemptNo})
+                this.logEvent({message:'checking for ports retry',interface:this.ifaceName, retry: attemptNo})
 
             attemptNo++;
             try {
-                if (this.getName()==='tcpip') {
+                if (isTcpip) {
                     const _binding = binding as typeof TCPBinding
                     paths = await _binding.list(port, this.inUse)|| []
                     
@@ -413,7 +422,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
             return[]
         }
         
-        this.logEvent({message:'scanning on ',paths:paths.map(p=>p.path),timeout})
+        this.logEvent({message:'scanning on ',interface:this.ifaceName, paths:paths.map(p=>p.path).join(','),timeout})
 
 
         const scanners: SinglePathScanner[] = paths.map( p=> new SinglePathScanner(p.path, this,{...props,logger:this.logger}))
@@ -421,8 +430,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
         try {
             await Promise.all( scanners.map( s =>  
                 s.scan()
-                    .then( device=> { 
-
+                    .then( async device=> { 
                         
                         if (device) {
 
@@ -430,6 +438,8 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
                             const path = adapter.getPort()
 
                             this.inUse.push(path)
+
+                            await adapter.stop()
 
                             detected.push(device)
                             this.emit('device',device)              
