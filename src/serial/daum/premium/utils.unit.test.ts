@@ -1,4 +1,4 @@
-import {hexstr,ascii,getAsciiArrayFromStr, buildMessage, parseTrainingData, routeToEpp, FileTimeSupport, bin2esc, esc2bin} from './utils'
+import {hexstr,ascii,getAsciiArrayFromStr, buildMessage, parseTrainingData, routeToEpp, FileTimeSupport, bin2esc, esc2bin, responseLog} from './utils'
 import { Route } from '../../../types/route';
 
 describe('utils',()=>{
@@ -235,6 +235,35 @@ describe('utils',()=>{
     
     })
     
+    describe( 'responseLog',()=>{
+        test( 'no GS',()=> {
+            const str = 'some string'
+            expect(responseLog(str)).toEqual(str)
+        })
+        test( 'with GS',()=> {
+            const GS =  String.fromCharCode(0x1D)
+    
+            let payload:string = ''
+            payload = payload+'10'+GS
+            payload = payload+'99'+GS
+            payload = payload+'10.0'+GS
+            payload = payload+'-3.3'+GS
+            payload = payload+'150'+GS
+            payload = payload+'90.1'+GS
+            payload = payload+'130'+GS
+            payload = payload+'130.2'+GS
+            payload = payload+'130.3'+GS
+            payload = payload+'13.1'+GS
+            payload = payload+'11'+GS
+            payload = payload+'1'+GS
+            payload = payload+'0'
+
+            expect(responseLog(payload)).toEqual('10/99/10.0/-3.3/150/90.1/130/130.2/130.3/13.1/11/1/0')
+        })
+
+    })
+
+
     describe( 'parseTrainingData',()=> {
     
         test( 'sample data',()=> {

@@ -1,5 +1,5 @@
 import {ACTUAL_BIKE_TYPE} from "../constants"
-import {buildMessage,ascii,bin2esc, esc2bin,parseTrainingData, checkSum, getAsciiArrayFromStr, getPersonData, ReservedCommands, routeToEpp, getBikeType, validatePath} from './utils'
+import {buildMessage,ascii,bin2esc, esc2bin,parseTrainingData, checkSum, getAsciiArrayFromStr, getPersonData, ReservedCommands, routeToEpp, getBikeType, validatePath, responseLog} from './utils'
 import { User } from "../../../types/user";
 import { Route } from "../../../types/route";
 import { ACKTimeout, CheckSumError, OnDeviceStartCallback, ResponseTimeout } from "./types";
@@ -205,7 +205,7 @@ export default class Daum8i extends SerialPortComms<DaumPremiumCommsState,DaumPr
                     response = await this.waitForResponse()
 
                     if (response.type==='Response') {
-                        this.logEvent({message:`sendCommand:received:`,...logPayload, response: request.isBinary ? Buffer.from(response.data).toString('hex'): response.data });
+                        this.logEvent({message:`sendCommand:received:`,...logPayload, response: request.isBinary ? Buffer.from(response.data).toString('hex'): responseLog(response.data) });
                         await this.sendACK(logPayload);
 
                         this.sendCmdPromise = null;

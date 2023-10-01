@@ -12,6 +12,19 @@ export const DEBUG_LOGGER = {
     logEvent: (event) => console.log(JSON.stringify(event))
 }
 
+const GS = 0x1D
+const GS_CHAR  = String.fromCharCode(GS)
+
+export function responseLog(str:string):string {
+    
+    if (str.includes(GS_CHAR)) {
+        return str.split(GS_CHAR).join('/')
+    }
+    return str;
+  
+    
+}
+
 export const validateHost = (host:string) =>  {
     const ipParts = host.split('.')
     if (ipParts.length>1)
@@ -257,9 +270,7 @@ export function routeToEpp(route:Route, date?:Date): Uint8Array {
 
 
 
-export function parseTrainingData(payload:string):IncyclistBikeData {
-    
-    const GS = 0x1D
+export function parseTrainingData(payload:string):IncyclistBikeData {  
 
     //const speedVals=['ok','too low','too high']
     const gearVal = (v) => v>0 ? v-1 : undefined;
