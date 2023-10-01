@@ -322,6 +322,17 @@ describe( 'adapter', ()=>{
             expect(adapter.ant.startSensor).not.toHaveBeenCalled()
         })
 
+        test('paused',async ()=>{            
+            adapter.started = true;
+            adapter.paused  = true
+
+            const started = await adapter.start()         
+            expect(adapter.started).toBeTruthy()   
+            expect(adapter.isPaused()).toBeFalsy()   
+            expect(started).toBeTruthy()   
+            expect(adapter.ant.startSensor).not.toHaveBeenCalled()
+        })
+
         test('connect fails',async ()=>{
             adapter.connect.mockResolvedValue(false)
             adapter.ant.startSensor.mockResolvedValue(true)
