@@ -51,7 +51,7 @@ describe( 'SmartTrainerCyclingMode',()=>{
         } );
 
         test( 'with adapter, adapter has a logger',()=>{
-            adapter.logger = MockLogger;
+            adapter.getLogger = jest.fn().mockReturnValue(MockLogger);
             const cyclingMode = new SmartTrainerCyclingMode(adapter);
             
             expect( cyclingMode.logger.getName() ).toBe('mock');

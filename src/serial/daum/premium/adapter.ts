@@ -1,15 +1,16 @@
 import { EventLogger } from 'gd-eventlog';
-import { DeviceProperties, INTERFACE } from '../../../types/device';
+import { INTERFACE } from '../../../types/device';
 import { SerialInterface } from '../..';
 import { SerialDeviceSettings } from '../../adapter';
 import { SerialCommProps } from '../../comm';
 import { SerialInterfaceType } from '../../serial-interface';
 import { User } from '../../../types/user';
-import {runWithRetries} from '../../../utils/utils';
+import {runWithRetries, sleep} from '../../../utils/utils';
 import DaumAdapter from '../DaumAdapter'
 import Daum8i from './comms';
 import DaumClassicCyclingMode from './modes/daum-classic';
 import { Daum8iDeviceProperties } from './types';
+import { IncyclistBikeData } from '../../..';
 
 const PROTOCOL_NAME = "Daum Premium"
 const DAUM_PREMIUM_DEFAULT_PORT= 51955;
@@ -45,7 +46,7 @@ const getBikeProps = ( props:SerialDeviceSettings) => {
 }
 
 
-export default class DaumPremiumAdapter extends DaumAdapter{
+export default class DaumPremiumAdapter extends DaumAdapter<SerialDeviceSettings,Daum8iDeviceProperties>{
 
     static NAME = PROTOCOL_NAME;
 
@@ -53,7 +54,7 @@ export default class DaumPremiumAdapter extends DaumAdapter{
     _startRetryTimeout = START_RETRY_TIMEOUT;
     
 
-    constructor ( settings:SerialDeviceSettings,props?:DeviceProperties) {
+    constructor ( settings:SerialDeviceSettings,props?:Daum8iDeviceProperties) {
 
         const logger  = new EventLogger('DaumPremium')
         const commProps:SerialCommProps = {...getBikeProps(settings), logger}
@@ -72,22 +73,6 @@ export default class DaumPremiumAdapter extends DaumAdapter{
 
         this.initData();
     }
-
-    /* istanbul ignore next */
-    logEvent(event) {
-        if ( this.logger) {
-            this.logger.logEvent(event)
-        }
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const w = global.window as any
-    
-        if (w?.DEVICE_DEBUG||process.env.BLE_DEBUG) {
-            console.log( '~~~ DaumPremium', event)
-        }
-
-    }
-
 
     getName() {
         return 'Daum8i'
@@ -177,18 +162,6 @@ export default class DaumPremiumAdapter extends DaumAdapter{
 
     }
 
-    async pause(): Promise<boolean> {
-        const paused  = await super.pause()
-        this.bike.pauseLogging()
-        return paused
-    }
-
-
-    async resume(): Promise<boolean> {
-        const resumed = await super.resume()
-        this.bike.resumeLogging()
-        return resumed
-    }
 
     async startRide(props:Daum8iDeviceProperties={}) {
         this.logEvent({message:'relaunch of device'});        
@@ -236,7 +209,9 @@ export default class DaumPremiumAdapter extends DaumAdapter{
 
             try {
                 
-                await this.connect();
+                const connected = await this.connect();
+                if (!connected)
+                    throw new Error('not connected')
 
                 if (!info.deviceType) {
                     info.deviceType = await this.bike.getDeviceType()
@@ -275,6 +250,11 @@ export default class DaumPremiumAdapter extends DaumAdapter{
                 return;
             }
             catch(err) {
+                // reconnect if very first request was failing
+                if (!info.deviceType) {
+                    await sleep(500)
+                    await this.reconnect()                   
+                }
                 throw( new Error(`could not start device, reason:${err.message}`));
             }
 
@@ -291,7 +271,7 @@ export default class DaumPremiumAdapter extends DaumAdapter{
     }
 
 
-    async getCurrentBikeData() {
+    async getCurrentBikeData():Promise<IncyclistBikeData> {
         
         if(!this.bike.isConnected()) {
             const connected = await this.bike.connect();

@@ -1,7 +1,8 @@
 import { EventLogger } from "gd-eventlog";
 import CyclingMode, { CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, Settings, UpdateRequest,CyclingModeBase } from "../../modes/cycling-mode";
-import DaumAdapter from "./DaumAdapter";
 import calc from '../../utils/calculations'
+import { ControllableDeviceAdapter } from "../..";
+import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "./classic/utils";
 
 const SEC_DELAY = 3;
 
@@ -39,7 +40,7 @@ interface STEvent {
     targetNotReached?: number;
 }
 
-export default class SmartTrainerCyclingMode extends CyclingModeBase implements CyclingMode {
+export default class SmartTrainerCyclingMode  extends CyclingModeBase implements CyclingMode {
 
     logger: EventLogger;
     data?: IncyclistBikeData;
@@ -49,9 +50,9 @@ export default class SmartTrainerCyclingMode extends CyclingModeBase implements 
     cassette: number[];
     event: STEvent = {}
 
-    constructor(adapter: DaumAdapter, props?: Settings) {
+    constructor(adapter: ControllableDeviceAdapter, props?: Settings) {
         super(adapter,props);
-        this.logger = adapter ? adapter.logger : undefined;
+        this.logger = adapter ? adapter.getLogger() : undefined;
         if (!this.logger) this.logger = new EventLogger('SmartTrainer')      
     }
 
@@ -66,6 +67,12 @@ export default class SmartTrainerCyclingMode extends CyclingModeBase implements 
     }
     getProperty(name: string): CyclingModeProperty {
         return config.properties.find(p => p.name===name);
+    }
+
+    getWeight() {
+        const a = this.adapter;
+        const m = (a) ? a.getWeight() : DEFAULT_BIKE_WEIGHT+ DEFAULT_USER_WEIGHT;
+        return m;
     }
 
     getBikeInitRequest(): STUpdateRequest {
@@ -306,8 +313,7 @@ export default class SmartTrainerCyclingMode extends CyclingModeBase implements 
                 this.event.rpmUpdate = true;
 
 
-            const adapter = this.adapter as DaumAdapter
-            let m = adapter.getWeight();
+            let m = this.getWeight();
             let distanceInternal = prevData.distanceInternal || 0;  // meters
             let distance = (distanceInternal/100);
             let ts = Date.now();
@@ -381,7 +387,7 @@ export default class SmartTrainerCyclingMode extends CyclingModeBase implements 
         const prevRequest = this.prevRequest || {};
         const minPower = this.getSetting('minPower');     
         const bikeType = this.getSetting('bikeType').toLowerCase();   
-        const m = (this.adapter as DaumAdapter).getWeight();
+        const m = this.getWeight();
         let speed = bikeSpeed;
 
         const Ekin = (m,speed) => {
@@ -434,7 +440,7 @@ export default class SmartTrainerCyclingMode extends CyclingModeBase implements 
         const minPower = this.getSetting('minPower');
         const bikeType = this.getSetting('bikeType').toLowerCase();     
 
-        const m = (this.adapter as DaumAdapter).getWeight();
+        const m = this.getWeight()
 
         const prevData = this.data || {} as any;
         const slope = parseFloat((request.slope===undefined ? prevData.slope||0 : request.slope).toFixed(1));

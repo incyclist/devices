@@ -3,7 +3,7 @@ import { IncyclistBikeData, Settings,  CyclingModeBase } from './cycling-mode';
 import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT} from '../base/adpater';
 import calc from '../utils/calculations'
 import { EventLogger } from 'gd-eventlog';
-import { IncyclistDeviceAdapter } from '../types/adapter';
+import { ControllableDeviceAdapter } from '..';
 
 
 
@@ -13,20 +13,21 @@ export default class PowerBasedCyclingModeBase extends CyclingModeBase  {
     prevUpdateTS: number = 0;
     logger: EventLogger;
 
-    constructor(adapter: IncyclistDeviceAdapter, props?: Settings) {
+    constructor(adapter: ControllableDeviceAdapter, props?: Settings) {
         super(adapter,props);
         this.data = { speed: 0 , power:0,  distanceInternal:0, pedalRpm:0, isPedalling:false, heartrate:0}
     }
 
     initLogger(defaultLogName) {
-        const a = this.adapter as any
-        this.logger = (a && a.getLogger) ? a.getLogger() : undefined;
+        const a = this.adapter
+        this.logger =  a.getLogger() 
         if (!this.logger) this.logger = new EventLogger(defaultLogName)
     }
 
     getWeight() {
-        const a = this.adapter as any;            
-        const m = (a && a.getWeight && a.getWeight()) ? a.getWeight() : DEFAULT_BIKE_WEIGHT+ DEFAULT_USER_WEIGHT;
+        const a = this.adapter;
+        const defaultWeight = DEFAULT_BIKE_WEIGHT+ DEFAULT_USER_WEIGHT;
+        const m = (a) ? a.getWeight()||defaultWeight : defaultWeight;
         return m;
     }
 

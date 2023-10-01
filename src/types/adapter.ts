@@ -4,10 +4,13 @@ import { IncyclistCapability } from "./capabilities";
 import { DeviceData } from "./data";
 import { DeviceProperties, DeviceSettings } from "./device"
 import { User } from "./user"
+import { EventLogger } from "gd-eventlog";
 
 export type OnDeviceDataCallback = ( data:DeviceData ) => void;
 
 export interface IncyclistDeviceAdapter extends EventEmitter{
+
+    getLogger(): EventLogger
     connect():Promise<boolean>
     close():Promise<boolean>
 
@@ -22,8 +25,6 @@ export interface IncyclistDeviceAdapter extends EventEmitter{
     getUniqueName(): string
     getSettings(): DeviceSettings
     getDisplayName(): string 
-
-
 
     update() 
     

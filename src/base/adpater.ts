@@ -48,6 +48,7 @@ export default class IncyclistDevice extends EventEmitter implements IncyclistDe
     connect():Promise<boolean> { throw new Error('not implemented') }
     close():Promise<boolean> { throw new Error('not implemented') }
     check(): Promise<boolean> {throw new Error("Method not implemented.");}
+    getLogger(): EventLogger { return undefined}
     isControllable(): boolean {
         return false;
     }   
@@ -161,7 +162,6 @@ export default class IncyclistDevice extends EventEmitter implements IncyclistDe
         return this.onDataFn || this.listenerCount('data')>0
     }
 
-
 }
 
 
@@ -205,13 +205,6 @@ export class ControllableDevice extends IncyclistDevice implements Bike{
         })
     }
 
-    getWeight():number {
-
-        const {user={},props=DEFAULT_PROPS} = this;
-        const userWeight = user.weight||props.userWeight||DEFAULT_USER_WEIGHT;
-        const bikeWeight = props.bikeWeight ||DEFAULT_BIKE_WEIGHT;
-        return userWeight+bikeWeight
-    }
 
 
     getSupportedCyclingModes(): any[] {throw new Error('not implemented')}
@@ -248,5 +241,13 @@ export class ControllableDevice extends IncyclistDevice implements Bike{
         return this.cyclingMode;
 
     }
-    
+
+    getWeight():number {
+
+        const {user={},props=DEFAULT_PROPS} = this;
+        const userWeight = user.weight||props.userWeight||DEFAULT_USER_WEIGHT;
+        const bikeWeight = props.bikeWeight ||DEFAULT_BIKE_WEIGHT;
+        return userWeight+bikeWeight
+    }
+
 }

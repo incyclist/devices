@@ -11,12 +11,24 @@ export const INTERFACE = {
     SIMULATOR: 'simulator'
 }
 
+export type DeviceType = 'race' | 'mountain' | 'triathlon'
+
 export type Device = {
     getID(): string
     getName(): string
     getInterface(): string
 }
 
+export type DaumBikeData = {
+    cadence: number
+    speed: number
+    power:number
+    heartrate:number
+    distanceInternal:number
+    gear:number
+    time:number
+    slope?: number
+}
 
 export type DeviceProperties = {
     user?:User

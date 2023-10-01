@@ -1,5 +1,5 @@
 import { EventLogger } from 'gd-eventlog';
-import CyclingMode from '../../../modes/cycling-mode';
+import CyclingMode, { IncyclistBikeData } from '../../../modes/cycling-mode';
 import {runWithRetries} from '../../../utils/utils';
 import DaumAdapter from '../DaumAdapter'
 import DaumClassicCyclingMode from './modes/daum-classic';
@@ -36,7 +36,7 @@ const getBikeProps = ( props:SerialDeviceSettings) => {
     return {serial, path}
 }
 
-export default class DaumClassicAdapter extends DaumAdapter{
+export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings, DaumClassicDeviceProperties>{
 
     static NAME = PROTOCOL_NAME;
 
@@ -46,7 +46,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
     startPromise: Promise<unknown>
     checkPromise: Promise<boolean>
 
-    constructor ( settings:SerialDeviceSettings,props?:DeviceProperties) {
+    constructor ( settings:SerialDeviceSettings,props?:DaumClassicDeviceProperties) {
         super(settings,props)
 
         const logger     = new EventLogger('DaumClassic')
@@ -180,21 +180,6 @@ export default class DaumClassicAdapter extends DaumAdapter{
         })
 
     }
-
-    async pause(): Promise<boolean> {
-        const paused  = await super.pause()
-        this.bike.pauseLogging()
-        return paused
-    }
-
-
-    async resume(): Promise<boolean> {
-        const resumed = await super.resume()
-        this.bike.resumeLogging()
-        return resumed
-    }
-
-
 
     async startRide(props:DaumClassicDeviceProperties={}) {
         this.logEvent({message:'relaunch of device'});
@@ -353,7 +338,7 @@ export default class DaumClassicAdapter extends DaumAdapter{
         }, 5, 1000 )
     }
 
-    getCurrentBikeData() {
+    async getCurrentBikeData():Promise<IncyclistBikeData> {
         if (this.stopped)
             return;
 

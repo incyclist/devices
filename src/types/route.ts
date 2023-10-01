@@ -8,12 +8,6 @@ export type Point = {
     slope?: number;
 }
 
-export enum RouteType {
-    FREE_RIDE = 'free ride',
-    FOLLOW_ROUTE = 'follow route',
-    VIDEO = 'video'
-}
-
 export type Route = {
     programId: number;
     points: Point[];

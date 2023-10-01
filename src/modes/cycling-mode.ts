@@ -1,4 +1,4 @@
-import { IncyclistDeviceAdapter } from "../types/adapter";
+import { ControllableDeviceAdapter } from "..";
 
 
 export type UpdateRequest = {
@@ -32,12 +32,12 @@ export type CyclingModeProperty = {
 }
 
 export type IncyclistBikeData = {
-    isPedalling: boolean;
+    isPedalling?: boolean;
     power: number;
     pedalRpm: number;
     speed: number;
-    heartrate:number;
-    distanceInternal:number;        // Total Distance in meters 
+    heartrate?:number;
+    distanceInternal?:number;        // Total Distance in meters 
     time?:number;
     gear?:number;
     slope?:number;
@@ -70,17 +70,17 @@ export default interface CyclingMode {
 }
 
 export class CyclingModeBase implements CyclingMode {
-    adapter: IncyclistDeviceAdapter;
+    adapter: ControllableDeviceAdapter;
     settings: Settings = {}
     properties: Settings = {};
 
-    constructor(adapter: IncyclistDeviceAdapter,props?:any) {
+    constructor(adapter: ControllableDeviceAdapter,props?:any) {
         if (!adapter) throw new Error('IllegalArgument: adapter is null')        
         this.setAdapter(adapter);
         this.setSettings(props);        
     }
     
-    setAdapter(adapter: IncyclistDeviceAdapter) {
+    setAdapter(adapter: ControllableDeviceAdapter) {
         this.adapter = adapter;
     }
     // istanbul ignore next

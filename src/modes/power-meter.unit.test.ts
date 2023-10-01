@@ -6,7 +6,7 @@ describe('PowerMeterMode', () => {
 
     let mode;
     beforeAll( ()=> {
-        mode = new PowerMeterMode( new MockAdapter);
+        mode = new PowerMeterMode( new MockAdapter());
     })
     describe ( 'getName', () => {
         test('should always return "PowerMeter"', () => {
@@ -93,12 +93,6 @@ describe('PowerMeterMode', () => {
             })
             
             
-
-        })
-        describe ( 'adapter does not have getWeight()', () => { 
-            test('should return default weight', () => {
-                expect(mode.getWeight()).toBe(DEFAULT_WEIGHT);
-            })
 
         })
 

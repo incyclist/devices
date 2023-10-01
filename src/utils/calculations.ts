@@ -54,9 +54,6 @@ export default class C {
         if (power===undefined || power===null || power<0)
             throw new IllegalArgumentException("power must be a positive number");
 
-        if (slope===undefined || slope===null )
-            slope = 0;
-
         const _rho = props.rho || rho;
         const _cRR = props.cRR || cRR;
         const _cwA = props.cwA || cwABike[props.bikeType||'race'] || cwABike.race
@@ -110,14 +107,11 @@ export default class C {
         if (v===undefined || v===null || v<0)
             throw new IllegalArgumentException("v must be a positive number");
 
-        if (slope===undefined || slope===null )
-            slope = 0;
-
         let _rho = props.rho || rho;
         let _cRR = props.cRR || cRR;
-        let _cwA = props.cwA || cwABike[props.bikeType||'race'] || cwABike.race
+        let _cwA = props.cwA || cwABike[props.bikeType||'race']
 
-		/**
+		/** 
 		 * P = 1/2*rho*cWA*v^3 +2*k v^3 + m*g*sl*v + cRR*m*g*v 
 		 */
 		let sl = Math.sin(Math.atan(slope/100));

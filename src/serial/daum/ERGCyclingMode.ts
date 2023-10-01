@@ -1,7 +1,8 @@
 import CyclingMode, { CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, UpdateRequest } from "../../modes/cycling-mode";
-import DaumAdapter from "./DaumAdapter";
 import calc from '../../utils/calculations'
 import PowerBasedCyclingModeBase from "../../modes/power-base";
+import { IncyclistDeviceAdapter } from "../../types/adapter";
+import { ControllableDeviceAdapter } from "../..";
 
 const MIN_SPEED = 10;
 
@@ -31,7 +32,7 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
     event: ERGEvent ={};
     static isERG = true;
 
-    constructor(adapter: DaumAdapter, props?:any) {
+    constructor(adapter: ControllableDeviceAdapter, props?:any) {
         super(adapter,props);
         this.initLogger('ERGMode')
     }
@@ -183,6 +184,7 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
 
 
     updateData(bikeData: IncyclistBikeData) {
+
         const prevData = JSON.parse(JSON.stringify(this.data || {} ))
         const prevSpeed = prevData.speed;        
         const prevRequest = this.prevRequest || {};
@@ -243,7 +245,7 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
     
         }
         catch (err) /* istanbul ignore next */ {
-            this.logger.logEvent({message:'error',fn:'updateData()',error:err.message||err})
+            this.logger.logEvent({message:'error',fn:'updateData()',error:err.message||err, stack:err.stack})
         }
 
         this.logger.logEvent( {message:"updateData result",data,bikeData,prevRequest,prevSpeed} );

@@ -1,473 +1,181 @@
 /* eslint-disable react-hooks/rules-of-hooks */
-import {EventLogger} from 'gd-eventlog'
-import {hexstr, getCockpit,getBikeType,getGender,getLength,getWeight,buildError,Float32ToIntArray, parseRunData, DEFAULT_AGE} from './utils'
-import {Queue} from '../../../utils/utils'
+import { sleep } from '../../../utils/utils'
 import { User } from '../../../types/user'
-import { SerialInterface, SerialPortProvider, useSerialPortProvider } from '../..'
-import { SerialCommProps } from '../../comm'
+import { ClassicBikeResponse, DaumClassicCommsState, DaumClassicRequest, DaumClassicResponse, GetVersionReponse, ProgResponse, SetGearRepsonse, SetPowerRepsonse, SetProgResponse, SetSlopeRepsonse, checkCockpitReponse } from './types'
+import SerialPortComms from '../../comms'
+import { ResponseTimeout } from '../premium/types'
+import { DEFAULT_AGE, between, buildSetSlopeCommand, getBikeType, getCockpit, getGender, getLength, getSerialNo, getWeight, parseRunData } from './utils'
+import { DeviceType } from '../../../types/device'
+import { IncyclistBikeData } from '../../..'
 const ByteLength = require('@serialport/parser-byte-length')
 
 
-
-const nop = ()=>{}
 const TIMEOUT_SEND  = 2000;    // 2s
 
+export default class Daum8008 extends SerialPortComms<DaumClassicCommsState,DaumClassicRequest, DaumClassicResponse > {
 
-type SuccessCallbackFn = (data: any) => void
-type ErrorCallbackFn = (status:number,error: any) => void
-
-
-interface CommandInstructions {
-    logStr: string,
-    payload: Array<number>,
-    expected: number,
-    callback: SuccessCallbackFn
-    callbackErr: ErrorCallbackFn,
-    options?: any
-}
-
-
-export default class Daum8008  {
-
-    
-    logger: EventLogger;
-
-    portName: string;
-    sp: any;
-    error: Error;
-    opening: boolean;
-    connected: boolean;
-    closing: boolean;
-    closed: boolean;
-    cmdBusy: boolean;
-    queue: Queue<CommandInstructions>
-    bikeCmdWorker: any;
-    cmdStart: number;
-    cmdCurrent: any;
-    isLoggingPaused: boolean;
-    spp: SerialPortProvider;
-    serial: SerialInterface
-
-    _timeoutSend: number = TIMEOUT_SEND;
-
-    constructor( props:SerialCommProps) {
-
-        const {logger, serial, path} = props;
-
-        this.logger = logger || new EventLogger('DaumClassic');
-        this.portName = path
-        this.serial = serial;
-        this.spp = useSerialPortProvider();
-
-
-        this.sp = undefined;
-        this.error = undefined;
-        this.opening = false;
-        this.connected = false;
-        this.closing = false;
-        this.closed = undefined;
-        this.cmdBusy=false;
-        this.queue = new Queue();        
-        this.isLoggingPaused = false;
+    validatePath(path:string): string {
+        return path;
     }
 
-    static setSerialPort(spClass) {
-        SerialPortProvider.getInstance().setLegacyClass('serial',spClass)
+    /* istanbul ignore next */ 
+    getDefaultLoggerName():string {
+        return 'DaumClassic'
     }
 
-    static getClassName() {
-        return "Daum8008"
+    onConnected():void {
+        
     }
 
-    getType() {
-        return "DaumClassic";
+    getTimeoutValue() {
+        return TIMEOUT_SEND
     }
 
-    getPort() {
-        return this.portName;
-    }
+    async initForResponse(expected) {        
 
-    isConnected() {
-        return this.connected;
-    }
-
-    pauseLogging() {
-        this.isLoggingPaused =true;
-    }
-    resumeLogging() {
-        this.isLoggingPaused =false;
-    }
-    logEvent(e) {
-        if(!this.isLoggingPaused)
-            this.logger.logEvent(e)
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const w = global.window as any
- 
-        if (w?.DEVICE_DEBUG) {
-            console.log('~~~ DaumClassic',e)
-        }
-
-    }
-
-    async connect():Promise<boolean> {
-        if ( this.isConnected()  && this.sp) {            
-            return true;
-        }
-    
-        try {
-            this.logEvent({message:'connect attempt',port:this.portName})
-            const port = await this.serial.openPort(this.portName)
-            if (port!==null) {
-                this.logEvent({message:'connect success',port:this.portName})
-                this.connected = true;
-                this.sp = port;
-
-                this.sp.on('close', this.onPortClose.bind(this));            
-                this.sp.on('error', this.onPortError.bind(this));    
-                return true;   
-            }
-            else {
-                this.logEvent({message:'connect failure'})
-                return false;   
-            }
-        }
-        catch (err){
-            this.logEvent({message:'connect failure',reason:err.message})
-            return false;
-        }
-
-    }
-
-    async close() {
-        if (!this.serial)
+        const parser = this.portPipe(new ByteLength({length: expected}))
+        if (!parser)
             return;
 
-        this.closing = true;
-        this.stopWorker()
-
-        if (this.isConnected()) {
-            try {
-                await this.flush();
-            }
-            catch {}
-    
-            try {
-                await this.serial.closePort(this.portName)
-            }
-            catch {}
-        }
-
-        this.connected = false;
-        this.cmdBusy=false;
-
-        if (this.sp) {
-            this.sp.removeAllListeners()
-            this.sp = null;
-        }
-
-        this.error = undefined;
-        this.closing = false;
-        this.closed = true;
-
-        return;
-    }
-
-    async flush():Promise<void> {
-        if (!this.cmdBusy)
-            return;
-
-        return new Promise( done=> {
-            const tsStart = Date.now()
-            
-            const iv = setInterval( ()=>{
-                if (!this.cmdBusy || (Date.now()-tsStart>TIMEOUT_SEND+500)) {
-                    clearInterval(iv)
-                    done()
-                }
-                
-            }, 100)
+        parser.on('data', (data:Uint8Array) => {
+            this.portUnpipe();
+            this.recvState.data.enqueue({type:'Response',data})
         })
-
     }
 
+    async waitForResponse():Promise<DaumClassicResponse> {
+        const timeout = this.getTimeoutValue()
+        let waitingForResponse = true;
+        let start = Date.now()
+        let tsTimeout = start+timeout
 
-
-    async onPortClose() {
-        this.logEvent( {message:"port closed",port:this.getPort()});
-        
-        await this.close();
-
-
-    }
-
-    onPortError(err) {
-        if ( this.closed && !this.opening)
-            return;
-        if ( (this.closing || this.closed) && (err.message==='Port is not open' || err.message==='Writing to COM port (GetOverlappedResult): Operation aborted'))
-            return;
-
-        const state = { opening:this.opening, connected:this.connected, closing:this.closing, closed:this.closed, busy:this.cmdBusy}
-        this.logEvent({message:"port error:",port:this.getPort(),error:err.message,state});
-        this.error = err;
-        this.cmdBusy=false;
-    }
-
-
-    /*
-        Queue Handling & Sending
-    */
-
-    startWorker() {
-        this.bikeCmdWorker = setInterval( ()=> {
-            this.sendDaum8008CommandfromQueue()
-        }, 50 );
-    }
-
-
-    stopWorker() {
-        this.logEvent({message:"stop worker",port:this.getPort()});
-
-        if ( this.queue!==undefined )
-            this.queue.clear();
-
-        if (this.bikeCmdWorker!==undefined) {
-            clearInterval(this.bikeCmdWorker);
-            this.bikeCmdWorker=undefined;
-        }
-
-    }
-
-    sendDaum8008CommandfromQueue() {
-
-        if (!this.connected  || this.closing || !this.sp)
-            return;
-
-        if (this.cmdStart!==undefined && this.error!==undefined) {
-
-            if( this.cmdStart!==undefined ) {      
-                const cmdInfo = this.cmdCurrent;
-                var retry = 0;
-
-                if ( cmdInfo.options!==undefined && cmdInfo.options.retries!==undefined) {
-                    retry = this.cmdCurrent.options.retries;
-                }
-
-                if (cmdInfo.callbackErr!==undefined && retry===0) {
-                    let cb = cmdInfo.callbackErr;
-                    let error = this.error;
-                    //console.log("maxretries:cmdBusy=false");
-                    this.cmdBusy=false;
-                    this.cmdCurrent=undefined;
-                    this.cmdStart=undefined;
-                    this.error = undefined;
-                    return cb(500,{ message: error} )            
-                }
-
+        while( waitingForResponse && Date.now()<tsTimeout) {
+            const response = this.recvState.data.dequeue()
+            if (response) {
+                return response
             }
+            await sleep(5)
+            
         }
-
-        if ( this.connected && this.cmdBusy && !this.closing) { 
-            if( this.cmdCurrent!==undefined  && this.cmdCurrent.start!==undefined) {      
-                const cmdInfo = this.cmdCurrent;
-                const timeout =  ( cmdInfo.options && cmdInfo.options.timeout) ? cmdInfo.options.timeout :  this._timeoutSend;
-
-                let d = Date.now()-cmdInfo.start;
-                if ( d>timeout) {
-                    this.logEvent( {message:'sendCommmand:timeout',port:this.getPort()}); 
-                    const port = this.sp;
-                    port.unpipe();
-                    port.flush();
-
-                    if (this.cmdCurrent.callbackErr!==undefined) {
-                        let cb = this.cmdCurrent.callbackErr;
-                        this.cmdBusy=false;
-                        this.cmdCurrent=undefined;
-                        this.cmdStart=undefined;
-                        return cb(408,{ message: "timeout"} )            
-                    }
-                }
-            }
-            return;
-        }
-        else {
-            //console.log( "connected"+bike.connected+",busy:" + bike.cmdBusy) 
-        }
-
-        if ( this.cmdBusy)
-            return;
-
-        if ( this.queue===undefined || this.queue.isEmpty()) {
-            return;
-        }
-
-        const cmd = this.queue.dequeue()
-
-        // double-check again that we are not closing
-        if (this.connected && !this.closing && !this.closed)
-            this.send(cmd);
+        throw new ResponseTimeout()
     }
 
-    sendDaum8008Command( logStr, payload, expected, callback?,callbackErr?, options?) {        
-        let cmdInfo = {
-            logStr,
-            payload,
-            expected,
-            callback: callback || nop,
-            callbackErr: callbackErr || nop,
-            options: options
+    async doSend(expected:number, payload:Uint8Array):Promise<DaumClassicResponse> {
+       
+        this.initForResponse(expected)
+        await this.write( Buffer.from(payload ))            
+        const response = await this.waitForResponse()
+
+        if(response.type==='Error')
+            throw response.error
+
+        if ( response.data[0]!==payload[0] ) {
+            this.portFlush();
+            throw new Error('illegal response')
         }
-        this.queue.enqueue(cmdInfo);
+
+        return response;
+    }
+
+    async send( request:DaumClassicRequest):Promise<DaumClassicResponse> {
+        const {expected, command,logString} = request
         
-        if (this.queue.size()>1)
-            this.logEvent({message:"sendCommand:adding:",cmd:logStr, hex:hexstr(payload),queueSize:this.queue.size()});
+        const payload = Array.isArray(command)  ?  new Uint8Array(command) : command
 
-        if ( this.bikeCmdWorker===undefined) {
-            this.startWorker();
-        }
-    }
 
-    send(cmdInfo) {
-        this.cmdBusy = true;
-        this.cmdCurrent = cmdInfo;
-
-        const {logStr,payload,expected,callback,callbackErr} = cmdInfo;
-        const done = () => {
-            this.cmdBusy=false;
-            this.cmdCurrent=undefined;
-            this.cmdStart=undefined;
+        let logPayload =  {
+            port:this.path,
+            cmd: logString||'BinaryCommand',
         }
 
+        await this.ensurePrevCmdFinish(logPayload);
 
-        try {
-            const serialPort = this.sp;
-            const parser = serialPort.pipe(new ByteLength({length: expected}))
+        this.sendCmdPromise =  new Promise ( async (resolve,reject) => {
+   
+            try {    
+                this.logEvent({message:"sendCommand:sending:",...logPayload, hex:Buffer.from(payload).toString('hex')});
 
-            parser.on('data', (data) => {
-                let duration = Date.now()-this.cmdStart;
-                this.logEvent({message:"sendCommand:received:",duration,hex:hexstr(data),port:this.getPort()});
-                serialPort.unpipe();
+                await this.ensureConnection()                
+                const res = await this.doSend(expected,payload)
 
-                if (callbackErr!==undefined) {
-                    if ( data[0]!==payload[0] ) {
-                        serialPort.flush();
-                        this.logEvent( {message: "sendCommand:illegal response",port:this.getPort()});
-                        done();
-                        return callbackErr(512,{ message: "illegal response"} )            
-                    }
-                }
-                callback(data);
-                done();
-            })
-
-
-            this.logEvent({message:"sendCommand:sending:",cmd:logStr, hex:hexstr(payload), port:this.getPort()});
-            this.cmdCurrent.start = this.cmdStart = Date.now();
-            serialPort.write( payload);
-
-        }
-        catch (err)  {
-            this.logEvent({message:"sendCommand:error:",error:err.message,port:this.getPort()});
-            done();
-            callbackErr(500,{ message: `Exception: ${err.message}`})
-
-        }          
+                this.logEvent({message:"sendCommand:received:",...logPayload, hex:Buffer.from(res.data).toString('hex')});
+                this.sendCmdPromise = null;
+                resolve(res)
     
+            }
+            catch (err)  {
+                this.logEvent({message:"sendCommand:error:",...logPayload,error:err.message});
+                this.sendCmdPromise = null;
+
+                reject(err)
+            }          
+    
+        });
+
+        return this.sendCmdPromise        
+
     }
 
+    async sendCommand(logString:string, command:number[], expected):Promise<Uint8Array> {
+        const response = await this.send( {logString,command,expected})
+        return response.data;
+    }
  
 
     /*
     ====================================== Commands ==============================================
     */
 
-
-    checkCockpit(bikeNo=0) {
-        return new Promise( (resolve,reject) => {            
-            this.sendDaum8008Command(
-                `checkCockpit(${bikeNo})`,[0x10,bikeNo],3, 
-                (data)          => resolve({bike : data[1], version: data[2]}),
-                (status,err)    => { 
-                    if ( status===408) 
-                        return resolve({bike : bikeNo, version: undefined})
-                    reject(buildError(status,err))     }         
-            );
-        });
+    async checkCockpit(bikeNo:number=0):Promise<checkCockpitReponse> {
+        try {
+            const data = await this.sendCommand( `checkCockpit(${bikeNo})`,[0x10,bikeNo],3)
+            return {bike : data[1], version: data[2]}
+        }
+        catch(err) {
+            // ignore Repsonse timeout as some devices don't respond on this command
+            if (err instanceof ResponseTimeout)
+                return {bike : bikeNo, version: undefined}
+            throw err
+        }
     }
 
-    getAddress() {
-        return new Promise( (resolve,reject) => {            
-            this.sendDaum8008Command(
-                `getAddress()`,[0x11],2, 
-                (data)          => resolve({bike : data[1]}),
-                (status,err)    => reject(buildError(status,err))             
-            );
-        });
+    async getAddress():Promise<ClassicBikeResponse> {
+        const data = await this.sendCommand(`getAddress()`,[0x11],2)
+        return {bike:data[1]};
     }
 
-    getVersion(bikeNo=0) {
-        return new Promise( (resolve,reject) => {            
-            this.sendDaum8008Command(
-                `getVersion(${bikeNo})`, [0x73,bikeNo],11,
-                (data)          => resolve({bike : data[1], serialNo: hexstr(data,2,8), cockpit:getCockpit(data[10])}),
-                (status,err)    => reject(buildError(status,err))             
-            );
-        });
+    async getVersion(bikeNo:number=0):Promise<GetVersionReponse> {
+        const data = await this.sendCommand(`getVersion(${bikeNo})`, [0x73,bikeNo],11)
+        return {bike : data[1], serialNo: getSerialNo(data,2,8), cockpit:getCockpit(data[10])}
     }
 
-    resetDevice(bikeNo=0) {
-        return new Promise( (resolve,reject) => {            
-            this.sendDaum8008Command(
-                `resetDevice(${bikeNo})`,[0x12,bikeNo],2,
-                (data)          => resolve({}),
-                (status,err)    => reject(buildError(status,err))             
-            );
-        });
+    async resetDevice(bikeNo:number=0):Promise<ClassicBikeResponse> {
+        const data = await this.sendCommand(`resetDevice(${bikeNo})`,[0x12,bikeNo],2)
+        return {bike:data[1]};
     }
 
-    startProg(bikeNo=0) {
-        return new Promise( (resolve,reject) => {            
-            this.sendDaum8008Command(
-                `startProg(${bikeNo})`, [0x21,bikeNo],3,
-                (data)          => resolve({bike : data[1], pedalling:data[2]>0}),
-                (status,err)    => reject(buildError(status,err))             
-            );
-        });
+    async startProg(bikeNo:number=0):Promise<ProgResponse> {
+        const data = await this.sendCommand(`startProg(${bikeNo})`, [0x21,bikeNo],3)
+        return {bike : data[1], pedalling:data[2]>0};
     }
 
-    stopProg(bikeNo=0) {
-        return new Promise( (resolve,reject) => {            
-            this.sendDaum8008Command(
-                `stopProg(${bikeNo})`,[0x22,bikeNo],3,
-                (data)          => resolve({bike : data[1], pedalling:data[2]!==0}),
-                (status,err)    => reject(buildError(status,err))             
-            );
-        });
+    async stopProg(bikeNo:number=0):Promise<ProgResponse> {
+        const data = await this.sendCommand(`stopProg(${bikeNo})`,[0x22,bikeNo],3)
+        return {bike : data[1], pedalling:data[2]>0};
     }
 
-    setProg(progNo=0,bikeNo=0) {
-        return new Promise( (resolve,reject) => {            
-            this.sendDaum8008Command(
-                `setProg(${bikeNo},${progNo})`, [0x23,bikeNo,progNo],4,
-                (data)          => resolve({bike:data[1],progNo:data[2],pedalling:data[3]!==0}),
-                (status,err)    => reject(buildError(status,err))             
-            );
-        });
+    async setProg(progNo:number=0,bikeNo:number=0):Promise<SetProgResponse> {
+        const data = await this.sendCommand(`setProg(${bikeNo},${progNo})`, [0x23,bikeNo,progNo],4)
+        return {bike:data[1],progNo:data[2],pedalling:data[3]!==0};
     }
 
-    setBikeType(bikeType,bikeNo=0) {
+    async setBikeType(bikeType:DeviceType,bikeNo=0):Promise<ClassicBikeResponse> {
         const bikeVal = getBikeType( bikeType)        
-        return new Promise( (resolve,reject) => {            
-            this.sendDaum8008Command(
-                `setBikeType(${bikeNo},${bikeType})`, [0x69,bikeNo,0,0,bikeVal],3,
-                (data)          => resolve({}),
-                (status,err)    => reject(buildError(status,err))             
-            );
-        });
+        const data = await this.sendCommand(`setBikeType(${bikeNo},${bikeType})`, [0x69,bikeNo,0,0,bikeVal],3)
+        return {bike:data[1]};
     }
 
-
-    setPerson(user={} as User,bikeNo=0) {
+    async setPerson(user:User={},bikeNo:number=0) {
         const age = user.age!==undefined ? user.age : DEFAULT_AGE;
         const gender = getGender( user.sex) ;    
         const length = getLength( user.length) ;  
@@ -490,111 +198,47 @@ export default class Daum8008  {
         cmd.push(0); // dist Limit
         cmd.push(0); // calc Limit
 
-        return new Promise( (resolve,reject) => {            
-            this.sendDaum8008Command(
-                `setPerson(${bikeNo},${age},${gender},${length},${weight})`,cmd,16, 
-                (data)          => { 
-                    // In some cases, there was a communication glitch and setPerson was setting limits (based on wrong values)
-                    // To avoid this to happen, we need to explicitly verify that the response matches the request
-                    let ok = true;
-                    cmd.forEach( (v,i) => { 
-                        if (data[i]!==v) {
-                            
-                            // avoid to reject if maxPower was set to 400 on DaumFitness devices
-                            if (i===10 && v>=160 /* maxPower*/) {
-                                if (data[i]===0 || data[i]===80) /* 400/5 */
-                                    return; 
-                            }
-                                
-                            reject( buildError(512,'illegal response' )) 
-                            ok = false;
-                        }
-                    } )
-                    if (ok)
-                        resolve({bike:data[1],age,gender,length,weight}) 
-                },
-                (status,err)    => reject(buildError(status,err))             
-            );
-        });
+        const data = await this.sendCommand(`setPerson(${bikeNo},${age},${gender},${length},${weight})`,cmd,16)
 
-    }
-
-    runData(bikeNo=0) {
-        return new Promise( (resolve,reject) => {            
-            this.sendDaum8008Command(
-                `runData(${bikeNo})`,[0x40,bikeNo],19,
-                (data)          =>  {
-                    try {
-                        const parsed = parseRunData(data);
-                        resolve(parsed);
-                    }
-                    catch(e) {
-                        reject( buildError(500,e) );
-                    }
-                },
-                (status,err)    => reject(buildError(status,err))             
-            );
-        });
-    }
-
-
-    setGear(gear,bikeNo=0) {
-        let gearVal =gear;
-        if (gear===undefined || gear<1) gearVal =1;
-        if (gear>28) gearVal=28;
-
-        return new Promise( (resolve,reject) => {            
-            this.sendDaum8008Command(
-                `setGear(${bikeNo},${gearVal})`,[0x53,bikeNo,gearVal],3,
-                (data)          => resolve({bike:data[1],gear:data[2]}),
-                (status,err)    => reject(buildError(status,err))             
-            );
-        });
-
-    }
-
-    setPower(power,bikeNo=0) {
-        return new Promise( (resolve,reject) => {            
-            if (power===undefined) {
-                resolve({})
-                return;
+        // In some cases, there was a communication glitch and setPerson was setting limits (based on wrong values)
+        // To avoid this to happen, we need to explicitly verify that the response matches the request
+        cmd.forEach( (v,i) => { 
+            if (data[i]!==v) {
+                
+                // avoid to reject if maxPower was set to 400 on DaumFitness devices
+                if (i===10 && v>=160 ) { // maxPower
+                    if (data[i]===0 || data[i]===80) // 400/5 
+                        return; 
+                }
+                throw new Error('illegal response')                    
             }
+        } )
 
-            let powerRequest = power;
-            if (power<25) powerRequest = 25;
-            if (power>800) powerRequest = 800;
-            const powerVal = Math.round(powerRequest/5);
-    
-            this.sendDaum8008Command(
-                `setPower(${bikeNo},${power})`,[0x51,bikeNo,powerVal],3,
-                (data)          => resolve({bike:data[1],power:(data[2]*5)}),
-                (status,err)    => reject(buildError(status,err))             
-            );
-        });
+        return ({bike:data[1],age,gender,length,weight}) 
     }
 
-    setSlope(slope,bikeNo=0) {
-        
 
-        return new Promise( (resolve,reject) => {            
-            if (slope===undefined) {
-                resolve({})
-                return;
-            }
+    async runData(bikeNo:number=0):Promise<IncyclistBikeData> {       
+        const data = await this.sendCommand(`runData(${bikeNo})`,[0x40,bikeNo],19);
+        return parseRunData(data)
+    }
 
-            const cmd = [0x55,bikeNo];
-            const arr = Float32ToIntArray(slope);
-            cmd.push( arr[3]);
-            cmd.push( arr[2]);
-            cmd.push( arr[1]);
-            cmd.push( arr[0]);
-        
-            this.sendDaum8008Command(
-                `setSlope(${bikeNo},${slope})`,cmd,6,
-                (data)          => resolve({ bike: data[1], slope:slope}),
-                (status,err)    => reject(buildError(status,err))             
-            );
-        });
+    async setGear(gear:number,bikeNo=0):Promise<SetGearRepsonse> {       
+        const gearVal = between(gear,1,28) 
+        const data = await this.sendCommand(`setGear(${bikeNo},${gearVal})`,[0x53,bikeNo,gearVal],3)
+        return ({bike : data[1], gear:data[2]})
+    }
+
+    async setPower(power:number,bikeNo=0):Promise<SetPowerRepsonse> {
+        const powerVal = Math.round( between(power,25,800) /5);
+        const data = await this.sendCommand(`setPower(${bikeNo},${power})`,[0x51,bikeNo,powerVal],3)
+        return ({bike:data[1],power:data[2]*5});
+    }
+
+    async setSlope(slope:number,bikeNo=0):Promise<SetSlopeRepsonse> {
+        const cmd = buildSetSlopeCommand(bikeNo,slope)       
+        const data = await this.sendCommand(`setSlope(${bikeNo},${slope})`,cmd,6)
+        return ({bike:data[1],slope})
     }
 
  }

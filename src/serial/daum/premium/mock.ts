@@ -4,7 +4,8 @@ import { BindingInterface } from '@serialport/bindings-interface'
 import { SerialInterface, SerialPortProvider } from '../../';
 import { Gender, User } from '../../../types/user';
 import { sleep,resolveNextTick } from '../../../utils/utils';
-import { buildMessage, checkSum, esc2bin, parsePersonData, ReservedCommands } from './utils';
+import { bin2esc, buildMessage, checkSum, esc2bin, parsePersonData, ReservedCommands } from './utils';
+import { DS_BITS_ENDLESS_RACE } from './consts';
 
 export type MockProps = {
     interface: string;
@@ -84,7 +85,43 @@ export class Daum8iMockImpl  {
 
 }
 
+type Program = {
+    lapMode: boolean
+    id?:number
+    started?:boolean
+}
 
+type trainingData = {
+    time: number,
+    heartrate: number,
+    v: number
+    slope: number,
+    distanceInternal: number
+    pedalRpm: number
+    power: number
+    physEnergy: number
+    realEnergy: number
+    torque: number
+    gear:  number
+    deviceState: number
+    speedStatus: number
+}
+
+const DEFAULT_TRAINING_DATA = {
+    time: 0,
+    heartrate: 0,
+    v: 0,
+    slope: 0,
+    distanceInternal: 0,
+    pedalRpm: 0,
+    power: 0,
+    physEnergy: 0,
+    realEnergy: 0,
+    torque: 0,
+    gear:  10,
+    deviceState: 1, // device ON
+    speedStatus: 0  // speed OK 
+}
 
 export class Daum8MockSimulator {
 
@@ -97,10 +134,13 @@ export class Daum8MockSimulator {
     currentPower: number = 0;
     loadControl:number = 1;
     person: User = { weight:75, length:180, age:30, sex:Gender.MALE } ;
+    program: Program
+    data: trainingData = DEFAULT_TRAINING_DATA
 
 
     _isSimulateACKTimeout: boolean = false;
     _isSimulateCheckSumError: boolean = false;
+    _isSimulateReservedError: boolean = false;
     _timeoutResponse: number = 0;
     timeoutNAKRetry = 1000;
 
@@ -115,9 +155,19 @@ export class Daum8MockSimulator {
     simulateChecksumError() {
         this._isSimulateCheckSumError = true;
     }
+    simulateReservedError() {
+        this._isSimulateReservedError = true;
+    }
 
     onNAK() {}
     onACK() {}
+
+}
+
+export function parseProgramListNewData(buffer:Buffer) : Program {
+    const wBits = buffer.readInt16LE( 30)
+    const lapMode = wBits===DS_BITS_ENDLESS_RACE
+    return { lapMode}
 
 }
 
@@ -296,8 +346,15 @@ export class Daum8iMockBinding extends MockPortBinding {
         
     }
 
-    createResponse( cmd:string, payload:Buffer): Buffer {
-        const buffer = Buffer.from(buildMessage( cmd, payload))
+    createResponse( cmd:string, payload:Buffer,binary=false): Buffer {
+        let buffer;
+
+        if (binary) {
+            buffer = Buffer.from(buildMessage( cmd, bin2esc(payload)))
+        }
+        else  {
+            buffer = Buffer.from(buildMessage( cmd, payload))
+        }
 
         this.prevCommand = Buffer.from(buffer)
 
@@ -365,18 +422,27 @@ export class Daum8iMockBinding extends MockPortBinding {
 
     onReservedCommand(payload:Buffer) {
         const cmd = payload.readInt16LE(0)
-        const length = payload.readUint16LE(2)
-        const data = esc2bin(payload.subarray(4,4+length-1))
+        const data = esc2bin(payload.subarray(4,4+payload.length-1))
 
         switch(cmd) {
-            case ReservedCommands.PERSON_SET: this.onPersonSet(Buffer.from(data))
-            case ReservedCommands.PERSON_GET: this.onPersonGet()       
+            case ReservedCommands.PERSON_SET: this.onPersonSet(Buffer.from(data)); break;
+            case ReservedCommands.PERSON_GET: this.onPersonGet(); break;
+            case ReservedCommands.PROGRAM_LIST_BEGIN: this.onProgramListBegin(); break;
+            case ReservedCommands.PROGRAM_LIST_NEW_PROGRAM: this.onProgramListNewProgram(Buffer.from(data)); break;
+            case ReservedCommands.PROGRAM_LIST_CONTINUE_PROGRAM: this.onProgramListContinueProgram(); break;
+            case ReservedCommands.PROGRAM_LIST_END: this.onProgramListEnd();break;
+            case ReservedCommands.PROGRAM_LIST_START: this.onProgramListStart(Buffer.from(data)); break;
         }
     }
 
     onPersonSet(payload:Buffer) {
         this.simulator.person = parsePersonData(payload)
-        this.emitData(this.createResponse( 'M70', Buffer.from('07000000','hex' ) ))
+        if (this.simulator._isSimulateReservedError) {
+            this.emitData(this.createResponse( 'M70', Buffer.from('08000000','hex' ) ))
+            this.simulator._isSimulateReservedError=false;
+        }
+        else 
+            this.emitData(this.createResponse( 'M70', Buffer.from('07000000','hex' ),true ))
     }
 
     onPersonGet() {
@@ -384,8 +450,103 @@ export class Daum8iMockBinding extends MockPortBinding {
 
     }
 
-    onGetTrainingData(_payload:Buffer) {
+    onProgramListBegin() {
         
+        if (this.simulator._isSimulateReservedError) {
+            this.emitData(this.createResponse( 'M70', Buffer.from('07000000','hex' ),true ))
+            this.simulator._isSimulateReservedError=false;
+        }
+        else 
+            this.emitData(this.createResponse( 'M70', Buffer.from('08000000','hex' ),true ))
+    }
+
+    onProgramListNewProgram(payload:Buffer) {
+        this.simulator.program = parseProgramListNewData(payload)        
+        if (this.simulator._isSimulateReservedError) {
+            this.emitData(this.createResponse( 'M70', Buffer.from('08000000','hex' ),true ))
+            this.simulator._isSimulateReservedError=false;
+        }
+        else 
+            this.emitData(this.createResponse( 'M70', Buffer.from('09000000','hex' ),true ))
+    }
+
+    onProgramListEnd() {
+        
+        if (this.simulator._isSimulateReservedError) {
+            this.emitData(this.createResponse( 'M70', Buffer.from('08000000','hex' ),true ))
+            this.simulator._isSimulateReservedError=false;
+        }
+        else 
+            this.emitData(this.createResponse( 'M70', Buffer.from('0B00010001','hex' ),true ))
+    }
+
+    onProgramListContinueProgram() {
+        
+        if (this.simulator._isSimulateReservedError) {
+            this.emitData(this.createResponse( 'M70', Buffer.from('08000000','hex' ),true ))
+            this.simulator._isSimulateReservedError=false;
+        }
+        else 
+            this.emitData(this.createResponse( 'M70', Buffer.from('0A00010001','hex' ),true ))
+    }
+
+    onProgramListStart(payload:Buffer) {
+
+        
+        if (this.simulator._isSimulateReservedError) {
+            this.emitData(this.createResponse( 'M70', Buffer.from('08000000','hex' ),true ))
+            this.simulator._isSimulateReservedError=false;
+        }
+        else {
+            try {
+                if (!this.simulator.program)
+                    this.simulator.program={lapMode:false}
+                this.simulator.program.id = payload.readInt16LE(0)
+                this.simulator.program.started = true;
+            }
+            catch(err) {
+                console.log('~~~ ERROR',payload, err,payload.toString('hex'))
+            }
+    
+            this.emitData(this.createResponse( 'M70', Buffer.from('0C00000','hex' ),true ))
+        }
+    }
+
+    onGetTrainingData(_payload:Buffer) {
+        const GS = Buffer.from([0x1D]).toString()
+
+        const {
+            time,
+            heartrate,
+            v,
+            slope,
+            distanceInternal,
+            pedalRpm,
+            power,
+            physEnergy,
+            realEnergy,
+            torque,
+            gear,
+            deviceState,
+            speedStatus
+        } = this.simulator.data
+
+        const res = 
+            `${time}`+GS+
+            `${heartrate}`+GS+
+            `${v}`+GS+
+            `${slope}`+GS+
+            `${distanceInternal}`+GS+
+            `${pedalRpm}`+GS+
+            `${power}`+GS+
+            `${physEnergy}`+GS+
+            `${realEnergy}`+GS+
+            `${torque}`+GS+
+            `${gear}`+GS+
+            `${deviceState}`+GS+
+            `${speedStatus}`
+
+        this.emitData( this.createResponse( 'X70', Buffer.from( res )))
     }
 
 }

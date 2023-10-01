@@ -398,8 +398,11 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
     
             }
             catch(err) {
-                console.log('~~~ERROR',err)
+                this.logEvent({message:'error',fn:'scan#detect ports', error:err.message, interface:this.ifaceName, port, excludes:this.inUse})
             }
+            paths = paths.filter( p => !this.inUse.includes(p.path))
+
+
             if (!paths || paths.length===0) {
                 this.logEvent({message:'scanning: no ports detected',interface:this.ifaceName, paths:paths.map(p=>p.path),timeout})
                 await sleep(1000)
@@ -410,8 +413,6 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
 
         }
         while (this.isScanning && !timeOutExpired && paths.length===0)
-
-        paths = paths.filter( p => !this.inUse.includes(p.path))
         
         if (paths.length===0) {
             this.logEvent({message:'nothing to scan '})
@@ -476,6 +477,8 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
             clearTimeout(this.toScan)
             this.toScan = null;
         }
+
+        this.isScanning = false
 
         this.scanEvents.emit('stop')
         return true;

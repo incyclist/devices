@@ -1,12 +1,12 @@
+import { ControllableDeviceAdapter } from "../..";
 import FtmsCyclingMode from "../../modes/ble-st-mode";
 import { UpdateRequest } from "../../modes/cycling-mode";
-import { IncyclistDeviceAdapter } from "../../types/adapter";
 
 const MAX_DEVIATION = 10;
 
 export default class AntAdvSimCyclingMode extends FtmsCyclingMode {
 
-    constructor(adapter: IncyclistDeviceAdapter, props?:any) {
+    constructor(adapter: ControllableDeviceAdapter, props?:any) {
         super(adapter,props);
         this.initLogger('AntAdvSimMode')
     }

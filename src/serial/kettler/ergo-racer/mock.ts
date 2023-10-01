@@ -1,3 +1,4 @@
+/* istanbul ignore file */
 import {MockBindingInterface, MockPortBinding,CreatePortOptions, MockBinding,MockPortInternal} from '@serialport/binding-mock'
 import { SerialInterface, SerialPortProvider } from '../..';
 import { BindingInterface, BindingPortInterface, PortStatus, SetOptions, UpdateOptions, OpenOptions, PortInfo } from '@serialport/bindings-interface'

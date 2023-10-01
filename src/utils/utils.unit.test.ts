@@ -1,4 +1,4 @@
-import {runWithRetries, sleep, Queue,hexstr,floatVal,intVal} from './utils'
+import {runWithRetries, sleep, Queue,hexstr,floatVal,intVal, waitWithTimeout} from './utils'
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
@@ -146,7 +146,7 @@ describe('utils',()=>{
             const queue = new Queue<number>([1,2,3]);
             const res = queue.dequeue()
             expect(res).toBe(1);
-            expect(queue.data).toEqual([2,3])
+            expect((queue as any).data).toEqual([2,3])
         })
         describe('size',()=> {
 
@@ -156,11 +156,6 @@ describe('utils',()=>{
             })
             test( 'empty',()=>{
                 const queue = new Queue<number>();           
-                expect(queue.size()).toBe(0);
-            })
-            test( 'data undefined',()=>{
-                const queue = new Queue<number>();           
-                (queue as any).data  = undefined;
                 expect(queue.size()).toBe(0);
             })
             
@@ -173,5 +168,68 @@ describe('utils',()=>{
             expect(queue.size()).toBe(0);
         })
 
+        describe('isEmpty',()=>{
+            const q = new Queue<string>()
+            expect(q.isEmpty()).toBeTruthy()
+
+            q.enqueue('test')
+            expect(q.isEmpty()).toBeFalsy()
+        })
+
+
     })
+
+    describe ( 'waitWithTimeout()', ()=> {
+
+        let to
+
+        afterEach( ()=>{
+            if (to)
+                clearTimeout(to)
+        })
+
+        describe ( 'promise fullfils' ,()=> {
+            test ( 'promise fullfils' ,async ()=> {
+                const fn = new Promise( resolve => resolve('X')) 
+                const onTimeout = jest.fn()
+
+                const res = await waitWithTimeout(fn,50,onTimeout)
+                expect(res).toBe('X'); 
+
+                await sleep(100)
+                expect(onTimeout).not.toHaveBeenCalled()
+            })
+    
+            test ( 'promise rejects - does not throw an Error,returns undefined' ,async ()=> {
+                const fn = new Promise( (_resolve,reject) => {reject (new Error('X'))}) 
+                const onTimeout = jest.fn()
+                
+                const res = await waitWithTimeout(fn,100,onTimeout)
+                expect(res).toBeUndefined()
+
+                await sleep(100)
+                expect(onTimeout).not.toHaveBeenCalled()
+                
+            })
+    
+
+            test('timeout with Callback',async ()=>{
+                const fn = new Promise( resolve => {to=setTimeout(()=>{resolve('X')},5000)}) 
+                const onTimeout = jest.fn()
+                
+                const res = await waitWithTimeout(fn,100,onTimeout)
+                expect(res).toBeUndefined()
+                expect(onTimeout).toHaveBeenCalled()   
+            })
+
+            test('timeout without Callback',async ()=>{
+                const fn = new Promise( resolve => {to=setTimeout(()=>{resolve('X')},5000)}) 
+                
+                expect( async ()=>{ await waitWithTimeout(fn,100,undefined)}).rejects.toThrow('Timeout')
+            })
+
+        })
+    })
+
+
 })

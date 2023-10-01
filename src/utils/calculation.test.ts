@@ -134,6 +134,14 @@ describe('Calculations', () => {
             expect(result).toMatchSnapshot()
         })
 
+        test('no props',()=>{
+            // default values (numGears:28, wheelCirc:2125) are used
+            const speed1= C.calculateSpeedBike( 10, 90,  [36,52], [11,30], {numGears:28, wheelCirc:2125} ) 
+            const speed = C.calculateSpeedBike( 10, 90,  [36,52], [11,30]) 
+            expect(speed).toEqual(speed1)
+
+        })
+
         test('chainData missing',()=>{
             expect(() => { C.calculateSpeedBike(1,88,[],[11,30],{numGears:28, wheelCirc:2125});}).toThrow(IllegalArgumentException);                               
 

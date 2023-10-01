@@ -1,4 +1,4 @@
-import { IncyclistDeviceAdapter } from "../types/adapter";
+import { ControllableDeviceAdapter } from "..";
 import CyclingMode, { CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, UpdateRequest } from "./cycling-mode";
 import PowerBasedCyclingModeBase from "./power-base";
 
@@ -23,7 +23,7 @@ export default class BleERGCyclingMode extends PowerBasedCyclingModeBase impleme
     chain: number[];
     cassette: number[];
 
-    constructor(adapter: IncyclistDeviceAdapter, props?:any) {
+    constructor(adapter: ControllableDeviceAdapter, props?:any) {
         super(adapter,props);
         this.initLogger('ERGMode')
     }

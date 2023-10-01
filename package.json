@@ -29,7 +29,9 @@
     "build": "tsc",
     "test": "jest --coverage",
     "test:ci": "jest --coverage --forceExit",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "postversion": "git push && git push --tags"
+
   },
   "files": [
     "lib/"

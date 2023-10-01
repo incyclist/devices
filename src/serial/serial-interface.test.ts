@@ -113,7 +113,9 @@ describe('SerialInterface',()=>{
                 }
                 getSupportedCyclingModes() { return []}
                 getDefaultCyclingMode() { return {} as CyclingMode}
-    
+                async stop():Promise<boolean> { return true}
+                async close():Promise<boolean> { return true}
+  
             }
             
             const adapter = new MockAdapter({protocol:'Daum Classic', port:'COM1', interface:'serial'})           
@@ -136,6 +138,8 @@ describe('SerialInterface',()=>{
                 async check(): Promise<boolean> {
                     return true
                 }
+                async stop():Promise<boolean> { return true}
+                async close():Promise<boolean> { return true}
                 getSupportedCyclingModes() { return []}
                 getDefaultCyclingMode() { return {} as CyclingMode}
     

@@ -92,7 +92,7 @@ export function hexstr(arr,start?,len?) {
 
 
 export class Queue<T> {
-    data: Array<T>;
+    protected data: Array<T>;
 
     constructor( values? : Array<T>) {
         this.data = [];
@@ -101,7 +101,7 @@ export class Queue<T> {
     }
 
     size() {
-        return this.data? this.data.length : 0;
+        return this.data.length
     }
 
     clear() {
@@ -109,7 +109,7 @@ export class Queue<T> {
     }
 
     isEmpty() {
-        return this.data===undefined || this.data.length===0;
+        return this.size()===0
     }
 
     dequeue(): T {
@@ -122,4 +122,46 @@ export class Queue<T> {
     }
 
 }
+
+export async function waitWithTimeout( promise:Promise<any>, timeout:number, onTimeout?:()=>void) {
+    let to;
+    let hasTimedOut=false;
+
+    const toPromise =  (ms) => { 
+        return new Promise<void>( (resolve,reject) => { to = setTimeout(()=>{
+                
+                hasTimedOut = true;
+                /* istanbul ignore next */  // error in coverage report
+                if (!onTimeout) {
+                    reject(new Error('Timeout'))
+                }
+                else {
+                    try {
+                        onTimeout()
+                        resolve()
+                    }
+                    catch(err) {
+                        reject(err)
+                    }
+                }
+    
+        }, ms)})
+    }
+
+
+    let res;
+    try {
+        res = await Promise.race( [promise,toPromise(timeout)] )
+    }
+    catch (err) {
+    /* istanbul ignore next */  // error in coverage report
+    if (err.message==='Timeout' && hasTimedOut)
+            throw err
+    }
+
+    clearTimeout(to)
+    return res;        
+}
+
+
 

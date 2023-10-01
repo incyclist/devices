@@ -1,8 +1,11 @@
+import { IncyclistBikeData } from '../../..';
+import {DeviceType} from '../../../types/device'
+
 export const DEFAULT_AGE         = 30;
 export const DEFAULT_USER_WEIGHT = 75;
 export const DEFAULT_BIKE_WEIGHT = 10;
 
-export function getCockpit( c) {
+export function getCockpit(c:number) {
     switch ( c) {        
         case 10: 
             return "Cardio";
@@ -29,22 +32,30 @@ export function getCockpit( c) {
     }
 }
 
-export function getBikeType( type) {
+export function getSerialNo(arr:Uint8Array, start:number, length:number) {
+  
+    const buffer = Buffer.from(arr.subarray(start,start+length))
+    return buffer.toString('hex')
+}
+
+export function getBikeType(type?:DeviceType):number {
+
+    const DAUM_CLASSIC_BT_MOUNTAIN = 1
+    const DAUM_CLASSIC_BT_RACE = 0
+    //const DAUM_CLASSIC_BT_ALLROUND = 2
+
     if (type===undefined)
-        return 0;
+        return DAUM_CLASSIC_BT_RACE;
 
     switch (type) {
-        case "triathlon":
-            return 0;
-        case "race":
-            return 0;
-        case "mountain":
-            return 1;
-        default:
-            return 1;
+        case 'triathlon':
+            return DAUM_CLASSIC_BT_RACE;
+        case 'race':
+            return DAUM_CLASSIC_BT_RACE;
+        case 'mountain':
+            return DAUM_CLASSIC_BT_MOUNTAIN;
     }
-    
-    // TODO: define possible values and parse (should be aligned with ANT* spec)
+   
 }
 
 
@@ -54,7 +65,7 @@ export function getGender(sex) {
         return 2;
     switch (sex) {
         case "M":
-            return 1; 
+            return 0; 
         case "F":
             return 1; 
         default:
@@ -63,38 +74,25 @@ export function getGender(sex) {
     
 }
 
-export function getLength( length) {
+export function getLength( length?:number) {
     if (length===undefined || length===null)
         return 180; // average european
 
-    let l = Math.round(length);
-
-    if (l<100)
-        return 100;
-    if (l>220)
-        return 220;
-
-    return l;
+    const l = Math.round(length);
+    return between(l,100,220)
 }
 
-export function getWeight(weight?) {
+export function getWeight(weight?:number) {
     if (weight===undefined || weight===null)
         return 80; // average european
 
     let m = Math.round(weight);
-    if (isNaN(m))
-        return 80;
-
-    if (m<10)
-        return 10;
-    if (m>250)
-        return 250;
-
-    return m;
+    return between(m,10,250)
 }
 
 export function parseRunData( data) {
-    const bikeData = {} as any
+    const bikeData = {} as IncyclistBikeData
+
 
     /*
     const pedalling = data[4];
@@ -105,58 +103,31 @@ export function parseRunData( data) {
 
     bikeData.isPedalling = (data[4]>0);
     bikeData.power  = data[5]*5;
-    bikeData.cadence = data[6];
+    bikeData.pedalRpm = data[6];
     bikeData.speed = data[7];
     bikeData.heartrate = data[14];
-    bikeData.distance = (data[9]*256+data[8])/10;
     bikeData.distanceInternal = (data[9]*256+data[8])*100;
     bikeData.time = (data[11]*256+data[10]);
     bikeData.gear = data[16];
+
+    // TODO: calories
+
     return bikeData
 }
 
-
-export function buildError ( status,err) {
-    const message = err && err.message ? err.message: err;
-    const error = new Error( message) as any;
-    error.status = status;
-    return error;
+export function between(v:number, min:number, max:number) {
+    if (v<min)
+        return min;
+    if (v>max)
+        return max;
+    return v;
 }
 
-export function hexstr(arr,start?,len?) {
-    var str = "";
-    if (start===undefined) 
-        start = 0;
-    if ( len===undefined) {
-        len = arr.length;
-    }
-    if (len-start>arr.length) {
-        len = arr.length-start;
-    }
-
-    var j=start;
-    for (var i = 0; i< len; i ++) {
-        var hex = Math.abs( arr[j++]).toString(16);
-        if ( i!==0 ) str+=" ";
-        str+=hex;
-    }
-	return str;
+export function buildSetSlopeCommand(bikeNo,slope) {
+    const buffer = Buffer.from([0x55,bikeNo,0,0,0,0]);
+    buffer.writeFloatLE(slope,2);
+    const cmd = Array.from(buffer)
+    
+    return cmd;
 }
 
-
-export function Float32ToHex (float32)  {
-    function getHex (i) { return ('00' + i.toString(16)).slice(-2).toUpperCase() }
-    var view = new DataView(new ArrayBuffer(4))
-    view.setFloat32(0, float32);
-    return Array.apply(null, { length: 4 }).map((_, i) => getHex(view.getUint8(i))).join('');
-}
-
-export function Float32ToIntArray (float32)  {
-    var view = new DataView(new ArrayBuffer(4))
-    view.setFloat32(0, float32);
-    var arr = [];
-  	for ( let i=0;i<4;i++) {
-      arr.push( view.getUint8(i))
-    }
-    return arr;
-}

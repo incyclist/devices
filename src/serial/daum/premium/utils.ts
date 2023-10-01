@@ -1,14 +1,36 @@
+import { IncyclistBikeData } from "../../..";
 import { Route } from "../../../types/route";
 import { Gender, User } from "../../../types/user";
 import FileTime from 'win32filetime'
 
 const sum = (arr) => arr.reduce( (a,b) => a+b,0);
 
-export function bin2esc (arr) {
-    if ( arr===undefined) {
-        return;
-    }
 
+/* istanbul ignore next*/
+export const DEBUG_LOGGER = {
+    log: (e,...args) => console.log(e,...args),
+    logEvent: (event) => console.log(JSON.stringify(event))
+}
+
+export const validateHost = (host:string) =>  {
+    const ipParts = host.split('.')
+    if (ipParts.length>1)
+        return ipParts.map(p=>Number(p)).join('.')
+    return host
+}
+
+export const validatePath = (path:string):string => {
+    const parts = path.split(':');
+    if (parts.length<2)
+        return path;
+
+    const host = validateHost(parts[0]);
+    const port = parts[1]
+
+    return `${host}:${port}`
+}
+
+export function bin2esc (arr:Uint8Array):Uint8Array {
     const res = []
     arr.forEach( v => {
         switch (v) {
@@ -23,13 +45,10 @@ export function bin2esc (arr) {
 
         }
     })
-    return res
+    return new Uint8Array(res)
 }
 
-export function esc2bin(arr) {
-    if ( arr===undefined) {
-        return;
-    }
+export function esc2bin(arr:Uint8Array):Uint8Array {
 
     const res = []
     let escaped = false;
@@ -58,7 +77,7 @@ export function esc2bin(arr) {
 
         
     })
-    return res
+    return new Uint8Array(res)
 
 }
 
@@ -130,10 +149,7 @@ export function hexstr(arr,start?,len?) {
 }
 
 
-export function ascii(c) {
-    if (c===undefined || c===null)
-        return;
-
+export function ascii(c:string):number {
     return c.charCodeAt(0);
 }
 
@@ -241,11 +257,11 @@ export function routeToEpp(route:Route, date?:Date): Uint8Array {
 
 
 
-export function parseTrainingData(payload:string) {
+export function parseTrainingData(payload:string):IncyclistBikeData {
     
     const GS = 0x1D
 
-    const speedVals=['ok','too low','too high']
+    //const speedVals=['ok','too low','too high']
     const gearVal = (v) => v>0 ? v-1 : undefined;
 
     //const strVals = payload.reduce ( (str,c) => str + (c==0x1d ? '#' :String.fromCharCode(c) ),'')
@@ -257,15 +273,18 @@ export function parseTrainingData(payload:string) {
         speed: parseFloat(vals[2]) *3.6,
         slope: parseFloat(vals[3]),
         distanceInternal: parseInt(vals[4]),
-        cadence: parseFloat(vals[5]),
+        pedalRpm: parseFloat(vals[5]),
         power: parseInt(vals[6]),
-        physEnergy: parseFloat(vals[7]),
-        realEnergy: parseFloat(vals[8]),
-        torque: parseFloat(vals[9]),
+        //physEnergy: parseFloat(vals[7]),
+        //realEnergy: parseFloat(vals[8]),
+        //torque: parseFloat(vals[9]),
         gear:  gearVal(parseInt(vals[10])),
-        deviceState: parseInt(vals[11]),
-        speedStatus: speedVals[parseInt(vals[12])],
-    }
+        //deviceState: parseInt(vals[11]),
+        //speedStatus: speedVals[parseInt(vals[12])],
+        
+    } as IncyclistBikeData
+
+    data.isPedalling = (data.pedalRpm>0)
 
     return data;
  
@@ -357,3 +376,4 @@ export function parsePersonData(buffer:Buffer) : User {
 
     return { length, weight, age, sex}
 }
+

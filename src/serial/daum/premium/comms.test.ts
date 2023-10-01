@@ -9,6 +9,9 @@ import { Gender } from '../../../types/user';
 import { EventEmitter } from 'stream';
 import { sleep } from '../../../utils/utils';
 import { hexstr } from './utils';
+import { Route } from "../../../types/route";
+import { IncyclistBikeData } from '../../../modes/cycling-mode';
+import { ACKTimeout, ResponseObject } from './types';
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
@@ -86,31 +89,31 @@ describe( 'Daum8i', ()=> {
 
     describe('pause Logging',()=>{
         test('not paused',()=>{
-            const bike = new Daum8i( {serial:SerialInterface.getInstance({ifaceName:'tcpip'}), path:'192.168.2.11:51955'})
-            bike.isLoggingPaused = false;
+            const bike = new Daum8i( {serial:SerialInterface.getInstance({ifaceName:'tcpip'}), path:'192.168.2.11:51955'});
+            (bike as any).isLoggingPaused = false;
             bike.pauseLogging()
-            expect(bike.isLoggingPaused).toBeTruthy()    
+            expect((bike as any).isLoggingPaused).toBeTruthy()    
         })
         test('already paused',()=>{
-            const bike = new Daum8i( {serial:SerialInterface.getInstance({ifaceName:'tcpip'}), path:'192.168.2.11:51955'})
-            bike.isLoggingPaused = true;
+            const bike = new Daum8i( {serial:SerialInterface.getInstance({ifaceName:'tcpip'}), path:'192.168.2.11:51955'});
+            (bike as any).isLoggingPaused = true;
             bike.pauseLogging()
-            expect(bike.isLoggingPaused).toBeTruthy()    
+            expect((bike as any).isLoggingPaused).toBeTruthy()    
         })
     })
 
     describe('resume Logging',()=>{
         test('not paused',()=>{
-            const bike = new Daum8i( {serial:SerialInterface.getInstance({ifaceName:'tcpip'}), path:'192.168.2.11:51955'})
-            bike.isLoggingPaused = false;
+            const bike = new Daum8i( {serial:SerialInterface.getInstance({ifaceName:'tcpip'}), path:'192.168.2.11:51955'});
+            (bike as any).isLoggingPaused = false;
             bike.resumeLogging()
-            expect(bike.isLoggingPaused).toBeFalsy()    
+            expect((bike as any).isLoggingPaused).toBeFalsy()    
         })
         test('paused',()=>{
-            const bike = new Daum8i( {serial:SerialInterface.getInstance({ifaceName:'tcpip'}), path:'192.168.2.11:51955'})
-            bike.isLoggingPaused = true;
+            const bike = new Daum8i( {serial:SerialInterface.getInstance({ifaceName:'tcpip'}), path:'192.168.2.11:51955'});
+            (bike as any).isLoggingPaused = true;
             bike.resumeLogging()
-            expect(bike.isLoggingPaused).toBeFalsy()    
+            expect((bike as any).isLoggingPaused).toBeFalsy()    
         })
     })
 
@@ -118,7 +121,7 @@ describe( 'Daum8i', ()=> {
         test('does not log when paused',()=>{
             const bike = new Daum8i( {serial:SerialInterface.getInstance({ifaceName:'tcpip'}), path:'192.168.2.11:51955'})
             
-            bike.isLoggingPaused = true;
+            bike.pauseLogging()
             bike.logger.logEvent = jest.fn()
 
             bike.logEvent({message:'test'})
@@ -148,8 +151,6 @@ describe( 'Daum8i', ()=> {
         })
 
         test('not connected and connection fails ',async ()=>{
-            const sp = new EventEmitter();
-
             bike.isConnected = jest.fn().mockReturnValue(false)
             bike.serial.openPort.mockResolvedValueOnce(null)
             
@@ -159,8 +160,6 @@ describe( 'Daum8i', ()=> {
         })
 
         test('not connected and connection throws error ',async ()=>{
-            const sp = new EventEmitter();
-
             bike.isConnected = jest.fn().mockReturnValue(false)
             bike.serial.openPort.mockRejectedValue(new Error('error'))
             
@@ -179,7 +178,7 @@ describe( 'Daum8i', ()=> {
 
         test('already connected before but lost port',async ()=>{
             bike.isConnected = jest.fn().mockReturnValue(true)
-            bike.serial.openPort.mockResolvedValueOnce(new EventEmitter)
+            bike.serial.openPort.mockResolvedValueOnce(new EventEmitter())
             bike.sp = undefined
             const connected = await bike.connect()
             expect(connected).toBeTruthy()
@@ -317,8 +316,6 @@ describe( 'Daum8i', ()=> {
             
         })
     })
-
-
 
     describe('close',()=>{
         let bike;
@@ -462,6 +459,354 @@ describe( 'Daum8i', ()=> {
 
     })
 
+    describe('onData',()=>{
+        class Test extends Daum8i {
+            getState() { 
+                const {waitingForACK,waitingForStart, waitingForEnd,data,partialCmd } = this.recvState
+                const q = data as any
+
+                return {ack:waitingForACK,start:waitingForStart,end:waitingForEnd,data:JSON.parse(JSON.stringify(q.data)),cmd:partialCmd}
+            }
+
+            setPartialCmdHex(partial:string) {
+                const cmd = Buffer.from(partial,'hex').toString()
+                this.recvState.partialCmd = cmd
+            }
+
+            addData(data:ResponseObject|ResponseObject[])  {
+                const arr:ResponseObject[] = Array.isArray(data) ? data : [data]                
+                arr.forEach(d=>{this.recvState.data.enqueue(d)})                
+            }
+        }
+
+        let bike:Test;       
+
+        beforeEach( ()=>{
+            bike = new Test( {serial:SerialInterface.getInstance({ifaceName:'tcpip'}), path:'192.168.2.11:51955'})          
+            
+        })
+
+        describe( 'initial state',()=>{
+            test('ACK',()=>{
+                expect(bike.getState()).toMatchObject({ack:false, start:false, end:false,data:[]})
+
+                bike.onData([0x06])
+                expect(bike.getState()).toMatchObject({ack:false, start:false, end:false,data:[]})
+
+            })
+
+        })
+
+        describe( 'waiting for ack',()=>{
+            test('ACK',()=>{
+                bike.setState(true,false,false)
+                bike.onData([0x06])
+                expect(bike.getState()).toMatchObject({ack:false, start:true, end:false,data:[{type:'ACK'}]})
+            })
+            test('ACK and start of new message',()=>{
+                bike.setState(true,false,false)
+                bike.onData([0x06,0x01,0x59,0x30,0x30])
+                expect(bike.getState()).toMatchObject({ack:false, start:false, end:true,data:[{type:'ACK'}],cmd:'Y00'})
+            })
+            test('NAK',()=>{
+                bike.setState(true,false,false)
+                bike.onData([0x15])
+                expect(bike.getState()).toMatchObject({ack:false, start:true, end:false,data:[{type:'NAK'}]})
+            })
+            test('NAK and start of new message',()=>{
+                bike.setState(true,false,false)
+                bike.onData([0x15,0x01,0x59,0x30,0x30])
+                expect(bike.getState()).toMatchObject({ack:false, start:false, end:true,data:[{type:'NAK'}],cmd:'Y00'})
+            })
+
+            test('anything else',()=>{
+                bike.setState(true,false,false)
+                bike.onData([0x01])
+                expect(bike.getState()).toMatchObject({ack:true, start:false, end:false,data:[]})
+                bike.onData([0x17])
+                expect(bike.getState()).toMatchObject({ack:true, start:false, end:false,data:[]})
+                bike.onData([0xAA])
+                expect(bike.getState()).toMatchObject({ack:true, start:false, end:false,data:[]})
+            })
+        })
+
+        describe( 'waiting for start',()=>{
+            test('SOH',()=>{
+                bike.setState(false,true,false)
+                bike.onData([0x01])
+                expect(bike.getState()).toMatchObject({ack:false, start:false, end:true,data:[]})
+            })
+
+            test('anything else',()=>{
+                bike.setState(false,true,false)
+                bike.onData([0x06])
+                expect(bike.getState()).toMatchObject({ack:false, start:true, end:false,data:[]})
+                bike.onData([0x15])
+                expect(bike.getState()).toMatchObject({ack:false, start:true, end:false,data:[]})
+                bike.onData([0x17])
+                expect(bike.getState()).toMatchObject({ack:false, start:true, end:false,data:[]})
+                bike.onData([0xAA])
+                expect(bike.getState()).toMatchObject({ack:false, start:true, end:false,data:[]})
+            })
+        })
+
+        describe( 'waiting for end',()=>{
+            test('ETB - valid cmd',()=>{
+                bike.setState(false,false,true)
+                bike.setPartialCmdHex('5930303835')
+                bike.onData([0x17])
+                expect(bike.getState()).toMatchObject({ack:false, start:false, end:false,data:[{type:'Response',cmd:'Y00',data:''}]})
+            })
+
+            test('ETB - incomplete',()=>{
+                bike.setState(false,false,true)
+                bike.onData([0x17])
+                expect(bike.getState()).toMatchObject({ack:false, start:false, end:false,data:[{type:'Error'}]})
+            })
+
+            test('anything else',()=>{
+                bike.setState(false,true,false)
+                bike.onData([0x01])
+                expect(bike.getState()).toMatchObject({ack:false, start:false, end:true,data:[], cmd:''})
+                bike.onData([0x06])
+                expect(bike.getState()).toMatchObject({ack:false, start:false, end:true,data:[], cmd:''})
+                bike.onData([0x15])
+                expect(bike.getState()).toMatchObject({ack:false, start:false, end:true,data:[], cmd:''})
+                bike.onData('A')
+                expect(bike.getState()).toMatchObject({ack:false, start:false, end:true,data:[], cmd:'A'})
+            })
+
+            test('multiple partial command',()=>{
+                bike.setState(false,false,true)
+                
+                bike.onData([0x59,0x30])
+                bike.onData([0x30,0x38,0x35])
+                expect(bike.getState()).toMatchObject({ack:false, start:false, end:true,data:[], cmd:'Y0085'})
+                bike.onData([0x17])
+                expect(bike.getState()).toMatchObject({ack:false, start:false, end:false,data:[{type:'Response',cmd:'Y00',data:''}]})
+            })
+
+            test('additional data will be ignored',()=>{
+                bike.setState(false,false,true)
+                bike.setPartialCmdHex('5930303835')
+                bike.onData([0x17,0x06])
+                expect(bike.getState()).toMatchObject({ack:false, start:false, end:false,data:[{type:'Response',cmd:'Y00',data:''}]})
+            })
+
+        })
+
+    })
+    describe('send',()=>{
+        let bike:Daum8i
+        let bikeInt
+
+        beforeAll( ()=> {
+            (SerialPortProvider as any)._instance = undefined
+            SerialPortProvider.getInstance().setBinding('serial', MockBinding)
+        })
+    
+    
+        beforeEach( ()=> {
+            MockBinding.reset();
+            MockBinding.createPort('COM1')
+            bike = new Daum8i( {serial:SerialInterface.getInstance({ifaceName:'tcpip'}), path:'192.168.2.11:51955'})            
+            bikeInt= bike as any;
+            bike.logEvent = jest.fn()
+            bike.isConnected = jest.fn().mockReturnValue(true)
+            bike.write = jest.fn()
+            bike.waitForACK = jest.fn().mockResolvedValue(true)
+            bike.waitForResponse = jest.fn().mockResolvedValue(undefined)
+
+        })
+            
+        test('successfull sending',async ()=>{
+            const test:ResponseObject = {type:'Response',data:'12'}
+
+            bike.waitForACK = jest.fn().mockResolvedValue(true)
+            bike.waitForResponse = jest.fn().mockResolvedValue(test)
+
+            const res = await bike.send({logString:'test', command:'A1', isBinary:false})
+
+            expect(res).toEqual(test)
+            expect(bike.logEvent).toHaveBeenCalledTimes(4)
+            expect(bike.logEvent).toHaveBeenNthCalledWith(1,expect.objectContaining({cmd: 'test (A1)', message: 'sendCommand:sending:', port: '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(2,expect.objectContaining({cmd: 'test (A1)', message: 'sendCommand:ACK received:', port: '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(3,expect.objectContaining({cmd: 'test (A1)', message: 'sendCommand:received:', port: '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(4,expect.objectContaining({cmd: 'test (A1)', message: 'sendCommand:sending ACK', port: '192.168.2.11:51955'}))
+            expect(bikeInt.sendCmdPromise).toBeNull()
+        })
+
+
+        test('single NAK Failure',async ()=>{
+            const test:ResponseObject = {type:'Response',data:'12'}
+            let ackCallNo = 0;
+            bike.waitForACK = async ():Promise<boolean>=>{ if(++ackCallNo>1) return true; return false}
+            bike.waitForResponse = jest.fn().mockResolvedValue(test)
+
+            const res = await bike.send({logString:'test', command:'A1', isBinary:false})
+
+            expect(res).toEqual(test)
+
+            expect(bike.logEvent).toHaveBeenNthCalledWith(1,expect.objectContaining({'cmd': 'test (A1)', 'message': 'sendCommand:sending:', 'port': '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(2,expect.objectContaining({'cmd': 'test (A1)', 'message': 'sendCommand:NAK received:', 'port': '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(3,expect.objectContaining({'cmd': 'test (A1)', 'message': 'sendCommand:resending:', 'port': '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(4,expect.objectContaining({'cmd': 'test (A1)', 'message': 'sendCommand:ACK received:', 'port': '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(5,expect.objectContaining({'cmd': 'test (A1)', 'message': 'sendCommand:received:', 'port': '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(6,expect.objectContaining({'cmd': 'test (A1)', 'message': 'sendCommand:sending ACK', 'port': '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenCalledTimes(6)
+            expect(bikeInt.sendCmdPromise).toBeNull()
+        })
+
+        test('ACK Timeout',async ()=>{
+            const test:ResponseObject = {type:'Response',data:'12'}            
+            bike.waitForACK = jest.fn().mockRejectedValue( new ACKTimeout())
+            bike.waitForResponse = jest.fn().mockResolvedValue(test)
+
+            await expect( async ()=> {await bike.send({logString:'test', command:'A1', isBinary:false})})
+                .rejects
+                .toThrow('ACK timeout')
+
+            expect(bike.logEvent).toHaveBeenNthCalledWith(1,expect.objectContaining({'cmd': 'test (A1)', 'message': 'sendCommand:sending:', 'port': '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(2,expect.objectContaining({'cmd': 'test (A1)', 'message': 'sendCommand:error:',error:'ACK timeout', 'port': '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenCalledTimes(2)
+            expect(bikeInt.sendCmdPromise).toBeNull()
+        })
+
+
+        test('more than 5 NAK Failure',async ()=>{
+            const test:ResponseObject = {type:'Response',data:'12'}            
+            bike.waitForACK = jest.fn().mockResolvedValue(false)
+            bike.waitForResponse = jest.fn().mockResolvedValue(test)
+
+
+            await expect( async ()=> {await bike.send({logString:'test', command:'A1', isBinary:false})})
+                .rejects
+                .toThrow('ACK Error')
+
+            expect(bike.logEvent).toHaveBeenNthCalledWith(1,expect.objectContaining({'cmd': 'test (A1)', 'message': 'sendCommand:sending:', 'port': '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(2,expect.objectContaining({'cmd': 'test (A1)', 'message': 'sendCommand:NAK received:', 'port': '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(3,expect.objectContaining({'cmd': 'test (A1)', 'message': 'sendCommand:resending:', 'port': '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(4,expect.objectContaining({'cmd': 'test (A1)', 'message': 'sendCommand:NAK received:', 'port': '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(5,expect.objectContaining({'cmd': 'test (A1)', 'message': 'sendCommand:resending:', 'port': '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(6,expect.objectContaining({'cmd': 'test (A1)', 'message': 'sendCommand:NAK received:', 'port': '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(7,expect.objectContaining({'cmd': 'test (A1)', 'message': 'sendCommand:resending:', 'port': '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(8,expect.objectContaining({'cmd': 'test (A1)', 'message': 'sendCommand:NAK received:', 'port': '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(9,expect.objectContaining({'cmd': 'test (A1)', 'message': 'sendCommand:resending:', 'port': '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(10,expect.objectContaining({'cmd': 'test (A1)', 'message': 'sendCommand:NAK received:', 'port': '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(11,expect.objectContaining({'cmd': 'test (A1)', 'message': 'sendCommand:error:',error:'ACK Error', 'port': '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenCalledTimes(11)
+            expect(bikeInt.sendCmdPromise).toBeNull()
+        })
+
+
+
+        test('not connected with successfull reconnect',async ()=>{
+            const test:ResponseObject = {type:'Response',data:'12'}            
+            bike.waitForACK = jest.fn().mockResolvedValue(true)
+            bike.waitForResponse = jest.fn().mockResolvedValue(test)
+
+
+            bike.isConnected = jest.fn().mockReturnValueOnce(false)
+            bike.connect = jest.fn().mockResolvedValue(true)
+
+            const res = await bike.send({logString:'test', command:'A1', isBinary:false})
+
+            expect(res).toBe(test)
+            expect(bike.logEvent).toHaveBeenNthCalledWith(1,expect.objectContaining({cmd: 'test (A1)', message: 'sendCommand:sending:', port: '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(2,expect.objectContaining({cmd: 'test (A1)', message: 'sendCommand:ACK received:', port: '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(3,expect.objectContaining({cmd: 'test (A1)', message: 'sendCommand:received:', port: '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(4,expect.objectContaining({cmd: 'test (A1)', message: 'sendCommand:sending ACK', port: '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenCalledTimes(4)
+            expect(bikeInt.sendCmdPromise).toBeNull()
+        })
+
+        test('not connected with failed reconnect',async ()=>{
+            const test:ResponseObject = {type:'Response',data:'12'}
+            bike.waitForACK = jest.fn().mockResolvedValue(true)
+            bike.waitForResponse = jest.fn().mockResolvedValue(test)
+            bike.isConnected = jest.fn().mockReturnValueOnce(false)
+            bike.connect = jest.fn().mockResolvedValue(false)
+
+            await expect( async ()=> {await bike.send({logString:'test', command:'A1', isBinary:false})})
+                .rejects
+                .toThrow('not connected')
+
+            expect(bike.logEvent).toHaveBeenNthCalledWith(1,expect.objectContaining({cmd: 'test (A1)', message: 'sendCommand:sending:', port: '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(2,expect.objectContaining({'cmd': 'test (A1)', 'message': 'sendCommand:error:',error:'not connected', 'port': '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenCalledTimes(2)
+            expect(bikeInt.sendCmdPromise).toBeNull()
+
+        })
+
+        
+
+
+        test('duplacate requests',async ()=>{
+            const test:ResponseObject = {type:'Response',data:'12'}
+
+            bike.waitForACK = jest.fn().mockResolvedValue(true)
+            bike.waitForResponse = jest.fn().mockResolvedValue(test)
+
+            let res1, res2;
+            const first = bike.send({logString:'test', command:'A1', isBinary:false}).then((res)=>{res1=res})
+            await sleep(10)
+            const second = bike.send({logString:'test', command:'A2', isBinary:false}).then((res)=>{res2=res})
+            await Promise.all( [first,second])
+          
+            expect(res1).toBe(test)
+            expect(res2).toBe(test)
+
+            expect(bike.logEvent).toHaveBeenNthCalledWith(1,expect.objectContaining({cmd: 'test (A1)', message: 'sendCommand:sending:', port: '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(2,expect.objectContaining({cmd: 'test (A1)', message: 'sendCommand:ACK received:', port: '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(3,expect.objectContaining({cmd: 'test (A1)', message: 'sendCommand:received:', port: '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(4,expect.objectContaining({cmd: 'test (A1)', message: 'sendCommand:sending ACK', port: '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(5,expect.objectContaining({cmd: 'test (A2)', message: 'sendCommand:sending:', port: '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(6,expect.objectContaining({cmd: 'test (A2)', message: 'sendCommand:ACK received:', port: '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(7,expect.objectContaining({cmd: 'test (A2)', message: 'sendCommand:received:', port: '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(8,expect.objectContaining({cmd: 'test (A2)', message: 'sendCommand:sending ACK', port: '192.168.2.11:51955'}))
+
+
+            expect(bike.logEvent).toHaveBeenCalledTimes(8)
+
+            expect(bikeInt.sendCmdPromise).toBeNull()
+        })
+
+        
+        test('duplacate requests - busy timeout',async ()=>{
+            const test:ResponseObject = {type:'Response',data:'12'}
+
+            bike.waitForACK = jest.fn( async ()=>{ await sleep(250); return true  })
+            bike.waitForResponse = jest.fn( async ()=>{ await sleep(250); return test  })
+            bike.getBusyTimeout = jest.fn().mockReturnValue(50)
+
+            const first = bike.send({logString:'test', command:'A1', isBinary:false})
+            await sleep(10)
+            const second = bike.send({logString:'test', command:'A2', isBinary:false})
+
+            const res = await Promise.allSettled( [
+                first,
+                second
+            ])
+
+            console.log(JSON.stringify(res))
+            expect(res[0]).toEqual( {status:'fulfilled',value:test})
+            expect(res[1]).toMatchObject( {status:'rejected'})
+            
+            expect(bike.logEvent).toHaveBeenNthCalledWith(1,expect.objectContaining({cmd: 'test (A1)', message: 'sendCommand:sending:', port: '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(2,expect.objectContaining({cmd: 'test (A2)', message: 'sendCommand:waiting:', port: '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(3,expect.objectContaining({cmd: 'test (A2)', message: 'sendCommand:error:',error:'BUSY timeout', 'port': '192.168.2.11:51955'}))
+
+            expect(bike.logEvent).toHaveBeenNthCalledWith(4,expect.objectContaining({cmd: 'test (A1)', message: 'sendCommand:ACK received:', port: '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(5,expect.objectContaining({cmd: 'test (A1)', message: 'sendCommand:received:', port: '192.168.2.11:51955'}))
+            expect(bike.logEvent).toHaveBeenNthCalledWith(6,expect.objectContaining({cmd: 'test (A1)', message: 'sendCommand:sending ACK', port: '192.168.2.11:51955'}))
+
+            expect(bikeInt.sendCmdPromise).toBeNull()
+        })
+
+
+    })
+
+
     describe( 'functions', ()=> {
 
         let bike;
@@ -475,6 +820,8 @@ describe( 'Daum8i', ()=> {
             Daum8iMockImpl.reset();        
             Daum8iMockImpl.getInstance().setSimulator('COM1',simulator)
             bike = new Daum8i( {serial:SerialInterface.getInstance({ifaceName:'serial', binding:Daum8iMock}), path:'COM1' })
+            bike.getAckTimeoutValue = jest.fn( ()=>500)
+            bike.getTimeoutValue = jest.fn( ()=>500)
             
             try {
                 await bike.connect();
@@ -585,7 +932,7 @@ describe( 'Daum8i', ()=> {
     
             test('ACK timeout',async ()=> {
                 
-                bike.settings = {timeout:200};
+                bike.getAckTimeoutValue = jest.fn().mockReturnValue(200);
                 simulator.simulateACKTimeout();
                
    
@@ -599,7 +946,7 @@ describe( 'Daum8i', ()=> {
 
             
             test('response timeout',async ()=> {
-                bike.settings = {timeout:200};
+                bike.getTimeoutValue = jest.fn().mockReturnValue(200);
                 simulator.simulateTimeout(500);
  
     
@@ -681,10 +1028,14 @@ describe( 'Daum8i', ()=> {
             power = await bike.setPower(10.5)
             expect(power).toBe(10);    
 
+            power = await bike.setPower('10.5')
+            expect(power).toBe(10);    
+
             power = await bike.setPower(800)
             expect(power).toBe(800);    
 
         })
+
 
         test('getPower',async ()=> { 
             let power;
@@ -720,12 +1071,141 @@ describe( 'Daum8i', ()=> {
     
             })
 
+            test( 'illegal response',async ()=> { 
+                simulator.simulateReservedError()
+
+                
+                await expect( async ()=>{ await bike.setPerson({weight:88.5,length:161,sex:Gender.FEMALE})})
+                    .rejects
+                    .toThrow('Illegal Response')
+    
+            })
+
         })
 
-        describe('programUpload',()=> { 
+        describe('programUploadInit',()=> { 
+            test( 'success',async ()=> { 
+                const res = await bike.programUploadInit()
+                expect(res).toBeTruthy()
+            })
+
+            test( 'illegal response',async ()=> { 
+                simulator.simulateReservedError()
+               
+                await expect( async ()=>{ await bike.programUploadInit()})
+                    .rejects
+                    .toThrow('Illegal Response')
+    
+            })
+
 
         })
+
+
+        describe('programUploadStart',()=> { 
+            const route:Route = {
+                programId:1,
+                points:[],
+                type:'',
+                lapMode:false,
+                totalDistance:0
+            }
+
+            test( 'success',async ()=> { 
+                const res = await bike.programUploadStart('race',route)
+                expect(res).toBeTruthy()
+            })
+
+            test( 'illegal response',async ()=> { 
+                simulator.simulateReservedError()
+               
+                await expect( async ()=>{ await bike.programUploadStart('race',route)})
+                    .rejects
+                    .toThrow('Illegal Response')
+    
+            })
+
+            test( 'lap Mode',async ()=> { 
+                const lapRoute = Object.assign({},route)
+                lapRoute.lapMode = true;
+
+                const res = await bike.programUploadStart('race',lapRoute)
+                expect(res).toBeTruthy()
+                expect(simulator.program?.lapMode).toBeTruthy()
+            })
+            test( 'no lap Mode',async ()=> { 
+                const res = await bike.programUploadStart('race',route)
+                expect(res).toBeTruthy()
+                expect(simulator.program?.lapMode).toBeFalsy()
+            })
+
+
+        })
+
+        describe('programUploadSendBlock',()=> { 
+            const epp = Buffer.from('00000000','hex')
+
+            test( 'success',async ()=> { 
+                const res = await bike.programUploadSendBlock(epp,0)
+                expect(res).toBeTruthy()
+            })
+
+            test( 'illegal response',async ()=> { 
+                simulator.simulateReservedError()
+               
+                await expect( async ()=>{ await bike.programUploadSendBlock(epp,0)})
+                    .rejects
+                    .toThrow('Illegal Response')
+    
+            })
+
+            test( 'offset beyond epp data',async ()=> { 
+                bike.sendReservedDaum8iCommand = jest.fn()
+                const res = await bike.programUploadSendBlock(epp,10)
+
+                // will be ignored and returns true
+                expect(res).toBeTruthy()
+                expect(bike.sendReservedDaum8iCommand).not.toHaveBeenCalled()
+
+            })
+
+        })
+        describe('programUploadDone',()=> { 
+
+            test( 'success',async ()=> { 
+                const res = await bike.programUploadDone()
+                expect(res).toBeTruthy()
+            })
+
+            test( 'illegal response',async ()=> { 
+                simulator.simulateReservedError()
+               
+                await expect( async ()=>{ await bike.programUploadDone()})
+                    .rejects
+                    .toThrow('Illegal Response')
+    
+            })
+
+        })
+       
+
         describe('startProgram',()=> { 
+            test( 'success',async ()=> { 
+                const res = await bike.startProgram(1)
+                expect(res).toBeTruthy()
+                expect(simulator.program?.id).toBe(1)
+                expect(simulator.program?.started).toBeTruthy()
+            })
+
+            test( 'illegal response',async ()=> { 
+                simulator.simulateReservedError()
+               
+                await expect( async ()=>{ await bike.startProgram(1)})
+                    .rejects
+                    .toThrow('Illegal Response')
+    
+            })
+
 
         })
 
@@ -749,17 +1229,50 @@ describe( 'Daum8i', ()=> {
 
         })
 
+        test('getTrainingData',async ()=> {
+            let data
+
+            const bikeData = Object.assign({},simulator.data)
+
+            data = await bike.getTrainingData() as IncyclistBikeData
+            expect(data).toMatchObject({speed:0, time:0, isPedalling:false, power:0, distanceInternal:0, pedalRpm:0,heartrate:0 })
+
+            simulator.data = Object.assign(bikeData,{heartrate:100})
+            data = await bike.getTrainingData() as IncyclistBikeData
+            expect(data).toMatchObject({speed:0, time:0, isPedalling:false, power:0, distanceInternal:0, pedalRpm:0,heartrate:100 })
+
+            simulator.data = Object.assign(bikeData,{pedalRpm:100})
+            data = await bike.getTrainingData() as IncyclistBikeData
+            expect(data).toMatchObject({speed:0, time:0, isPedalling:true, power:0, distanceInternal:0, pedalRpm:100,heartrate:100 })
+
+            simulator.data = Object.assign(bikeData,{power:200})
+            data = await bike.getTrainingData() as IncyclistBikeData
+            expect(data).toMatchObject({speed:0, time:0, isPedalling:true, power:200, distanceInternal:0, pedalRpm:100,heartrate:100 })
+
+            simulator.data = Object.assign(bikeData,{time:1})
+            data = await bike.getTrainingData() as IncyclistBikeData
+            expect(data).toMatchObject({speed:0, time:1, isPedalling:true, power:200, distanceInternal:0, pedalRpm:100,heartrate:100 })
+
+            simulator.data = Object.assign(bikeData,{v:10})
+            data = await bike.getTrainingData() as IncyclistBikeData
+            expect(data).toMatchObject({speed:36, time:1, isPedalling:true, power:200, distanceInternal:0, pedalRpm:100,heartrate:100 })
+
+            simulator.data = Object.assign(bikeData,{distanceInternal:123})
+            data = await bike.getTrainingData() as IncyclistBikeData
+            expect(data).toMatchObject({speed:36, time:1, isPedalling:true, power:200, distanceInternal:123, pedalRpm:100,heartrate:100 })
+
+        })
 
         test('no response = ACK timeout',async ()=> {
         
 
             simulator.simulateACKTimeout();
             bike.sendNAK = jest.fn()
-            bike.getTimeoutValue = jest.fn(()=>100)     // TIMEOUT after 100ms
+            bike.getAckTimeoutValue = jest.fn(()=>100)     // TIMEOUT after 100ms
 
             let error = {} as any;
             try {
-                const res = await bike.getProtocolVersion();
+                await bike.getProtocolVersion();
             }
             catch (err) { error = err}
             
@@ -772,10 +1285,10 @@ describe( 'Daum8i', ()=> {
             simulator.timeoutNAKRetry = 1000;
             simulator.onNAK = jest.fn()
 
-            bike.settings= { timeout:50};
+            bike.getTimeoutValue = jest.fn(()=>50)     // TIMEOUT after 50ms
             let error = {} as any;
             try {
-                const res = await bike.getProtocolVersion();
+                await bike.getProtocolVersion();
             }
             catch (err) { error = err}
             expect(simulator.onNAK).toBeCalled();
@@ -799,208 +1312,120 @@ describe( 'Daum8i', ()=> {
             expect(error).toBeUndefined();
             expect(res).toBe('2.01')
         })
-
-        /*
-
-
-        test('partial response',async ()=> {
-        
-            MockSerialPort.setResponse( 'X70' , ( command, sendData) => { 
-                sendData( [0x06]); 
-                sendData( [0x01]); 
-                sendData( [0x58,0x37,0x30,0x30,0x1d,0x30,0x1d,0x30,0x2e]);
-                sendData( [0x30,0x30,0x1d,0x30,0x2e,0x30,0x1d,0x30,0x1d,0x20]);
-                sendData( [0x30,0x2e,0x30,0x1d,0x35,0x30,0x1d,0x20,0x30,0x2e,0x30]); 
-                sendData( [0x1d,0x20,0x30,0x2e,0x30,0x1d,0x20,0x30,0x2e,0x30,0x1d,0x31,0x30,0x1d,0x30,0x1d,0x30,0x1d,0x33,0x34,0x17]); 
-            })            
-            bike.sendNAK = jest.fn()
-            bike.sendACK = jest.fn()
-            bike.settings= { tcpip:{timeout:500}};
-            let error = undefined;
-            try {
-                await bike.getTrainingData();
-            }
-            catch (err) { error = err }
-            expect(error).toBeUndefined()
-            expect(bike.sendACK).toBeCalled();
-            
-        })
-
-        */
     
     })
 
-    /*
-    describe( 'concurrency', ()=> {
-        let bike;
-
-        beforeEach( async ()=>{
-            bike = new Daum8i( {port:'COM1'})
-            try {
-                await bike.saveConnect();
-            }
-            catch (err) {
-                //
-            }
-        })
-
-        afterEach( async ()=> {
-            await bike.saveClose();
-        })
-
-        test('getPower & GetTraings',async ()=> {
-            
-            function trainingData() {
-
-                const GS = 0x1D as never
-                let payload = [];
-                append(payload, getAsciiArrayFromStr('10'));payload.push(GS); // time
-                append(payload, getAsciiArrayFromStr('99'));payload.push(GS); // heartrate
-                append(payload, getAsciiArrayFromStr('30.0'));payload.push(GS); // speed
-                append(payload, getAsciiArrayFromStr('0'));payload.push(GS); // slope        
-                append(payload, getAsciiArrayFromStr('100'));payload.push(GS); // distance
-                append(payload, getAsciiArrayFromStr('90.1'));payload.push(GS); // cadence
-                append(payload, getAsciiArrayFromStr('30'));payload.push(GS); // power
-                append(payload, getAsciiArrayFromStr('130.2'));payload.push(GS); // physEnergy
-                append(payload, getAsciiArrayFromStr('130.3'));payload.push(GS); // realEnergy
-                append(payload, getAsciiArrayFromStr('13.1'));payload.push(GS); // torque
-                append(payload, getAsciiArrayFromStr('11'));payload.push(GS); // gear
-                append(payload, getAsciiArrayFromStr('1'));payload.push(GS); // deviceState
-                append(payload, getAsciiArrayFromStr('0')) // speedStatus
-                return payload;    
-            }
-            
-
-
-            // mock always return 10, regardless which gear was sent
-            MockSerialPort.setResponse( 'S23' , ( command, sendData) => { sendData( [0x06]); sendData(  buildMessage( 'S23','50.0') ) } )
-            MockSerialPort.setResponse( 'X70' , ( command, sendData) => { sendData( [0x06]); sendData( buildMessage( 'X70', trainingData() ))} )
-
-            let error = undefined;
-            const run = ( ()  => {
-                return new Promise( (resolve,reject) =>  {
-    
-                    Promise.all ( [
-                        bike.setPower(50),                        
-                        bike.getTrainingData( )
-                    ])
-                    .then( values => resolve(values))
-                    .catch (err => {  error = err; resolve({})})
-                })
-    
-                
-            });
-        
-            await run();
-            expect(error).toBeUndefined();
-        },5000)
-
-    
-    })
-    */
-
-
-    /*
-    describe( 'unexpected data', ()=> {   
+    describe( 'upload', ()=> {
 
         let bike;
 
         beforeEach( async ()=>{
-            bike = new Daum8i( {port:'COM1'})
-            try {
-                await bike.saveConnect();
-            }
-            catch (err) {
-                //
-            }
+            MockBinding.reset();
+            MockBinding.createPort('COM1')
+
+            bike = new Daum8i( {serial:SerialInterface.getInstance({ifaceName:'serial', binding:Daum8iMock}), path:'COM1' })
+            bike.programUploadInit= jest.fn().mockReturnValue(true)
+            //bike.programUploadStart= jest.fn()
+            bike.programUploadSendBlock= jest.fn().mockResolvedValue(true)
+            bike.programUploadDone= jest.fn().mockResolvedValue(true)
+            bike.startProgram=jest.fn().mockResolvedValue(true)
+
         })
 
         afterEach( async ()=> {
-            await bike.saveClose();
-        })
-
-        test('cycling data while nothing is expected',async ()=>{
-  
-            function trainingData() {
-
-                const GS = 0x1D as never
-                let payload = [];
-                append(payload, getAsciiArrayFromStr('10'));payload.push(GS); // time
-                append(payload, getAsciiArrayFromStr('99'));payload.push(GS); // heartrate
-                append(payload, getAsciiArrayFromStr('30.0'));payload.push(GS); // speed
-                append(payload, getAsciiArrayFromStr('0'));payload.push(GS); // slope        
-                append(payload, getAsciiArrayFromStr('100'));payload.push(GS); // distance
-                append(payload, getAsciiArrayFromStr('90.1'));payload.push(GS); // cadence
-                append(payload, getAsciiArrayFromStr('30'));payload.push(GS); // power
-                append(payload, getAsciiArrayFromStr('130.2'));payload.push(GS); // physEnergy
-                append(payload, getAsciiArrayFromStr('130.3'));payload.push(GS); // realEnergy
-                append(payload, getAsciiArrayFromStr('13.1'));payload.push(GS); // torque
-                append(payload, getAsciiArrayFromStr('11'));payload.push(GS); // gear
-                append(payload, getAsciiArrayFromStr('1'));payload.push(GS); // deviceState
-                append(payload, getAsciiArrayFromStr('0')) // speedStatus
-                return payload;    
-            }
-                                
-            MockSerialPort.setResponse( 'S23' , ( command, sendData) => { sendData( [0x06]); } )
-            MockSerialPort.setResponse( 'X70' , ( command, sendData) => { sendData( [0x06]); setTimeout( ()=>{sendData( buildMessage( 'X70', trainingData() ) )}, 500)   } )
-            const data = buildMessage( 'X70', trainingData() )
-            
-            
-            bike.setPower(50).catch( console.log)
-            bike.sp.emit('error',new Error('sth'))
-
-            const sleep = (ms) => new Promise( resolve=> setTimeout(resolve,ms))
-
-
-            await sleep(500)
-            await bike.saveConnect()
-            await bike.getTrainingData()
-            
-            
-
-            bike.onData(data)
-            bike.onData(data)
-            bike.onData(data)
-            bike.onData(data)
-            
-            
         })
 
 
-        test('ech of previous command while waiting for ACK',async ()=>{
-  
-                                
-            MockSerialPort.setResponse( 'S23' , ( message, sendData) => { 
-                const ACK = Buffer.from([0x06])
-                const echo = Buffer.from(message)
-                const response = Buffer.concat( [echo,ACK]  )
-                sendData( response); 
-                
-            })
+        const route:Route = {
+            programId:1,
+            points:[],
+            type:'',
+            lapMode:false,
+            totalDistance:0
+        }
 
-            MockSerialPort.setACKHandler( (sendData)=> { sendData( Buffer.from('015332333136372e3030383417','hex'))
-                
-            })
+        test('sucess - 1 data block only',async ()=>{
+            const epp = new Uint8Array(Buffer.from('000000000000000000000000','hex'))
+            bike.programUploadStart = jest.fn().mockResolvedValue( epp)
 
+            const onStatusUpdate = jest.fn()
+            const res = await bike.programUpload('race',route,onStatusUpdate)
+
+            expect(res).toBeTruthy()
+            expect(bike.programUploadInit).toHaveBeenCalled()
+            expect(bike.programUploadStart).toHaveBeenCalled()
+            expect(bike.programUploadSendBlock).toHaveBeenCalledTimes(1)
+            expect(bike.programUploadDone).toHaveBeenCalled()
+            expect(onStatusUpdate).toHaveBeenCalledTimes(2)
+            expect(onStatusUpdate).toHaveBeenNthCalledWith(1,0,12)
+            expect(onStatusUpdate).toHaveBeenNthCalledWith(2,12,12)
+        }) 
+
+        test('sucess - 10 blocks',async ()=>{
+            const epp = new Uint8Array(Buffer.alloc(10*512-10))
+            bike.programUploadStart = jest.fn().mockResolvedValue( epp)
+
+            const onStatusUpdate = jest.fn()
+            const res = await bike.programUpload('race',route,onStatusUpdate)
+
+            expect(res).toBeTruthy()
+            expect(bike.programUploadInit).toHaveBeenCalled()
+            expect(bike.programUploadStart).toHaveBeenCalled()
+            expect(bike.programUploadSendBlock).toHaveBeenCalledTimes(10)
+            expect(bike.programUploadDone).toHaveBeenCalled()
+            expect(onStatusUpdate).toHaveBeenCalledTimes(11)
+            expect(onStatusUpdate).toHaveBeenNthCalledWith(1,0,5110)
+            expect(onStatusUpdate).toHaveBeenLastCalledWith(5110,5110)
+        }) 
+
+
+        test('empty epp',async ()=>{
+           
+            bike.programUploadStart = jest.fn().mockResolvedValue( [])
+
+            const onStatusUpdate = jest.fn()
+            const res = await bike.programUpload('race',route,onStatusUpdate)
+
+            expect(res).toBeTruthy()
+            expect(bike.programUploadInit).toHaveBeenCalled()
+            expect(bike.programUploadStart).toHaveBeenCalled()
+            expect(bike.programUploadSendBlock).not.toHaveBeenCalledTimes(1)
+            expect(bike.programUploadDone).toHaveBeenCalled()
+            expect(onStatusUpdate).toHaveBeenCalledTimes(1)
+            expect(onStatusUpdate).toHaveBeenNthCalledWith(1,0,0)
+        }) 
+
+        test('no epp',async ()=>{
+           
+            bike.programUploadStart = jest.fn().mockResolvedValue( undefined)
+
+            const onStatusUpdate = jest.fn()
+            const res = await bike.programUpload('race',route,onStatusUpdate)
+
+            expect(res).toBeTruthy()
+            expect(bike.programUploadInit).toHaveBeenCalled()
+            expect(bike.programUploadStart).toHaveBeenCalled()
+            expect(bike.programUploadSendBlock).not.toHaveBeenCalledTimes(1)
+            expect(bike.programUploadDone).toHaveBeenCalled()
+            expect(onStatusUpdate).toHaveBeenCalledTimes(1)
+            expect(onStatusUpdate).toHaveBeenNthCalledWith(1,0,0)
+        }) 
+
+        test('error during communication',async ()=>{
             
-            bike.setPower(50).catch( console.log)
+            bike.programUploadStart = jest.fn().mockRejectedValue( new Error('ACK Timeout'))
 
-            
+            const onStatusUpdate = jest.fn()
+            const res = await bike.programUpload('race',route,onStatusUpdate)
 
-            const sleep = (ms) => new Promise( resolve=> setTimeout(resolve,ms))
+            expect(res).toBeFalsy()
+            expect(onStatusUpdate).not.toHaveBeenCalled()
+        }) 
 
-            console.log('sleeping')
-            await sleep(2000)
-            console.log('sleep done')
-            
 
-            
-            
-        })
+
 
 
     })
-    */
-
 
 })

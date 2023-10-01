@@ -1,7 +1,7 @@
+import { ControllableDeviceAdapter } from "..";
 import CyclingMode, { CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, UpdateRequest } from "../modes/cycling-mode";
 
 import PowerBasedCyclingModeBase from "../modes/power-base";
-import { IncyclistDeviceAdapter } from "../types/adapter";
 
 
 const config = {
@@ -18,7 +18,7 @@ export default class FtmsCyclingMode extends PowerBasedCyclingModeBase implement
     prevRequest: UpdateRequest;
     hasBikeUpdate: boolean = false;
 
-    constructor(adapter: IncyclistDeviceAdapter, props?:any) {
+    constructor(adapter: ControllableDeviceAdapter, props?:any) {
         super(adapter,props);
         this.initLogger('FtmsMode')
     }

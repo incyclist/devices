@@ -1,8 +1,10 @@
+/* istanbul ignore file */
 import {MockBindingInterface, MockPortBinding,CreatePortOptions, MockBinding} from '@serialport/binding-mock'
 import { BindingInterface } from '@serialport/bindings-interface'
 import { SerialInterface, SerialPortProvider } from '../../';
 import { resolveNextTick } from '../../../utils/utils';
 import calc from '../../../utils/calculations'
+import { User } from '../../../types/user';
 
 export type MockProps = {
     interface: string;
@@ -109,7 +111,7 @@ interface BikeData {
 
 const DEFAULT_BIKE_DATA:BikeData = {
     cockpitVersion: 3,
-    serialNo: '4464:<;8',   
+    serialNo: '3434353d3b383c3b' ,
     cockpitType: 50,        // 8080
     isPedalling: false,
     bikeType:0,             // RACE
@@ -304,9 +306,13 @@ export class DaumClassicMockBinding extends MockPortBinding {
         const bikeNo = payload.readUInt8(0)
         if (bikeNo>=0 && bikeNo<10) {
             const {cockpitType,serialNo} = this.simulator.bikes[bikeNo] || {}
+            
             const response = Buffer.from( [0x73,bikeNo,0,0,0,0,0,0,0,0,cockpitType])
-            for ( let i=0;i<serialNo.length && i<8;i++)
-                response.writeUInt8( serialNo.charCodeAt(i), i+2)
+
+            for ( let i=0;i<serialNo.length && i<8;i++) {
+                const s = new Uint8Array(Buffer.from(serialNo,'hex'))
+                response.writeUInt8( s[i], i+2)
+            }
             this.emitData(response)
         }
     }

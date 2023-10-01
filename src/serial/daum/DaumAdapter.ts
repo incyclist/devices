@@ -11,11 +11,16 @@ import { IncyclistCapability } from '../../types/capabilities';
 import { DeviceData } from '../../types/data';
 
 
-interface DaumAdapter  {
-    getCurrentBikeData(): Promise<any>;
+export interface IDaumAdapter  {
+    getCurrentBikeData(): Promise<IncyclistBikeData>;
 }
 
-export default class DaumAdapterBase extends SerialIncyclistDevice implements DaumAdapter,Bike  {
+export abstract class AbstractDaumAdapter extends SerialIncyclistDevice implements IDaumAdapter {
+    abstract getCurrentBikeData(): Promise<any>
+  
+}
+
+export default class DaumAdapter<S extends SerialDeviceSettings, P extends DeviceProperties> extends AbstractDaumAdapter implements Bike {
 
     bike;
     ignoreHrm: boolean;
@@ -39,7 +44,7 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
     updateBusy: boolean = false;
 
 
-    constructor( settings:SerialDeviceSettings,props?: DeviceProperties) {
+    constructor( settings:S,props?: P) {
         super(settings,props);
 
         this.stopped = false;
@@ -62,6 +67,7 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
         ]
         
     }
+    
 
     setCyclingMode(mode: CyclingMode|string, settings?:any) { 
         let selectedMode :CyclingMode = this.cyclingMode;
@@ -128,7 +134,7 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
 
 
     
-    getCurrentBikeData(): Promise<any> {
+    getCurrentBikeData(): Promise<IncyclistBikeData> {
         throw new Error('Method not implemented.');
     }
 
@@ -146,9 +152,9 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
     }
 
     isSame(device:SerialIncyclistDevice):boolean {
-        if (!(device instanceof DaumAdapterBase))
+        if (!(device instanceof DaumAdapter))
             return false;
-        const adapter = device as DaumAdapterBase;
+        const adapter = device as DaumAdapter<S,P>;
         return  (adapter.getName()===this.getName() && adapter.getPort()===this.getPort())
     }
 
@@ -181,7 +187,21 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
         
     }
 
-    start( props?: DeviceProperties ): Promise<any> {
+    async pause(): Promise<boolean> {
+        const paused  = await super.pause()
+        this.bike.pauseLogging()
+        return paused
+    }
+
+
+    async resume(): Promise<boolean> {
+        const resumed = await super.resume()
+        this.bike.resumeLogging()
+        return resumed
+    }
+
+
+    start( props?: P ): Promise<any> {
         throw new Error('Method not implemented.');
     }
 
@@ -257,11 +277,21 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
         const w = global.window as any
  
         if (w?.DEVICE_DEBUG) {
-            console.log('~~~ Serial',event)
+            console.log(`~~~ ${this.logger.getName()}`,event)
         }
 
     }
 
+    async reconnect(): Promise<boolean> {
+        try {
+            await this.bike.close()
+            const connected = await this.bike.connect()
+            return connected
+        }
+        catch(err) {
+            return false;
+        }
+    }
           
 
     stop(): Promise<boolean> {
@@ -323,7 +353,7 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
         .then( bikeData => {
            
             // update Data based on information received from bike
-            const incyclistData = this.updateData(this.cyclingData, bikeData)
+            const incyclistData = this.updateData(bikeData)
 
             // transform  ( rounding / remove ignored values)
             const data = this.transformData(incyclistData);
@@ -335,8 +365,7 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
             this.logEvent({message:'bike update error',error:err.message,stack:err.stack })
 
             // use previous values
-            const {isPedalling,power,pedalRpm, speed, distanceInternal,heartrate,slope} = this.cyclingData;
-            const incyclistData =this.updateData(this.cyclingData, { isPedalling,power,pedalRpm, speed, distanceInternal,heartrate,slope})
+            const incyclistData =this.updateData( this.cyclingData)
             this.transformData(incyclistData);
 
             this.updateBusy = false;
@@ -403,27 +432,22 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
 
     }
 
-    updateData( prev,bikeData): IncyclistBikeData {
-        //this.logEvent({message:'updateData',data,bikeData})
-    
-        
+    updateData(bikeData:IncyclistBikeData): IncyclistBikeData {       
         let data = {} as any;
 
-
-        data.isPedalling = bikeData.cadence>0;
+        data.isPedalling = bikeData.pedalRpm>0;
         data.power  = bikeData.power
-        data.pedalRpm = bikeData.cadence
+        data.pedalRpm = bikeData.pedalRpm
         data.speed = bikeData.speed;
         data.heartrate = bikeData.heartrate
         data.distanceInternal = bikeData.distanceInternal;
-        data.gear = bikeData.gear;
-        data.time = bikeData.time;
+        if (bikeData.gear) data.gear = bikeData.gear;
+        if (bikeData.time) data.time = bikeData.time;
         if (bikeData.slope) data.slope = bikeData.slope;
 
         this.cyclingData = this.getCyclingMode().updateData(data);
 
-        return this.cyclingData;
-        
+        return this.cyclingData;        
     }
 
 
@@ -528,6 +552,5 @@ export default class DaumAdapterBase extends SerialIncyclistDevice implements Da
     check(): Promise<boolean> {
         throw new Error('Method not implemented.');
     }
-
 
 }

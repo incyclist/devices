@@ -1,6 +1,32 @@
-import { getWeight, parseRunData,Float32ToHex } from "./utils"
+
+import { buildSetSlopeCommand, getBikeType, getCockpit, getGender, getWeight, parseRunData } from "./utils"
 
 describe ('utils',()=>{
+
+    describe('getCockpit',()=>{
+        const res:string [] = []
+        for (let i=0;i<256;i++)
+            res.push( `0x${i.toString(16)}:${getCockpit(i)}` )
+        expect(res).toMatchSnapshot()
+    })
+
+    describe('getBikeType',()=>{
+        const res:string [] = []
+        
+        
+        res.push( `race:${getBikeType('race')}` )
+        res.push( `mountain:${getBikeType('mountain')}` )
+        res.push( `triathlon:${getBikeType('triathlon')}` )
+        res.push( `undefined:${getBikeType()}` )
+
+        expect(res).toMatchSnapshot()
+    })
+
+    describe('getGender',()=>{        
+        const testSet = ['M','F','X',undefined]
+        const res = testSet.map( (i) =>  `0x${i}:${getGender(i)}` )
+        expect(res).toMatchSnapshot()
+    })
 
     describe('getWeight',()=>{
         test( '50kg',()=>{
@@ -36,23 +62,15 @@ describe ('utils',()=>{
             const res=getWeight(null)
             expect(res).toBe(80)
         })
+   
     
-        test( 'string => returns 80',()=>{
-            const res=getWeight('John Doe')
-            expect(res).toBe(80)
-        })
-    
-        test( 'number as string => returns number (rounded)',()=>{
-            const res=getWeight('75.2')
-            expect(res).toBe(75)
-        })
     
     })
 
     describe ('parseRunData',()=> { 
         test( 'valid data' ,()=>{ 
             let error=undefined;
-            let data = undefined;
+            let data;
             try {
                 data = parseRunData( [0x40,0,0,0,0xC0,0x13,0,0,0xF9,3,0x28,0x2E,3,41,0,0,7,0xE4,0x32]);
             } catch (e) {
@@ -65,7 +83,7 @@ describe ('utils',()=>{
 
         test( 'invalidvalid data: "pedalling=0x40"' ,()=>{ 
             let error=undefined;
-            let data = undefined;
+            let data;
             try {
                 data = parseRunData( [0x40,0,0,0,0x40,5,0,0,0,0,0,0,0,0,0,0,0xA,0,0]);
             } catch (e) {
@@ -80,22 +98,30 @@ describe ('utils',()=>{
         })
     })
 
-    describe('Float32ToHex',()=>{
+    describe('buildSetSlopeCommand',()=>{
         test('0',()=>{
-            const res = Float32ToHex(0)
-            expect(res).toBe('00000000')
+            const cmd = buildSetSlopeCommand(0,0)
+            const res = Buffer.from(cmd).toString('hex').toUpperCase()
+            
+            expect(res).toBe('550000000000')
         } )
 
-        test('Integers',()=>{
-            let arr:string[] = [];
-            for ( let i=0; i<100; i++) {
-                arr.push( `${i}:${Float32ToHex(i)}`);
-            }
-            expect(arr).toMatchSnapshot();
-        } )
         test('88.5',()=>{
-            const res = Float32ToHex(88.5)
-            expect(res).toBe('42B10000')
+            const cmd = buildSetSlopeCommand(0,88.5)
+            const res = Buffer.from(cmd).toString('hex').toUpperCase()
+            expect(res).toBe('55000000B142')
+        } )
+
+        test('2.4',()=>{
+            const cmd = buildSetSlopeCommand(0,2.4)
+            const res = Buffer.from(cmd).toString('hex').toUpperCase()
+            expect(res).toBe('55009A991940')
+        } )
+
+        test('3.3',()=>{
+            const cmd = buildSetSlopeCommand(0,3.3)
+            const res = Buffer.from(cmd).toString('hex').toUpperCase()
+            expect(res).toBe('550033335340')
         } )
 
     })

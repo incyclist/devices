@@ -37,12 +37,6 @@ describe('PowerMeterMode', () => {
             
 
         })
-        describe ( 'adapter does not have getWeight()', () => { 
-            test('should return default weight', () => {
-                expect(mode.getWeight()).toBe(DEFAULT_WEIGHT);
-            })
-
-        })
 
     })
 
