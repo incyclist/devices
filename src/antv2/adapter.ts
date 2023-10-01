@@ -243,8 +243,11 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData, TData> exten
 
     async start( props: AntDeviceProperties={} ): Promise<boolean> {
 
-        if (this.started && !this.stopped)
+        if (this.started && !this.stopped ) {
+            if (this.paused)
+                this.resume()
             return true;
+        }
 
         this.stopped = false;
 
@@ -258,6 +261,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData, TData> exten
 
             this.resetData();      
             this.stopped = false;
+            this.resume()
     
 
 

@@ -196,12 +196,12 @@ export default class BleAdapter  extends IncyclistDevice  {
 
         if (wasPaused)
             this.resume()
-        if (wasStopped)
-            this.stopped = false
+        
 
-        if (this.started && !wasPaused && !wasStopped)
+        if (this.started && !wasStopped)
             return true;
         
+        this.stopped = false
         const connected = await this.connect()
         if (!connected)
             throw new Error(`could not start device, reason:could not connect`)
