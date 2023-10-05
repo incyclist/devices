@@ -108,17 +108,11 @@ export class SinglePathScanner {
                     
                     const adapter = AdapterFactory.create(adapterSettings)
 
-                    
                     found = await adapter.check()
                     if (found) {
                         this.isFound = true;    
                         const name = adapter.getName();
-                        //await this.serial.closePort(this.path).catch()
-
-                        await adapter.close()
-                        resolve( {...adapterSettings,name} )
-                        
-                        
+                        resolve( {...adapterSettings,name} )                        
                     }
                     await sleep(100)
                 }
@@ -440,7 +434,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
 
                             this.inUse.push(path)
 
-                            await adapter.stop()
+                            await adapter.pause()
 
                             detected.push(device)
                             this.emit('device',device)              

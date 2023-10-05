@@ -314,15 +314,10 @@ describe( 'DaumPremiumAdapter', ()=>{
             const device = new DaumPremiumAdapter( {interface:'serial', port:'COM5', protocol:'Daum Premium'})
 
             device.isStopped = jest.fn( ()=>true)
-            device.connect = jest.fn( ()=>Promise.resolve(true))
-
-            device.bike.isConnected = jest.fn( ()=>false)
-            device.bike.getDeviceType = jest.fn( ()=>Promise.resolve( 'bike'))
-            device.bike.getProtocolVersion = jest.fn( ()=>Promise.resolve( '2.01'))
 
             const res = await device.check()
 
-            expect(res).toBe(true)
+            expect(res).toBe(false)
         })
 
 
@@ -385,7 +380,7 @@ describe( 'DaumPremiumAdapter', ()=>{
 
         } )
     })
-    describe('startRide',()=>{
+    describe('start',()=>{
         let device
         beforeEach( ()=>{
             device = new DaumPremiumAdapter( {interface:'serial', port:'COM5', protocol:'Daum Premium'})
@@ -397,7 +392,7 @@ describe( 'DaumPremiumAdapter', ()=>{
             let error:Error|undefined = undefined
 
             try {
-                started = await device.startRide(props)
+                started = await device.start(props)
             }
             catch(err) {
                 error = err                
@@ -409,7 +404,7 @@ describe( 'DaumPremiumAdapter', ()=>{
         test('launch ok',async ()=>{
             const {started,error} = await run()
 
-            expect(device.launch).toHaveBeenCalledWith({}, true)
+            expect(device.launch).toHaveBeenCalledWith({}, false)
             expect(started).toBeTruthy();
             expect(error).toBeUndefined()
         })

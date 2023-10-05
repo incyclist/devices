@@ -84,11 +84,12 @@ describe( 'DaumClassicAdapter', ()=>{
 
     })
 
-    describe('startRide',()=>{
+    describe('start',()=>{
         let device
         beforeEach( ()=>{
             device = new DaumClassicAdapter( {interface:'serial', port:'COM5', protocol:'Daum Classic'})
-            device.launch = jest.fn ()
+            device.performStart = jest.fn().mockResolvedValue(true)
+            device.bike.getVersion = jest.fn().mockResolvedValue({serialNo:'Test',cockpit:'Test'})
         })
 
         const run = async(props?) => {
@@ -96,7 +97,7 @@ describe( 'DaumClassicAdapter', ()=>{
             let error:Error|undefined = undefined
 
             try {
-                started = await device.startRide(props)
+                started = await device.start(props)
             }
             catch(err) {
                 error = err                
@@ -105,177 +106,24 @@ describe( 'DaumClassicAdapter', ()=>{
         }
 
 
-        test('launch ok',async ()=>{
+        test('initial launch ok',async ()=>{
             const {started,error} = await run()
 
-            expect(device.launch).toHaveBeenCalledWith({}, true)
+            expect(device.performStart).toHaveBeenCalledWith(undefined, false)
             expect(started).toBeTruthy();
             expect(error).toBeUndefined()
-        })
-    })
-    /*
-
-    describe('getCurrentBikeData',()=>{
-
-        let a: DaumClassicAdapter;
-        let initData: any;
-        let bikeComms: any
-        beforeEach( ()=>{
-            bikeComms = { 
-                getPort: jest.fn( ()=>'COMX'),
-            }
-            initData = DaumClassicAdapter.prototype.initData;    
-            DaumClassicAdapter.prototype.initData =  jest.fn()
-            a = new DaumClassicAdapter( new DaumClassicProtocol(),bikeComms);
-        })
-        afterEach( ()=>{
-            DaumClassicAdapter.prototype.initData =  initData
+            expect(device.started).toBe(true)
         })
 
-        test('mormal flow: does not check connection',async ()=> {
-            bikeComms.isConnected = jest.fn( ()=>true)
-            bikeComms.runData = jest.fn( ()=>({gear:10, power:100, speed:30}))
-            const res = await a.getCurrentBikeData()
-            expect(res).toMatchObject({gear:10, power:100, speed:30})
-            expect(bikeComms.isConnected).not.toHaveBeenCalled()
+        test('relaunch ok',async ()=>{
+            device.started = true
+            const {started,error} = await run()
 
-        })
-        test('not connected: will not be checked',async ()=> {
-            bikeComms.isConnected = jest.fn( ()=>false)
-            bikeComms.runData = jest.fn( ()=>({gear:10, power:100, speed:30}))
-            await a.getCurrentBikeData()
-            expect(bikeComms.isConnected).not.toHaveBeenCalled()
-            expect(bikeComms.runData).toHaveBeenCalled()
-
-        })
-
-        test('error in getCurrentBikeData',async ()=> {
-            bikeComms.isConnected = jest.fn( ()=>false)
-            bikeComms.runData = jest.fn( ()=> Promise.reject(new Error('some error')))
-            try {
-                await a.getCurrentBikeData()
-                fail('should have thrown an error')
-            } catch (e) {
-                expect(e.message).toBe('some error')
-            }
-
-        })
-
-        test('getCurrentBikeData does not resolve/reject promise: does not timeout',async ()=> {
-            bikeComms.isConnected = jest.fn( ()=>false)
-            bikeComms.runData = jest.fn( ()=> new Promise(()=>{}) )
-            
-            let error;
-            const fn = ()=> {
-                a.getCurrentBikeData().catch( (err)=> {throw (err)})
-                jest.advanceTimersByTime(6000)
-
-                expect(error).toBeUndefined()
-                return Promise.resolve()
-            }
-
-
-            try {
-                await fn()
-            } catch (e) {
-                error = e;
-            }
-
+            expect(device.performStart).toHaveBeenCalledWith(undefined, true)
+            expect(started).toBeTruthy();
+            expect(error).toBeUndefined()
+            expect(device.started).toBe(true)
         })
 
     })
-
-
-
-    describe('sendRequest',()=>{
-        let a: DaumClassicAdapter;
-        let bikeComms:any;
-    
-        beforeEach( async ()=>{
-            bikeComms = new BikeInterface({port:'COMX'})   
-            bikeComms.setSlope = jest.fn( (slope,bike=0)=>({bike,slope}))
-            bikeComms.setPower = jest.fn( (power,bike=0)=>({bike,power}));
-            a = new DaumClassicAdapter( new DaumClassicProtocol(),bikeComms);
-        })
-
-        test('slope has been set',async ()=>{
-            const res = await a.sendRequest({slope:10})
-            expect(bikeComms.setSlope).toHaveBeenCalledWith(10)
-            expect(bikeComms.setPower).not.toHaveBeenCalled()
-            expect(res).toEqual({slope:10})
-        })
-        test('power has been set',async ()=>{
-            const res = await a.sendRequest({targetPower:100})
-            expect(bikeComms.setSlope).not.toHaveBeenCalled()
-            expect(bikeComms.setPower).toHaveBeenCalledWith(100)
-            expect(res).toEqual({targetPower:100})
-        })
-        test('power and slope ',async ()=>{
-            const res= await a.sendRequest({slope:10,targetPower:100})
-            expect(bikeComms.setSlope).toHaveBeenCalledWith(10)
-            expect(bikeComms.setPower).toHaveBeenCalledWith(100)
-            expect(res).toEqual({slope:10,targetPower:100})
-        })
-        test('no request ',async ()=>{
-            const res = await a.sendRequest({})
-            expect(bikeComms.setSlope).not.toHaveBeenCalled()
-            expect(bikeComms.setPower).not.toHaveBeenCalled()
-            expect(res).toEqual({})
-        })
-        test('error when sending command',async ()=>{
-            bikeComms.setSlope = jest.fn( ()=>{throw new Error('some error')})            
-            // eslint-disable-next-line no-throw-literal
-            bikeComms.setPower = jest.fn( ()=>{throw 'power error'})
-            a.logger.logEvent  = jest.fn()
-            const res = await a.sendRequest({slope:10})
-            expect(res).toBeUndefined()
-            expect(a.logger.logEvent).toHaveBeenCalledWith(expect.objectContaining({message:'sendRequest error',error:'some error'}))
-
-            
-            await a.sendRequest({targetPower:100})            
-            expect(a.logger.logEvent).toHaveBeenLastCalledWith(expect.objectContaining({message:'sendRequest error',error:'power error'}))
-
-        })
-
-    })
-
-    describe('stop' ,()=>{
-        let a: DaumClassicAdapter;
-        let bikeComms:any;
-    
-        beforeEach( async ()=>{
-            bikeComms = new BikeInterface({port:'COMX'})   
-            bikeComms.setSlope = jest.fn( (slope,bike=0)=>({bike,slope}))
-            bikeComms.setPower = jest.fn( (power,bike=0)=>({bike,power}));
-            a = new DaumClassicAdapter( new DaumClassicProtocol(),bikeComms);
-        })
-
-
-        test('not stopped',  async ()=>{
-            a.logger.logEvent  = jest.fn()
-            a.stopped = false;
-            bikeComms.queue.enqueue({a:1})
-            bikeComms.queue.enqueue({a:2})
-            const res = await a.stop()
-            expect(res).toBeTruthy()
-            expect(a.stopped).toBeTruthy()
-            expect(bikeComms.queue.isEmpty()).toBeTruthy()
-
-    
-        })
-
-        test('already stopped',  async ()=>{
-            a.logger.logEvent  = jest.fn()
-            a.stopped = true;
-            const res = await a.stop()
-            expect(res).toBeTruthy()
-            expect(a.stopped).toBeTruthy()
-
-    
-        })
-
-
-    })
-
-*/
 })

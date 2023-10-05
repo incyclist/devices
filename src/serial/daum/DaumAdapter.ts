@@ -9,6 +9,7 @@ import { DeviceProperties } from '../../types/device';
 import { SerialDeviceSettings, SerialIncyclistDevice } from '../adapter';
 import { IncyclistCapability } from '../../types/capabilities';
 import { DeviceData } from '../../types/data';
+import SerialInterface from '../serial-interface';
 
 
 export interface IDaumAdapter  {
@@ -28,8 +29,11 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
     ignorePower: boolean;
 
     distanceInternal: number;
+
     paused: boolean;
     stopped: boolean;
+    started: boolean;
+
     cyclingData: IncyclistBikeData;
     deviceData: DeviceData;
     currentRequest;
@@ -43,12 +47,21 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
     requestBusy: boolean = false;
     updateBusy: boolean = false;
 
+    startPromise: Promise<unknown>
+    checkPromise: Promise<boolean>
 
     constructor( settings:S,props?: P) {
         super(settings,props);
 
         this.stopped = false;
         this.paused = false;
+        this.started = false;
+
+        this.ignoreHrm      = false;
+        this.ignorePower    = false;
+        this.ignoreBike     = false;
+
+        this.iv             = undefined;
 
         this.cyclingData = {
             isPedalling:false,
@@ -67,7 +80,15 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         ]
         
     }
-    
+
+    getPort() {
+        return this.bike.getPort();
+    }
+
+    getSerialInterface():SerialInterface {
+        return this.bike?.serial
+    }
+
 
     setCyclingMode(mode: CyclingMode|string, settings?:any) { 
         let selectedMode :CyclingMode = this.cyclingMode;
@@ -200,8 +221,86 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         return resumed
     }
 
+    async check():Promise<boolean> {
+        if (this.checkPromise) {
+            this.logEvent( {message:"waiting for previous check device",port:this.getPort()});
+            try {
+                await this.checkPromise
+            } catch{}
+            this.logEvent( {message:"previous check device completed",port:this.getPort()});
+            this.checkPromise = undefined
+        }
 
-    start( props?: P ): Promise<any> {
+        // don't perform device checks if device was stopped
+        if (this.isStopped())
+            return false;
+
+
+        this.checkPromise = this.performCheck()
+        try {
+            const res = await this.checkPromise
+            this.checkPromise = undefined
+            return res
+        }
+        catch(err) {
+            this.checkPromise = undefined
+            throw err;
+        }
+    }
+
+    async performCheck():Promise<boolean> {
+        throw new Error('Method not implemented.');
+    }
+
+    async start(props?:P):Promise<boolean> {
+        const isRelaunch = this.started
+        const message = isRelaunch ? 'relaunch of device' :'initial start of device';
+        
+        this.logEvent({message});
+
+        try {
+
+            if (!this.startPromise) {
+                if (isRelaunch) {
+                    await this.stop();              // stop the worker intervals
+                    this.bike.resumeLogging()   
+                }
+    
+                this.startPromise = this.performStart(props, isRelaunch)   
+            }
+            else {
+                this.logEvent({message: 'start already ongoing'})
+
+            }
+
+            await this.startPromise
+            this.startPromise = undefined
+        
+            if (!isRelaunch) {
+                try {
+                    const deviceInfo = await this.getDeviceInfo()
+                    this.logEvent({message: 'device info', deviceInfo })
+                }
+                catch {}
+            }
+
+            this.logEvent({message: 'start result: success'})
+            this.started = true;
+            return true;
+        }
+        catch(err) {
+            this.logEvent({message: 'start result: error', error: err.message})
+
+            this.startPromise = undefined
+            this.started = false;
+            throw new Error(`could not start device, reason:${err.message}`)
+        }
+
+    }
+
+
+
+    performStart( props?: P,isRelaunch=false ): Promise<boolean> {
         throw new Error('Method not implemented.');
     }
 
@@ -266,6 +365,14 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         if(!this.bike.isConnected())
             return true;
         return await this.bike.close();        
+    }
+
+    async verifyConnection():Promise<void> {
+        if(!this.bike.isConnected()) {
+            const connected = await this.bike.connect();
+            if(!connected)
+                throw new Error('not connected')
+        }    
     }
 
     logEvent( event) {
@@ -549,8 +656,7 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         })
     }
 
-    check(): Promise<boolean> {
+    async getDeviceInfo():Promise<any> {
         throw new Error('Method not implemented.');
     }
-
 }

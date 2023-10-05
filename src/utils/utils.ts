@@ -5,7 +5,7 @@ export const resolveNextTick = () => {
     return new Promise<void>(resolve => process.nextTick(() => resolve()))
 }
 
-export function runWithRetries( fn, maxRetries, timeBetween) {
+export function runWithRetries( fn, maxRetries, timeBetween):Promise<any> {
 
     return new Promise( (resolve,reject)=> {
         let retries = 0;

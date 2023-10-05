@@ -287,6 +287,9 @@ export default class BleFmAdapter extends BleControllableAdapter {
 
         }
         catch(err) {
+            if (err.message==='not connected') {
+                this.logEvent({message:'send bike update failed', reason:'not connected'})
+            }
             this.logEvent({message:'error', fn:'sendUpdate()', request, error:err.message, stack:err.stack})
         }
 

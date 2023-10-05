@@ -46,7 +46,6 @@ export default class Daum8i extends SerialPortComms<DaumPremiumCommsState,DaumPr
         this.recvState.waitingForEnd = end;
     }
 
-
     async onData (data:any, depth=0)  {
         let cmd ='';
         const MAX_DEPTH = 5

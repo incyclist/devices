@@ -86,19 +86,12 @@ export default class DaumPremiumAdapter extends DaumAdapter<SerialDeviceSettings
         return super.getUniqueName()
     } 
     
-    getPort() {
-        return this.bike.getPort();
-    }
-
     getInterface():string {
         return this.bike?.getInterface();
     }
 
     getProtocolName(): string {
         return PROTOCOL_NAME
-    }
-    getSerialInterface():SerialInterface {
-        return this.bike?.serial
     }
 
     isEqual(settings: SerialDeviceSettings): boolean {
@@ -129,53 +122,39 @@ export default class DaumPremiumAdapter extends DaumAdapter<SerialDeviceSettings
         return supported
     }    
 
-    async check():Promise<boolean> {
+    async performCheck():Promise<boolean> {
 
         var info = {} as any
-
-        //if (this.isStopped())
-        //    return false;
 
         return new Promise(  async (resolve, reject ) => {
             this.logEvent( {message:"checking device",port:this.getPort()});
 
-            try {                
-                await this.bike.close()
+            try {   
+                await this.stop()             
+                
                 const connected = await this.connect();
                 if (!connected)
                     resolve(false)
 
+                this.stopped = false;
+                this.started = false;
+                this.paused = false;
+
                 info.deviceType = await this.bike.getDeviceType()
                 info.version = await this.bike.getProtocolVersion();
-                //await this.bike.close()
 
                 this.logEvent( {message:"checking device success",port:this.getPort(),info});
 
+                this.pause()
                 resolve(true)
             }
             catch (err) {
                 this.logEvent( {message:"checking device failed", port:this.getPort(), reason:err.message||err});
                 resolve(false)
             }
-
         })
-
     }
 
-
-    async startRide(props:Daum8iDeviceProperties={}) {
-        this.logEvent({message:'relaunch of device'});        
-        try {
-            await this.launch(props,true)
-            return true;
-        }
-        catch(err) {
-            this.logEvent({message: 'start result: error', error: err.message})
-            throw err
-
-        }
-
-    }
 
     async start(props:Daum8iDeviceProperties={}) {
         this.logEvent({message:'initial start of device'});        
@@ -271,16 +250,21 @@ export default class DaumPremiumAdapter extends DaumAdapter<SerialDeviceSettings
     }
 
 
-    async getCurrentBikeData():Promise<IncyclistBikeData> {
-        
-        if(!this.bike.isConnected()) {
-            const connected = await this.bike.connect();
-            if(!connected)
-                throw new Error('not connected')
-        }
-        
+    async getCurrentBikeData():Promise<IncyclistBikeData> {       
+        await this.verifyConnection()        
         return this.getBike().getTrainingData()
     }
+
+    async getDeviceInfo():Promise<any> {
+        if (this.stopped)
+            return;
+
+        const deviceType = await this.bike.getDeviceType()
+        const version = await this.bike.getProtocolVersion();
+
+        return {deviceType,version}
+    }
+
 
 }
 
