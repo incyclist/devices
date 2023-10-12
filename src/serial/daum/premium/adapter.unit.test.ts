@@ -2,8 +2,7 @@ import { EventLogger } from 'gd-eventlog';
 import DaumPremiumAdapter from './adapter'
 import { MockBinding } from '@serialport/binding-mock';
 import { SerialInterface, SerialPortProvider } from '../..';
-import { CyclingModeBase } from '../../../modes/cycling-mode';
-import { exec } from 'child_process';
+import DaumClassicCyclingMode from '../../../modes/daum-classic-standard';
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
@@ -384,7 +383,12 @@ describe( 'DaumPremiumAdapter', ()=>{
         let device
         beforeEach( ()=>{
             device = new DaumPremiumAdapter( {interface:'serial', port:'COM5', protocol:'Daum Premium'})
-            device.launch = jest.fn ()
+            device.getDeviceInfo = jest.fn().mockResolvedValue(true)
+        })
+
+        afterEach( async ()=> {
+            if (device)
+                await device.stop()
         })
 
         const run = async(props?) => {
@@ -401,24 +405,35 @@ describe( 'DaumPremiumAdapter', ()=>{
         }
 
 
-        test('launch ok',async ()=>{
+        test('normal start',async ()=>{
+
+            device.performStart = jest.fn().mockResolvedValue(true)
             const {started,error} = await run()
 
-            expect(device.launch).toHaveBeenCalledWith({}, false)
+            expect(device.performStart).toHaveBeenCalledWith(undefined,false)
+            expect(device.started).toBeTruthy()
+            expect(device.paused).toBeFalsy()
+
             expect(started).toBeTruthy();
             expect(error).toBeUndefined()
         })
 
 
-        test('launch ok',async ()=>{
+        test('performStart after previous check',async ()=>{
+            device.performStart = jest.fn ().mockResolvedValue(true)
+            device.started = true
+            device.paused = true;
+
             const {started,error} = await run()
 
+            expect(device.performStart).toHaveBeenCalledWith(undefined, true)
             expect(started).toBeTruthy();
             expect(error).toBeUndefined()
         })
 
-        test('launch failure',async ()=>{
-            device.launch = jest.fn ( ()=>Promise.reject(new Error('could not start device, reason:test')))
+
+        test('performStart failure',async ()=>{
+            device.performStart = jest.fn ( ()=>Promise.reject(new Error('test')))
             const {started,error} = await run()
 
             expect(started).toBeFalsy();
@@ -428,50 +443,15 @@ describe( 'DaumPremiumAdapter', ()=>{
     })
 
 
-    describe('start',()=>{
-        let device
-        beforeEach( ()=>{
-            device = new DaumPremiumAdapter( {interface:'serial', port:'COM5', protocol:'Daum Premium'})
-            device.launch = jest.fn ()
-        })
-
-        const run = async() => {
-            let started:boolean = false;
-            let error:Error|undefined = undefined
-
-            try {
-                started = await device.start()
-            }
-            catch(err) {
-                error = err                
-            }
-            return {started,error}
-        }
-
-        test('launch ok',async ()=>{
-            const {started,error} = await run()
-
-            expect(device.launch).toHaveBeenCalledWith({}, false)
-            expect(started).toBeTruthy();
-            expect(error).toBeUndefined()
-        })
-
-        test('launch failure',async ()=>{
-            device.launch = jest.fn ( ()=>Promise.reject(new Error('could not start device, reason:test')))
-            const {started,error} = await run()
-
-            expect(started).toBeFalsy();
-            expect(error).toBeDefined()
-            expect(error?.message).toBe('could not start device, reason:test')
-        })
-    })
-
-    describe('launch',()=>{
+    describe('performStart',()=>{
         let device, bike
         beforeEach( ()=>{
             MockBinding.createPort('COM5')
             device = new DaumPremiumAdapter( {interface:'serial', port:'COM5', protocol:'Daum Premium'})            
             device.startUpdatePull = jest.fn()
+
+            device.getStartRetries = jest.fn().mockReturnValue(1)
+            device.getStartRetryTimeout = jest.fn().mockReturnValue(10)
 
             bike = device.bike
             device.stop = jest.fn( ()=>Promise.resolve(true) )
@@ -484,12 +464,16 @@ describe( 'DaumPremiumAdapter', ()=>{
             bike.setGear = jest.fn( ()=>Promise.resolve(10))
         })
 
-        const run = async(props?,isRelaunch?) => {
+        afterEach( async ()=> {
+            await device.stop()
+        })
+
+        const run = async(props?,isReperformStart?) => {
             let started:boolean = false;
             let error:Error|undefined = undefined
 
             try {
-                started = await device.launch(props,isRelaunch)
+                started = await device.performStart(props,isReperformStart)
             }
             catch(err) {
                 error = err                
@@ -510,7 +494,7 @@ describe( 'DaumPremiumAdapter', ()=>{
                 jest.useRealTimers()
             })
 
-            test('initial Launch with user and bike settings ',async ()=>{
+            test('initial performStart with user and bike settings ',async ()=>{
                 device.paused = true;
                 
                 const {started,error} = await run( {user: {weight:100}, bikeSettings:{weight:15}}, false)
@@ -546,7 +530,7 @@ describe( 'DaumPremiumAdapter', ()=>{
                 expect(error).toBeUndefined()
             })
 
-            test('initial Launch with user and bike settings ',async ()=>{
+            test('initial performStart with user and bike settings ',async ()=>{
                 device.paused = true;
                 
                 const {started,error} = await run( {user: {weight:100}, bikeSettings:{weight:15}}, false)
@@ -561,13 +545,38 @@ describe( 'DaumPremiumAdapter', ()=>{
         })
         */
 
+        test('connection fails',async ()=>{
+            device.connect = jest.fn().mockResolvedValue(false)         
+            device.reconnect   = jest.fn().mockResolvedValue(false)
+
+            const {started,error} = await run( )
+            expect(started).toBeFalsy()
+            expect(error).toMatchObject({message:'not connected'})
+            expect(device.reconnect).not.toHaveBeenCalled()
+
+        })
+
+        test('retry connection fails',async ()=>{
+            device.connect = jest.fn().mockResolvedValue(true)         
+            device.reconnect   = jest.fn().mockResolvedValue(true)
+            device.bike.getDeviceType = jest.fn().mockRejectedValue(new Error('Timeout'))
+            device.getStartRetries = jest.fn().mockReturnValue(2)
+
+            const {started,error} = await run( )
+            expect(started).toBeFalsy()
+            expect(device.reconnect).toHaveBeenCalled()
+            expect(error).toMatchObject({message:'Timeout'})
+
+        })
+
         describe('Daum Classic Mode - EPP not supported', ()=>{
             beforeEach( ()=>{
-                device.cyclingMode = new CyclingModeBase(device)
-                device.cyclingMode.getModeProperty=jest.fn().mockReturnValue(false)
-                device.cyclingMode.setSettings=jest.fn()
-                device.cyclingMode.getSetting=jest.fn((key)=>key==='bikeType'? 'race' : undefined)
-                device.cyclingMode.getName=jest.fn().mockReturnValue('Mock')
+                const cyclingMode = new DaumClassicCyclingMode(device)
+                device.getCyclingMode = jest.fn().mockReturnValue( cyclingMode)
+                cyclingMode.getModeProperty=jest.fn().mockReturnValue(false)
+                cyclingMode.setSettings=jest.fn()
+                cyclingMode.getSetting=jest.fn((key)=>key==='bikeType'? 'race' : undefined)
+                cyclingMode.getName=jest.fn().mockReturnValue('Mock')
 
                 bike.programUpload = jest.fn().mockReturnValue(true)
                 bike.startProgram = jest.fn().mockReturnValue(true)
@@ -580,7 +589,7 @@ describe( 'DaumPremiumAdapter', ()=>{
                 jest.useRealTimers()
             })
 
-            test('initial launch without properties',async ()=>{                
+            test('initial performStart without properties',async ()=>{                
                 bike.programUpload.mockResolvedValue(true)
                 bike.startProgram.mockResolvedValue(true)
 
@@ -601,11 +610,12 @@ describe( 'DaumPremiumAdapter', ()=>{
 
         describe('Daum Classic Mode - EPP supported', ()=>{
             beforeEach( ()=>{
-                device.cyclingMode = new CyclingModeBase(device)
-                device.cyclingMode.getModeProperty=jest.fn().mockReturnValue(true)
-                device.cyclingMode.setSettings=jest.fn()
-                device.cyclingMode.getSetting=jest.fn((key)=>key==='bikeType'? 'race' : undefined)
-                device.cyclingMode.getName=jest.fn().mockReturnValue('Mock')
+                let cyclingMode = new DaumClassicCyclingMode(device)
+                cyclingMode.getModeProperty=jest.fn().mockReturnValue(true)
+                cyclingMode.setSettings=jest.fn()
+                cyclingMode.getSetting=jest.fn((key)=>key==='bikeType'? 'race' : undefined)
+                cyclingMode.getName=jest.fn().mockReturnValue('Mock')
+                device.getCyclingMode = jest.fn().mockReturnValue( cyclingMode)
 
                 bike.programUpload = jest.fn().mockReturnValue(true)
                 bike.startProgram = jest.fn().mockReturnValue(true)
@@ -618,7 +628,7 @@ describe( 'DaumPremiumAdapter', ()=>{
                 jest.useRealTimers()
             })
 
-            test('relaunch without properties',async ()=>{                
+            test('reperformStart without properties',async ()=>{                
                 bike.programUpload.mockResolvedValue(true)
                 bike.startProgram.mockResolvedValue(true)
 
@@ -635,7 +645,7 @@ describe( 'DaumPremiumAdapter', ()=>{
                 expect(bike.setGear).not.toHaveBeenCalled()
             })
 
-            test('initial Launch without properties',async ()=>{                
+            test('initial performStart without properties',async ()=>{                
                 bike.programUpload.mockResolvedValue(true)
                 bike.startProgram.mockResolvedValue(true)
 
@@ -663,7 +673,6 @@ describe( 'DaumPremiumAdapter', ()=>{
                 expect(error).toBeUndefined()
 
                 expect(device.stop).toHaveBeenCalled()
-                expect(device.resume).toHaveBeenCalled()
                 expect(device.startUpdatePull).toBeCalled();
                 expect(device.stopped).toBeFalsy()
                 expect(device.paused).toBeFalsy()
@@ -671,7 +680,7 @@ describe( 'DaumPremiumAdapter', ()=>{
                 expect(bike.startProgram).toHaveBeenCalled()
             })
 
-            test('initial Launch with user and bike settings ',async ()=>{                
+            test('initial performStart with user and bike settings ',async ()=>{                
                 bike.programUpload.mockResolvedValue(true)
                 bike.startProgram.mockResolvedValue(true)
 
@@ -687,7 +696,7 @@ describe( 'DaumPremiumAdapter', ()=>{
                 expect(bike.startProgram).toHaveBeenCalledWith(0)
             })
 
-            test('initial Launch with route ',async ()=>{                
+            test('initial performStart with route ',async ()=>{                
                 bike.programUpload.mockResolvedValue(true)
                 bike.startProgram.mockResolvedValue(true)
 
@@ -715,7 +724,7 @@ describe( 'DaumPremiumAdapter', ()=>{
 
                 expect(started).toBeFalsy()
                 expect(error).toBeDefined()
-                expect(error?.message).toBe('could not start device, reason:Epp Upload failed')
+                expect(error?.message).toBe('Epp Upload failed')
             })
             test('startProgram commands fails permanently  ',async ()=>{
 
@@ -728,7 +737,7 @@ describe( 'DaumPremiumAdapter', ()=>{
 
                 expect(started).toBeFalsy()
                 expect(error).toBeDefined()
-                expect(error?.message).toBe('could not start device, reason:Epp start failed')
+                expect(error?.message).toBe('Epp start failed')
             })
             test('bike communication to throw error',async ()=>{
 
@@ -741,15 +750,15 @@ describe( 'DaumPremiumAdapter', ()=>{
 
                 expect(started).toBeFalsy()
                 expect(error).toBeDefined()
-                expect(error?.message).toBe('could not start device, reason:XXXXX')
+                expect(error?.message).toBe('XXXXX')
             })
 
 
             test('one of the init commands fails temporarily  ',async ()=>{
                 bike.programUpload.mockResolvedValueOnce(false).mockResolvedValue(true)
                 bike.startProgram.mockResolvedValue(true)
-
-                device._startRetryTimeout = 50;
+                device.getStartRetries= jest.fn().mockReturnValue(5)
+                
                 const {started,error} = await run( {user: {weight:100}, bikeSettings:{weight:15}}, true)
 
                 expect(started).toBeTruthy()
@@ -804,6 +813,34 @@ describe( 'DaumPremiumAdapter', ()=>{
             expect(bike.connect).toHaveBeenCalled();
             expect(bike.getTrainingData).not.toHaveBeenCalled();
 
+        })
+
+    })
+
+    describe('requiresProgramUpload',()=>{
+
+        let device
+        beforeEach( ()=>{
+            MockBinding.createPort('COM5')
+            device = new DaumPremiumAdapter( {interface:'serial', port:'COM5', protocol:'Daum Premium'})            
+        })        
+
+        test('with Epp Support',async ()=>{
+            device.getCyclingMode = jest.fn().mockReturnValue( { getModeProperty:jest.fn().mockReturnValue(true) })
+            const res = device.requiresProgramUpload()
+            expect(res).toBeTruthy()
+        })
+
+        test('without Epp Support',async ()=>{
+            device.getCyclingMode = jest.fn().mockReturnValue( { getModeProperty:jest.fn().mockReturnValue(false) })
+            const res = device.requiresProgramUpload()
+            expect(res).toBeFalsy()
+        })
+
+        test('No cycling mode set',async ()=>{
+            device.getCyclingMode = jest.fn().mockReturnValue(undefined)
+            const res = device.requiresProgramUpload()
+            expect(res).toBeFalsy()
         })
 
     })

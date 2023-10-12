@@ -339,6 +339,10 @@ describe( 'fe adapter', ()=>{
             
         })
 
+        afterEach( async ()=>{
+            await adapter.stop()
+        })
+
 
         test('normal start',async ()=>{
             adapter.connect.mockResolvedValue(true)
@@ -409,7 +413,7 @@ describe( 'fe adapter', ()=>{
             expect(error).toBeDefined()  
             expect(error.message).toBe('could not start device, reason:timeout')
             expect(adapter.started).toBeFalsy()   
-        })
+        },2000)
 
 
         test('start sensor fails once',async ()=>{

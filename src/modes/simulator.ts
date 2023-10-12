@@ -1,22 +1,11 @@
 import { EventLogger } from "gd-eventlog";
 
-import { CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, UpdateRequest } from "../modes/cycling-mode";
+import { CyclingModeProperyType, IncyclistBikeData, UpdateRequest } from "./types";
 import { Simulator } from "../simulator/Simulator";
 import PowerBasedCyclingModeBase from "./power-base";
 
 const MIN_SPEED = 10;
 
-const config = {
-    name: "Simulator",
-    description: "Simulates a ride with constant speed or power output",
-    properties: [
-        {key:'mode',name: 'Simulation Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Speed','Power'], default: 'Power'},
-        {key:'delay',name: 'Start Delay', description: 'Delay (in s) at start of training', type: CyclingModeProperyType.Integer, default: 2, min:0, max:30},
-        {key:'power',name: 'Power', description: 'Power (in W) at start of training', condition: (s)=> !s.mode || s.mode==='Power', type: CyclingModeProperyType.Integer, default: 150, min:25, max:800},
-        {key:'speed',name: 'Speed', description: 'Speed (in km/h) at start of training', condition: (s)=> s.mode==='Speed', type: CyclingModeProperyType.Integer, default: 30, min:5, max:50},
-        {key:'bikeType',name: 'Bike Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Race','Mountain','Triathlon'], default: 'Race'}
-    ]
-}
 
 export type ERGEvent = {
     rpmUpdated?: boolean;
@@ -27,66 +16,33 @@ export type ERGEvent = {
 
 
 export default class SimulatorCyclingMode extends PowerBasedCyclingModeBase { 
-
-
-    static isERG = true
+   
+    protected static config = {
+        isERG: true,
+        name: "Simulator",
+        description: "Simulates a ride with constant speed or power output",
+        properties: [
+            {key:'mode',name: 'Simulation Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Speed','Power'], default: 'Power'},
+            {key:'delay',name: 'Start Delay', description: 'Delay (in s) at start of training', type: CyclingModeProperyType.Integer, default: 2, min:0, max:30},
+            {key:'power',name: 'Power', description: 'Power (in W) at start of training', condition: (s)=> !s.mode || s.mode==='Power', type: CyclingModeProperyType.Integer, default: 150, min:25, max:800},
+            {key:'speed',name: 'Speed', description: 'Speed (in km/h) at start of training', condition: (s)=> s.mode==='Speed', type: CyclingModeProperyType.Integer, default: 30, min:5, max:50},
+            {key:'bikeType',name: 'Bike Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Race','Mountain','Triathlon'], default: 'Race'}
+        ]
+    }
     logger: EventLogger;
     data: IncyclistBikeData ;
     prevRequest: UpdateRequest;
     prevUpdateTS: number = 0;
-    hasBikeUpdate: boolean = false;
-    chain: number[];
-    cassette: number[];
     event: ERGEvent ={};
 
     constructor(adapter: Simulator, props?:any) {
-
         super(adapter,props);
-        this.logger = adapter.logger || new EventLogger('SIMMode')           
-        this.data = {} as any;
-
-        this.logger.logEvent({message:'constructor',props})
-    }
-    getName(): string {
-        return config.name;
-    }
-    getDescription(): string {
-        return config.description;
-    }
-    getProperties(): CyclingModeProperty[] {
-        return config.properties;
-    }
-    getProperty(name: string): CyclingModeProperty {
-        return config.properties.find(p => p.name===name);
+        this.initLogger('SIMMode')
     }
 
     getBikeInitRequest(): UpdateRequest {        
         return { };
     }    
-
-    sendBikeUpdate(request: UpdateRequest): UpdateRequest {
-
-        this.logger.logEvent({message:'bike update request',request})
-        
-
-        const r = request || { refresh:true} as any
-        if ( r.refresh) {
-            if (Object.keys(r).length===1)
-                return this.prevRequest || {};
-            delete r.refresh;
-        }
-
-        if (request.slope!==undefined) {
-            if (!this.data) this.data = {} as any;
-            this.data.slope = request.slope;
-        }
-
-        
-
-        this.prevRequest = request ? JSON.parse(JSON.stringify(request)) : {} as any;
-        return r;
-        
-    }
 
 
     updateData(bikeData: IncyclistBikeData): IncyclistBikeData {

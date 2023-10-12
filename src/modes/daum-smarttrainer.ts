@@ -1,24 +1,13 @@
 import { EventLogger } from "gd-eventlog";
-import CyclingMode, { CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, Settings, UpdateRequest,CyclingModeBase } from "../../modes/cycling-mode";
-import calc from '../../utils/calculations'
-import { ControllableDeviceAdapter } from "../..";
-import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "./classic/utils";
+import ICyclingMode, { CyclingModeProperyType, IncyclistBikeData, Settings, UpdateRequest } from "./types";
+import calc from '../utils/calculations'
+import { IncyclistDeviceAdapter } from "..";
+import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../serial/daum/classic/utils";
+import { CyclingModeBase } from "./base";
 
 const SEC_DELAY = 3;
 
 
-const config = {
-    name: "SmartTrainer",
-    description: "Calculates power based on speed and slope.",
-    properties: [
-        {key:'bikeType',name: 'Bike Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Race','Mountain','Triathlon'], default: 'Race'},
-        {key:'startPower',name: 'Starting Power', description: 'Initial power in Watts at start of training', type: CyclingModeProperyType.Integer, default: 50},
-        {key:'minPower',name: 'Minimum Power', description: 'Minimum power in declines', type: CyclingModeProperyType.Integer, default: 50},
-        {key:'simulation',name: 'Simulate ', description: 'Simulate ', type: CyclingModeProperyType.Boolean, default: false},
-        {key:'chainRings',name: 'Chain Rings', description: 'Simulated chain rings (format: <min>-<max>)', type: CyclingModeProperyType.String, validation:'', default:'36-52', condition:(s)=>s.simulation},
-        {key:'cassetteRings',name: 'Cassette', description: 'Simulated cassette (format: <min>-<max>)', type: CyclingModeProperyType.String, validation:'', default:'11-30', condition:(s)=>s.simulation},
-    ]
-}
 
 interface STUpdateRequest extends UpdateRequest {
     calculatedPower?: number;
@@ -40,7 +29,7 @@ interface STEvent {
     targetNotReached?: number;
 }
 
-export default class SmartTrainerCyclingMode  extends CyclingModeBase implements CyclingMode {
+export default class SmartTrainerCyclingMode  extends CyclingModeBase implements ICyclingMode {
 
     logger: EventLogger;
     data?: IncyclistBikeData;
@@ -50,24 +39,37 @@ export default class SmartTrainerCyclingMode  extends CyclingModeBase implements
     cassette: number[];
     event: STEvent = {}
 
-    constructor(adapter: ControllableDeviceAdapter, props?: Settings) {
-        super(adapter,props);
-        this.logger = adapter ? adapter.getLogger() : undefined;
-        if (!this.logger) this.logger = new EventLogger('SmartTrainer')      
+    protected static config = {
+        name: "SmartTrainer",
+        description: "Calculates power based on speed and slope.",
+        properties: [
+            {key:'bikeType',name: 'Bike Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Race','Mountain','Triathlon'], default: 'Race'},
+            {key:'startPower',name: 'Starting Power', description: 'Initial power in Watts at start of training', type: CyclingModeProperyType.Integer, default: 50},
+            {key:'minPower',name: 'Minimum Power', description: 'Minimum power in declines', type: CyclingModeProperyType.Integer, default: 50},
+            {key:'simulation',name: 'Simulate ', description: 'Simulate ', type: CyclingModeProperyType.Boolean, default: false},
+            {key:'chainRings',name: 'Chain Rings', description: 'Simulated chain rings (format: <min>-<max>)', type: CyclingModeProperyType.String, validation:'', default:'36-52', condition:(s)=>s.simulation},
+            {key:'cassetteRings',name: 'Cassette', description: 'Simulated cassette (format: <min>-<max>)', type: CyclingModeProperyType.String, validation:'', default:'11-30', condition:(s)=>s.simulation},
+        ]
     }
 
-    getName(): string {
-        return config.name;
+    constructor(adapter: IncyclistDeviceAdapter, props?: Settings) {
+        super(adapter,props);
+        this.logger = adapter ? adapter.getLogger() : undefined;
+        if (!this.logger) this.logger = new EventLogger('SmartTrainer')  
+        this.data = { speed: 0 , power:0,  distanceInternal:0, pedalRpm:0, isPedalling:false, heartrate:0}
+    
     }
-    getDescription(): string {
-        return config.description;
+
+    getData():IncyclistBikeData {
+        return this.data
     }
-    getProperties(): CyclingModeProperty[] {
-        return config.properties;
+
+    getSlope():number {
+        const {slope} = this.data
+        return slope||0;
     }
-    getProperty(name: string): CyclingModeProperty {
-        return config.properties.find(p => p.name===name);
-    }
+
+
 
     getWeight() {
         const a = this.adapter;

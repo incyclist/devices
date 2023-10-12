@@ -258,6 +258,8 @@ describe( 'bike',()=> {
 
         afterEach( async ()=> {
             await bike.close();
+            simulator.cleanup()
+
         })
 
         test('no arguments, uses 0 as default',async ()=>{
@@ -358,6 +360,8 @@ describe( 'bike',()=> {
 
         afterEach( async ()=> {
             await bike.close();
+            simulator.cleanup()
+
         })
 
         test('bike responds with bike 0',async ()=>{
@@ -408,6 +412,8 @@ describe( 'bike',()=> {
 
         afterEach( async ()=> {
             await bike.close();
+            simulator.cleanup()
+
         })
 
         test('bike responds with bike 0',async ()=>{
@@ -456,6 +462,8 @@ describe( 'bike',()=> {
 
         afterEach( async ()=> {
             await bike.close();
+            simulator.cleanup()
+
         })
 
         test('no user',async ()=>{
@@ -536,6 +544,8 @@ describe( 'bike',()=> {
 
         afterEach( async ()=> {
             await bike.close();
+            simulator.cleanup()
+
         })
 
         test('bike not provided',async ()=>{
@@ -583,6 +593,8 @@ describe( 'bike',()=> {
 
         afterEach( async ()=> {
             await bike.close();
+            simulator.cleanup()
+
         })
 
         test('bike not provided',async ()=>{
@@ -635,6 +647,8 @@ describe( 'bike',()=> {
 
         afterEach( async ()=> {
             await bike.close();
+            simulator.cleanup()
+
         })
 
         test('bike not provided',async ()=>{
@@ -687,6 +701,8 @@ describe( 'bike',()=> {
 
         afterEach( async ()=> {
             await bike.close();
+            simulator.cleanup()
+
         })
 
         test('default',async ()=>{
@@ -738,11 +754,12 @@ describe( 'bike',()=> {
             DaumClassicMockImpl.getInstance().setSimulator('COM1',simulator)
 
             bike = new Daum8008( {serial:SerialInterface.getInstance({ifaceName:'serial'}), path:'COM1'})
-            await bike.connect()
+            await bike.connect()            
         })
 
         afterEach( async ()=> {
             await bike.close();
+            simulator.cleanup()
         })
 
         test('no bike',async ()=>{
@@ -799,6 +816,8 @@ describe( 'bike',()=> {
 
         afterEach( async ()=> {
             await bike.close();
+            simulator.cleanup()
+
         })
 
         test('no bike',async ()=>{
@@ -855,6 +874,8 @@ describe( 'bike',()=> {
 
         afterEach( async ()=> {
             await bike.close();
+            simulator.cleanup()
+
         })
 
         test('no bike',async ()=>{

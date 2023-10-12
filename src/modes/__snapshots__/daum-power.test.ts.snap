@@ -1,0 +1,6 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`DaumPower statics 1`] = `
+"Power and cadence are taken from device. Speed is calculated from power and current slope
+This mode will not respect maximum power and/or workout limits"
+`;

@@ -1,11 +1,13 @@
-import DeviceAdapter, { ControllableDevice } from '../base/adpater';
+import { ControllableDevice } from '../base/adpater';
 
 import {EventLogger} from 'gd-eventlog'
-import CyclingMode, { IncyclistBikeData } from '../modes/cycling-mode';
+import ICyclingMode, { CyclingMode, IncyclistBikeData } from '../modes/types';
 import SimulatorCyclingMode from '../modes/simulator';
 import { DeviceProperties, DeviceSettings } from '../types/device';
 import { IncyclistCapability } from '../types/capabilities';
 import { DeviceData } from '../types/data';
+import IncyclistDevice from '../base/adpater';
+import { IncyclistDeviceAdapter } from '../types/adapter';
 
 const DEFAULT_PROPS = {isBot:false }
 
@@ -15,24 +17,35 @@ interface SimulatorProperties extends DeviceProperties {
     activity?: any
 }
 
-export class Simulator extends ControllableDevice {
+
+export class SimulatorControl extends ControllableDevice<SimulatorProperties>{
+    getSupportedCyclingModes() : Array<typeof CyclingMode> {         
+        return [SimulatorCyclingMode]
+    }
+
+    getDefaultCyclingMode():ICyclingMode {
+        return new SimulatorCyclingMode(this.adapter as Simulator)        
+    }
+
+    async sendInitCommands():Promise<boolean> {
+        return true;
+    }
+}
+
+export class Simulator extends IncyclistDevice<SimulatorControl,SimulatorProperties> {
     static NAME = 'Simulator';
 
-    logger: EventLogger;
     speed: number;
     power: number;
     cadence: number;
     time: number;
-    iv: any;
-    started: boolean;
     slope: number;
     limit: any
     startProps?: any;
-    cyclingMode: CyclingMode;
     startTS: number;
     data: IncyclistBikeData
     isBot: boolean;
-    ignoreHrm: boolean;
+    iv:NodeJS.Timeout
     userSettings: { weight?:number};
     bikeSettings: { weight?:number};
 
@@ -42,20 +55,17 @@ export class Simulator extends ControllableDevice {
         super(settings,props);
 
         this.logger = new EventLogger  (Simulator.NAME)
+        this.setControl(new SimulatorControl(this,props))
+
         this.speed = 0;
         this.power = 0;
         this.cadence = 90;
-        this.paused = undefined;
         this.time = undefined;
-        this.iv = undefined;
-        this.started = false;
-        this.paused = false;
         this.slope = 0;
         this.limit = {};
         this.startTS = undefined;
         this.data = { isPedalling: false, power: 0, pedalRpm: 0, speed: 0, heartrate: 0, distanceInternal:0 }
         this.isBot = props.isBot || false;
-        this.ignoreHrm = false;
 
         // create a fresh instance of the CycingMode processor
         const name = this.getCyclingMode().getName();        
@@ -75,7 +85,7 @@ export class Simulator extends ControllableDevice {
         return settings.interface===this.getInterface() && settings.name === this.settings.name
     }
 
-    isSame(device:DeviceAdapter):boolean {
+    isSame(device:IncyclistDeviceAdapter):boolean {
         if (!(device instanceof Simulator))
             return false;
         return true;
@@ -85,53 +95,6 @@ export class Simulator extends ControllableDevice {
     getName() { return Simulator.NAME }
     getUniqueName(): string { return Simulator.NAME} 
     
-
-    setIgnoreHrm(ignore) {
-        this.ignoreHrm = ignore;
-    }
-
-
-    getSupportedCyclingModes() : Array<any> {         
-        const supported = []
-        supported.push(SimulatorCyclingMode);
-        return supported
-    }
-
-    getDefaultCyclingMode():CyclingMode {
-        return new SimulatorCyclingMode(this)        
-    }
-
-    getCyclingMode():CyclingMode {
-        if (!this.cyclingMode)
-            this.setCyclingMode( this.getDefaultCyclingMode());
-        return this.cyclingMode;
-    }
-
-    setCyclingMode(mode: CyclingMode|string, settings?:any) { 
-
-        let selectedMode :CyclingMode;
-
-        if ( typeof mode === 'string') {
-            const supported = this.getSupportedCyclingModes();
-            const CyclingModeClass = supported.find( M => { const m = new M(this); return m.getName() === mode })
-            if (CyclingModeClass) {
-                this.cyclingMode = new CyclingModeClass(this,settings);    
-                return;
-            }
-            selectedMode = this.getDefaultCyclingMode();
-        }
-        else {
-            selectedMode = mode;
-        }
-        this.cyclingMode = selectedMode;        
-        this.cyclingMode.setSettings(settings);
-    }
-
-
-    async sendInitCommands():Promise<boolean> {
-        return true;
-    }
-
 
     async start(props?: SimulatorProperties):Promise<boolean>  {
 
@@ -284,8 +247,6 @@ export class Simulator extends ControllableDevice {
         if (this.isBot) {
             this.logger.logEvent( {message:'Coach update',prevDist, prevTime, ...data})    
         }
-
-        if (this.ignoreHrm) delete data.heartrate;
         
         this.emitData(data )       
     }

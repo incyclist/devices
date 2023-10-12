@@ -1,13 +1,14 @@
 import { DeviceProperties } from "../types/device";
 import BleAdapter from "./base/adapter";
-import { BleDeviceSettings, BleProtocol } from "./types";
+import { BleDeviceProperties, BleDeviceSettings, BleProtocol } from "./types";
 import { BleComms } from "./base/comms";
 import { getDevicesFromServices } from "./base/comms-utils";
 import { mapLegacyProfile } from "./utils";
+import { Controllable } from "../types/adapter";
 
 export interface BleAdapterInfo {
     protocol: BleProtocol,
-    Adapter: typeof BleAdapter
+    Adapter: typeof BleAdapter<Controllable<BleDeviceProperties>>
     Comm: typeof BleComms
 }
 
@@ -16,7 +17,7 @@ export default class BleAdapterFactory {
     static _instance:BleAdapterFactory;
 
     implementations: BleAdapterInfo[]
-    instances: BleAdapter[]
+    instances: Array<BleAdapter<Controllable<BleDeviceProperties>>>
 
     static getInstance(): BleAdapterFactory {
         if (!BleAdapterFactory._instance)
@@ -36,7 +37,7 @@ export default class BleAdapterFactory {
         return this.implementations
     }
 
-    createInstance(settings:BleDeviceSettings,props?:DeviceProperties):BleAdapter {
+    createInstance(settings:BleDeviceSettings,props?:DeviceProperties):BleAdapter<Controllable<BleDeviceProperties>> {
         let {profile, protocol} = settings;
 
         const adapterSettings = Object.assign( {}, settings)
@@ -72,7 +73,7 @@ export default class BleAdapterFactory {
         return adapter
     }
 
-    removeInstance( query:{settings?:BleDeviceSettings, adapter?:BleAdapter}):void {
+    removeInstance( query:{settings?:BleDeviceSettings, adapter?:BleAdapter<Controllable<DeviceProperties>>}):void {
         let idx=-1;
 
         if (query.settings) {   
@@ -90,7 +91,7 @@ export default class BleAdapterFactory {
     }
 
 
-    register( protocol: BleProtocol, Adapter: typeof BleAdapter,Comm: typeof BleComms)  {       
+    register( protocol: BleProtocol, Adapter: typeof BleAdapter<Controllable<BleDeviceProperties>>,Comm: typeof BleComms)  {       
         const info = Object.assign({},{protocol, Adapter,Comm})
         const existing = this.implementations.findIndex( a => a.protocol===protocol) 
 
@@ -100,7 +101,7 @@ export default class BleAdapterFactory {
             this.implementations.push(info)
     }
 
-    getAllInstances(): BleAdapter[] {
+    getAllInstances(): Array<BleAdapter<Controllable<DeviceProperties>>> {
         return this.instances
     }
 
@@ -109,7 +110,7 @@ export default class BleAdapterFactory {
         const supported = BleAdapterFactory.getInstance().getAll()
         return supported.map( info => info.Comm)
     }
-    getAllSupportedAdapters(): (typeof BleAdapter)[] {
+    getAllSupportedAdapters(): Array<(typeof BleAdapter<Controllable<BleDeviceProperties>>)> {
         const supported = BleAdapterFactory.getInstance().getAll()
         return supported.map( info => info.Adapter)
     }

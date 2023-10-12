@@ -1,0 +1,22 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`DaumPremium - Standard statics 1`] = `
+"The device calculates speed and power based on slope. Incyclist will not modify any values recived from the device
+This mode will not respect maximum power and/or workout limits"
+`;
+
+exports[`DaumPremium - Standard statics 2`] = `
+[
+  {
+    "default": "Race",
+    "description": "",
+    "key": "bikeType",
+    "name": "Bike Type",
+    "options": [
+      "Race",
+      "Mountain",
+    ],
+    "type": "SingleSelect",
+  },
+]
+`;

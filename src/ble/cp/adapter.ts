@@ -1,29 +1,28 @@
 import {EventLogger} from 'gd-eventlog';
-import CyclingMode from '../../modes/cycling-mode';
-
-import PowerMeterCyclingMode from '../../modes/power-meter';
-import { IncyclistBikeData } from '../../modes/cycling-mode';
+import { IncyclistBikeData } from '../../modes/types';
 import BleCyclingPowerDevice from './comm';
-import { BleControllableAdapter }  from '../base/adapter';
+import BleAdapter, { BlePowerControl } from '../base/adapter';
 import { DeviceProperties } from '../../types/device';
 import { PowerData } from './types';
 import { DeviceData } from '../../types/data';
-import { BleDeviceSettings } from '../types';
+import {  BleDeviceSettings } from '../types';
 import { IncyclistCapability } from '../../types/capabilities';
-import IncyclistDevice from '../../base/adpater';
+import { IncyclistDeviceAdapter } from '../../types/adapter';
 
-export default class PwrAdapter extends BleControllableAdapter {  
+
+export default class PwrAdapter extends BleAdapter<BlePowerControl> {  
 
     distanceInternal: number = 0;
 
     constructor( settings:BleDeviceSettings, props?:DeviceProperties) {
         super(settings,props);
 
+        this.setControl( new BlePowerControl(this, props))
         this.logger = new EventLogger('Ble-CP')
 
         const {id,address,name} = settings
         const logger = this.logger
-        const ble = this.ble
+        
         
         this.device = new BleCyclingPowerDevice( {id,address,name,logger})
         this.capabilities = [ 
@@ -33,7 +32,7 @@ export default class PwrAdapter extends BleControllableAdapter {
         
     }
 
-    isSame(device:IncyclistDevice):boolean {
+    isSame(device:IncyclistDeviceAdapter):boolean {
         if (!(device instanceof PwrAdapter))
             return false;        
         return this.isEqual(device.settings as BleDeviceSettings)
@@ -53,15 +52,6 @@ export default class PwrAdapter extends BleControllableAdapter {
         const powerStr = power ? ` (${power})` : '';
         return `${name}${powerStr}`
     }
-    
-    getDefaultCyclingMode(): CyclingMode {
-        return new PowerMeterCyclingMode(this);
-    }
-
-    getSupportedCyclingModes(): any[] {
-        return [PowerMeterCyclingMode]
-    }
-
 
 
     mapData(deviceData:PowerData): IncyclistBikeData{

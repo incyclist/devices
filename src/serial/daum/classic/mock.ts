@@ -4,7 +4,6 @@ import { BindingInterface } from '@serialport/bindings-interface'
 import { SerialInterface, SerialPortProvider } from '../../';
 import { resolveNextTick } from '../../../utils/utils';
 import calc from '../../../utils/calculations'
-import { User } from '../../../types/user';
 
 export type MockProps = {
     interface: string;
@@ -136,6 +135,7 @@ export class DaumClassicSimulator {
     _timeoutResponse: number = 0;
     _simulateNoReponseCnt:number = 0
     _simulateIllegalResponseCnt:number = 0;
+    openHandles: Array<NodeJS.Timeout> = []
 
     constructor() {
         for (let i=0;i<10;i++)
@@ -170,6 +170,14 @@ export class DaumClassicSimulator {
 
     simulateIllegalResponse(cnt=1) {
         this._simulateIllegalResponseCnt+=cnt;
+    }
+
+    addHandle(handle:NodeJS.Timeout) {
+        this.openHandles.push(handle)
+    }
+
+    cleanup() {
+        this.openHandles.forEach( to => {clearTimeout(to)})
     }
 
     isPedalling() {
@@ -267,10 +275,12 @@ export class DaumClassicMockBinding extends MockPortBinding {
                     return;
                 }
 
-                const to = this.simulator._timeoutResponse || 5
-                if (handler)
+                const toVal = this.simulator._timeoutResponse || 5
+                if (handler){
                     //handler(payload)
-                    setTimeout( ()=>{handler(payload)},to )
+                    const to = setTimeout( ()=>{handler(payload)},toVal )
+                    this.simulator.addHandle(to)
+                }
     
             }
             catch(err) {               
@@ -470,7 +480,8 @@ export class DaumClassicMockBinding extends MockPortBinding {
         if (bikeNo>=0 && bikeNo<10) {            
             this.simulator.targetPower = power
             this.simulator.isPowerMode = true
-            setTimeout( ()=>{this.simulator.currentPower = power}, 1000 )
+            const to = setTimeout( ()=>{this.simulator.currentPower = power}, 1000 )
+            this.simulator.addHandle(to)
 
             const response = Buffer.from( [0x51,bikeNo, power])
             this.emitData(response)

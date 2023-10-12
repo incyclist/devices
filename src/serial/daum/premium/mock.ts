@@ -136,7 +136,7 @@ export class Daum8MockSimulator {
     person: User = { weight:75, length:180, age:30, sex:Gender.MALE } ;
     program: Program
     data: trainingData = DEFAULT_TRAINING_DATA
-
+    openHandles: Array<NodeJS.Timeout> = []
 
     _isSimulateACKTimeout: boolean = false;
     _isSimulateCheckSumError: boolean = false;
@@ -161,6 +161,16 @@ export class Daum8MockSimulator {
 
     onNAK() {}
     onACK() {}
+
+    addHandle(handle:NodeJS.Timeout) {
+        this.openHandles.push(handle)
+    }
+
+    cleanup() {
+        this.openHandles.forEach( to => {clearTimeout(to)})
+    }
+
+
 
 }
 
@@ -250,7 +260,8 @@ export class Daum8iMockBinding extends MockPortBinding {
             }
             else {
                 
-                setTimeout( ()=>{this.processData(buffer)},5 )
+                const to = setTimeout( ()=>{this.processData(buffer)},5 )
+                this.simulator.addHandle(to)
             }
 
 
@@ -332,13 +343,14 @@ export class Daum8iMockBinding extends MockPortBinding {
                 this.simulator.onNAK()
                 // resend previous command
                 if (this.prevCommand) {
-                    const to = this.simulator.timeoutNAKRetry || 1000;
-                    setTimeout( ()=>{
+                    const toVal = this.simulator.timeoutNAKRetry || 1000;
+                    const to = setTimeout( ()=>{
                         this.emitData(this.prevCommand)
                         this.waitingForCommand = false;
                         this.waitingForAck = true;
     
-                    }, to)
+                    }, toVal)
+                    this.simulator.addHandle(to)
                 }
                     
             }
@@ -414,7 +426,8 @@ export class Daum8iMockBinding extends MockPortBinding {
             const power = Number(payload.toString())
             this.simulator.power = power;            
             // it takes a while until the bike has adjusted - this simulates the behaviour
-            setTimeout( ()=>{this.simulator.currentPower=power}, 1000)
+            const to = setTimeout( ()=>{this.simulator.currentPower=power}, 1000)
+            this.simulator.addHandle(to)
         }
         this.emitData( this.createResponse( 'S23', Buffer.from( this.simulator.power.toString()) ))
 

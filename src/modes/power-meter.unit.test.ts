@@ -1,5 +1,5 @@
 import MockAdapter from '../../test/mock-adapter';
-import PowerMeterMode,{config} from './power-meter'
+import PowerMeterMode from './power-meter'
 
 
 describe('PowerMeterMode', () => {
@@ -8,16 +8,21 @@ describe('PowerMeterMode', () => {
     beforeAll( ()=> {
         mode = new PowerMeterMode( new MockAdapter());
     })
-    describe ( 'getName', () => {
+
+
+    describe ( 'statics', () => {
         test('should always return "PowerMeter"', () => {
             expect(mode.getName()).toBe('PowerMeter');
+        })
+
+        test('suppport ERG Mode',()=>{
+            expect(PowerMeterMode.supportsERGMode()).toBe(false)                        
         })
     })
 
     describe ( 'getDescription', () => {
         test('should match description from config', () => {
             const descr = mode.getDescription();
-            expect(descr).toBe(config.description);            
             expect(descr).toMatchSnapshot();
         })
 
@@ -42,7 +47,26 @@ describe('PowerMeterMode', () => {
         })
     })
 
-    
+    describe('copyBikeData',()=>{
+        beforeEach(()=> {
+            
+        })
+
+        test('bike sends cadence info',()=>{
+            const m = new PowerMeterMode( new MockAdapter());
+            const data = m.copyBikeData({power:0, pedalRpm:0, speed:0},{power:100, pedalRpm:90,isPedalling:true, speed:30}) 
+            expect(data).toMatchObject({power:100, pedalRpm:90,isPedalling:true, speed:30})
+
+        })
+
+        test('bike does not send cadence info',()=>{
+            const m = new PowerMeterMode( new MockAdapter());
+            const data = m.copyBikeData({power:0, pedalRpm:0, speed:0},{power:100, pedalRpm:0,isPedalling:false, speed:30}) 
+            expect(data).toMatchObject({power:100, pedalRpm:0,isPedalling:true, speed:30})
+
+        })
+    })
+
     describe ( 'sendBikeUpdate', () => {
         describe('slope',()=> {
             beforeEach(()=> {

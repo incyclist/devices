@@ -2,15 +2,12 @@
 import { IChannel, ISensor, Profile } from 'incyclist-ant-plus'
 import AntInterface from './ant-interface';
 
-import IncyclistDevice, { DEFAULT_BIKE_WEIGHT } from '../base/adpater';
+import IncyclistDevice from '../base/adpater';
 import { AntDeviceProperties, AntDeviceSettings, isLegacyProfile, LegacyProfile } from './types';
 import { DeviceProperties } from '../types/device';
-import { Bike, IncyclistDeviceAdapter } from '../types/adapter';
+import { Controllable, IncyclistDeviceAdapter } from '../types/adapter';
 import { sleep } from '../utils/utils';
 import { IncyclistCapability } from '../types/capabilities';
-import CyclingMode from '../modes/cycling-mode';
-import { User } from '../types/user';
-import { DEFAULT_USER_WEIGHT,DEFAULT_PROPS } from '../base/adpater';
 import { getBrand, mapLegacyProfile } from './utils';
 
 export const DEFAULT_UPDATE_FREQUENCY  = 1000;
@@ -23,7 +20,7 @@ export type BaseDeviceData = {
     ManId?: number;
 }
 
-export default class AntAdapter<TDeviceData extends BaseDeviceData, TData> extends IncyclistDevice {
+export default class AntAdapter<DC extends Controllable<AntDeviceProperties>, TDeviceData extends BaseDeviceData, TData> extends IncyclistDevice<DC,AntDeviceProperties> {
 
     sensor: ISensor;
     lastUpdate?: number;
@@ -43,7 +40,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData, TData> exten
     protected ivWaitForData: NodeJS.Timeout
 
 
-    constructor ( settings:AntDeviceSettings, props?:DeviceProperties) {
+    constructor ( settings:AntDeviceSettings, props?:AntDeviceProperties) {
         super(settings, props)
 
         const antSettings = this.settings as AntDeviceSettings
@@ -326,87 +323,4 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData, TData> exten
 
 }
 
-export class ControllableAntAdapter<TDeviceData extends BaseDeviceData, TData> extends AntAdapter<TDeviceData, TData> implements Bike {
-    cyclingMode: CyclingMode;
-    user?:User;
-
-    constructor( settings:AntDeviceSettings, props?:AntDeviceProperties) { 
-        super(settings,props)
-        this.cyclingMode = this.getDefaultCyclingMode()
-        this.user = {}
-    }
-
-    isControllable(): boolean {
-        return true;
-    }
-    
-    setUser(user: User): void {
-        this.user = user;
-        if (!user.weight)
-            this.user.weight = DEFAULT_USER_WEIGHT
-    }
-
-
-    setBikeProps(props:DeviceProperties) {
-
-        const {user,userWeight} = props||{}
-        if (user) 
-            this.setUser(user)
-        if (userWeight)
-            this.user.weight = userWeight
-
-        const keys = Object.keys(props)
-        keys.forEach( k=> {
-            const p = props[k]
-            if (p===null) 
-                delete this.props[k]
-            else if (p!==undefined)
-                this.props[k] = p;
-        })
-    }
-
-    getWeight():number {
-
-        const {user={},props=DEFAULT_PROPS} = this;
-        const userWeight = user.weight||props.userWeight||DEFAULT_USER_WEIGHT;
-        const bikeWeight = props.bikeWeight ||DEFAULT_BIKE_WEIGHT;
-        return userWeight+bikeWeight
-    }
-
-
-    getSupportedCyclingModes(): any[] {throw new Error('not implemented')}
-    getDefaultCyclingMode(): CyclingMode {throw new Error('not implemented')}
-
-    setCyclingMode(mode: CyclingMode|string, settings?:any):void  { 
-        let selectedMode :CyclingMode;
-
-        if ( typeof mode === 'string') {
-            const supported = this.getSupportedCyclingModes();
-            const CyclingModeClass = supported.find( M => { const m = new M(this); return m.getName() === mode })
-            if (CyclingModeClass) {
-                this.cyclingMode = new CyclingModeClass(this,settings);    
-                return;
-            }
-            selectedMode = this.getDefaultCyclingMode();
-        }
-        else {
-            selectedMode = mode;
-        }
-        
-        this.cyclingMode = selectedMode;        
-        this.cyclingMode.setSettings(settings);
-    }
-
-    async sendInitCommands():Promise<boolean> {
-        return true;
-    }
-
-    getCyclingMode(): CyclingMode {
-        if (!this.cyclingMode)
-            this.setCyclingMode( this.getDefaultCyclingMode());
-        return this.cyclingMode;
-
-    }
-
-}
 

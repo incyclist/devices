@@ -1,45 +1,50 @@
-import { EventLogger } from 'gd-eventlog';
-import CyclingMode, { IncyclistBikeData } from '../../modes/cycling-mode';
-import {Bike} from '../../types/adapter'
-import ERGCyclingMode from './ERGCyclingMode';
-import SmartTrainerCyclingMode from './SmartTrainerCyclingMode';
-import PowerMeterCyclingMode from './DaumPowerMeterCyclingMode';
+import ICyclingMode, { CyclingMode, IncyclistBikeData } from '../../modes/types';
+import ERGCyclingMode from '../../modes/daum-erg';
+import SmartTrainerCyclingMode from '../../modes/daum-smarttrainer';
+import PowerMeterCyclingMode from '../../modes/daum-power';
 import {intVal} from '../../utils/utils'
 import { DeviceProperties } from '../../types/device';
 import { SerialDeviceSettings, SerialIncyclistDevice } from '../adapter';
 import { IncyclistCapability } from '../../types/capabilities';
 import { DeviceData } from '../../types/data';
 import SerialInterface from '../serial-interface';
+import DaumSerialComms  from './types';
+import { ControllableDevice } from '../../base/adpater';
+import { IncyclistDeviceAdapter } from '../../types/adapter';
 
 
 export interface IDaumAdapter  {
     getCurrentBikeData(): Promise<IncyclistBikeData>;
 }
 
-export abstract class AbstractDaumAdapter extends SerialIncyclistDevice implements IDaumAdapter {
-    abstract getCurrentBikeData(): Promise<any>
-  
+
+export class DaumControl<P extends DeviceProperties> extends ControllableDevice<P>{
+    getSupportedCyclingModes() : Array<typeof CyclingMode> { 
+        return [ERGCyclingMode,SmartTrainerCyclingMode,PowerMeterCyclingMode]
+
+    }
+
+    getDefaultCyclingMode():ICyclingMode {
+        return new ERGCyclingMode(this.adapter)
+    }
+
+    async sendInitCommands():Promise<boolean> {
+        return true;
+    }
 }
 
-export default class DaumAdapter<S extends SerialDeviceSettings, P extends DeviceProperties> extends AbstractDaumAdapter implements Bike {
 
-    bike;
-    ignoreHrm: boolean;
-    ignoreBike: boolean;
-    ignorePower: boolean;
+
+export default class DaumAdapter<DC extends DaumControl<P>, S extends SerialDeviceSettings, P extends DeviceProperties, C extends DaumSerialComms> extends SerialIncyclistDevice<DC,P> implements IDaumAdapter {
+
+    bike:C;
 
     distanceInternal: number;
 
-    paused: boolean;
-    stopped: boolean;
-    started: boolean;
-
     cyclingData: IncyclistBikeData;
     deviceData: DeviceData;
-    currentRequest;
     requests: Array<any> = []
     iv;
-    logger: EventLogger;
 
     tsPrevData: number;
     adapterTime: number=0;
@@ -47,21 +52,13 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
     requestBusy: boolean = false;
     updateBusy: boolean = false;
 
-    startPromise: Promise<unknown>
+    startPromise: Promise<boolean>
     checkPromise: Promise<boolean>
 
     constructor( settings:S,props?: P) {
         super(settings,props);
 
-        this.stopped = false;
-        this.paused = false;
-        this.started = false;
-
-        this.ignoreHrm      = false;
-        this.ignorePower    = false;
-        this.ignoreBike     = false;
-
-        this.iv             = undefined;
+        this.iv         = undefined;
 
         this.cyclingData = {
             isPedalling:false,
@@ -78,11 +75,14 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
             IncyclistCapability.Power, IncyclistCapability.Speed, IncyclistCapability.Cadence, IncyclistCapability.Gear,IncyclistCapability.HeartRate, 
             IncyclistCapability.Control
         ]
+
+        
+        this.setControl( new DaumControl(this,props) as DC)
         
     }
 
     getPort() {
-        return this.bike.getPort();
+        return this.bike?.getPort();
     }
 
     getSerialInterface():SerialInterface {
@@ -90,30 +90,6 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
     }
 
 
-    setCyclingMode(mode: CyclingMode|string, settings?:any) { 
-        let selectedMode :CyclingMode = this.cyclingMode;
-
-        if ( typeof mode === 'string') {
-
-            if ( !this.cyclingMode || this.cyclingMode.getName()!==mode) {
-                const supported = this.getSupportedCyclingModes();
-                const CyclingModeClass = supported.find( M => { const m = new M(this); return m.getName() === mode })
-                if (CyclingModeClass) {
-                    this.cyclingMode = new CyclingModeClass(this,settings);    
-                    return;
-                }
-                selectedMode = this.getDefaultCyclingMode();
-    
-            }
-            
-
-        }
-        else {
-            selectedMode = mode;
-        }
-        this.cyclingMode = selectedMode;        
-        this.cyclingMode.setSettings(settings);
-    }
     
     async sendInitCommands():Promise<boolean> {
 
@@ -131,35 +107,18 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
                 return false
             }
         }
-        else {
-            return false
-        }
+        return false
         
     }
 
 
-    getSupportedCyclingModes() : Array<any> {         
-        return [ERGCyclingMode,SmartTrainerCyclingMode,PowerMeterCyclingMode]
-    }
 
-
-    getCyclingMode():CyclingMode {
-        if (!this.cyclingMode)
-            this.setCyclingMode( this.getDefaultCyclingMode());
-        return this.cyclingMode;
-    }
-
-    getDefaultCyclingMode():CyclingMode {
-        return new ERGCyclingMode(this)        
-    }
-
-
-    
+    /* istanbul ignore next */
     getCurrentBikeData(): Promise<IncyclistBikeData> {
         throw new Error('Method not implemented.');
     }
 
-    getBike() {
+    getBike():C {
         return this.bike;
     }
 
@@ -172,10 +131,10 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         return true;
     }
 
-    isSame(device:SerialIncyclistDevice):boolean {
+    isSame(device:IncyclistDeviceAdapter):boolean {
         if (!(device instanceof DaumAdapter))
             return false;
-        const adapter = device as DaumAdapter<S,P>;
+        const adapter = device as DaumAdapter<DC,S,P,C>;
         return  (adapter.getName()===this.getName() && adapter.getPort()===this.getPort())
     }
 
@@ -198,7 +157,6 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         }
         this.deviceData = {}
 
-        this.currentRequest = {}
         this.requests   = [];
         
         // create a fresh instance of the CycingMode processor
@@ -221,7 +179,7 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         return resumed
     }
 
-    async check():Promise<boolean> {
+    async waitForPrevCheckFinished():Promise<void> {
         if (this.checkPromise) {
             this.logEvent( {message:"waiting for previous check device",port:this.getPort()});
             try {
@@ -230,11 +188,16 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
             this.logEvent( {message:"previous check device completed",port:this.getPort()});
             this.checkPromise = undefined
         }
+    }
+
+    async check():Promise<boolean> {
+
+        await this.waitForPrevCheckFinished()
+        await this.waitForPrevStartFinished()
 
         // don't perform device checks if device was stopped
         if (this.isStopped())
             return false;
-
 
         this.checkPromise = this.performCheck()
         try {
@@ -248,45 +211,59 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         }
     }
 
+    /* istanbul ignore next */
     async performCheck():Promise<boolean> {
         throw new Error('Method not implemented.');
     }
 
+    async waitForPrevStartFinished() {
+        if (this.startPromise) {
+            this.logEvent( {message:"waiting for previous device launch",port:this.getPort()});
+            try {
+                await this.startPromise
+            } catch{}
+            this.logEvent( {message:"previous device launch attempt completed",port:this.getPort()});
+            this.startPromise = undefined
+        }
+    }
+
     async start(props?:P):Promise<boolean> {
+
+        await this.waitForPrevCheckFinished()
+        await this.waitForPrevStartFinished()
+
         const isRelaunch = this.started
         const message = isRelaunch ? 'relaunch of device' :'initial start of device';
         
         this.logEvent({message});
 
         try {
+            if (isRelaunch && this.isPaused())
+                this.resume()
 
-            if (!this.startPromise) {
-                if (isRelaunch) {
-                    await this.stop();              // stop the worker intervals
-                    this.bike.resumeLogging()   
+            this.startPromise = this.performStart(props, isRelaunch).then( async (started):Promise<boolean>=>{
+                if (!started) {
+                    this.logEvent({message: 'start result: not started'})
+                    this.started = false
+                    return false;
+                }
+
+                if (!isRelaunch) {
+                    try {
+                        const deviceInfo = await this.getDeviceInfo()
+                        this.logEvent({message: 'device info', deviceInfo })
+                    }
+                    catch {}
                 }
     
-                this.startPromise = this.performStart(props, isRelaunch)   
-            }
-            else {
-                this.logEvent({message: 'start already ongoing'})
-
-            }
-
-            await this.startPromise
-            this.startPromise = undefined
+                this.logEvent({message: 'start result: success'})
+                this.started = true;
+                return true;    
+            })
+            const started = await this.startPromise
         
-            if (!isRelaunch) {
-                try {
-                    const deviceInfo = await this.getDeviceInfo()
-                    this.logEvent({message: 'device info', deviceInfo })
-                }
-                catch {}
-            }
-
-            this.logEvent({message: 'start result: success'})
-            this.started = true;
-            return true;
+            this.startPromise = undefined
+            return started;
         }
         catch(err) {
             this.logEvent({message: 'start result: error', error: err.message})
@@ -300,40 +277,31 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
 
 
 
+    /* istanbul ignore next */
     performStart( props?: P,isRelaunch=false ): Promise<boolean> {
         throw new Error('Method not implemented.');
     }
 
-    stopUpdatePull() { 
-        if (!this.iv)
-            return;
-        
-        if (this.iv.sync) clearInterval(this.iv.sync)
-        if (this.iv.update) clearInterval(this.iv.update)
-        this.iv = undefined
-    }
-
-    startUpdatePull() {
-
-        this.logEvent({message:'start update pull', iv:this.iv, ignoreBike:this.ignoreBike,ignoreHrm: this.ignoreHrm, ignorePower:this.ignorePower })
+    startUpdatePull():void{
 
         // ignore if already  started
         if (this.iv)
             return;
 
-        // not neccessary of all device types should be ignored
-        if ( this.ignoreBike && this.ignoreHrm && this.ignorePower)
-            return;
-
+        this.logEvent({message:'start update pull', port:this.getPort()})
         const ivSync = setInterval( ()=>{
-            this.bikeSync();
-            
-
+            try {
+                this.bikeSync();                
+            }
+            catch{}
         } ,this.pullFrequency)
 
         const ivUpdate = setInterval( ()=>{
-            this.emitData(this.deviceData);
-            this.refreshRequests()
+            try {
+                this.emitData(this.deviceData);
+                this.refreshRequests()
+            }
+            catch {}
         } ,this.pullFrequency)
 
         this.iv = {
@@ -344,13 +312,24 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
 
     }
 
-    async connect():Promise<boolean> {
+    stopUpdatePull() { 
+        if (!this.iv)
+            return;
         
+        this.logEvent({message:'stop update pull', port:this.getPort()})
+        clearInterval(this.iv.sync)
+        clearInterval(this.iv.update)
+        this.iv = undefined
+    }
+
+    async connect():Promise<boolean> {
+        if (!this.bike)
+            return false;
+
         if(this.bike.isConnected())
             return true
 
-        try {
-        
+        try {        
             const connected =  await this.bike.connect()
             return connected
         }
@@ -362,31 +341,20 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
     }
 
     async close():Promise<boolean> {
+        if (!this.bike)
+            return true;
+
         if(!this.bike.isConnected())
             return true;
         return await this.bike.close();        
     }
 
-    async verifyConnection():Promise<void> {
+    async verifyConnection():Promise<void> {        
         if(!this.bike.isConnected()) {
             const connected = await this.bike.connect();
             if(!connected)
                 throw new Error('not connected')
         }    
-    }
-
-    logEvent( event) {
-        if (!this.logger)
-            return;
-        this.logger.logEvent(event);
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const w = global.window as any
- 
-        if (w?.DEVICE_DEBUG) {
-            console.log(`~~~ ${this.logger.getName()}`,event)
-        }
-
     }
 
     async reconnect(): Promise<boolean> {
@@ -399,39 +367,44 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
             return false;
         }
     }
+
+    logEvent( event) {
+        if (!this.logger || this.paused)
+            return;
+        this.logger.logEvent(event);
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const w = global.window as any
+ 
+        /* istanbul ignore next */
+        if (w?.DEVICE_DEBUG) {
+            console.log(`~~~ ${this.logger.getName()}`,event)
+        }
+
+    }
           
 
-    stop(): Promise<boolean> {
+    async stop(): Promise<boolean> {
 
         if (this.stopped)
-            return Promise.resolve(true);
+            return true;
 
         this.logEvent({message:'stop request'});        
-
         if (this.paused)
             this.resume()
 
-        this.stopped = true;
-        return new Promise( async (resolve,reject) => {
-            try {
-                if ( this.iv ) {
-                    if ( this.iv.sync) clearInterval(this.iv.sync);
-                    if ( this.iv.update) clearInterval(this.iv.update);
-                    this.iv=undefined
-                }
-                // Daum Classic has a worker intervall, which needs to be stopped
-                if (this.bike.stopWorker && typeof this.bike.stopWorker === 'function')
-                    this.bike.stopWorker();
+        try {
+            this.stopUpdatePull()
+            await this.bike.close()
+            this.logEvent({message:'stop request completed'});        
+            this.stopped = true;
+        }
+        catch (err) {
+            this.logEvent({message:'stop request failed',reason:err.message});                        
+            throw(err)
+        }
 
-                await this.bike.close()
-                this.logEvent({message:'stop request completed'});        
-                resolve(true);
-            }
-            catch (err) {
-                this.logEvent({message:'stop error',error:err.message});                        
-                reject(err);
-            }
-        })
+        return this.stopped
     }
 
     canSendUpdate(): boolean {
@@ -449,16 +422,17 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         return await this.processClientRequest(request);
     } 
 
-    async update() {
+    async update():Promise<void> {
 
         // now get the latest data from the bike
-        if (this.stopped)
+        if (!this.canSendUpdate() || this.updateBusy) 
             return;
 
         this.updateBusy = true;
-        this.getCurrentBikeData()
-        .then( bikeData => {
-           
+
+        try {
+            const bikeData = await this.getCurrentBikeData()
+
             // update Data based on information received from bike
             const incyclistData = this.updateData(bikeData)
 
@@ -467,39 +441,45 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
 
             this.updateBusy = false;
             this.emitData(data)
-        })
-        .catch(err => {
-            this.logEvent({message:'bike update error',error:err.message,stack:err.stack })
 
-            // use previous values
-            const incyclistData =this.updateData( this.cyclingData)
-            this.transformData(incyclistData);
+        }
+        catch(err) {
+            try{
+                this.logEvent({message:'bike update error',error:err.message,stack:err.stack })
+
+                // use previous values
+                const incyclistData =this.updateData( this.cyclingData)
+                this.transformData(incyclistData);
+            }
+            catch{}
 
             this.updateBusy = false;
-        })
+        }
 
     }
 
     async sendRequests() {
         if (this.stopped || this.paused)
             return;
+        if (this.requestBusy)
+            return;
 
         // if we have updates, send them to the device
         if (this.requests.length>0) {
-            const processing  =[...this.requests];
 
             // ignore previous requests, only send last one
-            const cnt = processing.length;
-            processing.forEach( async (request,idx) => {
-                if (cnt>1 && idx<cnt-1) {
-                    this.logEvent({message:'ignoring bike update request',request})
-                    this.requests.shift();
-                    return;
-                }
-            })
+            const cnt = this.requests.length;
+            if (cnt>1) {
+                this.requests.forEach( (request,idx) => {
+                    if (idx!==cnt-1) {
+                        this.logEvent({message:'ignoring bike update request',request})
+                    }
+                })
+                this.requests = [this.requests[cnt-1]]
+            }
+            let request = this.requests[0]
 
             // at this point we should have only one request remaining
-            const request = processing[0]
 
             try {
                 await this.sendRequest(request);                                   
@@ -515,28 +495,8 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
     }
 
     async bikeSync() {
-
-        // don't send any commands if we are pausing
-        if( this.paused || this.stopped) {
-            return;
-        }
-
-        // don't updat if device is still busy with previous cycle
-        if (this.updateBusy || this.requestBusy) {
-            return;
-        }
-
-        this.logEvent({message:'bikeSync', ignoreBike:this.ignoreBike});
-
-        // send bike commands unless we should "ignore" bike mode
-        if ( !this.ignoreBike) {
-            await this.sendRequests();
-        }
-
+        await this.sendRequests();
         await this.update()
-
-        
-
     }
 
     updateData(bikeData:IncyclistBikeData): IncyclistBikeData {       
@@ -580,14 +540,6 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
             deviceDistanceCounter: cyclingData.distanceInternal
         } as DeviceData;
 
-        if (this.ignoreHrm) delete data.heartrate;
-        if (this.ignorePower) { 
-            delete data.power;
-            delete data.cadence;
-        }
-        if (this.ignoreBike) {
-            data = { heartrate: data.heartrate};
-        }
 
         this.deviceData = data;
         return data
@@ -606,10 +558,10 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
             }
                
             if (request.slope!==undefined) {
-                await bike.setSlope(request.slope);
+                await bike.setTargetSlope(request.slope);
             }
             if (request.targetPower!==undefined ) {
-                await bike.setPower(request.targetPower);
+                await bike.setTargetPower(request.targetPower);
             }
             this.requestBusy = false;
             return request
@@ -656,7 +608,8 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         })
     }
 
-    async getDeviceInfo():Promise<any> {
+     /* istanbul ignore next */
+   async getDeviceInfo():Promise<any> {
         throw new Error('Method not implemented.');
     }
 }

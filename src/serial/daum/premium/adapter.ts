@@ -6,73 +6,74 @@ import { SerialCommProps } from '../../comm';
 import { SerialInterfaceType } from '../../serial-interface';
 import { User } from '../../../types/user';
 import {runWithRetries, sleep} from '../../../utils/utils';
-import DaumAdapter from '../DaumAdapter'
+import DaumAdapter, { DaumControl } from '../DaumAdapter'
 import Daum8i from './comms';
-import DaumClassicCyclingMode from './modes/daum-classic';
 import { Daum8iDeviceProperties } from './types';
 import { IncyclistBikeData } from '../../..';
+import DaumClassicCyclingMode from '../../../modes/daum-premium-standard';
 
 const PROTOCOL_NAME = "Daum Premium"
 const DAUM_PREMIUM_DEFAULT_PORT= 51955;
 const START_RETRY_TIMEOUT = 1500;
 const DEFAULT_GEAR = 10;
+const START_RETRIES = 5
 
-
-
-const getBikeProps = ( props:SerialDeviceSettings) => {
-    const {host,port=DAUM_PREMIUM_DEFAULT_PORT,interface: ifaceName} = props;
-    let serial;
-
-    if (ifaceName && typeof ifaceName ==='string') {        
-        serial = SerialInterface.getInstance({ifaceName})
-    }
-    else {
-        serial = props.interface
-    }
-
-    if (!serial || !serial.binding)
-        throw new Error(`unknonwn interface: ${ifaceName}`)
-
-    if (serial.getName()===SerialInterfaceType.TCPIP) {
-        const path = `${host}:${port}`        
-        return {serial, path}
-
-    }
-    else {
-        const path = `${port}` ;
-        return {serial, path}
-
-    }
+export class DaumPremiumControl extends DaumControl<Daum8iDeviceProperties> {
+    getSupportedCyclingModes() : Array<any> {         
+        const supported = super.getSupportedCyclingModes();
+        supported.push( DaumClassicCyclingMode);
+        return supported
+    }    
 }
 
-
-export default class DaumPremiumAdapter extends DaumAdapter<SerialDeviceSettings,Daum8iDeviceProperties>{
+export default class DaumPremiumAdapter extends DaumAdapter<DaumPremiumControl,SerialDeviceSettings,Daum8iDeviceProperties,Daum8i>{
 
     static NAME = PROTOCOL_NAME;
 
-    commProps: SerialCommProps
-    _startRetryTimeout = START_RETRY_TIMEOUT;
-    
+    commProps: SerialCommProps    
 
     constructor ( settings:SerialDeviceSettings,props?:Daum8iDeviceProperties) {
 
-        const logger  = new EventLogger('DaumPremium')
-        const commProps:SerialCommProps = {...getBikeProps(settings), logger}
-        const bike = new Daum8i(commProps)
-        
         super(settings,props)
+        this.setControl( new DaumPremiumControl(this,props))
 
-        this.bike       = bike;        
+        const logger  = new EventLogger('DaumPremium')
+        const commProps:SerialCommProps = {...this.getBikeProps(settings), logger}    
+
+        this.bike       = new Daum8i(commProps);        
         this.logger     = logger;
-        this.ignoreHrm      = false;
-        this.ignorePower    = false;
-        this.ignoreBike     = false;
-
-        this.iv         = undefined;
-        this.distanceInternal = undefined;
 
         this.initData();
     }
+
+
+    getBikeProps( props:SerialDeviceSettings)  {
+        const {host,port=DAUM_PREMIUM_DEFAULT_PORT,interface: ifaceName} = props;
+        let serial;
+    
+        if (ifaceName && typeof ifaceName ==='string') {        
+            serial = SerialInterface.getInstance({ifaceName})
+        }
+        else {
+            serial = props.interface
+        }
+    
+        if (!serial || !serial.binding)
+            throw new Error(`unknonwn interface: ${ifaceName}`)
+    
+        if (serial.getName()===SerialInterfaceType.TCPIP) {
+            const path = `${host}:${port}`        
+            return {serial, path}
+    
+        }
+        else {
+            const path = `${port}` ;
+            return {serial, path}
+    
+        }
+    }
+    
+    
 
     getName() {
         return 'Daum8i'
@@ -115,13 +116,6 @@ export default class DaumPremiumAdapter extends DaumAdapter<SerialDeviceSettings
         
     }
 
-
-    getSupportedCyclingModes() : Array<any> {         
-        const supported = super.getSupportedCyclingModes();
-        supported.push( DaumClassicCyclingMode);
-        return supported
-    }    
-
     async performCheck():Promise<boolean> {
 
         var info = {} as any
@@ -149,47 +143,37 @@ export default class DaumPremiumAdapter extends DaumAdapter<SerialDeviceSettings
                 resolve(true)
             }
             catch (err) {
-                this.logEvent( {message:"checking device failed", port:this.getPort(), reason:err.message||err});
+                this.logEvent( {message:"checking device failed", port:this.getPort(), reason:err.message});
                 resolve(false)
             }
         })
     }
 
-
-    async start(props:Daum8iDeviceProperties={}) {
-        this.logEvent({message:'initial start of device'});        
-
-        try {
-            await this.launch(props,false)
-            return true;
-        }
-        catch(err) {
-            this.logEvent({message: 'start result: error', error: err.message})
-            throw err
-        }
+    getStartRetries() {
+        return START_RETRIES
     }
 
-    async launch(props:Daum8iDeviceProperties={}, isRelaunch=false) {
+    getStartRetryTimeout() {
+        return START_RETRY_TIMEOUT
+    }
 
-        const isPaused = this.isPaused()!==false
-        
+    async performStart(props:Daum8iDeviceProperties={},_isRelaunch:boolean=false) {
+
+        // relaunch argument will be ignored: we will always perform a fresh start, as we might have to upload the route data as part of the start procedure
+
         this.setBikeProps(props)
-
-        const user: User = this.user
-        const {route,onStatusUpdate,gear} = props
-
-        var info = {} as any
         this.initData();   
-        
+    
+        // Always stop, even in case of relaunch
         await this.stop();
-        
-        return runWithRetries( async ()=>{
-           
+        var info = {} as any
 
+        await runWithRetries( async ()=>{
+           
             try {
                 
-                const connected = await this.connect();
-                if (!connected)
+                info.connected = await this.connect();
+                if (!info.connected)
                     throw new Error('not connected')
 
                 if (!info.deviceType) {
@@ -198,10 +182,13 @@ export default class DaumPremiumAdapter extends DaumAdapter<SerialDeviceSettings
                 if (!info.version) {
                     info.version = await this.bike.getProtocolVersion();
                 }
-               
-                if ( this.getCyclingMode().getModeProperty('eppSupport') ) {
-                    const bikeType = this.getCyclingMode().getSetting('bikeType')
 
+                const user: User = this.getUser()
+                const {route,onStatusUpdate,gear} = props
+
+                if ( this.requiresProgramUpload() ) {
+                    const bikeType = this.getCyclingMode().getSetting('bikeType')
+            
                     if (!info.upload) {
                         info.upload = await this.bike.programUpload( bikeType, route, onStatusUpdate);
                         if (!info.upload)
@@ -224,29 +211,37 @@ export default class DaumPremiumAdapter extends DaumAdapter<SerialDeviceSettings
                 }
 
                 if (!this.getCyclingMode().getModeProperty('eppSupport')) {
-                    info.gear = await this.bike.setGear( this.cyclingData.gear || gear || DEFAULT_GEAR);                        
+                    info.gear = await this.bike.setGear( this.cyclingData.gear || gear || DEFAULT_GEAR);                       
                 }
                 return;
             }
             catch(err) {
                 // reconnect if very first request was failing
-                if (!info.deviceType) {
+                if (info.connected && !info.deviceType) {
                     await sleep(500)
                     await this.reconnect()                   
                 }
-                throw( new Error(`could not start device, reason:${err.message}`));
+
+                throw( err);
             }
 
-        }, 5, this._startRetryTimeout )
-        .then ( () => {
+        }, this.getStartRetries(), this.getStartRetryTimeout() )
 
-            this.stopped = false;
-            this.paused = false;
-            if (isPaused)
-                this.resume()
-            this.startUpdatePull();
-            return true;
-        })
+
+        this.stopped = false;
+        this.paused = false;
+        this.started = true;
+
+        this.startUpdatePull();
+        return true;
+
+    }
+
+    requiresProgramUpload():boolean {
+        if (!this.getCyclingMode())
+            return false;
+
+        return this.getCyclingMode().getModeProperty('eppSupport')
     }
 
 
@@ -256,12 +251,8 @@ export default class DaumPremiumAdapter extends DaumAdapter<SerialDeviceSettings
     }
 
     async getDeviceInfo():Promise<any> {
-        if (this.stopped)
-            return;
-
         const deviceType = await this.bike.getDeviceType()
         const version = await this.bike.getProtocolVersion();
-
         return {deviceType,version}
     }
 

@@ -1,6 +1,6 @@
-import { SerialInterface, SerialPortProvider } from "../serial"
+import { SerialPortProvider } from "../serial"
 import { Daum8iMock, Daum8iMockImpl } from "./daum/premium/mock"
-import {SerialAdapterFactory, SerialIncyclistDevice} from "./"
+import {SerialAdapterFactory} from "./"
 
 import DaumClassicAdapter from './daum/classic/adapter'
 import DaumPremiumAdapter from './daum/premium/adapter';
@@ -61,7 +61,7 @@ describe('SerialAdapterFactory',()=>{
                 port: "COM5"
             }
 
-            device = af.createInstance(settings) as SerialIncyclistDevice;
+            device = af.createInstance(settings)
             expect(device).toBeDefined()
             expect(device?.getName()).toBe('Daum8i')
 
@@ -82,7 +82,7 @@ describe('SerialAdapterFactory',()=>{
                 port: "COM6"
             }
 
-            device = af.createInstance(settings) as SerialIncyclistDevice;
+            device = af.createInstance(settings) 
             expect(device).toBeDefined()
             expect(device?.getName()).toBe('Daum8i')
 
@@ -127,7 +127,7 @@ describe('SerialAdapterFactory',()=>{
                 port: "COM5"
             }
 
-            device = af.createInstance(settings) as SerialIncyclistDevice;
+            device = af.createInstance(settings) 
 
 
             expect(device).toBeDefined()
@@ -152,7 +152,7 @@ describe('SerialAdapterFactory',()=>{
                 port: "COM6"
             }
 
-            device = af.createInstance(settings) as SerialIncyclistDevice;
+            device = af.createInstance(settings) 
             expect(device).toBeDefined()
             expect(device?.getName()).toBe('Kettler Racer')
 

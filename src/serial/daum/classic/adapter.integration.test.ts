@@ -2,10 +2,10 @@ import { MockBinding } from "@serialport/binding-mock";
 import { EventLogger } from "gd-eventlog";
 import { DaumClassicAdapter } from "../..";
 import SerialPortProvider from "../../serialport";
-import DaumClassicCyclingMode from "./modes/daum-classic";
-import DaumPowerMeterCyclingMode from "../DaumPowerMeterCyclingMode";
-import ERGCyclingMode from "../ERGCyclingMode";
-import SmartTrainerCyclingMode from "../SmartTrainerCyclingMode";
+import DaumClassicCyclingMode from "../../../modes/daum-classic-standard";
+import DaumPowerMeterCyclingMode from "../../../modes/daum-power";
+import ERGCyclingMode from "../../../modes/daum-erg";
+import SmartTrainerCyclingMode from "../../../modes/daum-smarttrainer";
 import { DaumClassicMock, DaumClassicMockImpl, DaumClassicSimulator } from "./mock";
 import { sleep } from "../../../utils/utils";
 
@@ -40,6 +40,7 @@ describe('DaumClassicAdapter #integration',()=>{
     afterEach( async ()=>{
         try {
             await device.close()
+            await device.stop();
         }
         catch {}
     },50000)

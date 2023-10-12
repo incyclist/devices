@@ -6,7 +6,9 @@ import { TCPBinding } from './bindings/tcp'
 
 import {SerialAdapterFactory,SerialIncyclistDevice} from '.'  // Import needs to be from here so that the adapters are registered
 
-import CyclingMode from '../modes/cycling-mode'
+import CyclingMode from '../modes/types'
+import { ControllableDevice } from '../base/adpater'
+import { DeviceProperties } from '../types/device'
 
 describe('SerialInterface',()=>{
 
@@ -107,7 +109,7 @@ describe('SerialInterface',()=>{
             const serial = new SerialInterface({ifaceName:SerialInterfaceType.SERIAL,binding:MockBinding})
 
 
-            class MockAdapter extends SerialIncyclistDevice {
+            class MockAdapter extends SerialIncyclistDevice<ControllableDevice<DeviceProperties>,DeviceProperties> {
                 async check(): Promise<boolean> {
                     return true
                 }
@@ -134,7 +136,7 @@ describe('SerialInterface',()=>{
 
 
 
-            class MockAdapter extends SerialIncyclistDevice {
+            class MockAdapter extends SerialIncyclistDevice<ControllableDevice<DeviceProperties>,DeviceProperties> {
                 async check(): Promise<boolean> {
                     return true
                 }

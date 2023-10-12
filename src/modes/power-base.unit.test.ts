@@ -1,14 +1,12 @@
-import MockAdapter from '../../test/mock-adapter';
+import MockAdapter, { MockConfig } from '../../test/mock-adapter';
 import PowerMeterMode from './power-base'
 
 
 
 describe('PowerMeterMode', () => {
 
-    let mode;
-    beforeAll( ()=> {
-        mode = new PowerMeterMode( new MockAdapter());
-    })
+    let mode
+
 
     describe ( 'getWeight', () => { 
         const DEFAULT_WEIGHT = 85;
@@ -16,6 +14,7 @@ describe('PowerMeterMode', () => {
         describe ( 'adapter has getWeight()', () => { 
             let testWeight;
             beforeAll(()=> {
+                mode = new PowerMeterMode( new MockAdapter(),MockConfig);
                 mode.adapter.getWeight = ()=> testWeight;
             })
 
@@ -43,7 +42,7 @@ describe('PowerMeterMode', () => {
     describe ( 'calculateSpeedAndDistance', () => { 
 
         beforeEach( ()=> {
-            mode = new PowerMeterMode( new MockAdapter());
+            mode = new PowerMeterMode( new MockAdapter(),MockConfig);
         })
 
         type TestData = {
@@ -116,7 +115,7 @@ describe('PowerMeterMode', () => {
     describe ( 'calculatePowerAndDistance', () => { 
 
         beforeEach( ()=> {
-            mode = new PowerMeterMode( new MockAdapter());
+            mode = new PowerMeterMode( new MockAdapter(),MockConfig);
         })
 
 
@@ -153,4 +152,40 @@ describe('PowerMeterMode', () => {
 
 
     })
+
+    describe( 'getTimeSinceLastUpdate',()=>{
+
+        let m:PowerMeterMode
+        beforeEach( ()=> {
+            m = new PowerMeterMode( new MockAdapter(),MockConfig);
+            jest.useFakeTimers().setSystemTime(new Date('2020-01-01'));
+        })
+
+        afterEach( ()=>{
+            jest.useRealTimers()
+        })
+
+        test('no update',()=>{
+            const res = m.getTimeSinceLastUpdate()
+            expect(res).toBe(0)
+        })
+        test('single update',()=>{
+            let res;
+
+            res = m.getTimeSinceLastUpdate()
+            expect(res).toBe(0)
+
+            m.updateData({power:0, speed:0, pedalRpm:0})
+            res = m.getTimeSinceLastUpdate()
+            expect(res).toBe(0)
+
+            jest.advanceTimersByTime(1000)
+            res = m.getTimeSinceLastUpdate()
+            expect(res).toBe(1)
+
+        })
+        
+    })    
+
+
 })

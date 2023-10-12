@@ -4,15 +4,16 @@ import {INTERFACE} from './types/device'
 import InterfaceFactory from './interfaces'
 import AdapterFactory from './adapters'
 import { IncyclistInterface,InterfaceProps } from './types/interface'
-import { IncyclistDeviceAdapter,Bike as Controllable } from './types/adapter'
+import { IncyclistDeviceAdapter,IBike,Controllable } from './types/adapter'
 import { ControllableDevice as ControllableDeviceAdapter } from './base/adpater'
 import { IncyclistCapability } from './types/capabilities'
 import { DeviceData } from './types/data'
-import  {DeviceSettings} from './types/device'
-import  CyclingMode from './modes/cycling-mode'
+import  {DeviceSettings,DeviceProperties} from './types/device'
+import  ICyclingMode from './modes/types'
 import calc from './utils/calculations'
 
-export * from './modes/cycling-mode'
+export * from './modes/types'
+
 
 
 export * from './serial'
@@ -23,14 +24,14 @@ export {
     IncyclistInterface,
     INTERFACE,
     InterfaceFactory,InterfaceProps,
-    DeviceSettings,
-    CyclingMode,
+    DeviceSettings,DeviceProperties,
+    ICyclingMode,
     AdapterFactory,
+    
 
     IncyclistDeviceAdapter,Controllable,ControllableDeviceAdapter,
     DeviceData,
-    IncyclistCapability,
-
+    IncyclistCapability,    
     calc,
 
 }

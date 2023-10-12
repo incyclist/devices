@@ -4,13 +4,13 @@ import { MockBinding } from '@serialport/binding-mock';
 import { SerialPortProvider,SerialInterface } from '../..';
 
 import {Daum8iMock, Daum8iMockImpl, Daum8MockSimulator} from './mock'
-import { ACTUAL_BIKE_TYPE } from '../constants';
+import { ACTUAL_BIKE_TYPE } from '../consts';
 import { Gender } from '../../../types/user';
 import { EventEmitter } from 'stream';
 import { sleep } from '../../../utils/utils';
 import { hexstr } from './utils';
 import { Route } from "../../../types/route";
-import { IncyclistBikeData } from '../../../modes/cycling-mode';
+import { IncyclistBikeData } from '../../../modes/types';
 import { ACKTimeout, ResponseObject } from './types';
 
 if ( process.env.DEBUG===undefined)
@@ -834,6 +834,7 @@ describe( 'Daum8i', ()=> {
 
         afterEach( async ()=> {
             await bike.close();
+            simulator.cleanup()
         })
 
         test('getProtocolVersion',async ()=> {
@@ -942,7 +943,7 @@ describe( 'Daum8i', ()=> {
                 }
                 catch(err) { error=err}
                 expect(error.message).toBe('ACK timeout');
-            },10000)
+            },1000)
 
             
             test('response timeout',async ()=> {
@@ -1024,6 +1025,7 @@ describe( 'Daum8i', ()=> {
             simulator.power = 0
             power = await bike.setPower(120)
             expect(power).toBe(120);    
+            
 
             power = await bike.setPower(10.5)
             expect(power).toBe(10);    

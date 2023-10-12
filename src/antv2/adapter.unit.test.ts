@@ -1,4 +1,3 @@
-import { IncyclistCapability } from '../types/capabilities'
 import AntAdapter from './adapter'
 import { AntDeviceSettings } from './types';
 

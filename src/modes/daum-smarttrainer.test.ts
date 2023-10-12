@@ -1,8 +1,8 @@
-import SmartTrainerCyclingMode, { direction } from "./SmartTrainerCyclingMode";
-import { CyclingModeProperyType } from "../../modes/cycling-mode";
-import DaumAdapter from './DaumAdapter'
+import SmartTrainerCyclingMode, { direction } from "./daum-smarttrainer";
+import DaumAdapter from '../serial/daum/DaumAdapter'
 import { EventLogger } from "gd-eventlog";
-import { MockLogger } from "../../../test/logger";
+import { MockLogger } from "../../test/logger";
+import { CyclingModeProperyType } from "./types";
 
 
 if ( process.env.DEBUG===undefined)
@@ -84,6 +84,10 @@ describe( 'SmartTrainerCyclingMode',()=>{
             expect( cyclingMode.getProperties() ).toEqual( [
                 {key:'startPower',name: 'Starting Power', description: 'Starting power in watts', type: CyclingModeProperyType.Integer, default: 50} 
             ])
+        })
+
+        test('supports ERG',()=>{
+            expect(SmartTrainerCyclingMode.supportsERGMode()).toBe(false)              
         })
 
     })

@@ -5,12 +5,13 @@ import { EventLogger } from "gd-eventlog";
 import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "../types";
 import SensorFactory from "../sensor-factory";
 import { IncyclistCapability } from "../../types/capabilities";
+import { NonControllableDevice } from "../../base/adpater";
 
 type HeartRateSensorData = {
     heartrate: number;
 }
 
-export default class AntHrAdapter extends AntAdapter<HeartRateSensorState, HeartRateSensorData>{
+export default class AntHrAdapter extends AntAdapter<NonControllableDevice<AntDeviceProperties>, HeartRateSensorState, HeartRateSensorData>{
     
     static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Heartrate Monitor'
     static ANT_PROFILE_NAME:Profile = 'HR'

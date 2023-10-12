@@ -1,28 +1,28 @@
 import {EventLogger} from 'gd-eventlog';
 import PowerMeterCyclingMode from '../../modes/power-meter';
-import FtmsCyclingMode from '../../modes/ble-st-mode';
-import BleERGCyclingMode from '../../modes/ble-erg-mode';
+import FtmsCyclingMode from '../../modes/antble-smarttrainer';
+import BleERGCyclingMode from '../../modes/antble-erg';
 import BleFitnessMachineDevice from './comms';
-import BleAdapter, { BleControllableAdapter } from '../base/adapter';
-import CyclingMode, { IncyclistBikeData } from '../../modes/cycling-mode';
-import {  DeviceProperties } from '../../types/device';
+import BleAdapter, { BlePowerControl }  from '../base/adapter';
+import ICyclingMode, { CyclingMode, IncyclistBikeData } from '../../modes/types';
 import { IndoorBikeData } from './types';
 import { cRR, cwABike } from './consts';
 import { sleep } from '../../utils/utils';
 import { DeviceData } from '../../types/data';
-import { BleDeviceSettings, BleStartProperties } from '../types';
+import { BleDeviceProperties, BleDeviceSettings, BleStartProperties } from '../types';
 import { IncyclistCapability } from '../../types/capabilities';
 import { BleFmComms } from '.';
+import { ControllableDevice } from '../../base/adpater';
+import { IncyclistDeviceAdapter } from '../../types/adapter';
 
-
-
-export default class BleFmAdapter extends BleControllableAdapter {
+export default class BleFmAdapter extends BleAdapter<ControllableDevice<BleDeviceProperties> > {
    
     distanceInternal: number = 0;
     connectPromise: Promise<boolean>
 
-    constructor( settings:BleDeviceSettings, props?:DeviceProperties) {
+    constructor( settings:BleDeviceSettings, props?:BleDeviceProperties) {
         super(settings,props);
+        this.setControl( new  BlePowerControl(this,props))
 
         this.logger = new EventLogger('BLE-FM')
         const {id,address,name} = settings
@@ -37,7 +37,7 @@ export default class BleFmAdapter extends BleControllableAdapter {
 
     }
 
-    isSame(device:BleAdapter):boolean {
+    isSame(device:IncyclistDeviceAdapter):boolean {
         if (!(device instanceof BleFmAdapter))
             return false;
         return this.isEqual(device.settings as BleDeviceSettings)
@@ -56,9 +56,9 @@ export default class BleFmAdapter extends BleControllableAdapter {
         return this.getName();
     }
 
-    getSupportedCyclingModes() : Array<any> {
+    getSupportedCyclingModes() : Array<typeof CyclingMode> {
 
-        const modes =[PowerMeterCyclingMode]
+        const modes:Array<typeof CyclingMode> =[PowerMeterCyclingMode]
 
         const features = (this.getComms() as BleFmComms)?.features
         if (!features)
@@ -74,7 +74,7 @@ export default class BleFmAdapter extends BleControllableAdapter {
     }
    
  
-    getDefaultCyclingMode(): CyclingMode {
+    getDefaultCyclingMode(): ICyclingMode {
 
         const features = (this.getComms() as BleFmComms)?.features
         if (!features)

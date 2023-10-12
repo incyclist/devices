@@ -1,17 +1,28 @@
 
-import IncyclistDevice,{ DEFAULT_BIKE_WEIGHT, DEFAULT_PROPS, DEFAULT_USER_WEIGHT } from "../../base/adpater";
-import CyclingMode, { IncyclistBikeData } from "../../modes/cycling-mode";
-import { Bike } from "../../types/adapter";
+import IncyclistDevice, { ControllableDevice } from "../../base/adpater";
+import ICyclingMode, { IncyclistBikeData } from "../../modes/types";
+import { Controllable, IncyclistDeviceAdapter} from "../../types/adapter";
 import { DeviceData } from "../../types/data";
 import { DeviceProperties } from "../../types/device";
-import { User } from "../../types/user";
 import { BleComms } from "./comms";
 import BleInterface from "../ble-interface";
 import { BleDeviceProperties, BleDeviceSettings, BleStartProperties } from "../types";
+import PowerMeterCyclingMode from "../../modes/power-meter";
 
 const INTERFACE_NAME = 'ble'
 
-export default class BleAdapter  extends IncyclistDevice  { 
+export class  BlePowerControl extends ControllableDevice<BleDeviceProperties> {
+    getDefaultCyclingMode(): ICyclingMode {
+        return new PowerMeterCyclingMode(this.adapter);
+    }
+
+    getSupportedCyclingModes(): any[] {
+        return [PowerMeterCyclingMode]
+    }
+
+}
+
+export default class BleAdapter<DC extends Controllable<BleDeviceProperties>>  extends IncyclistDevice<DC,BleDeviceProperties>  { 
 
     ble: BleInterface
     deviceData: any
@@ -103,8 +114,8 @@ export default class BleAdapter  extends IncyclistDevice  {
         }
 
     }
-    isSame( adapter: BleAdapter):boolean {
-        return this.isEqual( adapter.getSettings())
+    isSame( adapter: IncyclistDeviceAdapter):boolean {
+        return this.isEqual( adapter.getSettings() as BleDeviceSettings)
     }
 
     isConnected():boolean {
@@ -146,9 +157,9 @@ export default class BleAdapter  extends IncyclistDevice  {
         if (!this.started ||!this.canSendUpdate())
             return;       
 
-        this.logEvent( {message:'onDeviceData',data:deviceData, isControllable:(this instanceof BleControllableAdapter)})        
+        this.logEvent( {message:'onDeviceData',data:deviceData, isControllable:this.isControllable()})        
 
-        if (this instanceof BleControllableAdapter) {
+        if (this.isControllable()) {
             
             // transform data into internal structure of Cycling Modes
             const mappedData = this.mapData(deviceData) as IncyclistBikeData       
@@ -260,88 +271,3 @@ export default class BleAdapter  extends IncyclistDevice  {
 
 }
 
-export class BleControllableAdapter  extends BleAdapter implements Bike  {
-
-    cyclingMode: CyclingMode;
-    user?:User;
-
-    constructor( settings:BleDeviceSettings, props?:DeviceProperties) { 
-        super(settings,props)
-        this.cyclingMode = this.getDefaultCyclingMode()
-        this.user = {}
-    }
-
-    setUser(user: User): void {
-        this.user = user;
-        if (!user.weight)
-            this.user.weight = DEFAULT_USER_WEIGHT
-    }
-
-    isControllable(): boolean {
-        return true;
-    }
-
-
-    setBikeProps(props:DeviceProperties) {
-
-        const {user,userWeight} = props||{}
-        if (user) 
-            this.setUser(user)
-        if (userWeight)
-            this.user.weight = userWeight
-
-        const keys = Object.keys(props)
-        keys.forEach( k=> {
-            const p = props[k]
-            if (p===null) 
-                delete this.props[k]
-            else if (p!==undefined)
-                this.props[k] = p;
-        })
-    }
-
-    getWeight():number {
-
-        const {user={},props=DEFAULT_PROPS} = this;
-        const userWeight = user.weight||props.userWeight||DEFAULT_USER_WEIGHT;
-        const bikeWeight = props.bikeWeight ||DEFAULT_BIKE_WEIGHT;
-        return userWeight+bikeWeight
-    }
-
-
-    getSupportedCyclingModes(): any[] {throw new Error('not implemented')}
-    getDefaultCyclingMode(): CyclingMode {throw new Error('not implemented')}
-
-    setCyclingMode(mode: CyclingMode|string, settings?:any):void  { 
-        let selectedMode :CyclingMode;
-
-        if ( typeof mode === 'string') {
-            const supported = this.getSupportedCyclingModes();
-            const CyclingModeClass = supported.find( M => { const m = new M(this); return m.getName() === mode })
-            if (CyclingModeClass) {
-                this.cyclingMode = new CyclingModeClass(this,settings);    
-                return;
-            }
-            selectedMode = this.getDefaultCyclingMode();
-        }
-        else {
-            selectedMode = mode;
-        }
-        
-        this.cyclingMode = selectedMode;        
-        this.cyclingMode.setSettings(settings);
-    }
-
-    async sendInitCommands():Promise<boolean> {
-        return true;
-    }
-
-
-    getCyclingMode(): CyclingMode {
-        if (!this.cyclingMode)
-            this.setCyclingMode( this.getDefaultCyclingMode());
-        return this.cyclingMode;
-
-    }
-
-}

@@ -1,7 +1,7 @@
 import {EventLogger} from 'gd-eventlog';
-import BleAdapter, { BleControllableAdapter } from '../base/adapter';
+import BleAdapter, { BlePowerControl } from '../base/adapter';
 import BleEliteDevice from './comms';
-import CyclingMode, { IncyclistBikeData } from '../../modes/cycling-mode';
+import ICyclingMode, { IncyclistBikeData } from '../../modes/types';
 import PowerMeterCyclingMode from '../../modes/power-meter';
 import { PowerData } from '../cp';
 import {  DeviceProperties } from '../../types/device';
@@ -9,6 +9,7 @@ import { DeviceData } from '../../types/data';
 import { BleDeviceSettings } from '../types';
 import { IncyclistCapability } from '../../types/capabilities';
 import { BleEliteComms } from '.';
+import { IncyclistDeviceAdapter } from '../../types/adapter';
 
 /**
  * WORK IN PROGRESS --- DON'T USE YET
@@ -18,7 +19,7 @@ import { BleEliteComms } from '.';
 
 
  
-export default class BleEliteAdapter extends BleControllableAdapter {
+export default class BleEliteAdapter extends BleAdapter<BlePowerControl> {  
 
     
     distanceInternal: number = 0;
@@ -26,6 +27,7 @@ export default class BleEliteAdapter extends BleControllableAdapter {
 
     constructor( settings:BleDeviceSettings, props?:DeviceProperties) {
         super(settings,props);
+        this.setControl(new BlePowerControl(this,props))
 
         this.logger = new EventLogger('BLE-Elite')
         const {id,address,name} = settings
@@ -39,7 +41,7 @@ export default class BleEliteAdapter extends BleControllableAdapter {
         ]
     }
 
-    isSame(device:BleAdapter):boolean {
+    isSame(device:IncyclistDeviceAdapter):boolean {
         if (!(device instanceof BleEliteAdapter))
             return false;
         
@@ -55,7 +57,7 @@ export default class BleEliteAdapter extends BleControllableAdapter {
     }
 
     
-    getDefaultCyclingMode(): CyclingMode {
+    getDefaultCyclingMode(): ICyclingMode {
         return new PowerMeterCyclingMode(this);
     }
 

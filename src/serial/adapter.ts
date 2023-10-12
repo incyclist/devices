@@ -1,5 +1,5 @@
 import { DeviceProperties, DeviceSettings } from "../types/device";
-import  { ControllableDevice} from "../base/adpater";
+import  IncyclistDevice, { ControllableDevice} from "../base/adpater";
 import SerialInterface from "./serial-interface";
 
 export interface SerialDeviceSettings extends DeviceSettings {
@@ -11,7 +11,7 @@ export interface SerialDeviceSettings extends DeviceSettings {
 
 const DEFAULT_PULL_FREQUENCY = 1000;
 
-export class SerialIncyclistDevice extends ControllableDevice  {
+export class SerialIncyclistDevice<C extends ControllableDevice<P>, P extends DeviceProperties> extends IncyclistDevice<C,P>  {
 
     pullFrequency: number;
 

@@ -3,14 +3,16 @@ import { EventLogger } from "gd-eventlog";
 import SerialComms from "../comms";
 import { Command } from "../../../types/command";
 import { runWithRetries, sleep } from "../../../utils/utils";
-import CyclingMode, { IncyclistBikeData } from "../../../modes/cycling-mode";
+import ICyclingMode, { CyclingMode, IncyclistBikeData } from "../../../modes/types";
 import PowerMeterCyclingMode from "../../../modes/power-meter";
-import ERGCyclingMode from "./modes/erg";
+import ERGCyclingMode from "../../../modes/kettler-erg";
 
 import { SerialDeviceSettings, SerialIncyclistDevice } from "../../adapter";
 import { IncyclistCapability } from "../../../types/capabilities";
 import { DeviceData } from "../../../types/data";
 import SerialInterface from "../../serial-interface";
+import { ControllableDevice } from "../../../base/adpater";
+import { IncyclistDeviceAdapter } from "../../../types/adapter";
 
 export interface KettlerRacerCommand extends Command  {
     
@@ -35,12 +37,24 @@ export interface KettlerBikeData {
 
 const PROTOCOL_NAME = 'Kettler Racer'
 
+export class KettlerControl<P extends DeviceProperties> extends ControllableDevice<P>{
+    getSupportedCyclingModes() : Array<typeof CyclingMode> { 
+        return [ PowerMeterCyclingMode, ERGCyclingMode]
 
-export default class KettlerRacerAdapter   extends SerialIncyclistDevice   {
+    }
+
+    getDefaultCyclingMode():ICyclingMode {
+        return new ERGCyclingMode(this.adapter);
+    }
+
+    async sendInitCommands():Promise<boolean> {
+        return true;
+    }
+
+}
+
+export default class KettlerRacerAdapter   extends SerialIncyclistDevice<KettlerControl<DeviceProperties>,DeviceProperties>   {
     private id: string;
-    private ignoreHrm: boolean;
-    private ignoreBike: boolean;
-    private ignorePower: boolean;
     private iv : { sync: NodeJS.Timeout, update: NodeJS.Timeout };
     private requests: Array<any> = []
     private data: DeviceData;
@@ -75,7 +89,7 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice   {
         return PROTOCOL_NAME
     }
 
-    isSame(device:SerialIncyclistDevice):boolean {
+    isSame(device:IncyclistDeviceAdapter):boolean {
         if (!(device instanceof KettlerRacerAdapter))
             return false;
         const adapter = device as KettlerRacerAdapter;
@@ -757,17 +771,7 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice   {
     
     }
 
-    // -----------------------------------------------------------------
-    // Implementation of Bike interface
-    // -----------------------------------------------------------------
-
-    getSupportedCyclingModes(): any[] {
-        return [ PowerMeterCyclingMode, ERGCyclingMode]
-    }
-
-    getDefaultCyclingMode(): CyclingMode {
-        return new ERGCyclingMode(this);
-    }
+ 
 
 
 

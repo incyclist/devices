@@ -1,0 +1,20 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`BLE-SmartTrainer statics 1`] = `"Calculates speed based on power and slope. Slope is set to the device"`;
+
+exports[`BLE-SmartTrainer statics 2`] = `
+[
+  {
+    "default": "Race",
+    "description": "",
+    "key": "bikeType",
+    "name": "Bike Type",
+    "options": [
+      "Race",
+      "Mountain",
+      "Triathlon",
+    ],
+    "type": "SingleSelect",
+  },
+]
+`;

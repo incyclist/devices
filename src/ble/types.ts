@@ -2,6 +2,9 @@ import EventEmitter from "events";
 import { EventLogger } from "gd-eventlog";
 import { DeviceProperties, DeviceSettings, DeviceStartProperties, IncyclistScanProps } from "../types/device";
 import { InterfaceProps } from "../types/interface";
+import { ControllableDevice } from "../base/adpater";
+import { ICyclingMode } from "..";
+import PowerMeterCyclingMode from "../modes/power-meter";
 
 export type BleProtocol = 'hr' | 'fm' | 'cp' | 'tacx' | 'wahoo' | 'elite'
 export type BleInterfaceState  =  'unknown' | 'resetting' | 'unsupported' | 'unauthorized' | 'poweredOff'|  'poweredOn'

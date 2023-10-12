@@ -1,9 +1,11 @@
+import { ControllableDevice } from '../base/adpater';
+import { DeviceProperties } from '../types/device';
 import { SerialIncyclistDevice, SerialDeviceSettings } from './adapter';
 
 
 export default class SerialAdapterFactory {
     static _instance:SerialAdapterFactory;
-    adapters: {protocol:string, AdapterClass:typeof SerialIncyclistDevice}[]
+    adapters: Array<{protocol:string, AdapterClass:typeof SerialIncyclistDevice<ControllableDevice<DeviceProperties>, DeviceProperties> }>
 
     static getInstance(): SerialAdapterFactory {
         if (!SerialAdapterFactory._instance)
@@ -14,7 +16,7 @@ export default class SerialAdapterFactory {
         this.adapters = []
     }
 
-    registerAdapter( protocol:string, AdapterClass:typeof SerialIncyclistDevice):void {
+    registerAdapter( protocol:string, AdapterClass:typeof  SerialIncyclistDevice<ControllableDevice<DeviceProperties>, DeviceProperties> ):void {
         const existing = this.adapters.findIndex( a => a.protocol===protocol)
         if (existing!==-1)
             this.adapters[existing].AdapterClass = AdapterClass

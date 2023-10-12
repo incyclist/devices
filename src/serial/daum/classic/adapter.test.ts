@@ -30,9 +30,10 @@ describe( 'DaumClassicAdapter', ()=>{
             device.isStopped = jest.fn( ()=>false)
             device.connect = jest.fn( ()=>Promise.resolve(true))
 
-            device.bike.isConnected = jest.fn( ()=>false)
-            device.bike.getAddress = jest.fn( ()=>Promise.resolve( 0))
-            device.bike.getVersion = jest.fn( ()=>Promise.resolve( {serialNo:'123', cockpit:'8008'}))
+
+            device.getBike().isConnected = jest.fn( ()=>false)
+            device.getBike().getAddress = jest.fn().mockResolvedValue({bike:0})
+            device.getBike().getVersion = jest.fn().mockResolvedValue({bike:0,serialNo:'123', cockpit:'8008'})
 
             const res = await device.check()
             expect(res).toBe(true)
@@ -46,8 +47,8 @@ describe( 'DaumClassicAdapter', ()=>{
             device.connect = jest.fn( ()=>Promise.resolve(false))
 
             device.bike.isConnected = jest.fn( ()=>false)
-            device.bike.getAddress = jest.fn( ()=>Promise.resolve( 0))
-            device.bike.getVersion = jest.fn( ()=>Promise.resolve( {serialNo:'123', cockpit:'8008'}))
+            device.getBike().getAddress = jest.fn().mockResolvedValue({bike:0})
+            device.getBike().getVersion = jest.fn().mockResolvedValue({bike:0,serialNo:'123', cockpit:'8008'})
 
             const res = await device.check()
 
@@ -61,8 +62,8 @@ describe( 'DaumClassicAdapter', ()=>{
             device.connect = jest.fn( ()=>Promise.reject( new Error('some error')))
 
             device.bike.isConnected = jest.fn( ()=>false)
-            device.bike.getAddress = jest.fn( ()=>Promise.resolve( 0))
-            device.bike.getVersion = jest.fn( ()=>Promise.resolve( {serialNo:'123', cockpit:'8008'}))
+            device.getBike().getAddress = jest.fn().mockResolvedValue({bike:0})
+            device.getBike().getVersion = jest.fn().mockResolvedValue({bike:0,serialNo:'123', cockpit:'8008'})
 
             const res = await device.check()
 

@@ -1,0 +1,29 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`BLE-ERG statics 1`] = `"Calculates speed based on power and slope. Power targets are set by workout or remain stable throughout the workout"`;
+
+exports[`BLE-ERG statics 2`] = `
+[
+  {
+    "default": "Race",
+    "description": "",
+    "key": "bikeType",
+    "name": "Bike Type",
+    "options": [
+      "Race",
+      "Mountain",
+      "Triathlon",
+    ],
+    "type": "SingleSelect",
+  },
+  {
+    "default": 50,
+    "description": "Initial power in Watts at start of training",
+    "key": "startPower",
+    "max": 800,
+    "min": 25,
+    "name": "Starting Power",
+    "type": "Integer",
+  },
+]
+`;

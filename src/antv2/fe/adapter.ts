@@ -1,17 +1,17 @@
 import { FitnessEquipmentSensor, FitnessEquipmentSensorState, ISensor, Profile } from "incyclist-ant-plus";
 
-import  { ControllableAntAdapter } from "../adapter";
+import  AntAdapter from "../adapter";
 import {getBrand} from '../utils'
 import { EventLogger } from "gd-eventlog";
-import CyclingMode, { IncyclistBikeData,UpdateRequest } from '../../modes/cycling-mode';
-import AntStCyclingMode from "../modes/ant-fe-st-mode";
-import AntFeERGCyclingMode from "../modes/ant-fe-erg-mode";
-import AntAdvSimCyclingMode from "../modes/ant-fe-adv-st-mode";
+import ICyclingMode, { CyclingMode, IncyclistBikeData,UpdateRequest } from '../../modes/types';
+import AntAdvSimCyclingMode from "../../modes/ant-fe-adv-st-mode";
 import { sleep } from "../../utils/utils";
 import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "../types";
 import SensorFactory from "../sensor-factory";
 import { IncyclistCapability } from "../../types/capabilities";
-import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/adpater";
+import { ControllableDevice, DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/adpater";
+import ERGCyclingMode from "../../modes/antble-erg";
+import SmartTrainerCyclingMode from "../../modes/antble-smarttrainer";
 
 const DEFAULT_BIKE_WEIGHT_MOUNTAIN = 14.5;
 const MAX_RETRIES = 3;
@@ -26,7 +26,22 @@ type FitnessEquipmentSensorData = {
     timestamp: number;
 }
 
-export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmentSensorState, FitnessEquipmentSensorData>{
+export class AntFeControl extends ControllableDevice<AntDeviceProperties> {
+    getSupportedCyclingModes() : Array<typeof CyclingMode> {
+        return [SmartTrainerCyclingMode,ERGCyclingMode,AntAdvSimCyclingMode]
+    }
+
+    getDefaultCyclingMode(): ICyclingMode {
+        return new SmartTrainerCyclingMode(this.adapter);
+    }
+
+    async sendInitCommands():Promise<boolean> {
+        return true;
+    }
+
+}
+
+export default class AntFEAdapter extends AntAdapter<AntFeControl,FitnessEquipmentSensorState, FitnessEquipmentSensorData>{
     static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Smart Trainer'
     static ANT_PROFILE_NAME:Profile = 'FE'
 
@@ -44,6 +59,7 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
             throw new Error('Incorrect Profile')
 
         super(settings, props)
+        this.setControl( new AntFeControl(this,props))
 
         this.deviceData = {
             DeviceID: this.sensor.getDeviceID()
@@ -93,13 +109,6 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
         return `${this.getUniqueName()}${pwrStr}`        
     }
 
-    getSupportedCyclingModes() : Array<any> {
-        return [AntStCyclingMode,AntFeERGCyclingMode,AntAdvSimCyclingMode]
-    }
-
-    getDefaultCyclingMode(): CyclingMode {
-        return new AntStCyclingMode(this);
-    }
 
     getLogData(data, excludeList) {
         
@@ -278,7 +287,8 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
 
             const totalTimeout = Math.min( startupTimeout+10000, startupTimeout*2);
 
-            let to ;
+            let to, timeoutOccured=false
+
             const stopTimeoutCheck = ()=>{
                 if (to) {
                     clearTimeout(to)
@@ -291,6 +301,7 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
                 reject(new Error(`could not start device, reason:timeout`))
                 this.started = false
                 to = null;
+                timeoutOccured = true;
 
             }, totalTimeout)
 
@@ -302,7 +313,7 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
             let retry =0;
             let hasData = false;
 
-            while (!success && retry<MAX_RETRIES) {
+            while (!success && retry<MAX_RETRIES && !timeoutOccured) {
                 retry++;
 
                 if (!this.sensorConnected) {
@@ -450,7 +461,7 @@ export default class AntFEAdapter extends ControllableAntAdapter<FitnessEquipmen
     async sendInitCommands():Promise<boolean> {
         if (this.started && !this.stopped) {
             try {
-                if (this.getCyclingMode() instanceof AntFeERGCyclingMode) {
+                if (this.getCyclingMode() instanceof ERGCyclingMode) {
                 
                     const power = this.data.power
                     const request = power ? {targetPower:power} : this.getCyclingMode().getBikeInitRequest()

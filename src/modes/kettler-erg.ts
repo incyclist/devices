@@ -1,17 +1,8 @@
-import CyclingMode, { CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, UpdateRequest } from '../../../../modes/cycling-mode';
-import KettlerAdapter from "../adapter";
-import PowerBasedCyclingModeBase from '../../../../modes/power-base';
+import ICyclingMode, { CyclingModeProperyType, IncyclistBikeData, UpdateRequest } from './types';
+import PowerBasedCyclingModeBase from './power-base';
+import { IncyclistDeviceAdapter } from '../types/adapter';
 
 const MIN_SPEED = 10;
-
-const config = {
-    name: "ERG",
-    description: "Calculates speed based on power and slope. Power is either set by a workout",
-    properties: [
-        {key:'bikeType',name: 'Bike Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Race','Mountain','Triathlon'], default: 'Race'},
-        {key:'startPower',name: 'Starting Power', description: 'Initial power in Watts at start of training', type: CyclingModeProperyType.Integer, default: 50, min:25, max:800},
-    ]
-}
 
 export type ERGEvent = {
     rpmUpdated?: boolean;
@@ -21,33 +12,28 @@ export type ERGEvent = {
 }
 
 
-export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements CyclingMode {
+export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements ICyclingMode {
 
-    static isERG = true
+    protected static config = {
+        isERG: true,
+        name: "ERG",
+        description: "Calculates speed based on power and slope. Power is either set by a workout",
+        properties: [
+            {key:'bikeType',name: 'Bike Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Race','Mountain','Triathlon'], default: 'Race'},
+            {key:'startPower',name: 'Starting Power', description: 'Initial power in Watts at start of training', type: CyclingModeProperyType.Integer, default: 50, min:25, max:800},
+        ]
+    }
     prevRequest: UpdateRequest;
     hasBikeUpdate: boolean = false;
     chain: number[];
     cassette: number[];
     event: ERGEvent ={};
 
-    constructor(adapter: KettlerAdapter, props?:any) {
+    constructor(adapter: IncyclistDeviceAdapter, props?:any) {
         super(adapter,props);
         this.initLogger('ERGMode')
     }
 
-
-    getName(): string {
-        return config.name;
-    }
-    getDescription(): string {
-        return config.description;
-    }
-    getProperties(): CyclingModeProperty[] {
-        return config.properties;
-    }
-    getProperty(name: string): CyclingModeProperty {
-        return config.properties.find(p => p.name===name);
-    }
 
     getBikeInitRequest(): UpdateRequest {
         const startPower = this.getSetting('startPower');
@@ -177,6 +163,7 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
             else data.time =0;
             data.heartrate=bikeData.heartrate;
             data.isPedalling=bikeData.isPedalling;
+            this.prevUpdateTS = Date.now()
     
         }
         catch (err) /* istanbul ignore next */ {

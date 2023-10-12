@@ -1,12 +1,13 @@
 import { BicyclePowerSensorState, ISensor, Profile } from "incyclist-ant-plus";
-import { ControllableAntAdapter } from "../adapter";
+import AntAdapter from "../adapter";
 import {getBrand} from '../utils'
 import { EventLogger } from "gd-eventlog";
-import CyclingMode, { IncyclistBikeData } from '../../modes/cycling-mode';
+import ICyclingMode, { CyclingMode, IncyclistBikeData } from '../../modes/types';
 import PowerMeterCyclingMode from "../../modes/power-meter";
 import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "../types";
 import SensorFactory from "../sensor-factory";
 import { IncyclistCapability } from "../../types/capabilities";
+import { ControllableDevice } from "../../base/adpater";
 
 type PowerSensorData = {
     speed: number;
@@ -17,7 +18,23 @@ type PowerSensorData = {
     timestamp: number;
 }
 
-export default class AntPwrAdapter extends ControllableAntAdapter<BicyclePowerSensorState, PowerSensorData> {
+export class AntPwrControl extends ControllableDevice<AntDeviceProperties> {
+    getSupportedCyclingModes(): Array<typeof CyclingMode> {
+        return [PowerMeterCyclingMode]
+    }
+
+    getDefaultCyclingMode(): ICyclingMode {
+        return new PowerMeterCyclingMode(this.adapter);
+    }
+
+    async sendInitCommands():Promise<boolean> {
+        return false;
+    }
+}
+
+
+
+export default class AntPwrAdapter extends AntAdapter<AntPwrControl,BicyclePowerSensorState, PowerSensorData> {
 
     static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Power Meter'
     static ANT_PROFILE_NAME:Profile = 'PWR'
@@ -34,7 +51,8 @@ export default class AntPwrAdapter extends ControllableAntAdapter<BicyclePowerSe
             throw new Error('Incorrect Profile')
 
         super(settings, props)
-
+        this.setControl( new AntPwrControl(this,props))
+        
         this.deviceData = {
             DeviceID: this.sensor.getDeviceID()
         } as BicyclePowerSensorState;
@@ -73,13 +91,6 @@ export default class AntPwrAdapter extends ControllableAntAdapter<BicyclePowerSe
         return `${this.getUniqueName()}${pwrStr}`        
     }
 
-    getDefaultCyclingMode(): CyclingMode {
-        return new PowerMeterCyclingMode(this);
-    }
-
-    getSupportedCyclingModes(): any[] {
-        return [PowerMeterCyclingMode]
-    }
 
     getLogData(data, excludeList) {
         

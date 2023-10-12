@@ -1,8 +1,8 @@
 import { EventLogger } from 'gd-eventlog';
-import CyclingMode, { IncyclistBikeData } from '../../../modes/cycling-mode';
+import ICyclingMode, { CyclingMode, IncyclistBikeData } from '../../../modes/types';
 import {runWithRetries, waitWithTimeout} from '../../../utils/utils';
-import DaumAdapter from '../DaumAdapter'
-import DaumClassicCyclingMode from './modes/daum-classic';
+import DaumAdapter, { DaumControl } from '../DaumAdapter'
+import DaumClassicCyclingMode from '../../../modes/daum-classic-standard';
 import { DeviceProperties } from '../../../types/device';
 import { SerialDeviceSettings } from '../../adapter';
 import { SerialCommProps } from '../../comm';
@@ -17,7 +17,28 @@ export interface DaumClassicDeviceProperties extends DeviceProperties {
     gear?: number
 }
 
-export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings, DaumClassicDeviceProperties>{
+export type DaumClassicStartInfo = {
+    bikeNo?: number;
+    serialNo?:string;
+    cockpit?:string;
+
+}
+
+export class DaumClassicControl extends DaumControl<DaumClassicDeviceProperties> {
+    getSupportedCyclingModes() : Array<typeof CyclingMode> { 
+        const supported = super.getSupportedCyclingModes();
+        supported.push(DaumClassicCyclingMode);
+        return supported
+    
+    }
+
+    getDefaultCyclingMode():ICyclingMode {
+        return new DaumClassicCyclingMode(this.adapter)
+    }
+}
+
+
+export default class DaumClassicAdapter extends DaumAdapter<DaumClassicControl, SerialDeviceSettings, DaumClassicDeviceProperties,Daum8008>{
 
     static NAME = PROTOCOL_NAME;
 
@@ -26,6 +47,7 @@ export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings
 
     constructor ( settings:SerialDeviceSettings,props?:DaumClassicDeviceProperties) {
         super(settings,props)
+        this.setControl( new DaumClassicControl(this,props))
 
         const logger     = new EventLogger('DaumClassic')
         const commProps:SerialCommProps = {...this.getBikeProps(settings), logger}
@@ -68,21 +90,9 @@ export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings
         return PROTOCOL_NAME
     }
 
-
-    getSupportedCyclingModes() : Array<any> {         
-        const supported = super.getSupportedCyclingModes();
-        supported.push(DaumClassicCyclingMode);
-        return supported
-    }
-
-    getDefaultCyclingMode():CyclingMode {
-        return new DaumClassicCyclingMode(this)        
-    }
-
-
     async performCheck():Promise<boolean> {
 
-        var info = {} as any
+        var info:DaumClassicStartInfo = {} 
 
         const check =  new Promise(  async (resolve, reject ) => {
             this.logEvent( {message:"checking device",port:this.getPort()});
@@ -101,12 +111,12 @@ export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings
                 }
                 this.stopped = false;
                                
-                const address = await this.bike.getAddress() ||  {}
-                info.bikeNo = address.bike;
+                const address = await this.bike.getAddress() 
+                info.bikeNo = address?.bike;
 
-                const version = await this.bike.getVersion() || {}
-                info.serialNo = version.serialNo;                
-                info.cockpit = version.cockpit                
+                const version = await this.bike.getVersion() 
+                info.serialNo = version?.serialNo;                
+                info.cockpit = version?.cockpit                
                 this.setName('Daum '+info.cockpit);
 
                 this.pause();
@@ -136,7 +146,7 @@ export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings
 
         this.setBikeProps(props)
 
-        const user: User = this.user
+        const user: User = this.getUser()
         const {gear=DEFAULT_GEAR} = props
 
 

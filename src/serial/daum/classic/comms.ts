@@ -7,13 +7,22 @@ import { ResponseTimeout } from '../premium/types'
 import { DEFAULT_AGE, between, buildSetSlopeCommand, getBikeType, getCockpit, getGender, getLength, getSerialNo, getWeight, parseRunData } from './utils'
 import { DeviceType } from '../../../types/device'
 import { IncyclistBikeData } from '../../..'
+import DaumSerialComms from '../types'
+import { SerialCommProps } from '../../comm'
 const ByteLength = require('@serialport/parser-byte-length')
 
 
 const TIMEOUT_SEND  = 2000;    // 2s
 
-export default class Daum8008 extends SerialPortComms<DaumClassicCommsState,DaumClassicRequest, DaumClassicResponse > {
+export default class Daum8008 extends SerialPortComms<DaumClassicCommsState,DaumClassicRequest, DaumClassicResponse > implements DaumSerialComms{
 
+    protected bikeNo:number;
+
+    constructor( props: SerialCommProps) {
+        super(props)
+        this.bikeNo=0
+    }
+    
     validatePath(path:string): string {
         return path;
     }
@@ -126,7 +135,8 @@ export default class Daum8008 extends SerialPortComms<DaumClassicCommsState,Daum
     ====================================== Commands ==============================================
     */
 
-    async checkCockpit(bikeNo:number=0):Promise<checkCockpitReponse> {
+    async checkCockpit(bike?:number):Promise<checkCockpitReponse> {
+        const bikeNo = bike===undefined ? this.bikeNo : bike
         try {
             const data = await this.sendCommand( `checkCockpit(${bikeNo})`,[0x10,bikeNo],3)
             return {bike : data[1], version: data[2]}
@@ -141,41 +151,50 @@ export default class Daum8008 extends SerialPortComms<DaumClassicCommsState,Daum
 
     async getAddress():Promise<ClassicBikeResponse> {
         const data = await this.sendCommand(`getAddress()`,[0x11],2)
+        this.bikeNo = data[1]
         return {bike:data[1]};
     }
 
-    async getVersion(bikeNo:number=0):Promise<GetVersionReponse> {
+    async getVersion(bike?:number):Promise<GetVersionReponse> {
+        const bikeNo = bike===undefined ? this.bikeNo : bike
         const data = await this.sendCommand(`getVersion(${bikeNo})`, [0x73,bikeNo],11)
         return {bike : data[1], serialNo: getSerialNo(data,2,8), cockpit:getCockpit(data[10])}
     }
 
-    async resetDevice(bikeNo:number=0):Promise<ClassicBikeResponse> {
+    async resetDevice(bike?:number):Promise<ClassicBikeResponse> {
+        const bikeNo = bike===undefined ? this.bikeNo : bike
         const data = await this.sendCommand(`resetDevice(${bikeNo})`,[0x12,bikeNo],2)
         return {bike:data[1]};
     }
 
-    async startProg(bikeNo:number=0):Promise<ProgResponse> {
+    async startProg(bike?:number):Promise<ProgResponse> {
+        const bikeNo = bike===undefined ? this.bikeNo : bike
+
         const data = await this.sendCommand(`startProg(${bikeNo})`, [0x21,bikeNo],3)
         return {bike : data[1], pedalling:data[2]>0};
     }
 
-    async stopProg(bikeNo:number=0):Promise<ProgResponse> {
+    async stopProg(bike?:number):Promise<ProgResponse> {
+        const bikeNo = bike===undefined ? this.bikeNo : bike
         const data = await this.sendCommand(`stopProg(${bikeNo})`,[0x22,bikeNo],3)
         return {bike : data[1], pedalling:data[2]>0};
     }
 
-    async setProg(progNo:number=0,bikeNo:number=0):Promise<SetProgResponse> {
+    async setProg(progNo:number=0,bike?:number):Promise<SetProgResponse> {
+        const bikeNo = bike===undefined ? this.bikeNo : bike
         const data = await this.sendCommand(`setProg(${bikeNo},${progNo})`, [0x23,bikeNo,progNo],4)
         return {bike:data[1],progNo:data[2],pedalling:data[3]!==0};
     }
 
-    async setBikeType(bikeType:DeviceType,bikeNo=0):Promise<ClassicBikeResponse> {
+    async setBikeType(bikeType:DeviceType,bike?:number):Promise<ClassicBikeResponse> {
+        const bikeNo = bike===undefined ? this.bikeNo : bike
         const bikeVal = getBikeType( bikeType)        
         const data = await this.sendCommand(`setBikeType(${bikeNo},${bikeType})`, [0x69,bikeNo,0,0,bikeVal],3)
         return {bike:data[1]};
     }
 
-    async setPerson(user:User={},bikeNo:number=0) {
+    async setPerson(user:User={},bike?:number) {
+        const bikeNo = bike===undefined ? this.bikeNo : bike
         const age = user.age!==undefined ? user.age : DEFAULT_AGE;
         const gender = getGender( user.sex) ;    
         const length = getLength( user.length) ;  
@@ -218,27 +237,39 @@ export default class Daum8008 extends SerialPortComms<DaumClassicCommsState,Daum
     }
 
 
-    async runData(bikeNo:number=0):Promise<IncyclistBikeData> {       
+    async runData(bike?:number):Promise<IncyclistBikeData> {       
+        const bikeNo = bike===undefined ? this.bikeNo : bike
         const data = await this.sendCommand(`runData(${bikeNo})`,[0x40,bikeNo],19);
         return parseRunData(data)
     }
 
-    async setGear(gear:number,bikeNo=0):Promise<SetGearRepsonse> {       
+    async setGear(gear:number,bike?:number):Promise<SetGearRepsonse> {       
+        const bikeNo = bike===undefined ? this.bikeNo : bike
         const gearVal = between(gear,1,28) 
         const data = await this.sendCommand(`setGear(${bikeNo},${gearVal})`,[0x53,bikeNo,gearVal],3)
         return ({bike : data[1], gear:data[2]})
     }
 
-    async setPower(power:number,bikeNo=0):Promise<SetPowerRepsonse> {
+    async setPower(power:number,bike?:number):Promise<SetPowerRepsonse> {
+        const bikeNo = bike===undefined ? this.bikeNo : bike
         const powerVal = Math.round( between(power,25,800) /5);
         const data = await this.sendCommand(`setPower(${bikeNo},${power})`,[0x51,bikeNo,powerVal],3)
         return ({bike:data[1],power:data[2]*5});
     }
 
-    async setSlope(slope:number,bikeNo=0):Promise<SetSlopeRepsonse> {
+    async setSlope(slope:number,bike?:number):Promise<SetSlopeRepsonse> {
+        const bikeNo = bike===undefined ? this.bikeNo : bike
         const cmd = buildSetSlopeCommand(bikeNo,slope)       
         const data = await this.sendCommand(`setSlope(${bikeNo},${slope})`,cmd,6)
         return ({bike:data[1],slope})
+    }
+
+    async setTargetSlope(slope: number): Promise<void> {
+        await this.setSlope(slope)        
+    }
+
+    async setTargetPower(power: number): Promise<void> {
+        await this.setPower(power)        
     }
 
  }

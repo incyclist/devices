@@ -1,11 +1,11 @@
 import {EventLogger} from 'gd-eventlog';
 import { BleFmAdapter, cRR, cwABike } from '../fm';
 import BleWahooDevice from './comms';
-import BleAdapter from '../base/adapter';
 import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from '../../base/adpater';
 import { BleDeviceProperties, BleDeviceSettings, BleStartProperties } from '../types';
 import { IncyclistCapability } from '../../types/capabilities';
 import { BleWahooComms } from '.';
+import { IncyclistDeviceAdapter } from '../../types/adapter';
 
 
 export default class BleWahooAdapter extends BleFmAdapter {
@@ -26,7 +26,7 @@ export default class BleWahooAdapter extends BleFmAdapter {
 
     }
 
-    isSame(device:BleAdapter):boolean {
+    isSame(device:IncyclistDeviceAdapter):boolean {
         if (!(device instanceof BleWahooAdapter))
             return false;
         return this.isEqual(device.settings as BleDeviceSettings)

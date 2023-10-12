@@ -1,7 +1,7 @@
 import { EventLogger } from 'gd-eventlog';
 import BleAdapterFactory from './adapter-factory';
 
-import {BleInterfaceProps,BlePeripheral, BleDeviceSettings, BleProtocol, BleBinding, BleInterfaceState, BleScanProps, BleCharacteristic} from './types'
+import {BleInterfaceProps,BlePeripheral, BleDeviceSettings, BleProtocol, BleBinding, BleInterfaceState, BleScanProps, BleCharacteristic, BleDeviceProperties} from './types'
 import { BleComms } from './base/comms';
 import { getCharachteristicsInfo, getPeripheralInfo, uuid } from './utils';
 import { getBestDeviceMatch, getServicesFromProtocols } from './base/comms-utils';
@@ -11,6 +11,7 @@ import { IncyclistScanProps } from '../types/device';
 import BlePeripheralCache, { PeripheralCacheItem } from './peripheral-cache';
 import EventEmitter from 'events';
 import { sleep } from '../utils/utils';
+import { Controllable } from '..';
 
 const DEFAULT_SCAN_TIMEOUT = 20000;
 
@@ -53,7 +54,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
     logger: EventLogger
     props:BleInterfaceProps 
     binding: BleBinding
-    connectedDevices: BleAdapter[]
+    connectedDevices: Array<BleAdapter<Controllable<BleDeviceProperties>>>
     sensorIsConnecting : boolean
     emittingAdapters: {comms:BleComms, cb:(data)=>void}[] = []
     
@@ -673,7 +674,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
                     this.onPeripheralFound(p, async (deviceSettings:BleDeviceSettings, characteristics: BleCharacteristic[],peripheral:BlePeripheral)=>{                        
                         if (deviceSettings) {
                             detected.push(deviceSettings)
-                            const device = this.getAdapterFactory().createInstance(deviceSettings) as BleAdapter
+                            const device = this.getAdapterFactory().createInstance(deviceSettings) as BleAdapter<Controllable<BleDeviceProperties>>
                             
                             device.getComms().characteristics = characteristics
                             device.getComms().peripheral = peripheral
@@ -746,14 +747,14 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
 
 
 
-    addConnectedDevice(device:BleAdapter):void {
+    addConnectedDevice(device:BleAdapter<Controllable<BleDeviceProperties>>):void {
         const idx = this.connectedDevices.findIndex( d => d.isSame(device))
         if (idx===-1)
             this.connectedDevices.push(device)
     }
 
 
-    removeConnectedDevice(device: BleAdapter):void { 
+    removeConnectedDevice(device: BleAdapter<Controllable<BleDeviceProperties>>):void { 
         const idx = this.connectedDevices.findIndex( d => d.isSame(device))
         if (idx!==-1)
             this.connectedDevices.splice(idx)

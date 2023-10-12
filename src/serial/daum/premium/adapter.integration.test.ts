@@ -2,11 +2,11 @@ import { MockBinding } from "@serialport/binding-mock";
 import { EventLogger } from "gd-eventlog";
 import { DaumPremiumAdapter } from "../..";
 import SerialPortProvider from "../../serialport";
-import DaumClassicCyclingMode from "./modes/daum-classic";
-import DaumPowerMeterCyclingMode from "../DaumPowerMeterCyclingMode";
-import ERGCyclingMode from "../ERGCyclingMode";
-import SmartTrainerCyclingMode from "../SmartTrainerCyclingMode";
+import DaumPowerMeterCyclingMode from "../../../modes/daum-power";
+import ERGCyclingMode from "../../../modes/daum-erg";
+import SmartTrainerCyclingMode from "../../../modes/daum-smarttrainer";
 import { Daum8iMock, Daum8iMockImpl, Daum8MockSimulator } from "./mock";
+import DaumClassicCyclingMode from "../../../modes/daum-premium-standard";
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
@@ -39,6 +39,7 @@ describe('DaumPremiumAdapter #integration',()=>{
     afterEach( async ()=>{
         try {
             await device.close()
+            await device.stop();
         }
         catch(err) {
             console.log('~~~ ERROR',err)

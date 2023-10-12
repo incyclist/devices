@@ -1,19 +1,7 @@
-import CyclingMode, { CyclingModeProperty, CyclingModeProperyType, IncyclistBikeData, UpdateRequest } from "../../modes/cycling-mode";
-import calc from '../../utils/calculations'
-import PowerBasedCyclingModeBase from "../../modes/power-base";
-import { IncyclistDeviceAdapter } from "../../types/adapter";
-import { ControllableDeviceAdapter } from "../..";
-
-const MIN_SPEED = 10;
-
-const config = {
-    name: "ERG",
-    description: "Calculates speed based on power and slope. Power is either set by workout or calculated based on gear and cadence",
-    properties: [
-        {key:'bikeType',name: 'Bike Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Race','Mountain','Triathlon'], default: 'Race'},
-        {key:'startPower',name: 'Starting Power', description: 'Initial power in Watts at start of training', type: CyclingModeProperyType.Integer, default: 50, min:25, max:800},
-    ]
-}
+import ICyclingMode, { CyclingModeProperyType, IncyclistBikeData, UpdateRequest } from "./types";
+import calc from '../utils/calculations'
+import PowerBasedCyclingModeBase from "./power-base";
+import { IncyclistDeviceAdapter } from "../types/adapter";
 
 export type ERGEvent = {
     rpmUpdated?: boolean;
@@ -23,33 +11,29 @@ export type ERGEvent = {
 }
 
 
-export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements CyclingMode {
+export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements ICyclingMode {
 
     prevRequest: UpdateRequest;
     hasBikeUpdate: boolean = false;
     chain: number[];
     cassette: number[];
     event: ERGEvent ={};
-    static isERG = true;
 
-    constructor(adapter: ControllableDeviceAdapter, props?:any) {
+    protected static config = {
+        isERG:true,
+        name: "ERG",
+        description: "Calculates speed based on power and slope. Power is either set by workout or calculated based on gear and cadence",
+        properties: [
+            {key:'bikeType',name: 'Bike Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Race','Mountain','Triathlon'], default: 'Race'},
+            {key:'startPower',name: 'Starting Power', description: 'Initial power in Watts at start of training', type: CyclingModeProperyType.Integer, default: 50, min:25, max:800},
+        ]
+    }
+
+    constructor(adapter: IncyclistDeviceAdapter, props?:any) {
         super(adapter,props);
         this.initLogger('ERGMode')
     }
 
-
-    getName(): string {
-        return config.name;
-    }
-    getDescription(): string {
-        return config.description;
-    }
-    getProperties(): CyclingModeProperty[] {
-        return config.properties;
-    }
-    getProperty(name: string): CyclingModeProperty {
-        return config.properties.find(p => p.name===name);
-    }
 
     getBikeInitRequest(): UpdateRequest {
         const startPower = this.getSetting('startPower');
@@ -182,79 +166,56 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
         
     }
 
+    copyBikeData(data: IncyclistBikeData, bikeData: IncyclistBikeData): IncyclistBikeData {
+        const newData = super.copyBikeData(data,bikeData)
+
+        // special case Daum Ergos: Power(25W) might always be delivered, 
+        // needs to be ignored if no pedalling is detected
+        if (!bikeData.pedalRpm || bikeData.isPedalling===false) {
+            newData.power = 0;
+        }
+        if (newData.gear===undefined) newData.gear = 0;
+        return newData
+    }
 
     updateData(bikeData: IncyclistBikeData) {
+        try {
+            const prevData = JSON.parse(JSON.stringify(this.getData()))
+            this.cleanupPrevEvents();             
+            this.checkIsStarting(prevData);
 
-        const prevData = JSON.parse(JSON.stringify(this.data || {} ))
-        const prevSpeed = prevData.speed;        
-        const prevRequest = this.prevRequest || {};
-        const data = this.data || {} as any;
+            const data = super.updateData(bikeData)
 
-        const bikeType = this.getSetting('bikeType').toLowerCase();
-        
+            // check of rpm or gear has changed, if so: set as event            
+            this.checkForEvents(bikeData, prevData);
+            return data;               
+        }
+        catch (err) /* istanbul ignore next */ {
+            this.logger.logEvent({message:'error',fn:'updateData()',error:err.message, stack:err.stack})
+            return this.getData()
+        }
+    }
+
+    private checkForEvents(bikeData: IncyclistBikeData, prevData: any) {
+        if (bikeData.gear !== prevData.gear) {
+            this.event.gearUpdated = true;
+        }
+        if (bikeData.pedalRpm && bikeData.pedalRpm !== prevData.pedalRpm) {
+            this.event.rpmUpdated = true;
+        }
+    }
+
+    private cleanupPrevEvents() {
         delete this.event.gearUpdated;
-        delete this.event.rpmUpdated;       
-       
-        if (Object.keys(prevData).length===0 || prevData.speed===undefined || prevData.speed===0) {
+        delete this.event.rpmUpdated;
+    }
+
+    private checkIsStarting(prevData: any) {
+        if (Object.keys(prevData).length === 0 || prevData.speed === undefined || prevData.speed === 0) {
             this.event.starting = true;
             this.event.tsStart = Date.now();
         }
-
-        try {
-
-            const rpm = bikeData.pedalRpm || 0;
-            const gear = bikeData.gear || 0
-            let power = bikeData.power || 0;
-            const slope = ( prevData.slope!==undefined ? prevData.slope : prevRequest.slope || 0); // ignore slope delivered by bike
-            const distanceInternal = prevData.distanceInternal || 0;  // meters
-            if (!bikeData.pedalRpm || bikeData.isPedalling===false) {
-                power = 0;
-            }
-
-            // calculate speed and distance
-            const m = this.getWeight();
-            const t =  this.getTimeSinceLastUpdate();
-            const {speed,distance} = this.calculateSpeedAndDistance(power,slope,m,t,{bikeType});
-            //console.log( '~~~ERGMode.calculateSpeedAndDistance', distanceInternal,data.time, {power, slope,m,t,bikeType}, speed,distance)
-
-            if (power===0 && speed<MIN_SPEED) {
-                data.speed = Math.round(prevData.speed-1)<0 ? 0: Math.round(prevData.speed-1)
-                data.distanceInternal = distanceInternal+ data.speed/3.6*t;
-            }
-            else {
-                data.speed = speed;
-                data.distanceInternal = distanceInternal+distance;
-            }        
-            
-            data.power = Math.round(power);
-            data.slope = slope;
-            data.pedalRpm = rpm;
-            data.gear = gear;
-            if ( data.time!==undefined && !(this.event.starting && !bikeData.pedalRpm))
-                data.time+=t;
-            else data.time =0;
-            data.heartrate=bikeData.heartrate;
-            data.isPedalling=bikeData.isPedalling;
-
-            if (gear!==prevData.gear) {
-                this.event.gearUpdated = true;
-            }
-            if (rpm && rpm!==prevData.pedalRpm) {
-                this.event.rpmUpdated = true;
-            }
-    
-        }
-        catch (err) /* istanbul ignore next */ {
-            this.logger.logEvent({message:'error',fn:'updateData()',error:err.message||err, stack:err.stack})
-        }
-
-        this.logger.logEvent( {message:"updateData result",data,bikeData,prevRequest,prevSpeed} );
-
-        this.data = data;
-        return data;
-        
     }
-
 
     calculateTargetPower(request, updateMode=true) {       
         const bikeType = this.getSetting('bikeType').toLowerCase();

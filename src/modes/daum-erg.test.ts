@@ -1,16 +1,16 @@
-import ERGCyclingMode from "./erg";
-import { CyclingModeProperyType } from "../../../../modes/cycling-mode";
-import KettlerRacerAdapter from '../adapter'
-
+import { CyclingModeProperyType } from "./types";
+import DaumAdapter from '../serial/daum/DaumAdapter'
 import { EventLogger } from "gd-eventlog";
-import { MockLogger } from "../../../../../test/logger";
+import { MockLogger } from "../../test/logger";
+import ERGCyclingMode from "./daum-erg";
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
 
+const DEFAULT_SETTINGS = {interface:'mock', protocol:'serial'}
+
 describe( 'ERGCyclingMode',()=>{
     beforeAll( ()=> {
-        
         if (process.env.DEBUG!==undefined && process.env.DEBUG!=='' && Boolean(process.env.DEBUG)!==false)
             EventLogger.useExternalLogger ( { log: (str)=>console.log(str), logEvent:(event)=>console.log(event) } )
     })
@@ -20,9 +20,19 @@ describe( 'ERGCyclingMode',()=>{
 
     })
 
+    test('supports ERG',()=>{
+        expect(ERGCyclingMode.supportsERGMode()).toBe(true)        
+    })
+
     describe ( 'constructor()',()=>{
+
+        let adapter
+        beforeEach( ()=>{
+            adapter = new DaumAdapter(DEFAULT_SETTINGS);
+        })
+
         test( 'only adapter provided',()=>{
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
+            
             const cyclingMode = new ERGCyclingMode(adapter);
             
             expect( cyclingMode.adapter ).toBe( adapter );
@@ -31,7 +41,6 @@ describe( 'ERGCyclingMode',()=>{
         } );
 
         test( 'with adapter and settings',()=>{
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
             const cyclingMode = new ERGCyclingMode(adapter, { test:true } );
             
             expect( cyclingMode.adapter ).toBe( adapter );
@@ -39,13 +48,21 @@ describe( 'ERGCyclingMode',()=>{
             expect( cyclingMode.settings['test'] ).toBeTruthy();
         } );
 
+        test( 'with adapter, adapter has no logger',()=>{
+            adapter.logger = undefined;
+            const cyclingMode = new ERGCyclingMode(adapter);
+            
+            expect( cyclingMode.logger.getName() ).toBe('ERGMode');
+        } );
 
 
     })
 
     describe ( 'getName()',()=>{
         test('default',()=>{
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
+
+            const adapter = new DaumAdapter(DEFAULT_SETTINGS);
+
             const cyclingMode = new ERGCyclingMode(adapter, { test:true } );
             expect( cyclingMode.getName() ).toBe( 'ERG' );
         })
@@ -53,16 +70,16 @@ describe( 'ERGCyclingMode',()=>{
 
     describe ( 'getDescription()',()=>{
         test('default',()=>{
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
+            const adapter = new DaumAdapter(DEFAULT_SETTINGS);
             const cyclingMode = new ERGCyclingMode(adapter, { test:true } );
-            expect( cyclingMode.getDescription() ).toBe( 'Calculates speed based on power and slope. Power is either set by a workout' );
+            expect( cyclingMode.getDescription() ).toBe( 'Calculates speed based on power and slope. Power is either set by workout or calculated based on gear and cadence' );
         })
 
     })
 
     describe ( 'getProperties()',()=>{
         test('default',()=>{
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
+            const adapter = new DaumAdapter(DEFAULT_SETTINGS);
             const cyclingMode = new ERGCyclingMode(adapter, { test:true } );
             expect( cyclingMode.getProperties() ).toEqual( [
                 {key:'bikeType',name: 'Bike Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Race','Mountain','Triathlon'], default: 'Race'},
@@ -74,7 +91,7 @@ describe( 'ERGCyclingMode',()=>{
 
     describe ( 'getProperty()',()=>{
         test('valid',()=>{
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
+            const adapter = new DaumAdapter(DEFAULT_SETTINGS);
             const cyclingMode = new ERGCyclingMode(adapter, { test:true } );
             expect( cyclingMode.getProperty('Starting Power') ).toEqual( 
                 {key:'startPower',name: 'Starting Power', description: 'Initial power in Watts at start of training', type: CyclingModeProperyType.Integer, default: 50,min:25, max:800} 
@@ -84,18 +101,20 @@ describe( 'ERGCyclingMode',()=>{
     })
 
     describe ( 'getSetting()',()=>{
+        let adapter
+        beforeEach( ()=>{
+            adapter = new DaumAdapter(DEFAULT_SETTINGS);
+        })
+
         test('default value',()=>{
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
             const cyclingMode = new ERGCyclingMode(adapter, { test:true } );
             expect( cyclingMode.getSetting('startPower') ).toBe(50)
         })
         test('value explictly set',()=>{
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
             const cyclingMode = new ERGCyclingMode(adapter, { test:true } );
             expect( cyclingMode.getSetting('test') ).toBe(true)
         })
         test('key not found',()=>{
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
             const cyclingMode = new ERGCyclingMode(adapter, { test:true } );
             expect( cyclingMode.getSetting('xyz') ).toBeUndefined()
         })
@@ -103,20 +122,22 @@ describe( 'ERGCyclingMode',()=>{
     })
 
     describe ( 'setSetting()',()=>{
+        let adapter
+        beforeEach( ()=>{
+            adapter = new DaumAdapter(DEFAULT_SETTINGS);
+        })
+
         test('overwrite default value',()=>{
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
             const cyclingMode = new ERGCyclingMode(adapter, { test:true } );
             cyclingMode.setSetting('startPower',100)
             expect( cyclingMode.getSetting('startPower') ).toBe(100)
         })
         test('non existing value',()=>{
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
             const cyclingMode = new ERGCyclingMode(adapter);
             cyclingMode.setSetting('xyz',100)
             expect( cyclingMode.getSetting('xyz') ).toBe(100)
         })
         test('existing value: overwrites',()=>{
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
             const cyclingMode = new ERGCyclingMode(adapter, { test:true } );
             cyclingMode.setSetting('test',false)
             expect( cyclingMode.getSetting('test') ).toBe(false)
@@ -125,51 +146,65 @@ describe( 'ERGCyclingMode',()=>{
     })
 
     describe ( 'getBikeInitRequest()',()=>{
+        let adapter
+        beforeEach( ()=>{
+            adapter = new DaumAdapter(DEFAULT_SETTINGS);
+        })
+
         test('default',()=>{
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
             const cyclingMode = new ERGCyclingMode(adapter); 
             const request = cyclingMode.getBikeInitRequest();
-            expect( request ).toEqual( { targetPower: 50})
+            expect( request ).toEqual( { targetPower: 50, init:true})
         })
         test('startPower set',()=>{
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
             const cyclingMode = new ERGCyclingMode(adapter); 
             cyclingMode.getSetting = jest.fn( ()=> 110 );
             const request = cyclingMode.getBikeInitRequest();
-            expect( request ).toEqual( { targetPower: 110})
+            expect( request ).toEqual( { targetPower: 110, init:true})
         })
     })
 
     describe('updateData',()=>{
+        let adapter
+        beforeEach( ()=>{
+            adapter = new DaumAdapter(DEFAULT_SETTINGS);
+        })
         // only edge cases are tested here. The test coverage is achieved in the Adapter test
+        test('no gear',()=>{
+            const cyclingMode = new ERGCyclingMode(adapter);
+            const res = cyclingMode.updateData({ isPedalling: true,pedalRpm: 100,power: 100,slope: 0,distanceInternal: 0,speed: 0,heartrate: 0,time: 100})
+            expect(res.gear).toBe(0)
+        })
 
         test('no slope, first request',()=>{
-            
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
+            adapter = new DaumAdapter(DEFAULT_SETTINGS,{userWeight:80, bikeWeight:10});
             const cyclingMode = new ERGCyclingMode(adapter);
+            (cyclingMode as any).prevRequest  = undefined
             const res = cyclingMode.updateData({ isPedalling: true,pedalRpm: 100,gear:10, power: 100,distanceInternal: 0,speed: 0,heartrate: 0,time: 100})
             expect(res.slope).toBe(0)
         })
 
         test('no slope, slope was set before',()=>{
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
+            adapter = new DaumAdapter(DEFAULT_SETTINGS,{userWeight:80, bikeWeight:10});
             const cyclingMode = new ERGCyclingMode(adapter);
             cyclingMode.data.slope = 2;
+            (cyclingMode as any).prevRequest = undefined
             const res = cyclingMode.updateData({ isPedalling: true,pedalRpm: 100,gear:10, power: 100,distanceInternal: 0,speed: 0,heartrate: 0,time: 100})
             expect(res.slope).toBe(2)
         })
 
         test('contains slope, will be ignored',()=>{
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
+            adapter = new DaumAdapter(DEFAULT_SETTINGS,{userWeight:80, bikeWeight:10});
             const cyclingMode = new ERGCyclingMode(adapter);
             cyclingMode.data.slope = 2;
+            (cyclingMode as any).prevRequest = undefined
             // ignores slope if provided by bike
             let res=cyclingMode.updateData({ isPedalling: true,pedalRpm: 100,gear:10, slope:1, power: 100,distanceInternal: 0,speed: 0,heartrate: 0,time: 100})
             expect(res.slope).toBe(2)
         })
 
         test('no slope, but previous request on slope',()=>{
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
+            adapter = new DaumAdapter(DEFAULT_SETTINGS,{userWeight:80, bikeWeight:10});
             const cyclingMode = new ERGCyclingMode(adapter);
             cyclingMode.prevRequest = {slope: 2}
             const res = cyclingMode.updateData({ isPedalling: true,pedalRpm: 100,gear:10, power: 100,distanceInternal: 0,speed: 0,heartrate: 0,time: 100})
@@ -178,7 +213,77 @@ describe( 'ERGCyclingMode',()=>{
 
     })
 
+    describe('calculateTargetPower',()=> {
+
+        let cm;
+        let adapter;
+        beforeEach(()=>{
+            adapter = new DaumAdapter(DEFAULT_SETTINGS);
+            adapter.getWeight = jest.fn().mockReturnValue(85);
+            cm = new ERGCyclingMode(adapter);
+        });
+
+        describe('very first run',()=>{
+            test('empty request: will set targetPower to "startPower" setting',()=>{
+                cm.data = undefined;
+
+                expect( cm.calculateTargetPower({}) ).toEqual(50);
+            })
+            test('targetPower not set: will set targetPower to "startPower" setting, remove slope',()=>{
+                cm.data = undefined;
+                cm.setSetting('startPower',75);
+                expect( cm.calculateTargetPower({slope:10}) ).toEqual( 75);
+            })
+            
+            test('targetPower is set: use value from request',()=>{
+                cm.data = undefined;
+                expect( cm.calculateTargetPower({targetPower:100}) ).toEqual(100);
+            })
+    
+        })
+
+        
+        describe('subsequent runs',()=>{
+            test('empty request: will set targetPower based on gear,cadence and weight',()=>{
+                cm.data = {pedalRpm:90, gear:10}
+                
+                let res;
+                res = cm.calculateTargetPower({});
+                expect(res  ).toBeCloseTo(146,0);
+
+                cm.adapter.getWeight = jest.fn().mockReturnValue(90);
+                res = cm.calculateTargetPower({});
+                expect(res  ).toBeCloseTo(147,0);
+
+            })
+            test('targetPower not set: will set targetPower according to gear and cadence ',()=>{
+                cm.data = {pedalRpm:90, gear:10}
+                const res = cm.calculateTargetPower({slope:5});
+                expect(res  ).toBeCloseTo(146,0);
+                
+
+
+            })
+            
+            test('not pedalling: will set targetPower to initial setting',()=>{
+                cm.data = {pedalRpm:0, gear:10}
+                const res = cm.calculateTargetPower({slope:5});
+                expect(res  ).toBeCloseTo(50,0);
+            })
+
+
+            test('no gear:  will set targetPower to initial setting',()=>{
+                cm.data = {pedalRpm:90, gear:0}
+                
+                const res = cm.calculateTargetPower({slope:5});
+                expect(res  ).toBeCloseTo(50,0);
+            })
+    
+        })
+    })
+
     describe('sendBikeUpdate',()=>{
+        // only edge cases are tested here. The test coverage is achieved in the Adapter test
 
         beforeAll( () => {
             jest.useFakeTimers();
@@ -186,11 +291,14 @@ describe( 'ERGCyclingMode',()=>{
         afterAll( () => {
             jest.useRealTimers();
         })
+        let adapter
+        beforeEach( ()=>{
+            adapter = new DaumAdapter(DEFAULT_SETTINGS);
+        })
 
 
 
         test('starting',()=>{
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
             const cm = new ERGCyclingMode(adapter);
             cm.getSetting = jest.fn( (key) => { 
                 if (key==='startPower') return 100
@@ -198,6 +306,7 @@ describe( 'ERGCyclingMode',()=>{
             });
 
             let res;
+            (cm as any).prevRequest = undefined;
             cm.data = {} as any;
             res = cm.sendBikeUpdate({ refresh:true})
             expect(res).toEqual({targetPower:100})
@@ -212,8 +321,7 @@ describe( 'ERGCyclingMode',()=>{
             
         })
 
-        test('slope change',()=>{
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
+        test('slope change with race',()=>{
             const cm = new ERGCyclingMode(adapter);
             cm.getSetting = jest.fn( (key) => { 
                 if (key==='startPower') return 100
@@ -245,7 +353,6 @@ describe( 'ERGCyclingMode',()=>{
         })
 
         test('slope change with triathlon',()=>{
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
             const cm = new ERGCyclingMode(adapter);
             cm.getSetting = jest.fn( (key) => { 
                 if (key==='startPower') return 100
@@ -270,23 +377,22 @@ describe( 'ERGCyclingMode',()=>{
             res = cm.sendBikeUpdate({slope:-2.798902988433838})
             jest.advanceTimersByTime(1000);
             res = cm.updateData({speed:50,slope:0,power:res.targetPower,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
-            expect(res.speed).toBeGreaterThan(31.2)
+            expect(res.speed).toBeGreaterThan(31)
 
             res = cm.sendBikeUpdate({slope:0})
             jest.advanceTimersByTime(1000);
             res = cm.updateData({speed:60,slope:0,power:158,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
-            expect(res.speed).toBeCloseTo(31.4,1)
+            expect(res.speed).toBeCloseTo(31.3,1)
 
             res = cm.sendBikeUpdate({slope:1})
             jest.advanceTimersByTime(1000);
             res = cm.updateData({speed:870,slope:0,power:158,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
-            expect(res.speed).toBeLessThan(31.5)
+            expect(res.speed).toBeLessThan(31.3)
         })
 
 
 
         test('rpm change',()=>{
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
             const cm = new ERGCyclingMode(adapter);
             cm.getSetting = jest.fn( (key) => { 
                 if (key==='startPower') return 100
@@ -299,37 +405,115 @@ describe( 'ERGCyclingMode',()=>{
             cm.data = {speed:40,slope:0,power:158,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:10,gear:10,time:1220.219};
             cm.prevUpdateTS = Date.now()
 
-            // increase cadence -> target power will not change
+            // increase cadence -> target power will increase & speed will increase once bike has adjusted power
             jest.advanceTimersByTime(1000);
             cm.updateData({speed:30,slope:0,power:158,isPedalling:true,pedalRpm:91,heartrate:99,distanceInternal:242351,gear:10,time:1626} )  
+            expect(cm.event.rpmUpdated).toBe(true)         
             expect(cm.data.speed).toBeCloseTo(39.4,1)
             res = cm.sendBikeUpdate({refresh:true})
-            expect(res.targetPower).toBeUndefined()        
+            expect(res.targetPower).toBeCloseTo(150,0)
+            
+            // back to previous will also reset speed and power
+            jest.advanceTimersByTime(1000);
+            cm.updateData({speed:30,slope:0,power:res.targetPower,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626} )  
+            expect(cm.data.speed).toBeCloseTo(38.8,1)
+            expect(cm.event.rpmUpdated).toBe(true)         
+            res = cm.sendBikeUpdate({refresh:true})
+            expect(res.targetPower).toBe(146)
+
+            // decrease cadence -> target power will decrease & speed will decrease once bike has adjusted power
+            jest.advanceTimersByTime(1000);
+            cm.updateData({speed:30,slope:0,power:158,isPedalling:true, pedalRpm:89,heartrate:99,distanceInternal:242351,gear:10,time:1626} )  
+            expect(cm.data.speed).toBeCloseTo(38.2,1)
+            expect(cm.event.rpmUpdated).toBe(true)         
+            res = cm.sendBikeUpdate({refresh:true})
+            expect(res.targetPower).toBeLessThan(158)
+            jest.advanceTimersByTime(1000);
+            cm.updateData({speed:30,slope:0,power:res.targetPower,isPedalling:true, pedalRpm:89,heartrate:99,distanceInternal:242351,gear:10,time:1626} )  
+            expect(cm.data.speed).toBeCloseTo(37.6,1)
+            expect(cm.event.rpmUpdated).toBeUndefined()
+
+            expect(res.targetPower).not.toBe(100)
+
+            // decrease cadence to zero, speed will not be immediately set to zero, sets target to "startPower"
+            jest.advanceTimersByTime(1000);
+            cm.updateData({speed:30,slope:0,power:158,isPedalling:false, pedalRpm:0,heartrate:99,distanceInternal:242351,gear:10,time:1626} )  
+            expect(cm.data.speed).not.toBe(0)
+            res = cm.sendBikeUpdate({refresh:true})
+            expect(res.targetPower).toBe( cm.getSetting('startPower') )
         })
 
-        test('min power < max power',()=>{
-            const adapter = new KettlerRacerAdapter( {interface:'serial',name:'test',port:'COM1', protocol:'Kettler Racer'});
+
+
+        test('bug: NaN in display for speed',()=>{
             const cm = new ERGCyclingMode(adapter);
             cm.getSetting = jest.fn( (key) => { 
                 if (key==='startPower') return 100
-                if (key==='bikeType') return 'race'
+                if (key==='bikeType') return 'Mountain'
             });
 
             let res;
-            cm.prevRequest = {};
+            cm.prevRequest = {maxPower:400};
             cm.event = {}
-            cm.data = {speed:40,slope:0,power:158,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:10,gear:10,time:1220.219};
+            cm.data = {speed:4.5,power:68,distanceInternal:1,pedalRpm:62.2,isPedalling:true,heartrate:0,slope:42.973320188763346,gear:13,time:66.10100000000001};
             cm.prevUpdateTS = Date.now()
 
-            // increase cadence -> target power will not change
-            jest.advanceTimersByTime(1000);
-            cm.updateData({speed:30,slope:0,power:158,isPedalling:true,pedalRpm:91,heartrate:99,distanceInternal:242351,gear:10,time:1626} )  
-            expect(cm.data.speed).toBeCloseTo(39.4,1)
-            res = cm.sendBikeUpdate({minPower:120, maxPower:140})
-            expect(res.targetPower).toBe(140)
+            // increase cadence -> target power will increase & speed will increase once bike has adjusted power
+            jest.advanceTimersByTime(971);
+            res = cm.updateData({isPedalling:true,power:58,pedalRpm:63.2,speed:15.515999999999998,heartrate:0,distanceInternal:290,gear:13,time:72} )  
+            expect(res.speed).toBeDefined()
             
         })
 
+        test('bug no change after rpm change',()=>{
+            const cm = new ERGCyclingMode(adapter);
+            cm.getSetting = jest.fn( (key) => { 
+                if (key==='startPower') return 50
+                if (key==='bikeType') return 'race'
+            });
+
+            let res;
+            cm.prevRequest = {targetPower:50,init:true};
+            cm.event = {}
+            cm.data = {speed:40,slope:0,power:50,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:10,gear:10,time:1220.219};
+            cm.prevUpdateTS = Date.now()
+
+            // increase cadence -> target power will increase & speed will increase once bike has adjusted power
+            jest.advanceTimersByTime(1000);
+            cm.updateData({speed:30,slope:0,power:158,isPedalling:true,pedalRpm:91,heartrate:99,distanceInternal:242351,gear:10,time:1626} )  
+            expect(cm.event.rpmUpdated).toBe(true)         
+            res = cm.sendBikeUpdate({refresh:true})
+            expect(res.targetPower).toBeCloseTo(150,0)
+            
+        })
+
+
+        test('bug: power limits not kept during workout',()=>{
+            const cm = new ERGCyclingMode(adapter);
+            cm.getSetting = jest.fn( (key) => { 
+                if (key==='startPower') return 50
+                if (key==='bikeType') return 'race'
+            });
+
+            let res;
+            cm.prevRequest = {minPower:181,maxPower:181,targetPower:181};
+            cm.event = {starting:true,tsStart:1672901061171,rpmUpdated:true}
+            cm.data = {gear:9,pedalRpm:23,slope:0,power:50,speed:3.928287395349927,isPedalling:true,heartrate:77,distanceInternal:1230};
+            cm.prevUpdateTS = Date.now()
+
+            jest.advanceTimersByTime(250);
+            res = cm.sendBikeUpdate({refresh:true})
+
+            // increase cadence -> target power will increase & speed will increase once bike has adjusted power
+            jest.advanceTimersByTime(750);
+            cm.updateData({gear:9,pedalRpm:28.5,slope:7.348413074372249,power:181,speed:7.573560915382975,isPedalling:true,heartrate:77,distanceInternal:1234} )  
+            expect(cm.event.rpmUpdated).toBe(true)         
+
+            res = cm.sendBikeUpdate({refresh:true})
+            expect(res.targetPower).toBeUndefined()
+            expect(cm.prevRequest).toMatchObject({minPower:181,maxPower:181,targetPower:181})
+            
+        })
 
 
     })

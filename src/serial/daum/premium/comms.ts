@@ -1,4 +1,4 @@
-import {ACTUAL_BIKE_TYPE} from "../constants"
+import {ACTUAL_BIKE_TYPE} from "../consts"
 import {buildMessage,ascii,bin2esc, esc2bin,parseTrainingData, checkSum, getAsciiArrayFromStr, getPersonData, ReservedCommands, routeToEpp, getBikeType, validatePath, responseLog} from './utils'
 import { User } from "../../../types/user";
 import { Route } from "../../../types/route";
@@ -8,8 +8,9 @@ import SerialPortComms from "../../comms";
 import { DEFAULT_ACK_TIMEOUT, DEFAULT_TIMEOUT, DS_BITS_ENDLESS_RACE, DS_BITS_OFF, MAX_DATA_BLOCK_SIZE } from "./consts";
 import { DaumPremiumCommsState, DaumPremiumRequest, ResponseObject } from "./types";
 import { IncyclistBikeData } from "../../..";
+import DaumSerialComms from "../types";
 
-export default class Daum8i extends SerialPortComms<DaumPremiumCommsState,DaumPremiumRequest,ResponseObject > {
+export default class Daum8i extends SerialPortComms<DaumPremiumCommsState,DaumPremiumRequest,ResponseObject > implements DaumSerialComms {
 
 
     validatePath(path:string): string {
@@ -334,6 +335,15 @@ export default class Daum8i extends SerialPortComms<DaumPremiumCommsState,DaumPr
     async sendNAK(logPayload) {
         this.logEvent({message:"sendCommand:sending NAK",...logPayload});
         await this.write( Buffer.from([0x15]),false)
+    }
+
+    async setTargetPower(power: number): Promise<void> {
+        await this.setPower(power)    
+    }
+
+    setTargetSlope(_slope: number): Promise<void> {
+        // not suppported
+        return
     }
 
 

@@ -1,4 +1,4 @@
-
+/* istanbul ignore file */
 
 export const ACTUAL_BIKE_TYPE = {
     ALLROUND: 'allround',

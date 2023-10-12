@@ -1,11 +1,12 @@
-import CyclingMode from "../modes/cycling-mode";
-import { DeviceProperties, DeviceSettings } from "../types/device";
-import {Bike, IncyclistDeviceAdapter, OnDeviceDataCallback} from '../types/adapter'
+import ICyclingMode,{ CyclingMode } from "../modes/types";
+import { DeviceProperties, DeviceSettings  } from "../types/device";
+import { Controllable, IncyclistDeviceAdapter, OnDeviceDataCallback} from '../types/adapter'
 import { User } from "../types/user";
 import { IncyclistCapability } from "../types/capabilities";
 import { EventLogger } from "gd-eventlog";
 import { DeviceData } from "../types/data";
 import EventEmitter from "events";
+import { CyclingModeBase } from "../modes/base";
 
 export const DEFAULT_BIKE_WEIGHT = 10;
 export const DEFAULT_USER_WEIGHT = 75;
@@ -16,11 +17,12 @@ export const DEFAULT_PROPS: DeviceProperties = {
 
 }
 
-export default class IncyclistDevice extends EventEmitter implements IncyclistDeviceAdapter  {
+export default class IncyclistDevice<B extends Controllable<P>, P extends DeviceProperties> 
+                extends EventEmitter 
+                implements IncyclistDeviceAdapter  {
 
     onDataFn: OnDeviceDataCallback;
     settings: DeviceSettings;
-    props: DeviceProperties
     lastUpdate?: number;
     updateFrequency: number;
 
@@ -29,6 +31,9 @@ export default class IncyclistDevice extends EventEmitter implements IncyclistDe
     started: boolean
     stopped: boolean
     paused: boolean;
+
+    bikeControl: B
+    props: DeviceProperties
 
 
     /**
@@ -39,18 +44,25 @@ export default class IncyclistDevice extends EventEmitter implements IncyclistDe
         super();
         this.onDataFn = undefined;
         this.settings = settings;
-        this.props = props||{}
+        this.props = props|| {} as unknown as P
         this.capabilities = []
         this.started = false;
         this.stopped = false;
         this.paused = false
+        this.bikeControl = new NonControllableDevice(this,props) as B
     }
+
+    setControl(control:B) {       
+        this.bikeControl = control;
+    }
+
     connect():Promise<boolean> { throw new Error('not implemented') }
     close():Promise<boolean> { throw new Error('not implemented') }
     check(): Promise<boolean> {throw new Error("Method not implemented.");}
-    getLogger(): EventLogger { return undefined}
+    getLogger(): EventLogger { return this.logger}
+
     isControllable(): boolean {
-        return false;
+        return this.bikeControl?.isControllable()
     }   
     isEqual(settings: DeviceSettings):boolean {throw new Error("Method not implemented.");}
     getCapabilities(): IncyclistCapability[] { return this.capabilities }
@@ -162,62 +174,109 @@ export default class IncyclistDevice extends EventEmitter implements IncyclistDe
         return this.onDataFn || this.listenerCount('data')>0
     }
 
+    setCyclingMode(mode: string | ICyclingMode, settings?: any, sendInitCommands?: boolean): void {
+        if (this.isControllable())
+            this.bikeControl?.setCyclingMode(mode,settings,sendInitCommands)
+    }
+    getSupportedCyclingModes(): any[] {
+        if (!this.isControllable())
+            return [];
+
+        return this.bikeControl?.getSupportedCyclingModes()
+    }
+
+    getCyclingMode(): ICyclingMode {
+        if (this.isControllable())
+            return this.bikeControl.getCyclingMode()
+    }
+    getDefaultCyclingMode(): ICyclingMode {
+        if (this.isControllable())
+            return this.bikeControl.getDefaultCyclingMode()
+    }
+    setBikeProps(props: P): void {
+        if (this.isControllable())
+            this.bikeControl.setBikeProps(props)
+    }
+    setUser(user: User): void {
+        if (this.isControllable())
+            this.bikeControl.setUser(user)
+    }
+
+    getUser():User {
+        return this.bikeControl?.getUser() || {}
+
+    }
+    getWeight(): number {
+        return this.bikeControl?.getWeight()
+    }
+
+    async sendInitCommands():Promise<boolean> {
+        if (this.isControllable())
+            return await this.bikeControl.sendInitCommands()
+        return false;
+    }
+
+
+
+}
+
+
+export class NonControllableDevice<P extends DeviceProperties> extends Controllable<P>{
+
+    isControllable(): boolean {
+        return false
+    }
+
+    setCyclingMode(mode: string | ICyclingMode, settings?: any, sendInitCommands?: boolean): void {
+        throw new Error("Method not implemented.");
+    }
+    getSupportedCyclingModes(): Array<typeof CyclingMode> {
+        throw new Error("Method not implemented.");
+    }
+    getCyclingMode(): ICyclingMode {
+        throw new Error("Method not implemented.");
+    }
+    getDefaultCyclingMode(): ICyclingMode {
+        throw new Error("Method not implemented.");
+    }
+    setBikeProps(props: DeviceProperties): void {
+        throw new Error("Method not implemented.");
+    }
+    setUser(user: User): void {
+        throw new Error("Method not implemented.");
+    }
+    async sendInitCommands():Promise<boolean> {
+        return false;
+    }
+
 }
 
 
 
-export class ControllableDevice extends IncyclistDevice implements Bike{
-    cyclingMode: CyclingMode;
-    user?:User;
+export class ControllableDevice<P extends DeviceProperties> extends Controllable<P>{
+    protected cyclingMode: ICyclingMode;
 
-    constructor( settings:DeviceSettings, props?:DeviceProperties) { 
-        super(settings,props)
+    constructor( adapter:IncyclistDeviceAdapter, props?:P) { 
+        super(adapter,props)
         this.cyclingMode = this.getDefaultCyclingMode()
-        this.user = {}
     }
 
     isControllable(): boolean {
         return true
     }
-    
-    setUser(user: User): void {
-        this.user = user;
-        if (!user.weight)
-            this.user.weight = DEFAULT_USER_WEIGHT
-    }
+ 
 
+    getSupportedCyclingModes(): Array<typeof CyclingMode> {throw new Error('not implemented')}
+    getDefaultCyclingMode(): ICyclingMode {throw new Error('not implemented')}
 
-    setBikeProps(props:DeviceProperties) {
-
-        const {user,userWeight} = props||{}
-        if (user) 
-            this.setUser(user)
-        if (userWeight)
-            this.user.weight = userWeight
-
-        const keys = Object.keys(props)
-        keys.forEach( k=> {
-            const p = props[k]
-            if (p===null) 
-                delete this.props[k]
-            else if (p!==undefined)
-                this.props[k] = p;
-        })
-    }
-
-
-
-    getSupportedCyclingModes(): any[] {throw new Error('not implemented')}
-    getDefaultCyclingMode(): CyclingMode {throw new Error('not implemented')}
-
-    setCyclingMode(mode: CyclingMode|string, settings?:any):void  { 
-        let selectedMode :CyclingMode;
+    setCyclingMode(mode: ICyclingMode|string, settings?:any):void  { 
+        let selectedMode :ICyclingMode;
 
         if ( typeof mode === 'string') {
             const supported = this.getSupportedCyclingModes();
-            const CyclingModeClass = supported.find( M => { const m = new M(this); return m.getName() === mode })
+            const CyclingModeClass = supported.find( M => { const m = new M(this.adapter); return m.getName() === mode })
             if (CyclingModeClass) {
-                this.cyclingMode = new CyclingModeClass(this,settings);    
+                this.cyclingMode = new CyclingModeClass(this.adapter,settings);    
                 return;
             }
             selectedMode = this.getDefaultCyclingMode();
@@ -235,7 +294,7 @@ export class ControllableDevice extends IncyclistDevice implements Bike{
     }
 
 
-    getCyclingMode(): CyclingMode {
+    getCyclingMode(): ICyclingMode {
         if (!this.cyclingMode)
             this.setCyclingMode( this.getDefaultCyclingMode());
         return this.cyclingMode;
@@ -249,5 +308,6 @@ export class ControllableDevice extends IncyclistDevice implements Bike{
         const bikeWeight = props.bikeWeight ||DEFAULT_BIKE_WEIGHT;
         return userWeight+bikeWeight
     }
+
 
 }
