@@ -1,6 +1,7 @@
-import ICyclingMode, { IncyclistBikeData, Settings, UpdateRequest } from './types';
+import ICyclingMode, { Settings, UpdateRequest } from './types';
+import { IncyclistBikeData } from "../types";
 import PowerBasedCyclingModeBase from './power-base';
-import { IncyclistDeviceAdapter } from '..';
+import { IncyclistDeviceAdapter } from '../base/adpater';
 
 export default class PowerMeterCyclingMode extends PowerBasedCyclingModeBase implements ICyclingMode {
 

@@ -1,14 +1,13 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 import { sleep } from '../../../utils/utils'
-import { User } from '../../../types/user'
 import { ClassicBikeResponse, DaumClassicCommsState, DaumClassicRequest, DaumClassicResponse, GetVersionReponse, ProgResponse, SetGearRepsonse, SetPowerRepsonse, SetProgResponse, SetSlopeRepsonse, checkCockpitReponse } from './types'
-import SerialPortComms from '../../comms'
-import { ResponseTimeout } from '../premium/types'
+import SerialPortComms from '../../base/comms'
 import { DEFAULT_AGE, between, buildSetSlopeCommand, getBikeType, getCockpit, getGender, getLength, getSerialNo, getWeight, parseRunData } from './utils'
-import { DeviceType } from '../../../types/device'
-import { IncyclistBikeData } from '../../..'
-import DaumSerialComms from '../types'
-import { SerialCommProps } from '../../comm'
+
+import { DaumSerialComms,ResponseTimeout } from '../types'
+import { SerialCommProps } from '../../types'
+import { DeviceType,IncyclistBikeData,User } from '../../../types'
+
 const ByteLength = require('@serialport/parser-byte-length')
 
 

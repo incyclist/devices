@@ -1,8 +1,9 @@
 import { IncyclistCapability } from '../../types/capabilities'
+import { sleep } from '../../utils/utils'
 import { AntDeviceSettings } from '../types'
 import AntHrAdapter from './adapter'
 
-describe( 'adapter', ()=>{
+describe( 'ANT HR adapter', ()=>{
     describe('constructor',()=>{
         test('typical settings, empty props',()=>{
             const settings = {       
@@ -92,6 +93,43 @@ describe( 'adapter', ()=>{
 
     })
 
+    describe('getUniqueName',()=>{
+        let adapter;
+        beforeEach( ()=>{            
+            adapter = new AntHrAdapter({deviceID: '2606',profile: 'HR',interface: 'ant'})
+
+        })
+
+        test('no data (yet)',()=>{
+            expect(adapter.getUniqueName()).toBe('Ant+HR 2606')
+        })
+
+        test('has received HR data',()=>{
+            adapter.deviceData.ComputedHeartRate = 123
+            expect(adapter.getUniqueName()).toBe('Ant+HR 2606')
+        })
+
+        test('has received ManId',()=>{
+            adapter.deviceData.ManId = 123
+            expect(adapter.getUniqueName()).toBe('Polar HR 2606')
+        })
+
+        test('has received ManId and HR data',()=>{
+            adapter.deviceData.ManId = 123
+            adapter.deviceData.ComputedHeartRate = 180
+            expect(adapter.getUniqueName()).toBe('Polar HR 2606')
+        })
+
+        test('name is in settings',()=>{
+            adapter.settings.name = 'Emma'
+            adapter.deviceData.ManId = 123
+            adapter.deviceData.ComputedHeartRate = 180
+            expect(adapter.getUniqueName()).toBe('Emma')
+        })
+
+    })
+
+
     describe('getDisplayName',()=>{
         let adapter;
         beforeEach( ()=>{            
@@ -120,28 +158,30 @@ describe( 'adapter', ()=>{
         })
 
     })
-
     describe('onDeviceData',()=>{
         let adapter;
+
         beforeEach( ()=>{            
             adapter = new AntHrAdapter({deviceID: '2606',profile: 'HR',interface: 'ant'})
+            adapter.deviceData = {DeviceID:2606}
+            adapter.started = true;
+            adapter.paused = false
+            adapter.dataMsgCount = 123
+
             adapter.onDataFn = jest.fn()
             adapter.startDataTimeoutCheck = jest.fn()
+            jest.spyOn(adapter,'emitData')
             adapter.emit = jest.fn()
         })
 
         test('initial data - not started',()=>{
-            adapter.deviceData = {DeviceID:'2606'}
             adapter.started = false;
-            adapter.paused = false
-            adapter.ivDataTimeout = undefined
-            adapter.lastDataTS = undefined;
-            adapter.lastUpdate = undefined
             adapter.dataMsgCount = 0
+            adapter.deviceData={}
 
-            adapter.onDeviceData({DeviceID:'2606', ComputedHeartRate:60})
-            expect(adapter.deviceData).toMatchObject({DeviceID:'2606'})
-            expect(adapter.onDataFn).not.toHaveBeenCalledWith()
+            adapter.onDeviceData({DeviceID:2606, ComputedHeartRate:60})
+            expect(adapter.deviceData).toMatchObject({DeviceID:2606})
+            expect(adapter.emit).not.toHaveBeenCalledWith()
             expect(adapter.lastUpdate).toBeUndefined()
             expect(adapter.lastDataTS).toBeDefined()
             expect(adapter.dataMsgCount).toBe(1)
@@ -149,83 +189,80 @@ describe( 'adapter', ()=>{
         })
 
 
-        test('initial data',()=>{
-            adapter.deviceData = {DeviceID:'2606'}
+        test('initial data - only heartrate',()=>{
             adapter.started = true;
-            adapter.paused = false
-            adapter.ivDataTimeout = undefined
-            adapter.lastDataTS = undefined;
-            adapter.lastUpdate = undefined
             adapter.dataMsgCount = 0
 
-            adapter.onDeviceData({DeviceID:'2606', ComputedHeartRate:60})
-            expect(adapter.deviceData).toMatchObject({DeviceID:'2606', ComputedHeartRate:60})
-            expect(adapter.onDataFn).toHaveBeenCalledWith({heartrate:60})
-            expect(adapter.lastUpdate).toBeDefined()
+            adapter.onDeviceData({DeviceID:2606, ComputedHeartRate:60})
+
+            expect(adapter.deviceData).toMatchObject({DeviceID:2606, ComputedHeartRate:60})
+            expect(adapter.emitData).toHaveBeenCalledWith(({heartrate:60,timestamp:expect.anything()}))
             expect(adapter.lastDataTS).toBeDefined()
             expect(adapter.dataMsgCount).toBe(1)
             expect(adapter.startDataTimeoutCheck).toHaveBeenCalled()
         })
 
         test('initial data - includes ManId',()=>{
-            adapter.deviceData = {DeviceID:'2606'}
-            adapter.started = true;
-            adapter.paused = false
-            adapter.ivDataTimeout = undefined
-            adapter.lastDataTS = undefined;
-            adapter.lastUpdate = undefined
             adapter.dataMsgCount = 0
 
-            adapter.onDeviceData({DeviceID:'2606', ComputedHeartRate:60, ManId:89})
-            expect(adapter.deviceData).toMatchObject({DeviceID:'2606', ComputedHeartRate:60})
-            expect(adapter.onDataFn).toHaveBeenCalledWith({heartrate:60})
-            expect(adapter.lastUpdate).toBeDefined()
+            adapter.onDeviceData({DeviceID:2606, ComputedHeartRate:60, ManId:89})
+
+            expect(adapter.deviceData).toMatchObject({DeviceID:2606, ComputedHeartRate:60})
+            expect(adapter.emitData).toHaveBeenCalledWith(({heartrate:60,timestamp:expect.anything()}))
             expect(adapter.lastDataTS).toBeDefined()
             expect(adapter.dataMsgCount).toBe(1)
             expect(adapter.startDataTimeoutCheck).toHaveBeenCalled()
-            expect(adapter.emit).toHaveBeenCalledWith('device-info',expect.objectContaining({manufacturer:'Tacx'}))
+            expect(adapter.emit).toHaveBeenCalledWith('device-info',expect.objectContaining({deviceID:'2606'}),expect.objectContaining({manufacturer:'Tacx'}))
         })
 
-        test('data update',()=>{
-            adapter.deviceData = {DeviceID:'2606', ComputedHeartRate:60}
-            adapter.started = true;
-            adapter.paused = false
+        test('data update new alue',()=>{
+            adapter.deviceData = {DeviceID:2606, ComputedHeartRate:60}
             adapter.ivDataTimeout = 123
-            adapter.lastDataTS = Date.now()-1000;
-            adapter.lastUpdate = Date.now()-3000;
             adapter.dataMsgCount = 1
 
-            adapter.onDeviceData({DeviceID:'2606', ComputedHeartRate:61, ManId:89})
-            expect(adapter.deviceData).toMatchObject({DeviceID:'2606', ComputedHeartRate:61,ManId:89})
-            expect(adapter.onDataFn).toHaveBeenCalledWith({heartrate:61})
-            expect(adapter.lastUpdate).toBeDefined()
+            adapter.onDeviceData({DeviceID:2606, ComputedHeartRate:61, ManId:89})
+            expect(adapter.deviceData).toMatchObject({DeviceID:2606, ComputedHeartRate:61,ManId:89})
+            expect(adapter.emitData).toHaveBeenCalledWith(({heartrate:61,timestamp:expect.anything()}))
             expect(adapter.lastDataTS).toBeDefined()
             expect(adapter.dataMsgCount).toBe(2)
-            expect(adapter.startDataTimeoutCheck).not.toHaveBeenCalled()
-            
+            expect(adapter.startDataTimeoutCheck).not.toHaveBeenCalled()            
+        })
+
+        test('data update same alue',()=>{
+            adapter.deviceData = {DeviceID:2606, ComputedHeartRate:60}
+            adapter.dataMsgCount = 1
+
+            adapter.onDeviceData({DeviceID:2606, ComputedHeartRate:60, ManId:89})
+            expect(adapter.deviceData).toMatchObject({DeviceID:2606, ComputedHeartRate:60,ManId:89})
+            expect(adapter.emitData).toHaveBeenCalledWith(({heartrate:60,timestamp:expect.anything()}))
+            expect(adapter.lastDataTS).toBeDefined()
+            expect(adapter.dataMsgCount).toBe(2)
         })
 
         test('data update - last emit was more frequent than limit',()=>{
             adapter.deviceData = {DeviceID:'2606', ComputedHeartRate:60}
-            adapter.started = true;
-            adapter.paused = false
-            adapter.ivDataTimeout = 123
-            adapter.lastDataTS = Date.now()-1000;
-            adapter.lastUpdate = Date.now()-10;
             adapter.dataMsgCount = 1
+            adapter.isUpdateWithinFrequency = jest.fn().mockReturnValue(false)
 
             adapter.onDeviceData({DeviceID:'2606', ComputedHeartRate:61, ManId:89})
             expect(adapter.deviceData).toMatchObject({DeviceID:'2606', ComputedHeartRate:61,ManId:89})
-            expect(adapter.onDataFn).not.toHaveBeenCalled()
-            expect(adapter.lastUpdate).toBeDefined()
-            expect(adapter.lastDataTS).toBeDefined()
-            expect(adapter.dataMsgCount).toBe(2)
-            expect(adapter.startDataTimeoutCheck).not.toHaveBeenCalled()
+            expect(adapter.emitData).not.toHaveBeenCalled()
             
         })
+
+        test('data update - paused',()=>{
+            adapter.deviceData = {DeviceID:2606, ComputedHeartRate:60}
+            adapter.paused = true
+
+            adapter.onDeviceData({DeviceID:2606, ComputedHeartRate:99, ManId:89})
+            expect(adapter.deviceData).toMatchObject({DeviceID:2606, ComputedHeartRate:99,ManId:89})
+            expect(adapter.emitData).not.toHaveBeenCalled()
+            
+        })
+
     })
 
-    describe('mapData',()=>{
+    describe('mapToAdapterData',()=>{
         let adapter;
         beforeEach( ()=>{            
             adapter = new AntHrAdapter({deviceID: '2606',profile: 'HR',interface: 'ant'})
@@ -235,24 +272,27 @@ describe( 'adapter', ()=>{
         })
 
         test('receiving only device information',()=>{
-            adapter.mapData({ManId:89,DeviceID:2606})
+            adapter.mapToAdapterData({ManId:89,DeviceID:2606})
             expect(adapter.data).toEqual({})
         })
 
-        test('receiving a heartrate',()=>{
-            adapter.mapData({ManId:89,DeviceID:2606,ComputedHeartRate:60})
-            expect(adapter.data).toEqual({heartrate:60})
+        test('receiving a heartrate, multiple times',()=>{
+            adapter.mapToAdapterData({ManId:89,DeviceID:2606,ComputedHeartRate:60})
+            expect(adapter.data).toEqual({heartrate:60,timestamp:expect.anything()})
 
-            adapter.mapData({ManId:89,DeviceID:2606,ComputedHeartRate:90,SerialNumber:10})
-            expect(adapter.data).toEqual({heartrate:90})
+            adapter.mapToAdapterData({ManId:89,DeviceID:2606,ComputedHeartRate:90,SerialNumber:10})
+            expect(adapter.data).toEqual({heartrate:90,timestamp:expect.anything()})
         })
 
-        test('receiving a heartrate, then a record without heartrate',()=>{
-            adapter.mapData({ManId:89,DeviceID:2606,ComputedHeartRate:60})
-            expect(adapter.data).toEqual({heartrate:60})
+        test('receiving a heartrate, then a record without heartrate',async ()=>{
+            adapter.mapToAdapterData({ManId:89,DeviceID:2606,ComputedHeartRate:60})
+            expect(adapter.data).toEqual({heartrate:60,timestamp:expect.anything()})
+            const ts = adapter.data.timestamp
 
-            adapter.mapData({ManId:89,DeviceID:2606})
-            expect(adapter.data).toEqual({heartrate:60})
+            await sleep(10)
+
+            adapter.mapToAdapterData({ManId:89,DeviceID:2606})
+            expect(adapter.data).toEqual({heartrate:60,timestamp:ts})
         })
 
     })

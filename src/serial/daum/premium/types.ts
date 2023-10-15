@@ -1,9 +1,34 @@
 /* istanbul ignore file */
 
-import { DaumBikeData, DeviceProperties } from "../../../types/device";
-import { Route } from "../../../types/route";
+import { DeviceProperties } from "../../../types";
 import { Queue } from "../../../utils/utils";
-import { Request, Response } from "../../comms";
+import { Request, Response } from "../../base/comms";
+
+export type Point = {
+    lat?: number;
+    lng?: number;
+    elevation?: number;
+    distance: number;
+    slope?: number;
+}
+
+export type Route = {
+    programId: number;
+    points: Point[];
+    type: string;
+    name?: string;
+    description?: string;
+    lapMode: boolean;
+    totalDistance: number;
+    minElevation?: number;
+    maxElevation?: number;
+    sampleRate?: number;
+}
+export interface DaumPremiumDeviceProperties extends DeviceProperties {
+    route?: Route,
+    gear?:number,
+    onStatusUpdate?:OnDeviceStartCallback,
+}
 
 
 export class CheckSumError extends Error {
@@ -27,30 +52,8 @@ export class BusyTimeout extends Error {
     }
 }
 
-export class ResponseTimeout extends Error {
-    constructor() {
-        super();
-        this.message = 'RESP timeout'
-    }
-}
-
-export interface DaumPremiumBikeData extends DaumBikeData {
-
-}
-
-
 export type OnDeviceStartCallback = ( completed:number,total:number  ) => void;
 
-export type DaumPremiumAdapterProps = {
-    path: string;
-    ifaceName: string
-}
-
-export interface Daum8iDeviceProperties extends DeviceProperties {
-    route?: Route,
-    gear?:number,
-    onStatusUpdate?:OnDeviceStartCallback,
-}
 
 export interface DaumPremiumRequest extends Request {
     command:string,
@@ -73,4 +76,11 @@ export type DaumPremiumCommsState = {
     partialCmd?;
     data: Queue<ResponseObject>;
 };
+export enum ACTUAL_BIKE_TYPE  {
+    ALLROUND = 'allround',
+    RACE = 'race',
+    MOUNTAIN = 'mountain',
+    TRIATHLON = 'triathlon'
+}
+
 

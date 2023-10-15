@@ -1,8 +1,8 @@
-import { IncyclistDeviceAdapter } from "../types/adapter";
-import ICyclingMode, { CyclingMode, CyclingModeConfig, CyclingModeProperty, IncyclistBikeData, Settings, UpdateRequest } from "./types";
+import { IncyclistBikeData, IAdapter } from "../types";
+import ICyclingMode, { CyclingMode, CyclingModeConfig, CyclingModeProperty, Settings, UpdateRequest } from "./types";
 
 export abstract class CyclingModeBase extends CyclingMode implements ICyclingMode {
-    adapter: IncyclistDeviceAdapter
+    adapter: IAdapter
     settings: Settings = {}
     properties: Settings = {};
     localConfig: CyclingModeConfig;
@@ -14,7 +14,7 @@ export abstract class CyclingModeBase extends CyclingMode implements ICyclingMod
         return this.config.isERG===true
     }
 
-    constructor(adapter: IncyclistDeviceAdapter, props?:any) {
+    constructor(adapter: IAdapter, props?:any) {
         super(adapter,props)
 
         this.setAdapter(adapter);
@@ -22,7 +22,7 @@ export abstract class CyclingModeBase extends CyclingMode implements ICyclingMod
         
     }
     
-    setAdapter(adapter: IncyclistDeviceAdapter) {
+    setAdapter(adapter: IAdapter) {
         this.adapter = adapter;
     }
 

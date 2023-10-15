@@ -1,14 +1,11 @@
-import {ACTUAL_BIKE_TYPE} from "../consts"
 import {buildMessage,ascii,bin2esc, esc2bin,parseTrainingData, checkSum, getAsciiArrayFromStr, getPersonData, ReservedCommands, routeToEpp, getBikeType, validatePath, responseLog} from './utils'
-import { User } from "../../../types/user";
-import { Route } from "../../../types/route";
-import { ACKTimeout, CheckSumError, OnDeviceStartCallback, ResponseTimeout } from "./types";
+import { User,IncyclistBikeData  } from "../../../types";
+import { ACTUAL_BIKE_TYPE } from "./types";
+import { DaumSerialComms,ResponseTimeout}  from "../types";
+import { ACKTimeout, CheckSumError, OnDeviceStartCallback, DaumPremiumCommsState, DaumPremiumRequest, ResponseObject, Route  } from "./types";
 import { sleep } from "../../../utils/utils";
-import SerialPortComms from "../../comms";
+import SerialPortComms from "../../base/comms";
 import { DEFAULT_ACK_TIMEOUT, DEFAULT_TIMEOUT, DS_BITS_ENDLESS_RACE, DS_BITS_OFF, MAX_DATA_BLOCK_SIZE } from "./consts";
-import { DaumPremiumCommsState, DaumPremiumRequest, ResponseObject } from "./types";
-import { IncyclistBikeData } from "../../..";
-import DaumSerialComms from "../types";
 
 export default class Daum8i extends SerialPortComms<DaumPremiumCommsState,DaumPremiumRequest,ResponseObject > implements DaumSerialComms {
 

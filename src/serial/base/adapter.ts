@@ -1,23 +1,17 @@
-import { DeviceProperties, DeviceSettings } from "../types/device";
-import  IncyclistDevice, { ControllableDevice} from "../base/adpater";
+import IncyclistDevice from "../../base/adpater";
+import { DeviceProperties } from "../../types";
 import SerialInterface from "./serial-interface";
-
-export interface SerialDeviceSettings extends DeviceSettings {
-    protocol: string,
-    host?:string,
-    port?:string,
-    interface: string | SerialInterface,
-}
+import { SerialDeviceSettings } from "../types";
 
 const DEFAULT_PULL_FREQUENCY = 1000;
 
-export class SerialIncyclistDevice<C extends ControllableDevice<P>, P extends DeviceProperties> extends IncyclistDevice<C,P>  {
+export class SerialIncyclistDevice<P extends DeviceProperties> extends IncyclistDevice<P>  {
 
     pullFrequency: number;
 
     async check(): Promise<boolean> { throw new Error('not implemnted')};
     
-    constructor ( settings:SerialDeviceSettings,props?: DeviceProperties) { 
+    constructor ( settings:SerialDeviceSettings,props?: P) { 
         super(settings,props)
         this.pullFrequency = DEFAULT_PULL_FREQUENCY
     }

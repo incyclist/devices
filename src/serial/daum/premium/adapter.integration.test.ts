@@ -1,12 +1,12 @@
 import { MockBinding } from "@serialport/binding-mock";
 import { EventLogger } from "gd-eventlog";
-import { DaumPremiumAdapter } from "../..";
-import SerialPortProvider from "../../serialport";
+import SerialPortProvider from "../../base/serialport";
 import DaumPowerMeterCyclingMode from "../../../modes/daum-power";
 import ERGCyclingMode from "../../../modes/daum-erg";
 import SmartTrainerCyclingMode from "../../../modes/daum-smarttrainer";
 import { Daum8iMock, Daum8iMockImpl, Daum8MockSimulator } from "./mock";
 import DaumClassicCyclingMode from "../../../modes/daum-premium-standard";
+import DaumPremiumAdapter from "./adapter";
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();

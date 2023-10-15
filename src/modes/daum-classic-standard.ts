@@ -1,7 +1,8 @@
 import { EventLogger } from "gd-eventlog";
-import ICyclingMode, { CyclingModeProperyType, IncyclistBikeData, Settings, UpdateRequest } from "./types";
-import { IncyclistDeviceAdapter } from "../types/adapter";
+import ICyclingMode, { CyclingModeProperyType, Settings, UpdateRequest } from "./types";
+import { IncyclistBikeData } from "../types";
 import SmartTrainerCyclingMode from "./antble-smarttrainer";
+import { IncyclistDeviceAdapter } from "../base/adpater";
 
 
 const config = {

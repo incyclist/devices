@@ -1,14 +1,8 @@
-import { IncyclistBikeData } from "../../..";
-import { DaumBikeData, DeviceProperties } from "../../../types/device";
+import { DeviceProperties,IncyclistBikeData } from "../../../types";
 import { Queue } from "../../../utils/utils";
-import { Request, Response } from "../../comms";
+import { Request, Response } from "../../base/comms";
 
-export type DaumClassiAdapterProps = {
-    path: string;
-    ifaceName?: string
-}
-
-export interface DaumClassicDeviceProperties extends DeviceProperties {
+export interface DaumClassicProperties extends DeviceProperties {
     gear?:number,
 }
 
@@ -23,9 +17,14 @@ export interface DaumClassicResponse extends Response {
     error?: Error;
 }
 
-export interface DaumClassicBikeData extends DaumBikeData {
+export type DaumClassicStartInfo = {
+    bikeNo?: number;
+    serialNo?:string;
+    cockpit?:string;
 
 }
+
+
 
 export type ResponseType = 'Response' | 'Error';
 

@@ -1,21 +1,10 @@
 import EventEmitter from "events";
 import { EventLogger } from "gd-eventlog";
 import { Channel, IAntDevice, IChannel, ISensor } from "incyclist-ant-plus";
-import { InterfaceProps } from "../types/interface";
+import { AntDeviceSettings, AntScanProps,AntInterfaceProps, ConnectState  } from "../types";
+import { IncyclistInterface } from "../../types";
 import AntDeviceBinding from "./binding";
-import { IncyclistInterface } from "../types/interface";
-
-import SensorFactory from "./sensor-factory";
-import { AntDeviceSettings, AntScanProps } from "./types";
-
-export interface AntInterfaceProps extends InterfaceProps  {
-    startupTimeout?: number
-}
-
-export interface ConnectState {
-    connected: boolean;
-    connecting: boolean;
-}
+import SensorFactory from "../factories/sensor-factory";
 
 export default class AntInterface   extends EventEmitter implements IncyclistInterface {
 

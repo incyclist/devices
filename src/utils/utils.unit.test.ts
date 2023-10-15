@@ -1,4 +1,4 @@
-import {runWithRetries, sleep, Queue,hexstr,floatVal,intVal, waitWithTimeout} from './utils'
+import {runWithRetries, sleep, Queue,hexstr,floatVal,intVal, waitWithTimeout, runWithTimeout} from './utils'
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
@@ -226,6 +226,41 @@ describe('utils',()=>{
                 const fn = new Promise( resolve => {to=setTimeout(()=>{resolve('X')},5000)}) 
                 
                 expect( async ()=>{ await waitWithTimeout(fn,100,undefined)}).rejects.toThrow('Timeout')
+            })
+
+        })
+    })
+
+    describe ( 'runWithTimeout()', ()=> {
+
+        let to
+
+        afterEach( ()=>{
+            if (to)
+                clearTimeout(to)
+        })
+
+        describe ( 'promise fullfils' ,()=> {
+            test ( 'promise fullfils' ,async ()=> {
+                const fn = new Promise( resolve => resolve('X'))                
+
+                const res = await runWithTimeout(fn,50)
+                expect(res).toBe('X'); 
+            })
+    
+            test ( 'promise rejects - throws error' ,async ()=> {
+                const fn = new Promise( (_resolve,reject) => {reject (new Error('X'))}) 
+                
+                
+                await expect( async () => { await runWithTimeout(fn,100)})
+                    .rejects.toThrow('X')                
+            })
+    
+            test('timeout',async ()=>{
+                const fn = new Promise( resolve => {to=setTimeout(()=>{resolve('X')},5000)}) 
+                
+                await expect( async () => { await runWithTimeout(fn,100)})
+                    .rejects.toThrow('Timeout')                
             })
 
         })

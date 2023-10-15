@@ -4,14 +4,12 @@ import { MockBinding } from '@serialport/binding-mock';
 import { SerialPortProvider,SerialInterface } from '../..';
 
 import {Daum8iMock, Daum8iMockImpl, Daum8MockSimulator} from './mock'
-import { ACTUAL_BIKE_TYPE } from '../consts';
 import { Gender } from '../../../types/user';
 import { EventEmitter } from 'stream';
 import { sleep } from '../../../utils/utils';
 import { hexstr } from './utils';
-import { Route } from "../../../types/route";
-import { IncyclistBikeData } from '../../../modes/types';
-import { ACKTimeout, ResponseObject } from './types';
+import { ACKTimeout, ACTUAL_BIKE_TYPE, ResponseObject,Route } from './types';
+import { IncyclistBikeData } from '../../../types';
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();

@@ -1,5 +1,4 @@
-import { IncyclistBikeData } from '../../..';
-import {DeviceType} from '../../../types/device'
+import {DeviceType,IncyclistBikeData} from '../../../types'
 
 export const DEFAULT_AGE         = 30;
 export const DEFAULT_USER_WEIGHT = 75;

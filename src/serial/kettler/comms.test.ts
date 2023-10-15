@@ -2,8 +2,8 @@ import { MockBinding } from "@serialport/binding-mock"
 import { EventLogger } from "gd-eventlog"
 import KettlerSerialComms from "./comms";
 import { SerialPortProvider } from ".."
-import { Command } from "../../types/command";
 import { KettlerRacerMock, KettlerRacerMockImpl} from './ergo-racer/mock'
+import { Command } from "./types";
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();

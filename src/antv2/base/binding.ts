@@ -1,6 +1,8 @@
+/* istanbul ignore file */
+
 import {IAntDevice, IChannel} from 'incyclist-ant-plus'
 
-import { AntInterfaceProps } from './ant-interface';
+import { AntInterfaceProps } from "../types";
 
 export default class AntDeviceBinding  implements IAntDevice {
     // eslint-disable-next-line @typescript-eslint/no-useless-constructor

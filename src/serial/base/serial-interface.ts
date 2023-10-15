@@ -2,134 +2,18 @@ import EventEmitter from "events";
 import { PortInfo, BindingInterface } from "@serialport/bindings-interface";
 import { SerialPortStream } from '@serialport/stream'
 import SerialPortProvider from "./serialport";
-import {SerialDeviceSettings} from './adapter'
-import { TCPBinding } from "./bindings/tcp";
+import { SerialDeviceSettings,SerialScannerProps, PortMapping, SerialInterfaceProps  } from "../types";
+import { IncyclistInterface } from "../../types";
+
+import { TCPBinding } from "../bindings/tcp";
 import { EventLogger } from "gd-eventlog";
-import { sleep } from "../utils/utils";
-import {  IncyclistScanProps } from "../types/device";
-import { IncyclistInterface,InterfaceProps } from "../types/interface";
-import AdapterFactory from "../adapters";
-import SerialAdapterFactory from "./adapter-factory";
+import { sleep } from "../../utils/utils";
+import SerialAdapterFactory from "../factories/adapter-factory";
+
+import { SinglePathScanner } from "./serial-scanner";
 
 
 const DEFAULT_SCAN_TIMEOUT = 10000;
-
-export const SerialInterfaceType = {
-    SERIAL: 'serial',
-    TCPIP: 'tcpip'
-}
-
-export interface SerialInterfaceProps extends InterfaceProps {
-    ifaceName: string
-    binding?: BindingInterface;
-}
-
-export type PortMapping = {
-    path: string;
-    port: SerialPortStream
-}
-
-export interface SerialScannerProps extends  IncyclistScanProps{
-    port?: string;
-    protocol: string;
-}
-
-
-
-export class SinglePathScanner {
-    path:string;
-    serial:SerialInterface
-    result: SerialDeviceSettings
-    isScanning: boolean
-    props:SerialScannerProps
-    logger:EventLogger
-    isFound: boolean
-
-    constructor (path:string, serial:SerialInterface, props:SerialScannerProps) {
-        this.path = path
-        this.serial = serial
-        this.result = undefined;
-        this.isScanning = false;
-        this.isFound = false;
-        this.props = props
-        this.logger = props.logger || new EventLogger('SerialScanner')
-
-    }
-
-    logEvent(event) {
-        if ( this.logger) {
-            this.logger.logEvent(event)
-        }
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const w = global.window as any
-    
-        if (w?.DEVICE_DEBUG||process.env.BLE_DEBUG) {
-            console.log( '~~~ SerialScanner', event)
-        }
-
-    }
-
-
-    async onStopRequest(resolve):Promise<void> {
-        this.logEvent({message:'stopping scan',path:this.path})
-        if (!this.isFound)
-            await this.serial.closePort(this.path)
-        this.isScanning=false;
-        resolve(this.result)
-    }
-
-    async scan  (): Promise<SerialDeviceSettings|undefined>  {
-        if (this.isScanning)
-            return;
-
-        this.isScanning = true;
-        return new Promise<SerialDeviceSettings|undefined> ( async (resolve,reject) => {
-            this.logEvent({message:'starting scan',path:this.path, interface:this.serial.getName()})
-
-            this.serial.scanEvents.on('timeout',()=> this.onStopRequest(resolve) )
-            this.serial.scanEvents.on('stop',()=> this.onStopRequest(resolve))
-    
-            let found = false;
-            while (!found && this.isScanning ) {
-                try {
-
-                    const  {protocol} = this.props;
-
-                    let host, port;
-                    if ( this.serial.getName()===SerialInterfaceType.TCPIP) {
-                        [host,port] = this.path.split(':')
-                    }
-                    else {
-                        port = this.path;
-                    }
-
-                    const adapterSettings = {interface:this.serial.getName(), host,port, protocol}
-                    
-                    const adapter = AdapterFactory.create(adapterSettings)
-
-                    found = await adapter.check()
-                    if (found) {
-                        this.isFound = true;    
-                        const name = adapter.getName();
-                        resolve( {...adapterSettings,name} )                        
-                    }
-                    await sleep(100)
-                }
-                catch(err) {
-                    /* ignore*/
-                    this.logEvent({message:'error', fn:'scan()', error:err.message||err, stack:err.stack})
-                    await sleep(100)
-                }
-    
-            }
-    
-        })
-        
-    }
-
-
-}
 
 export default class SerialInterface  extends EventEmitter implements IncyclistInterface { 
 

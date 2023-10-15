@@ -1,9 +1,10 @@
 import { EventLogger } from "gd-eventlog";
-import ICyclingMode, { CyclingModeProperyType, IncyclistBikeData, Settings, UpdateRequest } from "./types";
+import ICyclingMode, { CyclingModeProperyType, Settings, UpdateRequest } from "./types";
+import { IncyclistBikeData } from "../types";
 import calc from '../utils/calculations'
-import { IncyclistDeviceAdapter } from "..";
 import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../serial/daum/classic/utils";
 import { CyclingModeBase } from "./base";
+import { IncyclistDeviceAdapter } from "../base/adpater";
 
 const SEC_DELAY = 3;
 

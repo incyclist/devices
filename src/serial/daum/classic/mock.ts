@@ -1,9 +1,10 @@
 /* istanbul ignore file */
 import {MockBindingInterface, MockPortBinding,CreatePortOptions, MockBinding} from '@serialport/binding-mock'
 import { BindingInterface } from '@serialport/bindings-interface'
-import { SerialInterface, SerialPortProvider } from '../../';
 import { resolveNextTick } from '../../../utils/utils';
 import calc from '../../../utils/calculations'
+import SerialPortProvider from '../../base/serialport';
+import SerialInterface from '../../base/serial-interface';
 
 export type MockProps = {
     interface: string;

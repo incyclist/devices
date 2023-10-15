@@ -2,7 +2,7 @@
 import {MockBindingInterface, MockPortBinding,CreatePortOptions, MockBinding} from '@serialport/binding-mock'
 import { BindingInterface } from '@serialport/bindings-interface'
 import { SerialInterface, SerialPortProvider } from '../../';
-import { Gender, User } from '../../../types/user';
+import { Gender, User } from '../../../types';
 import { sleep,resolveNextTick } from '../../../utils/utils';
 import { bin2esc, buildMessage, checkSum, esc2bin, parsePersonData, ReservedCommands } from './utils';
 import { DS_BITS_ENDLESS_RACE } from './consts';

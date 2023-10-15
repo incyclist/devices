@@ -1,5 +1,16 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[` 1`] = `
+[
+  "HR",
+  "PWR",
+  "FE",
+  "CAD",
+  "SPD",
+  "SC",
+]
+`;
+
 exports[`utils getBrand All IDs until 287 1`] = `
 [
   undefined,

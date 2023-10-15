@@ -1,14 +1,14 @@
-import { SerialPortProvider } from "../serial"
-import { Daum8iMock, Daum8iMockImpl } from "./daum/premium/mock"
-import {SerialAdapterFactory} from "./"
+import { SerialPortProvider } from ".."
+import { Daum8iMock, Daum8iMockImpl } from "../daum/premium/mock"
+import {SerialAdapterFactory} from ".."
 
-import DaumClassicAdapter from './daum/classic/adapter'
-import DaumPremiumAdapter from './daum/premium/adapter';
-import KettlerRacerAdapter  from './kettler/ergo-racer/adapter';
+import DaumClassicAdapter from '../daum/classic/adapter'
+import DaumPremiumAdapter from '../daum/premium/adapter';
+import KettlerRacerAdapter  from '../kettler/ergo-racer/adapter';
 
 import { MockBinding } from "@serialport/binding-mock"
 import { EventLogger } from "gd-eventlog"
-import { KettlerRacerMock } from "./kettler/ergo-racer/mock"
+import { KettlerRacerMock } from "../kettler/ergo-racer/mock"
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();

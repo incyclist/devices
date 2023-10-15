@@ -1,4 +1,4 @@
-export  type DeviceData = {
+export  type IncyclistAdapterData = {
     speed?: number;
     slope?: number;
     power?: number;
@@ -10,4 +10,15 @@ export  type DeviceData = {
     deviceTime?: number;
     deviceDistanceCounter?: number;
     internalDistanceCounter?: number;
+}
+export type IncyclistBikeData = {
+    isPedalling?: boolean
+    power: number
+    pedalRpm: number
+    speed: number
+    heartrate?: number
+    distanceInternal?: number // Total Distance in meters 
+    time?: number
+    gear?: number
+    slope?: number
 }

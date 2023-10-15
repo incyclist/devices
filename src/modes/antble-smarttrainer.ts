@@ -1,6 +1,6 @@
 import ICyclingMode, { CyclingModeProperyType, UpdateRequest } from "./types";
 import PowerBasedCyclingModeBase from "./power-base";
-import { IncyclistDeviceAdapter } from "../types/adapter";
+import { IAdapter } from "../types";
 
 
 export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase implements ICyclingMode {
@@ -13,7 +13,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         ]
     }
 
-    constructor(adapter: IncyclistDeviceAdapter, props?:any) {
+    constructor(adapter: IAdapter, props?:any) {
         super(adapter,props);
         this.initLogger('SmartTrainerMode')
     }

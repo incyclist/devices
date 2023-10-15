@@ -1,16 +1,12 @@
 import { EventLogger } from 'gd-eventlog';
 import BleAdapter from '../base/adapter';
-import { DeviceProperties } from '../../types/device';
 import BleHrmDevice from './comm';
-import { BleDeviceProperties, BleDeviceSettings } from '../types';
-import { IncyclistCapability } from '../../types/capabilities';
+import { IncyclistAdapterData,IncyclistCapability,IAdapter,DeviceProperties } from '../../types';
+import { BleDeviceSettings } from '../types';
 import { HrmData } from './types';
-import { DeviceData } from '../../types/data';
-import { NonControllableDevice } from '../../base/adpater';
-import { IncyclistDeviceAdapter } from '../../types/adapter';
 
 
-export default class HrmAdapter extends BleAdapter<NonControllableDevice<BleDeviceProperties>> {
+export default class HrmAdapter extends BleAdapter{
    
     ignore: boolean = false;
 
@@ -30,7 +26,7 @@ export default class HrmAdapter extends BleAdapter<NonControllableDevice<BleDevi
 
     }
 
-    isSame(device:IncyclistDeviceAdapter):boolean {
+    isSame(device:IAdapter):boolean {
         if (!(device instanceof HrmAdapter))
             return false;
         return this.isEqual(device.settings as BleDeviceSettings)
@@ -52,7 +48,7 @@ export default class HrmAdapter extends BleAdapter<NonControllableDevice<BleDevi
         return `${name}${hrmStr}`
     }
 
-    mapData(deviceData:HrmData):DeviceData {
+    mapData(deviceData:HrmData):IncyclistAdapterData {
         const {heartrate} = deviceData
         return {heartrate}
     }

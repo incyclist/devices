@@ -1,231 +1,71 @@
-import { BicyclePowerSensorState, ISensor, Profile } from "incyclist-ant-plus";
-import AntAdapter from "../adapter";
-import {getBrand} from '../utils'
-import { EventLogger } from "gd-eventlog";
-import ICyclingMode, { CyclingMode, IncyclistBikeData } from '../../modes/types';
+import { BicyclePowerSensorState,  Profile } from "incyclist-ant-plus";
+import AntAdapter from "../base/adapter";
 import PowerMeterCyclingMode from "../../modes/power-meter";
 import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "../types";
-import SensorFactory from "../sensor-factory";
-import { IncyclistCapability } from "../../types/capabilities";
-import { ControllableDevice } from "../../base/adpater";
+import { IncyclistCapability,ControllerConfig,IncyclistBikeData, IncyclistAdapterData } from "../../types";
 
-type PowerSensorData = {
-    speed: number;
-    slope: number;
-    power: number;
-    cadence: number;
-    distance: number;
-    timestamp: number;
-}
+export default class AntPwrAdapter extends AntAdapter<BicyclePowerSensorState> {
 
-export class AntPwrControl extends ControllableDevice<AntDeviceProperties> {
-    getSupportedCyclingModes(): Array<typeof CyclingMode> {
-        return [PowerMeterCyclingMode]
+    protected static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Power Meter'
+    protected static ANT_PROFILE_NAME:Profile = 'PWR'
+    protected static controllers: ControllerConfig = {
+        modes: [PowerMeterCyclingMode],
+        default:PowerMeterCyclingMode
     }
-
-    getDefaultCyclingMode(): ICyclingMode {
-        return new PowerMeterCyclingMode(this.adapter);
-    }
-
-    async sendInitCommands():Promise<boolean> {
-        return false;
-    }
-}
-
-
-
-export default class AntPwrAdapter extends AntAdapter<AntPwrControl,BicyclePowerSensorState, PowerSensorData> {
-
-    static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Power Meter'
-    static ANT_PROFILE_NAME:Profile = 'PWR'
-
-    protected distanceInternal?: number;
 
     constructor ( settings:AntDeviceSettings, props?:AntDeviceProperties) {
-
-        // check against legacy settings (using protocol and Incyclist profile name)
-        if (settings.protocol && settings.profile!==AntPwrAdapter.INCYCLIST_PROFILE_NAME)
-            throw new Error('Incorrect Profile')
-        // check against new settings (not using protocol and and using ANT profile name)
-        if (!settings.protocol && settings.profile!==AntPwrAdapter.ANT_PROFILE_NAME)
-            throw new Error('Incorrect Profile')
-
-        super(settings, props)
-        this.setControl( new AntPwrControl(this,props))
-        
-        this.deviceData = {
-            DeviceID: this.sensor.getDeviceID()
-        } as BicyclePowerSensorState;
-        this.logger = new EventLogger('Ant+PWR')
+        super(settings, props)       
         this.capabilities = [ 
             IncyclistCapability.Power, IncyclistCapability.Cadence, IncyclistCapability.Speed
         ]
     }
 
-    createSensor(settings:AntDeviceSettings):ISensor {
-        return SensorFactory.create(AntPwrAdapter.ANT_PROFILE_NAME, Number(settings.deviceID)) 
-    }
-
-    getName() {
-        if (this.settings.name)
-            return this.settings.name
-        const deviceID = this.sensor.getDeviceID();
-        return `Ant+PWR ${deviceID}`        
-    }
-
-    getUniqueName(): string {
-        if (this.settings.name)
-            return this.settings.name
-
-        const {DeviceID,ManId} = this.deviceData;
-        const brand = getBrand(ManId)
-        if (brand)
-            return `${brand} PWR ${DeviceID}`
-        else 
-            return `${this.getName()}`        
-    }
-
-    getDisplayName() {
-        const {Power} = this.deviceData;
-        const pwrStr = Power ? ` (${Power})` : '';
-        return `${this.getUniqueName()}${pwrStr}`        
-    }
-
-
-    getLogData(data, excludeList) {
-        
-        const logData  = JSON.parse(JSON.stringify(data));
-        excludeList.forEach( (key) => {
-            delete logData[key] })
-        return logData;
-    }
-
-    onDeviceData(deviceData) {
-        this.dataMsgCount++;
-        this.lastDataTS = Date.now();
-
-        super.onDeviceData(deviceData)
-
-        if (!this.started)
-            return;
-
-
-        if (!this.ivDataTimeout) 
-            this.startDataTimeoutCheck()
-
-        
-        try {
-            if ( !this.canSendUpdate()) 
-                return;
-                
-            const logData = this.getLogData(deviceData, ['PairedDevices','RawData']);
-            this.logger.logEvent( {message:'onDeviceData',data:logData})
-
-
-            // transform data into internal structure of Cycling Modes
-            let incyclistData = this.mapData(deviceData)              
-            
-            // let cycling mode process the data
-            incyclistData = this.getCyclingMode().updateData(incyclistData);                    
-
-            // transform data into structure expected by the application
-            const data =  this.transformData(incyclistData);
-            this.emitData(data)
- 
-        }
-        catch ( err) {
-        }    
-    }
-
-    canSendUpdate(): boolean {
-        if (!this.hasDataListeners() || this.paused) return false;
-        return super.canSendUpdate()
-    }
-
-
-    sendUpdate(request) {
-        if( this.isPaused())
-            return
-
-        // nothing required to be sent to the device, but calling the Cycling Mode to adjust slope
-        this.getCyclingMode().sendBikeUpdate(request) 
-    }   
-
-    mapData( deviceData): IncyclistBikeData {
+    mapData( deviceData:BicyclePowerSensorState): IncyclistBikeData {
 
         // update data based on information received from ANT+PWR sensor
-        const data = {
-                isPedalling: false,
-                power: 0,
-                pedalRpm: 0,
-                speed: 0,
-                heartrate:0,
-                distanceInternal:0,        // Total Distance in meters             
-                slope:undefined,
-                time:undefined
+        const data:IncyclistBikeData = {
+            isPedalling: false,
+            power: 0,
+            pedalRpm: 0,
+            speed: 0
         }
 
-        data.slope = (deviceData.Slope!==undefined? deviceData.Slope :data.slope);
         data.power = (deviceData.Power!==undefined? deviceData.Power :data.power);
         data.pedalRpm = (deviceData.Cadence!==undefined? deviceData.Cadence :data.pedalRpm) ;
         data.time = (deviceData.TimeStamp!==undefined? deviceData.TimeStamp :data.time);
-        data.isPedalling = data.pedalRpm>0;
 
+        if (deviceData.CalculatedPower!==undefined && deviceData.Power===undefined)
+            data.power = deviceData.CalculatedPower
+        if (deviceData.CalculatedCadence!==undefined && deviceData.Cadence===undefined)
+            data.pedalRpm = deviceData.CalculatedCadence
 
+        data.isPedalling = data.pedalRpm>0 || data.power>0
         return data;
     }
 
 
-    transformData( bikeData:IncyclistBikeData): PowerSensorData {
+    transformData( bikeData:IncyclistBikeData): void {
         
-        if ( bikeData===undefined)
-            return;
-    
-        let distance=0;
-        if ( this.distanceInternal!==undefined && bikeData.distanceInternal!==undefined ) {
-            distance = bikeData.distanceInternal-this.distanceInternal
-        }
-        if (bikeData.distanceInternal!==undefined)
-            this.distanceInternal = bikeData.distanceInternal;
-        
-
-        const data: PowerSensorData = {
-            speed: bikeData.speed,
-            slope: bikeData.slope,
+        const data: IncyclistAdapterData = {            
             power: bikeData.power,
             cadence: bikeData.pedalRpm,
-            distance,
             timestamp: Date.now()
-        } 
+        }         
 
-        return data;
+        if (bikeData.time)
+            data.deviceTime = bikeData.time
+
+        this.data = data
+        
     }
 
     hasData():boolean {
-        const {Power,Cadence,TimeStamp} = this.deviceData
+        const {Power,CalculatedPower, CalculatedCadence,Cadence} = this.deviceData
 
-        const hasData = (Power!==undefined && Power!==null) ||  (Cadence!==undefined && Cadence!==null) || (TimeStamp!==undefined && TimeStamp!==null)
+        const has = v => (v!==undefined && v!==null)
+
+        const hasData = has(Power) || has(CalculatedPower) || has(Cadence) || has(CalculatedCadence)
         return hasData
-    }
-
-    
-    async start( props?: any ): Promise<any> {
-        const wasPaused = this.paused 
-        const wasStopped = this.stopped;
-     
-        if (wasPaused)
-            this.resume()
-        if (wasStopped)
-            this.stopped = false;
-
-        if (this.started && !wasPaused && !wasStopped) {
-            return true;
-        }
-    
-        return await super.start(props)
-
-    }
-    
-
+    } 
 
 }

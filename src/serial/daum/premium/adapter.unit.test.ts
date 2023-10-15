@@ -1,8 +1,10 @@
 import { EventLogger } from 'gd-eventlog';
 import DaumPremiumAdapter from './adapter'
 import { MockBinding } from '@serialport/binding-mock';
-import { SerialInterface, SerialPortProvider } from '../..';
 import DaumClassicCyclingMode from '../../../modes/daum-classic-standard';
+import SerialPortProvider from '../../base/serialport';
+import { SerialInterfaceType } from '../../types';
+import SerialInterface from '../../base/serial-interface';
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
@@ -26,8 +28,7 @@ describe( 'DaumPremiumAdapter', ()=>{
         test('with serial interface as string',()=>{
             const device = new DaumPremiumAdapter( {interface:'serial', port:'COM5', protocol:'Daum Premium'})
             expect(device).toBeDefined();
-            expect(device.bike).toBeDefined();
-            expect(device.bike.serial).toBeInstanceOf(SerialInterface);         
+            expect(device.comms).toBeDefined();
             
             // check simple getters
             expect(device.getName()).toBe('Daum8i')
@@ -40,8 +41,8 @@ describe( 'DaumPremiumAdapter', ()=>{
         test('with tcpip interface as string',()=>{
             const device = new DaumPremiumAdapter( {interface:'tcpip', host:'localhost', port:'1234', protocol:'Daum Premium'})
             expect(device).toBeDefined();
-            expect(device.bike).toBeDefined();
-            expect(device.bike.serial).toBeInstanceOf(SerialInterface);            
+            expect(device.comms).toBeDefined();
+            expect(device.comms.serial).toBeInstanceOf(SerialInterface);            
 
             // check simple getters
             expect(device.getName()).toBe('Daum8i')
@@ -54,8 +55,8 @@ describe( 'DaumPremiumAdapter', ()=>{
         test('with tcpip interface without port',()=>{
             const device = new DaumPremiumAdapter( {interface:'tcpip', host:'localhost', protocol:'Daum Premium'})
             expect(device).toBeDefined();
-            expect(device.bike).toBeDefined();
-            expect(device.bike.serial).toBeInstanceOf(SerialInterface);            
+            expect(device.comms).toBeDefined();
+            expect(device.comms.serial).toBeInstanceOf(SerialInterface);            
 
             // check simple getters
             expect(device.getName()).toBe('Daum8i')
@@ -69,8 +70,8 @@ describe( 'DaumPremiumAdapter', ()=>{
             const serial = SerialInterface.getInstance({ifaceName:'serial'})
             const device = new DaumPremiumAdapter( {interface:serial, port:'COM5', protocol:'Daum Premium'})
             expect(device).toBeDefined();
-            expect(device.bike).toBeDefined();
-            expect(device.bike.serial).toBe(serial);
+            expect(device.comms).toBeDefined();
+            expect(device.comms.serial).toBe(serial);
         })
 
         test('unknown interface',()=>{
@@ -95,12 +96,12 @@ describe( 'DaumPremiumAdapter', ()=>{
             expect(res).toBe('tcpip')
         })
         test('serial',()=>{
-            device.bike.getInterface = jest.fn().mockReturnValue('serial')
+            device.comms.getInterface = jest.fn().mockReturnValue('serial')
             const res = device.getInterface()
             expect(res).toBe('serial')
         })
         test('bike not intitialized',()=>{
-            device.bike = null
+            device.comms = null
             const res = device.getInterface()
             expect(res).toBeUndefined()
         })
@@ -114,12 +115,12 @@ describe( 'DaumPremiumAdapter', ()=>{
         })
 
         test('bike is defined',()=>{
-            device.bike = { serial: new SerialInterface({ifaceName:'serial-1'})}
+            device.comms = { serial: new SerialInterface({ifaceName:'serial-1'})}
             const res = device.getSerialInterface()
             expect(res.ifaceName).toBe('serial-1')
         })
         test('bike is not defined',()=>{
-            device.bike = undefined
+            device.comms = undefined
             const res = device.getSerialInterface()
             expect(res).toBeUndefined()
         })
@@ -235,20 +236,20 @@ describe( 'DaumPremiumAdapter', ()=>{
         test('bike already connected',async ()=>{
 
             const device = new DaumPremiumAdapter( {interface:'tcpip', host:'192.168.2.1', port:'51955', protocol:'Daum Premium'})
-            device.bike.isConnected = jest.fn( ()=>true)
-            device.bike.connect = jest.fn()
+            device.comms.isConnected = jest.fn( ()=>true)
+            device.comms.connect = jest.fn()
 
             const opened = await device.connect()
             expect(opened).toBeTruthy()
-            expect(device.bike.connect).not.toHaveBeenCalled()
+            expect(device.comms.connect).not.toHaveBeenCalled()
             
         })
 
         test('bike.connect rejects',async ()=>{
 
             const device = new DaumPremiumAdapter( {interface:'tcpip', host:'192.168.2.1', port:'51955', protocol:'Daum Premium'})
-            device.bike.isConnected = jest.fn( ()=>false)
-            device.bike.connect = jest.fn( ()=>Promise.reject( new Error('error')))
+            device.comms.isConnected = jest.fn( ()=>false)
+            device.comms.connect = jest.fn( ()=>Promise.reject( new Error('error')))
 
             const opened = await device.connect()
             expect(opened).toBeFalsy()
@@ -268,9 +269,9 @@ describe( 'DaumPremiumAdapter', ()=>{
             device.isStopped = jest.fn( ()=>false)
             device.connect = jest.fn( ()=>Promise.resolve(true))
 
-            device.bike.isConnected = jest.fn( ()=>false)
-            device.bike.getDeviceType = jest.fn( ()=>Promise.resolve( 'bike'))
-            device.bike.getProtocolVersion = jest.fn( ()=>Promise.resolve( '2.01'))
+            device.comms.isConnected = jest.fn( ()=>false)
+            device.comms.getDeviceType = jest.fn( ()=>Promise.resolve( 'bike'))
+            device.comms.getProtocolVersion = jest.fn( ()=>Promise.resolve( '2.01'))
 
             const res = await device.check()
             expect(res).toBe(true)
@@ -283,9 +284,9 @@ describe( 'DaumPremiumAdapter', ()=>{
             device.isStopped = jest.fn( ()=>false)
             device.connect = jest.fn( ()=>Promise.resolve(false))
 
-            device.bike.isConnected = jest.fn( ()=>false)
-            device.bike.getDeviceType = jest.fn( ()=>Promise.resolve( 'bike'))
-            device.bike.getProtocolVersion = jest.fn( ()=>Promise.resolve( '2.01'))
+            device.comms.isConnected = jest.fn( ()=>false)
+            device.comms.getDeviceType = jest.fn( ()=>Promise.resolve( 'bike'))
+            device.comms.getProtocolVersion = jest.fn( ()=>Promise.resolve( '2.01'))
 
             const res = await device.check()
 
@@ -298,9 +299,9 @@ describe( 'DaumPremiumAdapter', ()=>{
             device.isStopped = jest.fn( ()=>false)
             device.connect = jest.fn( ()=>Promise.reject( new Error('some error')))
 
-            device.bike.isConnected = jest.fn( ()=>false)
-            device.bike.getDeviceType = jest.fn( ()=>Promise.resolve( 'bike'))
-            device.bike.getProtocolVersion = jest.fn( ()=>Promise.resolve( '2.01'))
+            device.comms.isConnected = jest.fn( ()=>false)
+            device.comms.getDeviceType = jest.fn( ()=>Promise.resolve( 'bike'))
+            device.comms.getProtocolVersion = jest.fn( ()=>Promise.resolve( '2.01'))
 
             const res = await device.check()
 
@@ -327,7 +328,7 @@ describe( 'DaumPremiumAdapter', ()=>{
         beforeEach( ()=>{
             MockBinding.createPort('COM5')
             device = new DaumPremiumAdapter( {interface:'serial', port:'COM5', protocol:'Daum Premium'})
-            device.bike.pauseLogging = jest.fn ()
+            device.comms.pauseLogging = jest.fn ()
         })
 
         test('not paused',async()=>{
@@ -336,7 +337,7 @@ describe( 'DaumPremiumAdapter', ()=>{
             await device.pause()
 
             expect(device.paused).toBe(true)
-            expect(device.bike.pauseLogging).toHaveBeenCalled()
+            expect(device.comms.pauseLogging).toHaveBeenCalled()
         } )
 
         test('already paused',async()=>{           
@@ -345,7 +346,7 @@ describe( 'DaumPremiumAdapter', ()=>{
             await device.pause()
 
             expect(device.paused).toBe(true)
-            expect(device.bike.pauseLogging).toHaveBeenCalled() // will call this always - reagrdless of previous pause state
+            expect(device.comms.pauseLogging).toHaveBeenCalled() // will call this always - reagrdless of previous pause state
 
         } )
 
@@ -356,7 +357,7 @@ describe( 'DaumPremiumAdapter', ()=>{
         let device
         beforeEach( ()=>{
             device = new DaumPremiumAdapter( {interface:'serial', port:'COM5', protocol:'Daum Premium'})
-            device.bike.resumeLogging = jest.fn ()
+            device.comms.resumeLogging = jest.fn ()
         })
 
         test('not paused',async()=>{
@@ -365,7 +366,7 @@ describe( 'DaumPremiumAdapter', ()=>{
             await device.resume()
 
             expect(device.paused).toBe(false)
-            expect(device.bike.resumeLogging).toHaveBeenCalled()
+            expect(device.comms.resumeLogging).toHaveBeenCalled()
 
         } )
 
@@ -375,7 +376,7 @@ describe( 'DaumPremiumAdapter', ()=>{
             await device.resume()
 
             expect(device.paused).toBe(false)
-            expect(device.bike.resumeLogging).toHaveBeenCalled() // will call this always - reagrdless of previous pause state
+            expect(device.comms.resumeLogging).toHaveBeenCalled() // will call this always - reagrdless of previous pause state
 
         } )
     })
@@ -453,7 +454,7 @@ describe( 'DaumPremiumAdapter', ()=>{
             device.getStartRetries = jest.fn().mockReturnValue(1)
             device.getStartRetryTimeout = jest.fn().mockReturnValue(10)
 
-            bike = device.bike
+            bike = device.comms
             device.stop = jest.fn( ()=>Promise.resolve(true) )
             device.resume = jest.fn( ()=>Promise.resolve(true) )
             bike.getDeviceType = jest.fn(()=>Promise.resolve('bike'))
@@ -490,7 +491,7 @@ describe( 'DaumPremiumAdapter', ()=>{
 
             afterEach( ()=>{
                 
-                device.bike.close().catch()
+                device.comms.close().catch()
                 jest.useRealTimers()
             })
 
@@ -559,7 +560,7 @@ describe( 'DaumPremiumAdapter', ()=>{
         test('retry connection fails',async ()=>{
             device.connect = jest.fn().mockResolvedValue(true)         
             device.reconnect   = jest.fn().mockResolvedValue(true)
-            device.bike.getDeviceType = jest.fn().mockRejectedValue(new Error('Timeout'))
+            device.comms.getDeviceType = jest.fn().mockRejectedValue(new Error('Timeout'))
             device.getStartRetries = jest.fn().mockReturnValue(2)
 
             const {started,error} = await run( )
@@ -585,7 +586,7 @@ describe( 'DaumPremiumAdapter', ()=>{
 
             afterEach( ()=>{
                 
-                device.bike.close().catch()
+                device.comms.close().catch()
                 jest.useRealTimers()
             })
 
@@ -624,7 +625,7 @@ describe( 'DaumPremiumAdapter', ()=>{
 
             afterEach( ()=>{
                 
-                device.bike.close().catch()
+                device.comms.close().catch()
                 jest.useRealTimers()
             })
 
@@ -779,7 +780,7 @@ describe( 'DaumPremiumAdapter', ()=>{
             device = new DaumPremiumAdapter( {interface:'serial', port:'COM5', protocol:'Daum Premium'})            
             device.startUpdatePull = jest.fn()
 
-            bike = device.bike
+            bike = device.comms
             device.stop = jest.fn( ()=>Promise.resolve(true) )
             bike.isConnected = jest.fn(()=>true)
             bike.connect = jest.fn(()=>true)

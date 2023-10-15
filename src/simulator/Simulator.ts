@@ -1,13 +1,7 @@
-import { ControllableDevice } from '../base/adpater';
-
 import {EventLogger} from 'gd-eventlog'
-import ICyclingMode, { CyclingMode, IncyclistBikeData } from '../modes/types';
 import SimulatorCyclingMode from '../modes/simulator';
-import { DeviceProperties, DeviceSettings } from '../types/device';
-import { IncyclistCapability } from '../types/capabilities';
-import { DeviceData } from '../types/data';
 import IncyclistDevice from '../base/adpater';
-import { IncyclistDeviceAdapter } from '../types/adapter';
+import { IAdapter,IncyclistBikeData,DeviceProperties, DeviceSettings,IncyclistCapability,IncyclistAdapterData } from '../types';
 
 const DEFAULT_PROPS = {isBot:false }
 
@@ -17,23 +11,13 @@ interface SimulatorProperties extends DeviceProperties {
     activity?: any
 }
 
+export class Simulator extends IncyclistDevice<SimulatorProperties> {
 
-export class SimulatorControl extends ControllableDevice<SimulatorProperties>{
-    getSupportedCyclingModes() : Array<typeof CyclingMode> {         
-        return [SimulatorCyclingMode]
-    }
-
-    getDefaultCyclingMode():ICyclingMode {
-        return new SimulatorCyclingMode(this.adapter as Simulator)        
-    }
-
-    async sendInitCommands():Promise<boolean> {
-        return true;
-    }
-}
-
-export class Simulator extends IncyclistDevice<SimulatorControl,SimulatorProperties> {
     static NAME = 'Simulator';
+    protected static controllers = {
+        modes: [SimulatorCyclingMode],
+        default: SimulatorCyclingMode
+    }
 
     speed: number;
     power: number;
@@ -50,12 +34,10 @@ export class Simulator extends IncyclistDevice<SimulatorControl,SimulatorPropert
     bikeSettings: { weight?:number};
 
     constructor (settings:DeviceSettings,props:SimulatorProperties=DEFAULT_PROPS) {
-
-        
+      
         super(settings,props);
 
         this.logger = new EventLogger  (Simulator.NAME)
-        this.setControl(new SimulatorControl(this,props))
 
         this.speed = 0;
         this.power = 0;
@@ -85,7 +67,7 @@ export class Simulator extends IncyclistDevice<SimulatorControl,SimulatorPropert
         return settings.interface===this.getInterface() && settings.name === this.settings.name
     }
 
-    isSame(device:IncyclistDeviceAdapter):boolean {
+    isSame(device:IAdapter):boolean {
         if (!(device instanceof Simulator))
             return false;
         return true;
@@ -227,7 +209,7 @@ export class Simulator extends IncyclistDevice<SimulatorControl,SimulatorPropert
             return;
 
         const prevDist = this.data.distanceInternal;
-        const d = this.data as DeviceData;
+        const d = this.data as IncyclistAdapterData;
         const prevTime = d.deviceTime;
 
         this.data = this.getCyclingMode().updateData(this.data);
@@ -242,7 +224,7 @@ export class Simulator extends IncyclistDevice<SimulatorControl,SimulatorPropert
             timestamp: Date.now(),
             deviceTime: (Date.now()-this.startTS)/1000,
             deviceDistanceCounter: this.data.distanceInternal
-        } as DeviceData;
+        } as IncyclistAdapterData;
 
         if (this.isBot) {
             this.logger.logEvent( {message:'Coach update',prevDist, prevTime, ...data})    
@@ -251,7 +233,7 @@ export class Simulator extends IncyclistDevice<SimulatorControl,SimulatorPropert
         this.emitData(data )       
     }
 
-    canSendUpdate(): boolean {
+    canEmitData(): boolean {
         return true;
     }
     

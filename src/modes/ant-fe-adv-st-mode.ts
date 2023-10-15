@@ -1,4 +1,4 @@
-import { IncyclistDeviceAdapter } from "..";
+import { IncyclistDeviceAdapter } from "../base/adpater";
 import SmartTrainerCyclingMode from "./antble-smarttrainer";
 import { UpdateRequest } from "./types";
 

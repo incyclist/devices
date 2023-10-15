@@ -1,6 +1,6 @@
-import {IncyclistDeviceAdapter } from "..";
 import ICyclingMode, {  CyclingModeProperyType, UpdateRequest } from "./types";
 import PowerBasedCyclingModeBase from "./power-base";
+import { IncyclistDeviceAdapter } from "../base/adpater";
 
 
 export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements ICyclingMode {

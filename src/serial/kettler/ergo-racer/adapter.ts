@@ -1,18 +1,15 @@
-import { DeviceProperties } from "../../../types/device";
 import { EventLogger } from "gd-eventlog";
 import SerialComms from "../comms";
-import { Command } from "../../../types/command";
+import { IncyclistBikeData } from "../../../types";
+import { SerialDeviceSettings } from "../../types";
+import { Command } from "../types";
 import { runWithRetries, sleep } from "../../../utils/utils";
-import ICyclingMode, { CyclingMode, IncyclistBikeData } from "../../../modes/types";
 import PowerMeterCyclingMode from "../../../modes/power-meter";
 import ERGCyclingMode from "../../../modes/kettler-erg";
 
-import { SerialDeviceSettings, SerialIncyclistDevice } from "../../adapter";
-import { IncyclistCapability } from "../../../types/capabilities";
-import { DeviceData } from "../../../types/data";
-import SerialInterface from "../../serial-interface";
-import { ControllableDevice } from "../../../base/adpater";
-import { IncyclistDeviceAdapter } from "../../../types/adapter";
+import { SerialIncyclistDevice } from "../../base/adapter";
+import SerialInterface from "../../base/serial-interface";
+import { IncyclistCapability,ControllerConfig, IAdapter,IncyclistAdapterData,DeviceProperties } from "../../../types";
 
 export interface KettlerRacerCommand extends Command  {
     
@@ -37,33 +34,22 @@ export interface KettlerBikeData {
 
 const PROTOCOL_NAME = 'Kettler Racer'
 
-export class KettlerControl<P extends DeviceProperties> extends ControllableDevice<P>{
-    getSupportedCyclingModes() : Array<typeof CyclingMode> { 
-        return [ PowerMeterCyclingMode, ERGCyclingMode]
-
-    }
-
-    getDefaultCyclingMode():ICyclingMode {
-        return new ERGCyclingMode(this.adapter);
-    }
-
-    async sendInitCommands():Promise<boolean> {
-        return true;
-    }
-
-}
-
-export default class KettlerRacerAdapter   extends SerialIncyclistDevice<KettlerControl<DeviceProperties>,DeviceProperties>   {
+export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceProperties>   {
     private id: string;
     private iv : { sync: NodeJS.Timeout, update: NodeJS.Timeout };
     private requests: Array<any> = []
-    private data: DeviceData;
     private internalData: IncyclistBikeData;
     private kettlerData: KettlerBikeData;
     private updateBusy: boolean;
     private requestBusy: boolean;
     private comms: SerialComms<KettlerRacerCommand>;
     private prevDistance: number;
+
+    protected static ontrollers: ControllerConfig = { 
+        modes: [ PowerMeterCyclingMode, ERGCyclingMode],
+        default:ERGCyclingMode
+    }
+
    
 
     constructor ( settings:SerialDeviceSettings,props?: DeviceProperties) {
@@ -89,7 +75,7 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<Kettler
         return PROTOCOL_NAME
     }
 
-    isSame(device:IncyclistDeviceAdapter):boolean {
+    isSame(device:IAdapter):boolean {
         if (!(device instanceof KettlerRacerAdapter))
             return false;
         const adapter = device as KettlerRacerAdapter;
@@ -480,7 +466,7 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<Kettler
         }
     }
 
-    canSendUpdate(): boolean {
+    canEmitData(): boolean {
         return !this.isPaused()
     }
 
@@ -524,8 +510,8 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<Kettler
         return data;
     }
 
-    transformData( internalData: IncyclistBikeData, bikeData:KettlerBikeData): DeviceData {
-        let data = {} as DeviceData;
+    transformData( internalData: IncyclistBikeData, bikeData:KettlerBikeData): IncyclistAdapterData {
+        let data = {} as IncyclistAdapterData;
 
         const prevDistance =this.prevDistance || 0;
         let distance = internalData.distanceInternal - prevDistance

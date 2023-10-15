@@ -1,23 +1,22 @@
 import {EventLogger} from 'gd-eventlog';
-import { IncyclistBikeData } from '../../modes/types';
 import BleCyclingPowerDevice from './comm';
-import BleAdapter, { BlePowerControl } from '../base/adapter';
-import { DeviceProperties } from '../../types/device';
+import BleAdapter from '../base/adapter';
 import { PowerData } from './types';
-import { DeviceData } from '../../types/data';
 import {  BleDeviceSettings } from '../types';
-import { IncyclistCapability } from '../../types/capabilities';
-import { IncyclistDeviceAdapter } from '../../types/adapter';
+import { DeviceProperties,IncyclistBikeData,IncyclistAdapterData,IncyclistCapability, ControllerConfig, IAdapter  } from '../../types';
+import PowerMeterCyclingMode from '../../modes/power-meter';
 
 
-export default class PwrAdapter extends BleAdapter<BlePowerControl> {  
-
+export default class PwrAdapter extends BleAdapter{  
+    protected static controllers: ControllerConfig = {
+        modes: [PowerMeterCyclingMode],
+        default: PowerMeterCyclingMode
+    }
     distanceInternal: number = 0;
 
     constructor( settings:BleDeviceSettings, props?:DeviceProperties) {
         super(settings,props);
 
-        this.setControl( new BlePowerControl(this, props))
         this.logger = new EventLogger('Ble-CP')
 
         const {id,address,name} = settings
@@ -32,7 +31,7 @@ export default class PwrAdapter extends BleAdapter<BlePowerControl> {
         
     }
 
-    isSame(device:IncyclistDeviceAdapter):boolean {
+    isSame(device:IAdapter):boolean {
         if (!(device instanceof PwrAdapter))
             return false;        
         return this.isEqual(device.settings as BleDeviceSettings)
@@ -74,7 +73,7 @@ export default class PwrAdapter extends BleAdapter<BlePowerControl> {
         return data;
     }
 
-    transformData( bikeData:IncyclistBikeData): DeviceData {
+    transformData( bikeData:IncyclistBikeData): IncyclistAdapterData {
        
         if ( bikeData===undefined)
             return;
@@ -94,7 +93,7 @@ export default class PwrAdapter extends BleAdapter<BlePowerControl> {
             cadence: bikeData.pedalRpm!==undefined ? Math.round(bikeData.pedalRpm) : undefined,
             distance,
             timestamp: Date.now()
-        } as DeviceData;
+        } as IncyclistAdapterData;
 
         return data;
     }

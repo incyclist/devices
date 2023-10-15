@@ -1,25 +1,9 @@
 
 import { BindingInterface } from '@serialport/bindings-interface'
+import { InterfaceBinding, InterfaceImplementation } from '../types';
 const { SerialPortStream } = require('@serialport/stream')
 
 const DEFAULT_BAUD_RATE = 9600
-
-export type InterfaceBinding = {
-    name: string;
-    binding: BindingInterface
-}
-
-export type InterfaceImplementation = {
-    name: string;
-    Serialport: any
-    implementation?: any
-}
-
-export type SerialPortProps = {
-    interface: string;
-    port?: string;
-
-}
 
 export default class SerialPortProvider {
 

@@ -1,9 +1,10 @@
-import { AdapterFactory, InterfaceFactory } from "../../"
+
 import { MockLogger} from '../../../test/logger'
-import { DeviceSettings } from "../../types/device"
 import { sleep } from "../../utils/utils"
 import { MockBinding } from "../bindings"
 import { HrMock } from "./mock"
+import BleAdapterFactory from '../adapter-factory'
+import InterfaceFactory from '../../factories/interfaces'
 
 describe( 'BleHrAdapter #Integration',()=>{
     let ble;
@@ -13,7 +14,6 @@ describe( 'BleHrAdapter #Integration',()=>{
     })
 
     describe('start',()=>{
-        let adapter;
         beforeEach( async ()=>{
             MockBinding.reset()
             MockBinding.addMock(HrMock)
@@ -29,7 +29,7 @@ describe( 'BleHrAdapter #Integration',()=>{
         test('HR Sensor is available',async ()=>{
 
             const onData = jest.fn();
-            const adapter = AdapterFactory.create( {interface:'ble', protocol:'hr',name:'HRM-Mock',address:'44:0d:ec:12:40:61'} as DeviceSettings)
+            const adapter = BleAdapterFactory.getInstance().createInstance( {interface:'ble', protocol:'hr',name:'HRM-Mock',address:'44:0d:ec:12:40:61'} )
 
             expect(adapter.getName()).toBe('HRM-Mock')
             expect(adapter.getUniqueName()).toBe('HRM-Mock 4461')

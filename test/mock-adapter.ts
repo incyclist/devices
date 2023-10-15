@@ -1,4 +1,4 @@
-import IncyclistDevice, { ControllableDevice } from "../src/base/adpater"
+import IncyclistDevice  from "../src/base/adpater"
 import { CyclingMode } from "../src/modes/types"
 import { DeviceProperties } from "../src/types/device"
 
@@ -9,7 +9,7 @@ export const MockConfig = {
 }
 
 
-export default class MockAdapter extends IncyclistDevice<ControllableDevice<DeviceProperties>,DeviceProperties> {
+export default class MockAdapter extends IncyclistDevice<DeviceProperties> {
     constructor() {
         super( {interface:'mock'} )
         

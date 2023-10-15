@@ -1,11 +1,12 @@
-import { InterfaceProps } from "./types/interface";
+import { InterfaceProps } from "../types/interface";
 
-import { SerialInterface } from "./serial";
-import AntInterface, { AntInterfaceProps } from "./antv2/ant-interface";
-import { INTERFACE } from "./types/device";
-import { SerialInterfaceProps } from "./serial/serial-interface";
-import { BleInterfaceProps } from "./ble/types";
-import { BleInterface } from "./ble";
+import { SerialInterface } from "../serial";
+import AntInterface from "../antv2/base/ant-interface";
+import { AntInterfaceProps } from "../antv2/types";
+import { INTERFACE } from "../types/device";
+import { SerialInterfaceProps } from "../serial/types";
+import { BleInterfaceProps } from "../ble/types";
+import { BleInterface } from "../ble";
 
 
 export default class InterfaceFactory {

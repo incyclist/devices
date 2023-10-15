@@ -123,7 +123,18 @@ export class Queue<T> {
 
 }
 
+
+
+export async function runWithTimeout( promise:Promise<any>, timeout:number) {
+    return await doWaitWithTimeout( promise, timeout,true)
+}
+
 export async function waitWithTimeout( promise:Promise<any>, timeout:number, onTimeout?:()=>void) {
+    return await doWaitWithTimeout( promise, timeout,false,onTimeout)
+}
+
+
+async function doWaitWithTimeout( promise:Promise<any>, timeout:number, throwError:boolean, onTimeout?:()=>void) {
     let to;
     let hasTimedOut=false;
 
@@ -132,7 +143,7 @@ export async function waitWithTimeout( promise:Promise<any>, timeout:number, onT
                 
                 hasTimedOut = true;
                 /* istanbul ignore next */  // error in coverage report
-                if (!onTimeout) {
+                if (!onTimeout || throwError) {
                     reject(new Error('Timeout'))
                 }
                 else {
@@ -150,13 +161,21 @@ export async function waitWithTimeout( promise:Promise<any>, timeout:number, onT
 
 
     let res;
+
     try {
         res = await Promise.race( [promise,toPromise(timeout)] )
     }
     catch (err) {
-    /* istanbul ignore next */  // error in coverage report
-    if (err.message==='Timeout' && hasTimedOut)
+        /* istanbul ignore next */  // error in coverage report
+        if (err.message==='Timeout' && hasTimedOut) {
             throw err
+        }
+        else {
+            if (throwError) {
+                clearTimeout(to)
+                throw err
+            }
+        } 
     }
 
     clearTimeout(to)

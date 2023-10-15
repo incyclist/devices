@@ -1,12 +1,10 @@
 import {EventLogger} from 'gd-eventlog';
 import { BleFmAdapter, cRR, cwABike } from '../fm';
 import TacxAdvancedFitnessMachineDevice from './comms';
-import { DeviceProperties } from '../../types/device';
-import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from '../../base/adpater';
+import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/consts";
 import { BleDeviceSettings, BleStartProperties } from '../types';
-import { IncyclistCapability } from '../../types/capabilities';
+import { DeviceProperties,IncyclistCapability,IAdapter } from '../../types';
 import { BleTacxComms } from '.';
-import { IncyclistDeviceAdapter } from '../../types/adapter';
 
 
 
@@ -30,7 +28,7 @@ export default class BleTacxFEAdapter extends BleFmAdapter {
         
     }
 
-    isSame(device:IncyclistDeviceAdapter):boolean {
+    isSame(device:IAdapter):boolean {
         if (!(device instanceof BleTacxFEAdapter))
             return false;
         return this.isEqual(device.settings as BleDeviceSettings)

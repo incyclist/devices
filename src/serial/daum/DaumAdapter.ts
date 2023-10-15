@@ -1,48 +1,26 @@
-import ICyclingMode, { CyclingMode, IncyclistBikeData } from '../../modes/types';
 import ERGCyclingMode from '../../modes/daum-erg';
-import SmartTrainerCyclingMode from '../../modes/daum-smarttrainer';
-import PowerMeterCyclingMode from '../../modes/daum-power';
 import {intVal} from '../../utils/utils'
-import { DeviceProperties } from '../../types/device';
-import { SerialDeviceSettings, SerialIncyclistDevice } from '../adapter';
-import { IncyclistCapability } from '../../types/capabilities';
-import { DeviceData } from '../../types/data';
-import SerialInterface from '../serial-interface';
-import DaumSerialComms  from './types';
-import { ControllableDevice } from '../../base/adpater';
-import { IncyclistDeviceAdapter } from '../../types/adapter';
 
+import { IncyclistCapability,IncyclistAdapterData,ControllerConfig, IAdapter,DeviceProperties,IncyclistBikeData  } from '../../types';
+import { SerialDeviceSettings } from "../types";
+import { DaumSerialComms}  from './types';
+import { SerialIncyclistDevice } from '../base/adapter';
+import SerialInterface from '../base/serial-interface';
 
-export interface IDaumAdapter  {
-    getCurrentBikeData(): Promise<IncyclistBikeData>;
-}
+import SmartTrainerCyclingMode from '../../modes/daum-smarttrainer';
+import DaumPowerMeterCyclingMode from '../../modes/daum-power';
 
+export default class DaumAdapter<S extends SerialDeviceSettings, P extends DeviceProperties, C extends DaumSerialComms> extends SerialIncyclistDevice<P>  {
 
-export class DaumControl<P extends DeviceProperties> extends ControllableDevice<P>{
-    getSupportedCyclingModes() : Array<typeof CyclingMode> { 
-        return [ERGCyclingMode,SmartTrainerCyclingMode,PowerMeterCyclingMode]
-
+    protected static controllers: ControllerConfig = {
+        modes: [ERGCyclingMode,SmartTrainerCyclingMode,DaumPowerMeterCyclingMode],
+        default:ERGCyclingMode
     }
-
-    getDefaultCyclingMode():ICyclingMode {
-        return new ERGCyclingMode(this.adapter)
-    }
-
-    async sendInitCommands():Promise<boolean> {
-        return true;
-    }
-}
-
-
-
-export default class DaumAdapter<DC extends DaumControl<P>, S extends SerialDeviceSettings, P extends DeviceProperties, C extends DaumSerialComms> extends SerialIncyclistDevice<DC,P> implements IDaumAdapter {
-
-    bike:C;
+    comms:C;
 
     distanceInternal: number;
 
-    cyclingData: IncyclistBikeData;
-    deviceData: DeviceData;
+    deviceData: IncyclistBikeData;
     requests: Array<any> = []
     iv;
 
@@ -60,7 +38,7 @@ export default class DaumAdapter<DC extends DaumControl<P>, S extends SerialDevi
 
         this.iv         = undefined;
 
-        this.cyclingData = {
+        this.deviceData = {
             isPedalling:false,
             time:0,
             power:0,
@@ -69,24 +47,20 @@ export default class DaumAdapter<DC extends DaumControl<P>, S extends SerialDevi
             distanceInternal:0,
             heartrate:0
         }
-        this.deviceData = {}
 
         this.capabilities = [ 
             IncyclistCapability.Power, IncyclistCapability.Speed, IncyclistCapability.Cadence, IncyclistCapability.Gear,IncyclistCapability.HeartRate, 
             IncyclistCapability.Control
         ]
-
-        
-        this.setControl( new DaumControl(this,props) as DC)
-        
+       
     }
 
     getPort() {
-        return this.bike?.getPort();
+        return this.comms?.getPort();
     }
 
     getSerialInterface():SerialInterface {
-        return this.bike?.serial
+        return this.comms?.serial
     }
 
 
@@ -97,7 +71,7 @@ export default class DaumAdapter<DC extends DaumControl<P>, S extends SerialDevi
             try {
                 if (this.getCyclingMode() instanceof ERGCyclingMode) {
                 
-                    const power = this.deviceData.power
+                    const power = this.data.power
                     const request = power ? {targetPower:power} : this.getCyclingMode().getBikeInitRequest()
                     await this.sendUpdate(request)
                     return true
@@ -118,8 +92,8 @@ export default class DaumAdapter<DC extends DaumControl<P>, S extends SerialDevi
         throw new Error('Method not implemented.');
     }
 
-    getBike():C {
-        return this.bike;
+    getComms():C {
+        return this.comms;
     }
 
     isEqual(settings: SerialDeviceSettings): boolean {
@@ -131,10 +105,10 @@ export default class DaumAdapter<DC extends DaumControl<P>, S extends SerialDevi
         return true;
     }
 
-    isSame(device:IncyclistDeviceAdapter):boolean {
+    isSame(device:IAdapter):boolean {
         if (!(device instanceof DaumAdapter))
             return false;
-        const adapter = device as DaumAdapter<DC,S,P,C>;
+        const adapter = device as DaumAdapter<S,P,C>;
         return  (adapter.getName()===this.getName() && adapter.getPort()===this.getPort())
     }
 
@@ -146,7 +120,7 @@ export default class DaumAdapter<DC extends DaumControl<P>, S extends SerialDevi
         this.distanceInternal = undefined;
         this.paused = false;
         this.stopped = false;
-        this.cyclingData = {
+        this.deviceData = {
             isPedalling:false,
             time:0,
             power:0,
@@ -155,7 +129,7 @@ export default class DaumAdapter<DC extends DaumControl<P>, S extends SerialDevi
             distanceInternal:0,
             heartrate:0
         }
-        this.deviceData = {}
+        this.data = {}
 
         this.requests   = [];
         
@@ -168,14 +142,14 @@ export default class DaumAdapter<DC extends DaumControl<P>, S extends SerialDevi
 
     async pause(): Promise<boolean> {
         const paused  = await super.pause()
-        this.bike.pauseLogging()
+        this.comms.pauseLogging()
         return paused
     }
 
 
     async resume(): Promise<boolean> {
         const resumed = await super.resume()
-        this.bike.resumeLogging()
+        this.comms.resumeLogging()
         return resumed
     }
 
@@ -298,7 +272,7 @@ export default class DaumAdapter<DC extends DaumControl<P>, S extends SerialDevi
 
         const ivUpdate = setInterval( ()=>{
             try {
-                this.emitData(this.deviceData);
+                this.emitData(this.data);
                 this.refreshRequests()
             }
             catch {}
@@ -323,35 +297,35 @@ export default class DaumAdapter<DC extends DaumControl<P>, S extends SerialDevi
     }
 
     async connect():Promise<boolean> {
-        if (!this.bike)
+        if (!this.comms)
             return false;
 
-        if(this.bike.isConnected())
+        if(this.comms.isConnected())
             return true
 
         try {        
-            const connected =  await this.bike.connect()
+            const connected =  await this.comms.connect()
             return connected
         }
         catch(err) {
-            await this.bike.close()
+            await this.comms.close()
             return false;
         }
 
     }
 
     async close():Promise<boolean> {
-        if (!this.bike)
+        if (!this.comms)
             return true;
 
-        if(!this.bike.isConnected())
+        if(!this.comms.isConnected())
             return true;
-        return await this.bike.close();        
+        return await this.comms.close();        
     }
 
     async verifyConnection():Promise<void> {        
-        if(!this.bike.isConnected()) {
-            const connected = await this.bike.connect();
+        if(!this.comms.isConnected()) {
+            const connected = await this.comms.connect();
             if(!connected)
                 throw new Error('not connected')
         }    
@@ -359,8 +333,8 @@ export default class DaumAdapter<DC extends DaumControl<P>, S extends SerialDevi
 
     async reconnect(): Promise<boolean> {
         try {
-            await this.bike.close()
-            const connected = await this.bike.connect()
+            await this.comms.close()
+            const connected = await this.comms.connect()
             return connected
         }
         catch(err) {
@@ -395,7 +369,7 @@ export default class DaumAdapter<DC extends DaumControl<P>, S extends SerialDevi
 
         try {
             this.stopUpdatePull()
-            await this.bike.close()
+            await this.comms.close()
             this.logEvent({message:'stop request completed'});        
             this.stopped = true;
         }
@@ -407,11 +381,6 @@ export default class DaumAdapter<DC extends DaumControl<P>, S extends SerialDevi
         return this.stopped
     }
 
-    canSendUpdate(): boolean {
-        if (this.paused || this.stopped)
-            return false
-        return super.canSendUpdate()
-    }
     
     async sendUpdate(request) {
         // don't send any commands if we are pausing
@@ -425,7 +394,7 @@ export default class DaumAdapter<DC extends DaumControl<P>, S extends SerialDevi
     async update():Promise<void> {
 
         // now get the latest data from the bike
-        if (!this.canSendUpdate() || this.updateBusy) 
+        if (!this.canEmitData() || this.updateBusy) 
             return;
 
         this.updateBusy = true;
@@ -448,7 +417,7 @@ export default class DaumAdapter<DC extends DaumControl<P>, S extends SerialDevi
                 this.logEvent({message:'bike update error',error:err.message,stack:err.stack })
 
                 // use previous values
-                const incyclistData =this.updateData( this.cyclingData)
+                const incyclistData =this.updateData( this.deviceData)
                 this.transformData(incyclistData);
             }
             catch{}
@@ -512,13 +481,13 @@ export default class DaumAdapter<DC extends DaumControl<P>, S extends SerialDevi
         if (bikeData.time) data.time = bikeData.time;
         if (bikeData.slope) data.slope = bikeData.slope;
 
-        this.cyclingData = this.getCyclingMode().updateData(data);
+        this.deviceData = this.getCyclingMode().updateData(data);
 
-        return this.cyclingData;        
+        return this.deviceData;        
     }
 
 
-    transformData(cyclingData:IncyclistBikeData ): DeviceData {
+    transformData(cyclingData:IncyclistBikeData ): IncyclistAdapterData {
    
         let distance=0;
         if ( this.distanceInternal!==undefined && cyclingData.distanceInternal!==undefined ) {
@@ -538,10 +507,10 @@ export default class DaumAdapter<DC extends DaumControl<P>, S extends SerialDevi
             timestamp: Date.now(),
             deviceTime: cyclingData.time,
             deviceDistanceCounter: cyclingData.distanceInternal
-        } as DeviceData;
+        } as IncyclistAdapterData;
 
 
-        this.deviceData = data;
+        this.data = data;
         return data
     }
 
@@ -549,7 +518,7 @@ export default class DaumAdapter<DC extends DaumControl<P>, S extends SerialDevi
         this.requestBusy = true;
         try {
             this.logEvent({message:'sendRequest',request})
-            const bike = this.getBike();
+            const bike = this.getComms();
             const isReset = ( !request || request.reset || Object.keys(request).length===0 );
 
             if (isReset) {
@@ -582,7 +551,7 @@ export default class DaumAdapter<DC extends DaumControl<P>, S extends SerialDevi
             return;
 
         // not pedaling => no need to generate a new request
-        if (!this.cyclingData.isPedalling || this.cyclingData.pedalRpm===0) 
+        if (!this.deviceData.isPedalling || this.deviceData.pedalRpm===0) 
             return;
 
         let bikeRequest = this.getCyclingMode().sendBikeUpdate({refresh:true}) || {}
@@ -597,7 +566,7 @@ export default class DaumAdapter<DC extends DaumControl<P>, S extends SerialDevi
 
     processClientRequest(request) {
         if ( request.slope!==undefined) {
-            this.cyclingData.slope = request.slope;
+            this.deviceData.slope = request.slope;
         }
         
         return new Promise ( async (resolve) => {

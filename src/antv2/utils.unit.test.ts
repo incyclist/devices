@@ -1,4 +1,6 @@
-import { getBrand } from './utils'
+import { CadenceSensor } from 'incyclist-ant-plus'
+import { LegacyProfile } from './types'
+import { getBrand, mapLegacyProfile } from './utils'
 
 describe ( 'utils',()=>{
     describe('getBrand',()=>{
@@ -21,7 +23,17 @@ describe ( 'utils',()=>{
             expect(brands).toMatchSnapshot()
         })
 
+    })
 
+    describe('mapLegacyProfile',()=>{
+
+        const profiles: Array<LegacyProfile> = [
+            'Heartrate Monitor', 'Power Meter', 'Smart Trainer', 
+            'Cadence Sensor','Speed Sensor','Speed + Cadence Sensor'
+        ]
+
+        const res = profiles.map( p=>mapLegacyProfile(p) )
+        expect(res).toMatchSnapshot()
 
     })
 })

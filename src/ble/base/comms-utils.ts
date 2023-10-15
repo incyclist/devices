@@ -1,4 +1,3 @@
-import AdapterFactory from "../../adapters";
 import BleAdapterFactory from "../adapter-factory";
 import { BleProtocol } from "../types";
 import { matches, uuid } from "../utils";

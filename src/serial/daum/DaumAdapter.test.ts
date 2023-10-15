@@ -1,12 +1,12 @@
 import { EventLogger } from 'gd-eventlog';
-import DaumAdapter, { DaumControl } from './DaumAdapter';
-import ICyclingMode, { CyclingMode, IncyclistBikeData } from '../../modes/types';
+import DaumAdapter from './DaumAdapter';
+import ICyclingMode from '../../modes/types';
 import { MockLogger } from '../../../test/logger';
-import { DeviceProperties } from '../../types/device';
-import { SerialDeviceSettings } from '..';
+import { DeviceProperties, IncyclistBikeData } from '../../types';
 import { sleep } from '../../utils/utils';
-import DaumSerialComms from './types';
+import { DaumSerialComms} from './types';
 import DaumClassicCyclingMode from '../../modes/daum-classic-standard';
+import { SerialDeviceSettings } from '../types';
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
@@ -30,10 +30,10 @@ describe( 'DaumAdapter', ()=>{
     describe('constructor' ,()=>{
         test('status',()=>{
             const a = new DaumAdapter(DEFAULT_SETTINGS)
-            expect(a.bike).toBeUndefined()
+            expect(a.comms).toBeUndefined()
             expect(a.stopped).toBe(false)
             expect(a.getCyclingMode()).toBeDefined();
-            expect(a.cyclingData).toEqual({isPedalling:false,
+            expect(a.deviceData).toEqual({isPedalling:false,
                 time:0,
                 power:0,
                 pedalRpm:0,
@@ -46,20 +46,20 @@ describe( 'DaumAdapter', ()=>{
             const properties:DeviceProperties = { userWeight:80, bikeWeight:14 }
             const a = new DaumAdapter(DEFAULT_SETTINGS, properties)
             expect(a.getCyclingMode()).toBeDefined();
-            expect(a.props).toMatchObject(properties)
+            expect((a as any).props).toMatchObject(properties)
                   
         })
         test('partial props',()=>{
             const properties:DeviceProperties = { bikeWeight:14 }
             const a = new DaumAdapter(DEFAULT_SETTINGS, properties)
-            expect(a.props).toMatchObject(properties)
+            expect((a as any).props).toMatchObject(properties)
             expect(a.getUser()).toEqual({})
         })
     })
    
 
     describe('sendInitCommands',()=>{
-        let a: DaumAdapter<DaumControl<DeviceProperties>, SerialDeviceSettings, DeviceProperties,DaumSerialComms>  
+        let a: DaumAdapter<SerialDeviceSettings, DeviceProperties,DaumSerialComms>  
         beforeEach( ()=>{
             a = new DaumAdapter( DEFAULT_SETTINGS,  {userWeight:80, bikeWeight:10});
             a.started = true
@@ -98,6 +98,7 @@ describe( 'DaumAdapter', ()=>{
 
         test('ERG Mode, power already set',async ()=>{
             a.deviceData.power = 123
+            a.getData().power = 123
             a.getCyclingMode().getBikeInitRequest = jest.fn().mockReturnValue({targetPower:555})
 
             const res = await a.sendInitCommands()
@@ -107,7 +108,8 @@ describe( 'DaumAdapter', ()=>{
         })
 
         test('ERG Mode, power not yet set',async ()=>{
-            a.deviceData.power = undefined
+            a.deviceData.power = 0
+            a.getData().power = undefined
             a.getCyclingMode().getBikeInitRequest = jest.fn().mockReturnValue({targetPower:555})
 
             const res = await a.sendInitCommands()
@@ -152,7 +154,7 @@ describe( 'DaumAdapter', ()=>{
 
 
     describe('updateData unit test',()=>{
-        let a: DaumAdapter<DaumControl<DeviceProperties>, SerialDeviceSettings, DeviceProperties,DaumSerialComms>  
+        let a: DaumAdapter<SerialDeviceSettings, DeviceProperties,DaumSerialComms>  
         let cm: ICyclingMode = {
             getName: () => '',
             getDescription: () => '',
@@ -179,7 +181,7 @@ describe( 'DaumAdapter', ()=>{
             cm.updateData = jest.fn( (data)=>cmData);
 
             a.updateData({pedalRpm:0, power:25, speed:0, heartrate:0, isPedalling:false,distanceInternal:0, time:0})
-            expect(a.cyclingData).toEqual(cmData)
+            expect(a.deviceData).toEqual(cmData)
         })
 
     })
@@ -542,36 +544,36 @@ describe( 'DaumAdapter', ()=>{
         })
 
         test('no bike',async ()=>{
-            a.bike = undefined
+            a.comms = undefined
             const res = await a.connect()
             expect(res).toBe(false)
         })
 
         test('already connected',async ()=>{
-            a.bike = { isConnected:jest.fn().mockReturnValue(true)}
+            a.comms = { isConnected:jest.fn().mockReturnValue(true)}
             const res = await a.connect()
             expect(res).toBe(true)
             
         })
 
         test('not yet connected',async ()=>{
-            a.bike = { isConnected:jest.fn().mockReturnValue(false), connect:jest.fn().mockResolvedValue(true)}
+            a.comms = { isConnected:jest.fn().mockReturnValue(false), connect:jest.fn().mockResolvedValue(true)}
             const res = await a.connect()
             expect(res).toBe(true)            
         })
 
         test('not yet connected, connection fails',async ()=>{
-            a.bike = { isConnected:jest.fn().mockReturnValue(false), connect:jest.fn().mockResolvedValue(false), close:jest.fn()}
+            a.comms = { isConnected:jest.fn().mockReturnValue(false), connect:jest.fn().mockResolvedValue(false), close:jest.fn()}
             const res = await a.connect()
-            expect(a.bike.close).not.toHaveBeenCalled()
+            expect(a.comms.close).not.toHaveBeenCalled()
             expect(res).toBe(false)            
         })
 
         test('not yet connected, connection throws error',async ()=>{
-            a.bike = { isConnected:jest.fn().mockReturnValue(false), connect:jest.fn().mockRejectedValue(new Error('XXX')), close:jest.fn()}
+            a.comms = { isConnected:jest.fn().mockReturnValue(false), connect:jest.fn().mockRejectedValue(new Error('XXX')), close:jest.fn()}
             const res = await a.connect()
             expect(res).toBe(false)            
-            expect(a.bike.close).toHaveBeenCalled()
+            expect(a.comms.close).toHaveBeenCalled()
         })
 
     })
@@ -583,29 +585,29 @@ describe( 'DaumAdapter', ()=>{
         })
 
         test('no bike',async ()=>{
-            a.bike = undefined
+            a.comms = undefined
             const res = await a.close()
             expect(res).toBe(true)
         })
 
         test('already connected, bike closes OK',async ()=>{
-            a.bike = { isConnected:jest.fn().mockReturnValue(true), close:jest.fn().mockResolvedValue(true)}
+            a.comms = { isConnected:jest.fn().mockReturnValue(true), close:jest.fn().mockResolvedValue(true)}
             const res = await a.close()
             expect(res).toBe(true)
             
         })
         test('already connected, bike close fails',async ()=>{
-            a.bike = { isConnected:jest.fn().mockReturnValue(true), close:jest.fn().mockResolvedValue(false)}
+            a.comms = { isConnected:jest.fn().mockReturnValue(true), close:jest.fn().mockResolvedValue(false)}
             const res = await a.close()
             expect(res).toBe(false)
             
         })
 
         test('not yet connected',async ()=>{
-            a.bike = { isConnected:jest.fn().mockReturnValue(false), close:jest.fn().mockResolvedValue(true)}
+            a.comms = { isConnected:jest.fn().mockReturnValue(false), close:jest.fn().mockResolvedValue(true)}
             const res = await a.close()
             expect(res).toBe(true)
-            expect(a.bike.close).not.toHaveBeenCalled()            
+            expect(a.comms.close).not.toHaveBeenCalled()            
         })
 
 
@@ -621,27 +623,27 @@ describe( 'DaumAdapter', ()=>{
         })
 
         test('no bike',async ()=>{
-            a.bike = undefined
+            a.comms = undefined
             await expect( async () => {await a.verifyConnection()}).rejects.toThrow()
             
         })
 
         test('already connected',async ()=>{
-            a.bike = { isConnected:jest.fn().mockReturnValue(true), connect:jest.fn()}
+            a.comms = { isConnected:jest.fn().mockReturnValue(true), connect:jest.fn()}
             await a.verifyConnection()
-            expect(a.bike.connect).not.toHaveBeenCalled()
+            expect(a.comms.connect).not.toHaveBeenCalled()
             
         })
 
         test('not yet connected',async ()=>{
-            a.bike = { isConnected:jest.fn().mockReturnValue(false), connect:jest.fn().mockResolvedValue(true)}
+            a.comms = { isConnected:jest.fn().mockReturnValue(false), connect:jest.fn().mockResolvedValue(true)}
             await a.verifyConnection()
-            expect(a.bike.connect).toHaveBeenCalled()
+            expect(a.comms.connect).toHaveBeenCalled()
              
         })
 
         test('not yet connected, connection fails',async ()=>{
-            a.bike = { isConnected:jest.fn().mockReturnValue(false), connect:jest.fn().mockResolvedValue(false)}
+            a.comms = { isConnected:jest.fn().mockReturnValue(false), connect:jest.fn().mockResolvedValue(false)}
             await expect( async () => {await a.verifyConnection()}).rejects.toThrow()
         })
 
@@ -658,36 +660,36 @@ describe( 'DaumAdapter', ()=>{
         })
 
         test('no bike',async ()=>{
-            a.bike = undefined
+            a.comms = undefined
             const res = await a.reconnect()
             expect(res).toBe(false)
         })
 
         test('already connected',async ()=>{
-            a.bike = { isConnected:jest.fn().mockReturnValue(true),close:jest.fn().mockResolvedValue(true), connect:jest.fn().mockResolvedValue(true)}
+            a.comms = { isConnected:jest.fn().mockReturnValue(true),close:jest.fn().mockResolvedValue(true), connect:jest.fn().mockResolvedValue(true)}
             const res = await a.reconnect()
             expect(res).toBe(true)
-            expect(a.bike.close).toHaveBeenCalled()
-            expect(a.bike.connect).toHaveBeenCalled()
+            expect(a.comms.close).toHaveBeenCalled()
+            expect(a.comms.connect).toHaveBeenCalled()
             
         })
 
         test('not yet connected',async ()=>{
-            a.bike = { isConnected:jest.fn().mockReturnValue(false),close:jest.fn().mockResolvedValue(true), connect:jest.fn().mockResolvedValue(true)}
+            a.comms = { isConnected:jest.fn().mockReturnValue(false),close:jest.fn().mockResolvedValue(true), connect:jest.fn().mockResolvedValue(true)}
             const res = await a.reconnect()
             expect(res).toBe(true)
-            expect(a.bike.close).toHaveBeenCalled()
-            expect(a.bike.connect).toHaveBeenCalled()
+            expect(a.comms.close).toHaveBeenCalled()
+            expect(a.comms.connect).toHaveBeenCalled()
         })
 
         test('close throws error',async ()=>{
-            a.bike = { close:jest.fn().mockRejectedValue( new Error('XXX')), connect:jest.fn().mockResolvedValue(true)}
+            a.comms = { close:jest.fn().mockRejectedValue( new Error('XXX')), connect:jest.fn().mockResolvedValue(true)}
             const res = await a.reconnect()
             expect(res).toBe(false)            
         })
 
         test('connect throws error',async ()=>{
-            a.bike = { close:jest.fn().mockResolvedValue(true), connect:jest.fn().mockRejectedValue( new Error('XXX'))}
+            a.comms = { close:jest.fn().mockResolvedValue(true), connect:jest.fn().mockRejectedValue( new Error('XXX'))}
             const res = await a.reconnect()
             expect(res).toBe(false)            
         })
@@ -701,7 +703,7 @@ describe( 'DaumAdapter', ()=>{
             a.logEvent = jest.fn()
             a.resume = jest.fn()
             a.stopUpdatePull = jest.fn()
-            a.bike = {close:jest.fn().mockResolvedValue(true)}
+            a.comms = {close:jest.fn().mockResolvedValue(true)}
         })
 
         afterEach( ()=>{
@@ -712,7 +714,7 @@ describe( 'DaumAdapter', ()=>{
             const res = await a.stop()
             expect(res).toBe(true)
             expect(a.logEvent).not.toHaveBeenCalled()
-            expect(a.bike.close).not.toHaveBeenCalled()
+            expect(a.comms.close).not.toHaveBeenCalled()
         })
 
         test('paused',async ()=>{
@@ -722,7 +724,7 @@ describe( 'DaumAdapter', ()=>{
 
             expect(a.logEvent).toHaveBeenCalled()
             expect(a.resume).toHaveBeenCalled()
-            expect(a.bike.close).toHaveBeenCalled()
+            expect(a.comms.close).toHaveBeenCalled()
             expect(a.stopUpdatePull).toHaveBeenCalled()
             expect(a.stopped).toBe(true)
             
@@ -730,11 +732,11 @@ describe( 'DaumAdapter', ()=>{
 
 
         test('close throws error',async ()=>{
-            a.bike = { close:jest.fn().mockRejectedValue( new Error('XXX'))}
+            a.comms = { close:jest.fn().mockRejectedValue( new Error('XXX'))}
 
             await expect( async () => {await a.stop()}).rejects.toThrow()
 
-            expect(a.bike.close).toHaveBeenCalled()
+            expect(a.comms.close).toHaveBeenCalled()
             expect(a.stopUpdatePull).toHaveBeenCalled()
             expect(a.stopped).toBe(false)
 
@@ -752,27 +754,27 @@ describe( 'DaumAdapter', ()=>{
 
         test('stopped',()=>{
             a.stopped = true
-            const res = a.canSendUpdate()
+            const res = a.canEmitData()
             expect(res).toBe(false)
         })
 
         test('paused',async ()=>{
             a.paused = true
-            const res = a.canSendUpdate()
+            const res = a.canEmitData()
             expect(res).toBe(false)            
         })
 
 
         test('always emit',async ()=>{            
             a.getMaxUpdateFrequency=jest.fn().mockReturnValue(-1)
-            const res = a.canSendUpdate()
+            const res = a.canEmitData()
             expect(res).toBe(true)            
         })
 
         test('previous emit above threshold',async ()=>{            
             a.getMaxUpdateFrequency=jest.fn().mockReturnValue(1000)
             a.lastUpdate = Date.now()-1001
-            const res = a.canSendUpdate()
+            const res = a.canEmitData()
             expect(res).toBe(true)            
         })
 
@@ -797,7 +799,7 @@ describe( 'DaumAdapter', ()=>{
         })
 
         test('cannot emit update',async ()=>{
-            a.canSendUpdate = jest.fn().mockReturnValue(false)
+            a.canEmitData = jest.fn().mockReturnValue(false)
             await a.update()
             expect(a.emitData).not.toHaveBeenCalled()
             expect(a.getCurrentBikeData).not.toHaveBeenCalled()
@@ -813,13 +815,13 @@ describe( 'DaumAdapter', ()=>{
 
         test('getCurrentBikeData error',async ()=>{            
             a.getCurrentBikeData.mockRejectedValue(new Error('not connected'))
-            a.cyclingData = {power:99,pedalRpm:78,speed:25}
+            a.deviceData = {power:99,pedalRpm:78,speed:25}
 
             a.updateData = jest.fn()
             a.transformData = jest.fn()
 
             await a.update()
-            expect(a.updateData).toHaveBeenCalledWith(a.cyclingData)  
+            expect(a.updateData).toHaveBeenCalledWith(a.deviceData)  
             expect(a.emitData).not.toHaveBeenCalled()  
             expect(a.updateBusy).toBe(false)
         })
@@ -932,7 +934,7 @@ describe( 'DaumAdapter', ()=>{
     })
 
     describe('updateData component test',()=>{
-        let a: DaumAdapter<DaumControl<DeviceProperties>, SerialDeviceSettings, DeviceProperties,DaumSerialComms>  
+        let a: DaumAdapter<SerialDeviceSettings, DeviceProperties,DaumSerialComms>  
         let data:any;
 
         beforeAll( () => {
@@ -1018,7 +1020,7 @@ describe( 'DaumAdapter', ()=>{
 
   
     describe('sendUpdate',()=>{
-        let a: DaumAdapter<DaumControl<DeviceProperties>, SerialDeviceSettings, DeviceProperties,DaumSerialComms>  
+        let a: DaumAdapter<SerialDeviceSettings, DeviceProperties,DaumSerialComms>  
         let data:IncyclistBikeData;
     
         beforeEach( async ()=>{
@@ -1089,11 +1091,11 @@ describe( 'DaumAdapter', ()=>{
             expect(res.targetPower).toBeCloseTo(147,0)      
 
             
-            await a.updateData(Object.assign({},a.cyclingData,{pedalRpm:91,gear:10}));
+            await a.updateData(Object.assign({},a.deviceData,{pedalRpm:91,gear:10}));
             res = await a.sendUpdate({slope:1})
             expect(res.targetPower).toBeCloseTo(152,0)      
 
-            await a.updateData(Object.assign({},a.cyclingData,{pedalRpm:90,gear:10}));
+            await a.updateData(Object.assign({},a.deviceData,{pedalRpm:90,gear:10}));
             res = await a.sendUpdate({slope:1})
             expect(res.targetPower).toBeCloseTo(147,0)      
 
@@ -1129,7 +1131,7 @@ describe( 'DaumAdapter', ()=>{
  
         })
         test('maxPower set, current power above limit: enforces limit',async ()=>{          
-            await a.updateData(Object.assign({},a.cyclingData,{pedalRpm:90,gear:20}));            
+            await a.updateData(Object.assign({},a.deviceData,{pedalRpm:90,gear:20}));            
             const res =await a.sendUpdate({  maxPower:200}) as any;
             expect(res.targetPower).toEqual(200)
  
@@ -1147,7 +1149,7 @@ describe( 'DaumAdapter', ()=>{
 
         test('maxPower after slope update: maxPower is reflected',async ()=>{         
             data.slope=1.5
-            await a.updateData(Object.assign({},a.cyclingData,{pedalRpm:90,gear:10}));   
+            await a.updateData(Object.assign({},a.deviceData,{pedalRpm:90,gear:10}));   
             const res =await a.sendUpdate({maxPower:120 }) as any;
             expect(res.targetPower).toBeCloseTo(120,0)
  
@@ -1160,7 +1162,7 @@ describe( 'DaumAdapter', ()=>{
  
         })
         test('min set, current power below limit: enforces limit',async ()=>{          
-            await a.updateData(Object.assign({},a.cyclingData,{peadlRpm:10, gear:5}));       // -> 2.5W     
+            await a.updateData(Object.assign({},a.deviceData,{peadlRpm:10, gear:5}));       // -> 2.5W     
             const res =await a.sendUpdate({minPower:200}) as any;
             expect(res.targetPower).toEqual(200)
  
@@ -1173,7 +1175,7 @@ describe( 'DaumAdapter', ()=>{
 
         test('minPower after slope update: minPower is reflected',async ()=>{         
             data.slope=-1.5
-            await a.updateData(Object.assign({},a.cyclingData,{pedalRpm:90,gear:10}));   
+            await a.updateData(Object.assign({},a.deviceData,{pedalRpm:90,gear:10}));   
             const res =await a.sendUpdate({minPower:180 }) as any;
             expect(res.targetPower).toBeCloseTo(180,0)
  

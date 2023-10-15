@@ -1,15 +1,13 @@
 import {EventLogger} from 'gd-eventlog';
-import BleAdapter, { BlePowerControl } from '../base/adapter';
+import BleAdapter from '../base/adapter';
 import BleEliteDevice from './comms';
-import ICyclingMode, { IncyclistBikeData } from '../../modes/types';
+import ICyclingMode from '../../modes/types';
 import PowerMeterCyclingMode from '../../modes/power-meter';
 import { PowerData } from '../cp';
-import {  DeviceProperties } from '../../types/device';
-import { DeviceData } from '../../types/data';
-import { BleDeviceSettings } from '../types';
 import { IncyclistCapability } from '../../types/capabilities';
+import { DeviceProperties,IncyclistAdapterData,IncyclistBikeData,ControllerConfig, IAdapter  } from '../../types';
+import { BleDeviceSettings } from '../types';
 import { BleEliteComms } from '.';
-import { IncyclistDeviceAdapter } from '../../types/adapter';
 
 /**
  * WORK IN PROGRESS --- DON'T USE YET
@@ -19,7 +17,11 @@ import { IncyclistDeviceAdapter } from '../../types/adapter';
 
 
  
-export default class BleEliteAdapter extends BleAdapter<BlePowerControl> {  
+export default class BleEliteAdapter extends BleAdapter {  
+    protected static controllers: ControllerConfig = {
+        modes: [PowerMeterCyclingMode],
+        default: PowerMeterCyclingMode
+    }
 
     
     distanceInternal: number = 0;
@@ -27,7 +29,6 @@ export default class BleEliteAdapter extends BleAdapter<BlePowerControl> {
 
     constructor( settings:BleDeviceSettings, props?:DeviceProperties) {
         super(settings,props);
-        this.setControl(new BlePowerControl(this,props))
 
         this.logger = new EventLogger('BLE-Elite')
         const {id,address,name} = settings
@@ -41,7 +42,7 @@ export default class BleEliteAdapter extends BleAdapter<BlePowerControl> {
         ]
     }
 
-    isSame(device:IncyclistDeviceAdapter):boolean {
+    isSame(device:IAdapter):boolean {
         if (!(device instanceof BleEliteAdapter))
             return false;
         
@@ -85,7 +86,7 @@ export default class BleEliteAdapter extends BleAdapter<BlePowerControl> {
         return data;
     }
 
-    transformData( bikeData:IncyclistBikeData): DeviceData {
+    transformData( bikeData:IncyclistBikeData): IncyclistAdapterData {
         
         if ( bikeData===undefined)
             return;
@@ -105,7 +106,7 @@ export default class BleEliteAdapter extends BleAdapter<BlePowerControl> {
             cadence: bikeData.pedalRpm!==undefined ? Math.round(bikeData.pedalRpm) : undefined,
             distance,
             timestamp: Date.now()
-        } as DeviceData;
+        } as IncyclistAdapterData;
 
         return data;
     }

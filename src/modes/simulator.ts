@@ -1,6 +1,7 @@
 import { EventLogger } from "gd-eventlog";
 
-import { CyclingModeProperyType, IncyclistBikeData, UpdateRequest } from "./types";
+import { CyclingModeProperyType, UpdateRequest } from "./types";
+import { IncyclistBikeData } from "../types";
 import { Simulator } from "../simulator/Simulator";
 import PowerBasedCyclingModeBase from "./power-base";
 

@@ -1,4 +1,5 @@
-import { IBike } from "../types/adapter";
+import { IAdapter,IncyclistBikeData } from "../types";
+
 
 export type UpdateRequest = {
     slope?: number;
@@ -28,18 +29,6 @@ export type CyclingModeProperty = {
     max?: number;
     default?: any;
     options?: any[];
-}
-
-export type IncyclistBikeData = {
-    isPedalling?: boolean;
-    power: number;
-    pedalRpm: number;
-    speed: number;
-    heartrate?:number;
-    distanceInternal?:number;        // Total Distance in meters 
-    time?:number;
-    gear?:number;
-    slope?:number;
 }
 
 export type Settings = {
@@ -81,7 +70,7 @@ export type CyclingModeConfig = {
 export class CyclingMode implements ICyclingMode {
 
     // eslint-disable-next-line @typescript-eslint/no-useless-constructor
-    constructor(_adapter:IBike,_props?:any ) {}
+    constructor(_adapter:IAdapter,_props?:any ) {}
     static supportsERGMode():boolean  { return false}
     
     getName(): string {

@@ -1,5 +1,4 @@
-import BleAdapterFactory, {BleAdapterInfo} from './adapter-factory'
-import BleAdapter from './base/adapter'
+import BleAdapterFactory from './adapter-factory'
 import { BleFmAdapter } from './fm'
 import BleFitnessMachineDevice from './fm/comms'
 

@@ -1,6 +1,4 @@
-/* istanbul ignore file */
-
-export default abstract class DaumSerialComms {
+export abstract class DaumSerialComms {
     serial
 
     abstract getPort():string
@@ -17,3 +15,12 @@ export default abstract class DaumSerialComms {
 
     
 }
+
+export class ResponseTimeout extends Error {
+    constructor() {
+        super();
+        this.message = 'RESP timeout';
+    }
+}
+
+

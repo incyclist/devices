@@ -1,16 +1,17 @@
 import { EventLogger } from 'gd-eventlog';
-import { INTERFACE } from '../../../types/device';
-import { SerialInterface } from '../..';
-import { SerialDeviceSettings } from '../../adapter';
-import { SerialCommProps } from '../../comm';
-import { SerialInterfaceType } from '../../serial-interface';
-import { User } from '../../../types/user';
+import SerialInterface from '../../base/serial-interface';
 import {runWithRetries, sleep} from '../../../utils/utils';
-import DaumAdapter, { DaumControl } from '../DaumAdapter'
+import DaumAdapter from '../DaumAdapter'
 import Daum8i from './comms';
-import { Daum8iDeviceProperties } from './types';
-import { IncyclistBikeData } from '../../..';
+
+import { DaumPremiumDeviceProperties } from './types';
+import { SerialDeviceSettings,SerialInterfaceType,SerialCommProps } from "../../types";
+import { User,INTERFACE,ControllerConfig,IncyclistBikeData } from '../../../types';
+
 import DaumClassicCyclingMode from '../../../modes/daum-premium-standard';
+import ERGCyclingMode from '../../../modes/daum-erg';
+import SmartTrainerCyclingMode from '../../../modes/daum-smarttrainer';
+import DaumPowerMeterCyclingMode from '../../../modes/daum-power';
 
 const PROTOCOL_NAME = "Daum Premium"
 const DAUM_PREMIUM_DEFAULT_PORT= 51955;
@@ -18,29 +19,25 @@ const START_RETRY_TIMEOUT = 1500;
 const DEFAULT_GEAR = 10;
 const START_RETRIES = 5
 
-export class DaumPremiumControl extends DaumControl<Daum8iDeviceProperties> {
-    getSupportedCyclingModes() : Array<any> {         
-        const supported = super.getSupportedCyclingModes();
-        supported.push( DaumClassicCyclingMode);
-        return supported
-    }    
-}
-
-export default class DaumPremiumAdapter extends DaumAdapter<DaumPremiumControl,SerialDeviceSettings,Daum8iDeviceProperties,Daum8i>{
+export default class DaumPremiumAdapter extends DaumAdapter<SerialDeviceSettings,DaumPremiumDeviceProperties,Daum8i>{
 
     static NAME = PROTOCOL_NAME;
+    protected static controllers: ControllerConfig = {
+        modes: [ERGCyclingMode,SmartTrainerCyclingMode,DaumPowerMeterCyclingMode,DaumClassicCyclingMode],
+        default:ERGCyclingMode
+    }
 
     commProps: SerialCommProps    
 
-    constructor ( settings:SerialDeviceSettings,props?:Daum8iDeviceProperties) {
+    constructor ( settings:SerialDeviceSettings,props?:DaumPremiumDeviceProperties) {
 
         super(settings,props)
-        this.setControl( new DaumPremiumControl(this,props))
+        
 
         const logger  = new EventLogger('DaumPremium')
         const commProps:SerialCommProps = {...this.getBikeProps(settings), logger}    
 
-        this.bike       = new Daum8i(commProps);        
+        this.comms      = new Daum8i(commProps);        
         this.logger     = logger;
 
         this.initData();
@@ -88,7 +85,7 @@ export default class DaumPremiumAdapter extends DaumAdapter<DaumPremiumControl,S
     } 
     
     getInterface():string {
-        return this.bike?.getInterface();
+        return this.comms?.getInterface();
     }
 
     getProtocolName(): string {
@@ -134,8 +131,8 @@ export default class DaumPremiumAdapter extends DaumAdapter<DaumPremiumControl,S
                 this.started = false;
                 this.paused = false;
 
-                info.deviceType = await this.bike.getDeviceType()
-                info.version = await this.bike.getProtocolVersion();
+                info.deviceType = await this.comms.getDeviceType()
+                info.version = await this.comms.getProtocolVersion();
 
                 this.logEvent( {message:"checking device success",port:this.getPort(),info});
 
@@ -157,7 +154,7 @@ export default class DaumPremiumAdapter extends DaumAdapter<DaumPremiumControl,S
         return START_RETRY_TIMEOUT
     }
 
-    async performStart(props:Daum8iDeviceProperties={},_isRelaunch:boolean=false) {
+    async performStart(props:DaumPremiumDeviceProperties={},_isRelaunch:boolean=false) {
 
         // relaunch argument will be ignored: we will always perform a fresh start, as we might have to upload the route data as part of the start procedure
 
@@ -177,10 +174,10 @@ export default class DaumPremiumAdapter extends DaumAdapter<DaumPremiumControl,S
                     throw new Error('not connected')
 
                 if (!info.deviceType) {
-                    info.deviceType = await this.bike.getDeviceType()
+                    info.deviceType = await this.getComms().getDeviceType()
                 }
                 if (!info.version) {
-                    info.version = await this.bike.getProtocolVersion();
+                    info.version = await this.getComms().getProtocolVersion();
                 }
 
                 const user: User = this.getUser()
@@ -190,14 +187,14 @@ export default class DaumPremiumAdapter extends DaumAdapter<DaumPremiumControl,S
                     const bikeType = this.getCyclingMode().getSetting('bikeType')
             
                     if (!info.upload) {
-                        info.upload = await this.bike.programUpload( bikeType, route, onStatusUpdate);
+                        info.upload = await this.getComms().programUpload( bikeType, route, onStatusUpdate);
                         if (!info.upload)
                             throw new Error('Epp Upload failed')
                     }
                     
                     if (!info.started) {
                         const programId = route ? route.programId : 0;
-                        info.started = await this.bike.startProgram( programId);             
+                        info.started = await this.getComms().startProgram( programId);             
                         if (!info.started) {
                             throw new Error('Epp start failed')
                         }
@@ -207,11 +204,11 @@ export default class DaumPremiumAdapter extends DaumAdapter<DaumPremiumControl,S
                 
 
                 if (!info.person && this.getCyclingMode().getModeProperty('setPersonSupport') ) { 
-                    info.person = await this.bike.setPerson(user);
+                    info.person = await this.getComms().setPerson(user);
                 }
 
                 if (!this.getCyclingMode().getModeProperty('eppSupport')) {
-                    info.gear = await this.bike.setGear( this.cyclingData.gear || gear || DEFAULT_GEAR);                       
+                    info.gear = await this.getComms().setGear( this.deviceData.gear || gear || DEFAULT_GEAR);                       
                 }
                 return;
             }
@@ -247,12 +244,12 @@ export default class DaumPremiumAdapter extends DaumAdapter<DaumPremiumControl,S
 
     async getCurrentBikeData():Promise<IncyclistBikeData> {       
         await this.verifyConnection()        
-        return this.getBike().getTrainingData()
+        return this.getComms().getTrainingData()
     }
 
     async getDeviceInfo():Promise<any> {
-        const deviceType = await this.bike.getDeviceType()
-        const version = await this.bike.getProtocolVersion();
+        const deviceType = await this.getComms().getDeviceType()
+        const version = await this.getComms().getProtocolVersion();
         return {deviceType,version}
     }
 

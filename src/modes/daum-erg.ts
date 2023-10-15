@@ -1,7 +1,7 @@
-import ICyclingMode, { CyclingModeProperyType, IncyclistBikeData, UpdateRequest } from "./types";
+import ICyclingMode, { CyclingModeProperyType, UpdateRequest } from "./types";
+import { IncyclistBikeData,IAdapter } from "../types";
 import calc from '../utils/calculations'
 import PowerBasedCyclingModeBase from "./power-base";
-import { IncyclistDeviceAdapter } from "../types/adapter";
 
 export type ERGEvent = {
     rpmUpdated?: boolean;
@@ -29,7 +29,7 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
         ]
     }
 
-    constructor(adapter: IncyclistDeviceAdapter, props?:any) {
+    constructor(adapter: IAdapter, props?:any) {
         super(adapter,props);
         this.initLogger('ERGMode')
     }

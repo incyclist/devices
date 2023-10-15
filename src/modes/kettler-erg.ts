@@ -1,6 +1,6 @@
-import ICyclingMode, { CyclingModeProperyType, IncyclistBikeData, UpdateRequest } from './types';
+import ICyclingMode, { CyclingModeProperyType, UpdateRequest } from './types';
+import { IncyclistBikeData,IAdapter } from "../types";
 import PowerBasedCyclingModeBase from './power-base';
-import { IncyclistDeviceAdapter } from '../types/adapter';
 
 const MIN_SPEED = 10;
 
@@ -29,7 +29,7 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
     cassette: number[];
     event: ERGEvent ={};
 
-    constructor(adapter: IncyclistDeviceAdapter, props?:any) {
+    constructor(adapter: IAdapter, props?:any) {
         super(adapter,props);
         this.initLogger('ERGMode')
     }

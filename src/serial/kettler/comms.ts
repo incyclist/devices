@@ -1,6 +1,6 @@
 import { EventLogger } from "gd-eventlog";
 import { hexstr, Queue } from "../../utils/utils";
-import { Command } from "../../types/command";
+import { Command } from "./types";
 import EventEmitter from "events";
 import { SerialInterface } from "..";
 import { ReadlineParser } from '@serialport/parser-readline'

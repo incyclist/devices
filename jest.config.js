@@ -11,6 +11,7 @@ module.exports = {
       "!src/Device.ts",
       "!src/**/mock.ts",
       "!src/**/types.ts",
+      "!src/types/**",
       "!src/**/consts.ts",
       "!src/**/*.unit.{test,tests}.{js,ts}",
       "!src/**/*.test.util.{js,ts}"

@@ -1,6 +1,6 @@
 import { BleWahooComms } from ".";
 import { LegacyProfile } from "../../antv2/types";
-import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/adpater";
+import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/consts";
 import { CSP, CSP_MEASUREMENT, FTMS_CP, FTMS_STATUS, HR_MEASUREMENT, INDOOR_BIKE_DATA, WAHOO_ADVANCED_TRAINER_CP, WAHOO_ADVANCED_TRAINER_CP_FULL } from "../consts";
 import { CrankData } from "../cp";
 import { IndoorBikeData } from "../fm";

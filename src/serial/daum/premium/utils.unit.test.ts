@@ -1,5 +1,5 @@
+import { Route } from './types'
 import {hexstr,ascii,getAsciiArrayFromStr, buildMessage, parseTrainingData, routeToEpp, FileTimeSupport, bin2esc, esc2bin, responseLog} from './utils'
-import { Route } from '../../../types/route';
 
 describe('utils',()=>{
 

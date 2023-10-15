@@ -1,32 +1,17 @@
 
-import IncyclistDevice, { ControllableDevice } from "../../base/adpater";
-import ICyclingMode, { IncyclistBikeData } from "../../modes/types";
-import { Controllable, IncyclistDeviceAdapter} from "../../types/adapter";
-import { DeviceData } from "../../types/data";
-import { DeviceProperties } from "../../types/device";
+import IncyclistDevice from "../../base/adpater";
 import { BleComms } from "./comms";
 import BleInterface from "../ble-interface";
 import { BleDeviceProperties, BleDeviceSettings, BleStartProperties } from "../types";
-import PowerMeterCyclingMode from "../../modes/power-meter";
+import { IAdapter,IncyclistBikeData,IncyclistAdapterData,DeviceProperties} from "../../types";
 
 const INTERFACE_NAME = 'ble'
 
-export class  BlePowerControl extends ControllableDevice<BleDeviceProperties> {
-    getDefaultCyclingMode(): ICyclingMode {
-        return new PowerMeterCyclingMode(this.adapter);
-    }
-
-    getSupportedCyclingModes(): any[] {
-        return [PowerMeterCyclingMode]
-    }
-
-}
-
-export default class BleAdapter<DC extends Controllable<BleDeviceProperties>>  extends IncyclistDevice<DC,BleDeviceProperties>  { 
+export default class BleAdapter  extends IncyclistDevice<BleDeviceProperties>  { 
 
     ble: BleInterface
     deviceData: any
-    data: DeviceData
+    data: IncyclistAdapterData
     dataMsgCount: number
     lastDataTS: number;
     device: BleComms
@@ -114,7 +99,7 @@ export default class BleAdapter<DC extends Controllable<BleDeviceProperties>>  e
         }
 
     }
-    isSame( adapter: IncyclistDeviceAdapter):boolean {
+    isSame( adapter: IAdapter):boolean {
         return this.isEqual( adapter.getSettings() as BleDeviceSettings)
     }
 
@@ -154,7 +139,7 @@ export default class BleAdapter<DC extends Controllable<BleDeviceProperties>>  e
 
         this.deviceData = Object.assign( {},deviceData);        
     
-        if (!this.started ||!this.canSendUpdate())
+        if (!this.started ||!this.canEmitData())
             return;       
 
         this.logEvent( {message:'onDeviceData',data:deviceData, isControllable:this.isControllable()})        
@@ -178,11 +163,11 @@ export default class BleAdapter<DC extends Controllable<BleDeviceProperties>>  e
    
     }
 
-    mapData(deviceData:any):DeviceData|IncyclistBikeData {
+    mapData(deviceData:any):IncyclistAdapterData|IncyclistBikeData {
         throw new Error('message not implemented')    
     }
 
-    transformData( data:IncyclistBikeData): DeviceData {
+    transformData( data:IncyclistBikeData): IncyclistAdapterData {
         throw new Error('message not implemented')    
     }
 

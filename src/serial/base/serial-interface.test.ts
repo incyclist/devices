@@ -1,14 +1,13 @@
 import { autoDetect } from '@serialport/bindings-cpp'
 import { MockBinding } from '@serialport/binding-mock'
-import SerialInterface, { SerialInterfaceType } from './serial-interface'
+import SerialInterface from './serial-interface'
 
-import { TCPBinding } from './bindings/tcp'
-
-import {SerialAdapterFactory,SerialIncyclistDevice} from '.'  // Import needs to be from here so that the adapters are registered
-
-import CyclingMode from '../modes/types'
-import { ControllableDevice } from '../base/adpater'
-import { DeviceProperties } from '../types/device'
+import { TCPBinding } from '../bindings/tcp'
+import CyclingMode from '../../modes/types'
+import { DeviceProperties } from '../../types/device'
+import { SerialAdapterFactory } from '..'
+import { SerialInterfaceType } from '../types'
+import { SerialIncyclistDevice } from './adapter'
 
 describe('SerialInterface',()=>{
 
@@ -109,7 +108,7 @@ describe('SerialInterface',()=>{
             const serial = new SerialInterface({ifaceName:SerialInterfaceType.SERIAL,binding:MockBinding})
 
 
-            class MockAdapter extends SerialIncyclistDevice<ControllableDevice<DeviceProperties>,DeviceProperties> {
+            class MockAdapter extends SerialIncyclistDevice<DeviceProperties> {
                 async check(): Promise<boolean> {
                     return true
                 }
@@ -136,7 +135,7 @@ describe('SerialInterface',()=>{
 
 
 
-            class MockAdapter extends SerialIncyclistDevice<ControllableDevice<DeviceProperties>,DeviceProperties> {
+            class MockAdapter extends SerialIncyclistDevice<DeviceProperties> {
                 async check(): Promise<boolean> {
                     return true
                 }

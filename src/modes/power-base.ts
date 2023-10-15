@@ -1,10 +1,11 @@
-import { CyclingModeConfig, IncyclistBikeData, Settings, UpdateRequest } from './types';
+import { CyclingModeConfig, Settings, UpdateRequest } from './types';
+import { IncyclistBikeData,IAdapter } from "../types";
 
-import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT} from '../base/adpater';
+import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../base/consts";
 import calc from '../utils/calculations'
 import { EventLogger } from 'gd-eventlog';
-import { IncyclistDeviceAdapter } from '..';
 import { CyclingModeBase } from './base';
+import { IncyclistDeviceAdapter } from '../base/adpater';
 
 const MIN_SPEED = 10;
 
@@ -16,7 +17,7 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
     prevRequest: UpdateRequest|undefined;
     protected static config:CyclingModeConfig={name:'',description:'',properties:[]}
 
-    constructor(adapter: IncyclistDeviceAdapter,   props?: Settings) {
+    constructor(adapter: IAdapter,   props?: Settings) {
         super(adapter,props);
         this.data = { speed: 0 , power:0,  distanceInternal:0, pedalRpm:0, isPedalling:false, heartrate:0}
     }
@@ -32,7 +33,7 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
     }
 
     initLogger(defaultLogName) {
-        const a = this.adapter
+        const a = this.adapter as IncyclistDeviceAdapter
         this.logger =  a.getLogger() 
         if (!this.logger) this.logger = new EventLogger(defaultLogName)
     }

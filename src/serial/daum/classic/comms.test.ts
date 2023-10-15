@@ -1,12 +1,13 @@
 import { EventLogger } from 'gd-eventlog';
 import {DaumClassicMock, DaumClassicMockImpl, DaumClassicSimulator} from './mock'
 import { MockBinding,  } from '@serialport/binding-mock';
-import { SerialPortProvider,SerialInterface } from '../..';
 import Daum8008 from './comms';
-import { ResponseTimeout } from '../premium/types';
-import { Gender } from '../../../types/user';
+import { Gender } from '../../../types';
 import { DaumClassicResponse } from './types';
 import { sleep } from '../../../utils/utils';
+import { ResponseTimeout } from '../types';
+import SerialPortProvider from '../../base/serialport';
+import SerialInterface from '../../base/serial-interface';
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
