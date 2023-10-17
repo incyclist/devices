@@ -32,7 +32,7 @@ export class SinglePathScanner {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const w = global.window as any;
 
-        if (w?.DEVICE_DEBUG || process.env.BLE_DEBUG) {
+        if (w?.DEVICE_DEBUG || process.env.BLE_DEBUG|| process.env.ANT_DEBUG|| process.env.SERIAL_DEBUG) {
             console.log('~~~ SerialScanner', event);
         }
 
@@ -76,7 +76,7 @@ export class SinglePathScanner {
 
                     const adapter = SerialAdapterFactory.getInstance().createInstance(adapterSettings);
 
-                    found = await adapter.check();
+                    found = await adapter?.check();
                     if (found) {
                         this.isFound = true;
                         const name = adapter.getName();

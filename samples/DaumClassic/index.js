@@ -1,14 +1,11 @@
 const {EventLogger,ConsoleAdapter} = require( 'gd-eventlog');
 const { autoDetect } = require('@serialport/bindings-cpp')
-const {useSerialPortProvider} = require('incyclist-devices');
-const { SerialPort } = require('serialport');
-const { MockBinding,MockPortBinding } = require('@serialport/binding-mock')
+const { AdapterFactory, InterfaceFactory} = require('incyclist-devices');
+const { DaumClassicMock, DaumClassicSimulator, DaumClassicMockImpl } = require('incyclist-devices/lib/serial/daum/classic/mock');
 
 EventLogger.registerAdapter(new ConsoleAdapter()) 
-const logger = new EventLogger('DaumClassicSample');
-//const {DeviceRegistry, useSerialPortProvider} = require('../../lib/DeviceSupport');
 
-const {scan} = require('./scan')
+const logger = new EventLogger('DaumClassicSample');
 
 function start(device) {
 
@@ -37,10 +34,6 @@ function start(device) {
 function runDevice(device) {
     logger.logEvent( {message:'starting device',device:device.getName()})        
     
-    if ( process.env.DEBUG) {
-        device.logger = logger;
-        device.bike.logger = logger;
-    }
     device.onData( (data)=> { logger.logEvent( {message:'onData',data}) })
 
     return new Promise( resolve => {
@@ -59,62 +52,67 @@ function runDevice(device) {
             setTimeout( async ()=>{
                 logger.logEvent( {message:'stopping device',device:device.getName()})        
                 await device.stop();    
+                clearInterval(iv)
                 logger.log('stopped')
                 resolve(true);
             }, 10000)
         })
         .catch((err)=>{resolve(false)})
     })
-
 }
-
-
 
 
 async function run() {
 
-    const spp = useSerialPortProvider();
+
+    const serial = InterfaceFactory.create('serial',{protocol:'Daum Classic'})
 
     if (process.env.MOCK) {
+        logger.log('using MockBinding for ports',process.env.MOCK )
 
-        console.log('using MockBinding for ports',process.env.MOCK )
         const mockPorts = process.env.MOCK.split(',')
-        MockBinding.reset();
-        mockPorts.forEach( port => MockBinding.createPort(port))
-        spp.setBinding('serial', MockBinding)
+
+        DaumClassicMockImpl.reset();        
+        const simulator = new DaumClassicSimulator();
+
+        serial.setBinding(DaumClassicMock)
+
+        mockPorts.forEach( port => {
+            DaumClassicMock.createPort(port)
+            DaumClassicMockImpl.getInstance().setSimulator(port,simulator)           
+        })
+        
     }
     else {
-        spp.setBinding('serial', autoDetect())
-        //spp.setLegacyClass('serial', SerialPort)
-    
+        serial.setBinding(autoDetect())
     }
-    
-
+    await serial.connect()
+  
 
     var args = process.argv.slice(2);
     if (args.length<1) {
-        const devices = await scan();
-        if (devices && devices.length>0) {
-            const device = devices[0];
-            await runDevice(device)
-            process.exit();
+        logger.logEvent({message:'Scanning for devices ...'})
+
+        serial.on('device',(args)=> logger.logEvent({message:'Device Detected',...args}))
     
-        }
-        else {
-            process.exit();
+        const devices = await serial.scan( { timeout: 10000,protocol:'Daum Classic'})
+        logger.logEvent({message:'devices found', devices})
+    
+        if (devices.length>0) {
+            const device = AdapterFactory.create(devices[0])
+            await runDevice(device)           
         }
     }
-    else {
-        const scanner = DeviceRegistry.findByName('Daum Classic');
-        
-        const device = scanner.add( { port:args[0],opts:{logger} })
-        device.logger = logger;
+    else {        
+        const device = AdapterFactory.create({interface:serial, protocol:'Daum Classic',port:args[0], name:'Test'})       
         await runDevice(device)      
-        console.log('2nd try...')
-        await runDevice(device)
-        process.exit();
+    }
 }
-}
+
+process.on('SIGINT', () => process.exit() );  // CTRL+C
+process.on('SIGQUIT', () => process.exit() ); // Keyboard quit
+process.on('SIGTERM', () => process.exit() ); // `kill` command 
+
 
 run();
 

@@ -72,7 +72,7 @@ export class DaumClassicMockImpl  {
         return MockBinding.createPort(path,options)
     }
     async list() {
-        return MockBinding.list()
+        return await MockBinding.list()
     }
     async open(options) {
         const port = await MockBinding.open(options)

@@ -88,7 +88,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const w = global.window as any
     
-        if (w?.DEVICE_DEBUG||process.env.BLE_DEBUG) {
+        if (w?.DEVICE_DEBUG||process.env.SERIAL_DEBUG||process.env.ANT_DEBUG||process.env.BLE_DEBUG) {
             console.log( '~~~ Serial', event)
         }
 
