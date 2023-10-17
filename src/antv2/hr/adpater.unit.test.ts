@@ -199,7 +199,6 @@ describe( 'ANT HR adapter', ()=>{
             expect(adapter.emitData).toHaveBeenCalledWith(({heartrate:60,timestamp:expect.anything()}))
             expect(adapter.lastDataTS).toBeDefined()
             expect(adapter.dataMsgCount).toBe(1)
-            expect(adapter.startDataTimeoutCheck).toHaveBeenCalled()
         })
 
         test('initial data - includes ManId',()=>{
@@ -211,7 +210,6 @@ describe( 'ANT HR adapter', ()=>{
             expect(adapter.emitData).toHaveBeenCalledWith(({heartrate:60,timestamp:expect.anything()}))
             expect(adapter.lastDataTS).toBeDefined()
             expect(adapter.dataMsgCount).toBe(1)
-            expect(adapter.startDataTimeoutCheck).toHaveBeenCalled()
             expect(adapter.emit).toHaveBeenCalledWith('device-info',expect.objectContaining({deviceID:'2606'}),expect.objectContaining({manufacturer:'Tacx'}))
         })
 
@@ -338,16 +336,16 @@ describe( 'ANT HR adapter', ()=>{
             adapter.stop = jest.fn()
             adapter.resetData = jest.fn()
             adapter.waitForData = jest.fn()
-            
+
+            adapter.connect=jest.fn().mockResolvedValue(true)
+            adapter.startSensor=jest.fn().mockResolvedValue(true)
+            adapter.waitForData=jest.fn().mockResolvedValue(true)
+            adapter.getDefaultReconnectDelay = jest.fn().mockReturnValue(1)
+
         })
 
 
         test('normal start',async ()=>{
-            adapter.connect.mockResolvedValue(true)
-            adapter.ant.startSensor.mockResolvedValue(true)
-            adapter.waitForData.mockResolvedValue(true)
-            
-            
             const started = await adapter.start()         
             expect(adapter.started).toBeTruthy()   
             expect(started).toBeTruthy()   
@@ -375,9 +373,6 @@ describe( 'ANT HR adapter', ()=>{
 
         test('connect fails',async ()=>{
             adapter.connect.mockResolvedValue(false)
-            adapter.ant.startSensor.mockResolvedValue(true)
-            adapter.waitForData.mockResolvedValue(true)
-
             let error;
             try {
                 await adapter.start()         
@@ -389,10 +384,7 @@ describe( 'ANT HR adapter', ()=>{
         })
 
         test('start timeout',async ()=>{
-            adapter.connect.mockResolvedValue(true)
-            adapter.ant.startSensor.mockResolvedValue(true)
-            adapter.stop.mockResolvedValue(true)
-            adapter.waitForData.mockRejectedValue( new Error('something'))
+            adapter.startSensor = jest.fn( async()=> { await sleep(500); return true})
             
             let error;
             try {
@@ -401,6 +393,20 @@ describe( 'ANT HR adapter', ()=>{
             catch(err) { error=err} 
             expect(error).toBeDefined()  
             expect(error.message).toBe('could not start device, reason:timeout')
+            expect(adapter.started).toBeFalsy()   
+        })
+
+        test('no data',async ()=>{
+            adapter.waitForData = jest.fn().mockResolvedValue(false)
+            adapter.getDefaultReconnectDelay = jest.fn().mockReturnValue(10)
+            
+            let error;
+            try {
+                await adapter.start({startupTimeout:100})         
+            }
+            catch(err) { error=err} 
+            expect(error).toBeDefined()  
+            expect(error.message).toBe('could not start device, reason:no data received')
             expect(adapter.started).toBeFalsy()   
         })
 

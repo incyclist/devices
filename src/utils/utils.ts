@@ -59,6 +59,7 @@ export function floatVal(d?:number|string):number {
     const res = parseFloat(d)
     return isNaN(res) ? undefined : res;
 }
+
 export function intVal(d?:number|string):number {
     if (d===undefined)
         return;
@@ -89,7 +90,22 @@ export function hexstr(arr,start?,len?) {
 	return str;
 }
 
-
+export function isTrue(value) {
+    if (typeof(value) === 'string'){
+        value = value.trim().toLowerCase();
+    }
+    switch(value){
+        case true:
+        case "true":
+        case 1:
+        case "1":
+        case "on":
+        case "yes":
+            return true;
+        default: 
+            return false;
+    }
+}
 
 export class Queue<T> {
     protected data: Array<T>;

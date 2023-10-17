@@ -1,3 +1,5 @@
+/* istanbul ignore file */
+
 import { CadenceSensor, ISensor, Profile } from "incyclist-ant-plus";
 
 import {BicyclePowerSensor, HeartRateSensor, FitnessEquipmentSensor} from "incyclist-ant-plus";

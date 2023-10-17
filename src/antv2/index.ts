@@ -5,7 +5,7 @@ import AntFEAdapter from "./fe";
 import AntHrAdapter from "./hr";
 import AntCADAdapter from "./cad";
 import AntAdapterFactory from "./factories/adapter-factory";
-import AntInterface from "./base/ant-interface";
+import AntInterface from "./base/interface";
 import { AntInterfaceProps } from "./types";
 
 export { AntDeviceSettings,AntDeviceProperties,AntScanProps } from "./types";

@@ -232,7 +232,6 @@ describe( 'fe adapter', ()=>{
             expect(adapter.emitData).toHaveBeenCalledWith( expect.objectContaining( {power:100, cadence:0, speed:0, timestamp:expect.any(Number)}))
             expect(adapter.lastDataTS).toBeDefined()
             expect(adapter.dataMsgCount).toBe(1)
-            expect(adapter.startDataTimeoutCheck).toHaveBeenCalled()
         })
 
 
@@ -345,7 +344,7 @@ describe( 'fe adapter', ()=>{
         let adapter:AntFeAdapter
         beforeEach( ()=>{            
             adapter = new AntFeAdapter({deviceID: '2606',profile: 'FE',interface: 'ant'})
-            adapter.startDataTimeoutCheck = jest.fn()
+            //adapter.startDataTimeoutCheck = jest.fn()
             adapter.data={}
 
         })
@@ -419,7 +418,7 @@ describe( 'fe adapter', ()=>{
         let a:AntFeAdapter
         beforeEach( ()=>{            
             a = new AntFeAdapter({deviceID: '2606',profile: 'FE',interface: 'ant'})
-            a.startDataTimeoutCheck = jest.fn()
+            //a.startDataTimeoutCheck = jest.fn()
             a.data={}
 
         })
@@ -674,7 +673,7 @@ describe( 'fe adapter', ()=>{
         test('reconnect, does not repeat FE messages',async ()=>{
             (adapter as any).isReconnecting = true;
 
-            const res = await adapter.performStart({},true)     
+            const res = await adapter.start({reconnect:true})     
             expect(res).toBe(true)
             expect(sensor.sendUserConfiguration).not.toHaveBeenCalled()
             expect(sensor.sendTrackResistance).not.toHaveBeenCalled()
@@ -810,7 +809,7 @@ describe( 'fe adapter', ()=>{
         beforeEach( ()=>{
             adapter = new AntFeAdapter({deviceID: '2606',profile: 'FE',interface: 'ant'})    
             adapter.stop = jest.fn().mockResolvedValue(true)
-            adapter.performStart = jest.fn().mockResolvedValue(true)
+            adapter.start = jest.fn().mockResolvedValue(true)
         })
 
         test('success',async ()=>{
@@ -829,7 +828,7 @@ describe( 'fe adapter', ()=>{
         })
 
         test('start fails',async ()=>{
-            adapter.performStart = jest.fn().mockRejectedValue( new Error('X'))
+            adapter.start = jest.fn().mockRejectedValue( new Error('X'))
 
             const res = await adapter.reconnect()
             expect(res).toBe(false)
@@ -849,7 +848,7 @@ describe( 'fe adapter', ()=>{
             expect(res[1]).toMatchObject( {status:'fulfilled', value:true})                       
             expect(adapter.isReconnecting()).toBe(false)
             expect(adapter.stop).toHaveBeenCalledTimes(1)
-            expect(adapter.performStart).toHaveBeenCalledTimes(1)
+            expect(adapter.start).toHaveBeenCalledTimes(1)
         })
 
 

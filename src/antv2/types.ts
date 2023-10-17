@@ -5,6 +5,7 @@ import AntAdapter from './base/adapter';
 export interface AntDeviceSettings extends DeviceSettings {
     deviceID?: string;
     profile: Profile | LegacyProfile; 
+    interface: string
     protocol?:string // legacy @deprecated
 }
 
@@ -51,4 +52,11 @@ export interface ConnectState {
     connecting: boolean;
 }
 
-
+export interface AdapterStartStatus {
+    timeout:boolean,
+    sensorStarted: boolean,
+    hasData:boolean,
+    userInitialized?:boolean
+    controlInitialized?:boolean
+    interrupted?:boolean
+}

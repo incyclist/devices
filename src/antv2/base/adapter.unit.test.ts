@@ -2,7 +2,7 @@ import AntAdapter from './adapter'
 import { AntDeviceSettings, BaseDeviceData, LegacyProfile } from '../types';
 import { Profile } from 'incyclist-ant-plus';
 import { sleep } from '../../utils/utils';
-import AntInterface from './ant-interface';
+import AntInterface from './interface';
 import MockAdapter from '../../../test/mock-adapter';
 import { IncyclistCapability } from '../../types';
 
@@ -262,7 +262,6 @@ describe( 'adapter', ()=>{
             const res2 = a.waitForData(500)
 
             const res = await Promise.allSettled( [res1,res2])
-            console.log(res[1])
 
             expect(res[0]).toEqual({status:'fulfilled', value:false})
             expect(res[1]).toEqual({status:'fulfilled', value:true})
@@ -273,18 +272,21 @@ describe( 'adapter', ()=>{
 
         test('parallel calls - timeout 2 is smaller than timeout 1',async ()=>{
             const tsStart = Date.now()
-            a.hasData =jest.fn( ()=> Date.now()-tsStart>250 )
+            a.hasData =jest.fn( ()=> {
+                if (Date.now()-tsStart>200)
+                    return true
+                return false
+            })
 
 
-            const res1 = a.waitForData(500)
+            const res1 = a.waitForData(800)
             await sleep(10)
             const res2 = a.waitForData(100)
 
             const res = await Promise.allSettled( [res1,res2])
-            console.log(res[1])
 
             expect(res[0]).toEqual({status:'fulfilled', value:true})            
-            expect(res[1]).toEqual({status:'fulfilled', value:false}) 
+            expect(res[1]).toEqual({status:'fulfilled', value:true}) 
            
             expect(a._wait).toHaveBeenCalledTimes(1)
         })
@@ -345,26 +347,20 @@ describe( 'adapter', ()=>{
             adapter = new TestAdapter({deviceID: '2606',profile: 'HR',interface: 'ant'})
 
             adapter.emitData = jest.fn()
-            adapter.startDataTimeoutCheck = jest.fn()
             adapter.emit = jest.fn()
-            adapter.dataMsgCount = 1
-            adapter.connect = jest.fn()
-            adapter.ant = {
-                startSensor: jest.fn() 
-            }
             adapter.stop = jest.fn()
             adapter.resetData = jest.fn()
-            adapter.waitForData = jest.fn()
+
+            adapter.connect=jest.fn().mockResolvedValue(true)
+            adapter.startSensor=jest.fn().mockResolvedValue(true)
+            adapter.waitForData=jest.fn().mockResolvedValue(true)
+            adapter.getDefaultReconnectDelay = jest.fn().mockReturnValue(1)
+
             
         })
 
 
         test('normal start',async ()=>{
-            adapter.connect.mockResolvedValue(true)
-            adapter.ant.startSensor.mockResolvedValue(true)
-            adapter.waitForData.mockResolvedValue(true)
-            
-            
             const started = await adapter.start()         
             expect(adapter.started).toBeTruthy()   
             expect(started).toBeTruthy()   
@@ -376,14 +372,11 @@ describe( 'adapter', ()=>{
             const started = await adapter.start()         
             expect(adapter.started).toBeTruthy()   
             expect(started).toBeTruthy()   
-            expect(adapter.ant.startSensor).not.toHaveBeenCalled()
+            expect(adapter.startSensor).not.toHaveBeenCalled()
         })
 
         test('connect fails',async ()=>{
             adapter.connect.mockResolvedValue(false)
-            adapter.ant.startSensor.mockResolvedValue(true)
-            adapter.waitForData.mockResolvedValue(true)
-
             let error;
             try {
                 await adapter.start()         
@@ -395,10 +388,7 @@ describe( 'adapter', ()=>{
         })
 
         test('start timeout',async ()=>{
-            adapter.connect.mockResolvedValue(true)
-            adapter.ant.startSensor.mockResolvedValue(true)
-            adapter.stop.mockResolvedValue(true)
-            adapter.waitForData.mockRejectedValue( new Error('something'))
+            adapter.startSensor = jest.fn( async()=> { await sleep(500); return true})
             
             let error;
             try {
@@ -411,13 +401,9 @@ describe( 'adapter', ()=>{
         })
 
         test('start sensor fails once',async ()=>{
-            adapter.connect.mockResolvedValue(true)
-            adapter.ant.startSensor = jest.fn()
+            adapter.startSensor = jest.fn()
                 .mockResolvedValueOnce(false)
                 .mockResolvedValueOnce(true)
-            adapter.stop.mockResolvedValue(true)
-            adapter.startupRetryPause=10;
-            adapter.waitForData.mockResolvedValue(true)
             
             let error;
             try {

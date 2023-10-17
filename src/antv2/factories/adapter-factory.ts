@@ -1,15 +1,13 @@
-
 import { Profile } from "incyclist-ant-plus";
 import AntAdapter from "../base/adapter";
-import { AntDeviceProperties, AntDeviceSettings, LegacyProfile,BaseDeviceData } from "../types";
-import { AntAdapterInfo, AdapterQuery } from "../types";
+import { AntDeviceProperties, AntDeviceSettings, LegacyProfile,BaseDeviceData,AntAdapterInfo, AdapterQuery } from "../types";
 
 
 export default class AntAdapterFactory {
-    static _instance:AntAdapterFactory;
 
-    adapters: AntAdapterInfo[]
-
+    protected static _instance:AntAdapterFactory|undefined;
+    protected adapters: AntAdapterInfo[]
+    
     static getInstance(): AntAdapterFactory {
         if (!AntAdapterFactory._instance)
             AntAdapterFactory._instance = new AntAdapterFactory() ;
@@ -32,6 +30,11 @@ export default class AntAdapterFactory {
 
     }
 
+    // for testing only
+    _getAll():AntAdapterInfo[] {
+        return this.adapters;
+    }
+
     getAdapter(query?:AdapterQuery) {
         const {antProfile, incyclistProfile} = query
         if (!antProfile && !incyclistProfile)
@@ -40,7 +43,7 @@ export default class AntAdapterFactory {
         let found;
         if (antProfile) 
             found = this.adapters.find(a=>a.antProfile===antProfile) 
-        if (incyclistProfile) 
+        if (!found && incyclistProfile) 
             found = this.adapters.find(a=>a.incyclistProfile===incyclistProfile) 
 
         return found
@@ -55,22 +58,27 @@ export default class AntAdapterFactory {
         
             try {
                 const incyclistProfile = profile as LegacyProfile
-                info = this.getAdapter({incyclistProfile})
-                isLegacy = true
+                info = this.getAdapter({incyclistProfile})               
+                isLegacy = (info!==undefined && info!==null)
             }
             catch {
-                isLegacy = false;
+                return
             }
         }
 
         if (!isLegacy) {
             const antProfile = profile as Profile
-            info = this.getAdapter({antProfile})
-    
+            try {
+                info = this.getAdapter({antProfile})   
+            }
+            catch {}
         }
 
-        if (info && info.Adapter)
-            return new info.Adapter(settings,props)
+        if (info && info.Adapter) {
+            const {deviceID,interface: ifName} = settings
+            const {antProfile} = info
+            return new info.Adapter({profile:antProfile, interface:ifName, deviceID},props)
+        }
     }
 
     createFromDetected(profile:Profile, deviceID:number, props?:AntDeviceProperties )  {
@@ -79,10 +87,9 @@ export default class AntAdapterFactory {
             return;
         
         const settings:AntDeviceSettings = Object.assign( {}, {
-            profile: info.incyclistProfile,
+            profile: info.antProfile,
             deviceID:deviceID.toString(),
-            interface: 'ant',
-            protocol:'Ant'
+            interface: 'ant'
         })
         return new info.Adapter(settings,props)
     }

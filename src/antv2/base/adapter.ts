@@ -1,9 +1,9 @@
 
 import { IChannel, ISensor, Profile } from 'incyclist-ant-plus'
-import AntInterface from './ant-interface';
+import AntInterface from './interface';
 
 import IncyclistDevice from '../../base/adpater';
-import { AntDeviceProperties, AntDeviceSettings, isLegacyProfile, LegacyProfile,BaseDeviceData } from '../types';
+import { AntDeviceProperties, AntDeviceSettings, isLegacyProfile, LegacyProfile,BaseDeviceData, AdapterStartStatus } from '../types';
 import { IAdapter,IncyclistAdapterData,IncyclistBikeData,IncyclistCapability } from '../../types';
 import { runWithTimeout, sleep } from '../../utils/utils';
 import { getBrand, mapLegacyProfile } from '../utils';
@@ -12,6 +12,7 @@ import SensorFactory from '../factories/sensor-factory';
 import { EventLogger } from 'gd-eventlog';
 
 const INTERFACE_NAME = 'ant'
+const MAX_RETRIES = 3;
 
 export default class AntAdapter<TDeviceData extends BaseDeviceData> extends IncyclistDevice<AntDeviceProperties> {
     sensor: ISensor;
@@ -23,14 +24,15 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
     userSettings: { weight?:number};
     bikeSettings: { weight?:number};
     onDataFn: (data: IncyclistAdapterData) => void
-    startupRetryPause: number = 1000;
     
     protected ivDataTimeout: NodeJS.Timeout
     protected lastDataTS: number;
     protected dataMsgCount: number;
     protected ivWaitForData: NodeJS.Timeout
     protected promiseWaitForData: Promise<boolean>
-
+    protected sensorConnected: boolean
+    protected startStatus: AdapterStartStatus
+    protected startupRetryPause: number = 1000;
 
     constructor ( settings:AntDeviceSettings, props?:AntDeviceProperties) {
 
@@ -54,6 +56,8 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
             throw new Error ('Incorrect interface')
 
         this.sensor = this.createSensor(settings)
+        this.sensorConnected = false;      
+
 
         this.deviceData = {
             DeviceID: Number(settings.deviceID )
@@ -96,6 +100,11 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
         return true;        
     }
 
+    /* istanbul ignore next */
+    getDefaultReconnectDelay(): number {
+        return this.startupRetryPause
+    }
+    
     async connect():Promise<boolean> { 
         const connected = await AntInterface.getInstance().connect()
         return connected
@@ -157,7 +166,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
             if (!this.started || this.isStopped())
                 return;
     
-            this.triggerTimeoutCheck()
+            //this.triggerTimeoutCheck()
     
     
             if (!this.canEmitData()) 
@@ -221,20 +230,20 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
 
         const tsStart = Date.now()
 
-        if (this.promiseWaitForData){     
+        
+        if (this.promiseWaitForData){    
+            let hasData = false
             try {
-                const hasData = await runWithTimeout(this.promiseWaitForData,timeout)
-                if (hasData || Date.now()-tsStart>timeout)
-                    return hasData
+                hasData =await this.promiseWaitForData                        
             }
-            catch{
-                timeout -= (Date.now()-tsStart)
-                if (timeout<0)
-                    return false
-            }
+            catch{}
+
+            if (hasData || Date.now()>tsStart+timeout)
+                return hasData
         }
         
-        try {            
+        
+        try {    
             this.promiseWaitForData = runWithTimeout(this._wait(),timeout)
             await this.promiseWaitForData
             this.promiseWaitForData =null;
@@ -305,38 +314,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
             delete logData[key] })
         return logData;
     }
-
-
-    triggerTimeoutCheck() {
-        if ( !this.ivDataTimeout && this.dataMsgCount>0) {        
-            this.startDataTimeoutCheck()
-        }
-    }
-
-
-    startDataTimeoutCheck():void {
-        if (this.ivDataTimeout)
-            return;
-
-        this.ivDataTimeout = setInterval( ()=>{
-            if (!this.lastDataTS)
-                return;
-
-            if (this.lastDataTS+NO_DATA_TIMEOUT<Date.now()) {
-                this.emit('disconnected', Date.now()-this.lastDataTS)
-            }
-        }, 1000)
-    }
-
-    stopDataTimeoutCheck():void {
-        if (!this.ivDataTimeout)
-            return;
-        clearInterval(this.ivDataTimeout)
-
-        this.ivDataTimeout = undefined
-        this.lastDataTS = undefined
-        this.dataMsgCount = 0;
-    }
+    
 
     async check():Promise<boolean> {
         try {
@@ -377,86 +355,199 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
             throw new Error('method not implemented')
     }
 
-    async start( props: AntDeviceProperties={} ): Promise<boolean> {
-
-        if (this.started && !this.stopped ) {
-            if (this.paused)
-                this.resume()
-            return true;
-        }
-
+    async startPreChecks(props:AntDeviceProperties):Promise< 'done' | 'connected' | 'connection-failed' > {
+        const wasPaused = this.paused 
+        const wasStopped = this.stopped;
+       
         this.stopped = false;
+        if (wasPaused)
+            this.resume()
 
+        if (this.started && !wasPaused && !wasStopped) {
+            return 'done';
+        }
+        if (this.started && wasPaused ) { 
+            return 'done';
+        }
+       
         const connected = await this.connect()
         if (!connected)
+            return 'connection-failed'
+
+        return 'connected'
+    }
+
+    resetStartStatus() {
+        this.startStatus = {timeout:false,hasData:false,sensorStarted:false}
+    }
+
+    isStartSuccess() {
+        const {timeout,hasData,sensorStarted,controlInitialized,userInitialized,interrupted} = this.startStatus;
+
+        if(interrupted)
+            return false;
+
+        if ( this.hasCapability( IncyclistCapability.Control ) )
+            return sensorStarted && hasData && userInitialized && controlInitialized && !timeout
+        else 
+            return sensorStarted && hasData && !timeout
+    }
+
+    reportStartStatus() {
+        const success = this.isStartSuccess()
+
+        if (success) {
+            this.logEvent( {message:'start device success'})
+            this.started = true;
+            this.paused = false;
+            return true;
+        }
+        else {
+            this.started = false;
+        
+
+            const {sensorStarted,hasData,interrupted} = this.startStatus
+            if (interrupted)
+                return;
+
+            if (!sensorStarted) { 
+                this.logEvent( {message:'start device failed',reason:'could not connect'})            
+                throw new Error('could not start device, reason:could not connect')
+            }
+
+            else if (!hasData) {          
+                this.logEvent( {message:'start device failed',reason:'no data received'})                
+                throw new Error('could not start device, reason:no data received')
+            }
+            else  {                    
+                this.logEvent( {message:'start device failed',reason:'could not send FE commands'})                
+                throw new Error('could not start device, reason:could not send FE commands')
+            }
+
+        }
+
+    }
+
+    protected async waitForInitialData(startupTimeout):Promise<void> {
+        const {sensorStarted, hasData,timeout} = this.startStatus
+        if ((sensorStarted && hasData) || !sensorStarted || timeout) 
+            return;
+       
+        this.logEvent({ message: 'wait for sensor data', });
+        this.startStatus.hasData = await this.waitForData(startupTimeout)               
+        if (this.startStatus.hasData)
+            this.logEvent({ message: 'sensor data received', });
+    }
+
+
+    protected async initSensor(props: any):Promise<boolean> {
+        this.startStatus.sensorStarted = this.sensorConnected
+        if (this.startStatus.sensorStarted || this.startStatus.sensorStarted) 
+            return;
+
+        this.logEvent({ message: 'start sensor', props });
+
+        try {
+            this.sensorConnected = await this.startSensor();
+
+            if (this.sensorConnected) {
+                this.logEvent({ message: 'sensor started', props });
+                this.startStatus.sensorStarted = true;
+            }
+    
+        }
+        catch (err) {
+            this.logEvent({ message: 'start sensor failed', reason:err.message, props });
+        }       
+    }
+
+    async start( props:AntDeviceProperties={} ): Promise<boolean> {
+        const preCheckResult = await this.startPreChecks(props)
+        if (preCheckResult==='done')
+            return this.started
+
+        if (preCheckResult==='connection-failed')
             throw new Error(`could not start device, reason:could not connect`)
-            
-
-        return new Promise ( async (resolve, reject) => {
-
-
-            this.resetData();      
-            this.stopped = false;
-            this.resume()
     
+        this.logEvent( {message:'starting device', props, isStarted: this.started})
 
+        this.resetStartStatus()
+        this.resetData();      
 
-            const {startupTimeout = this.getDefaultStartupTimeout()} = props
-            let to = setTimeout( async ()=>{
-                try { await this.stop() } catch {}
-                this.started = false;
-                reject(new Error(`could not start device, reason:timeout`))
-            }, startupTimeout)
-            
+        const {startupTimeout=this.getDefaultStartupTimeout()} = props||{}
+        const retryDelay = this.getDefaultReconnectDelay()
+        const totalTimeout = Math.min( startupTimeout+10000, (startupTimeout+retryDelay)*MAX_RETRIES);
+      
 
-            let started = false
-            do {
-                started = await this.ant.startSensor(this.sensor,(data) => {
-                    this.onDeviceData(data)
-                })
-                if (!started)
-                    await sleep(this.startupRetryPause)
+        const doStart =  async ()=>{
+            let success = false;
+            let retry =0;
+
+            while (!success && retry<MAX_RETRIES && !this.startStatus.timeout && !this.startStatus.interrupted) {
+                //if (retry!==0) {
+                //    console.log('~~~ RETRY', status)
+                //}
+                try  {
+                    retry++;
+
+                    await this.initSensor(props);
+                    await this.waitForInitialData(startupTimeout)
+
+                    await this.checkCapabilities()                
+                    if ( this.hasCapability( IncyclistCapability.Control ) )
+                        await this.initControl()
+                    
+                    if (!this.startStatus.hasData) {                    
+                        await this.stopSensor()
+                        await sleep(retryDelay)
+                        continue
+                    }
+                    success = this.isStartSuccess()
+                }
+                catch(err) {
+                    // istanbul ignore next
+                    this.logEvent({message:'error',fn:'start#doStart',error:err.message, stack:err.stack})
+                }
+                
             }
-            while (!started)
-
-            try {
-
-                this.logEvent({ message: 'wait for sensor data', });   
-                const hasData = await this.waitForData(startupTimeout-100)
-                if (!hasData)
-                    throw new Error('timeout')
-
-                this.logEvent({ message: 'sensor data received', });
-
-                await this.checkCapabilities()
-                if ( this.hasCapability( IncyclistCapability.Control ) )
-                    await this.initControl()
-
-                this.started = true;
-                if (to) clearTimeout(to)
-                resolve(true)
+            this.reportStartStatus()
+            return this.started
     
-            }
-            catch(err) {
-                // will generate a timeout
-            }
+        }
 
-    
-        })
+        try {
+            await runWithTimeout(doStart(),totalTimeout)
+        }
+        catch(err) {
+            if (err.message === 'Timeout') {
+                this.started = false
+                this.startStatus.timeout = true;
+                throw new Error(`could not start device, reason:timeout`)   
+            }
+            throw err
+        }
+
+        return true;
+
     }
 
 
     async stop(): Promise<boolean> {
         let stopped;
-        try {
-            this.stopDataTimeoutCheck()
 
+        // in case there was a start ongoing, enforce stop of waiting for data and interrup start
+        this.promiseWaitForData = null;
+        if (this.startStatus)
+            this.startStatus.interrupted = true
+
+        try {
             stopped = await this.ant.stopSensor(this.sensor)
         }
         catch(err) {
             this.logEvent({message:'stop sensor failed', reason:err.message})
         }
 
+        this.sensorConnected = false;
         this.started = false;
         this.stopped = true; 
         this.paused = false
@@ -468,6 +559,16 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
         return this.ant.startSensor(this.sensor, this.onDeviceData.bind(this))
     }
 
+    async stopSensor() {
+        if (!this.sensorConnected)
+            return;
+
+        try {
+            await await this.ant.stopSensor(this.sensor);
+            this.sensorConnected = false;
+        }
+        catch { }
+    }
 
 
 }

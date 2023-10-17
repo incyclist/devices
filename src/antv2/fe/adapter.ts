@@ -1,19 +1,15 @@
-import { FitnessEquipmentSensor, FitnessEquipmentSensorState, ISensor, Profile } from "incyclist-ant-plus";
+import { FitnessEquipmentSensor, FitnessEquipmentSensorState, Profile } from "incyclist-ant-plus";
 
 import  AntAdapter from "../base/adapter";
 import {  UpdateRequest } from '../../modes/types';
-import { IncyclistAdapterData, IncyclistBikeData } from "../../types/data";
-import AntAdvSimCyclingMode from "../../modes/ant-fe-adv-st-mode";
-import { runWithTimeout, sleep  } from "../../utils/utils";
 import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "../types";
-import { IncyclistCapability } from "../../types/capabilities";
+import { IncyclistAdapterData, IncyclistBikeData,IncyclistCapability,ControllerConfig } from "../../types";
+import AntAdvSimCyclingMode from "../../modes/ant-fe-adv-st-mode";
 import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/consts";
 import ERGCyclingMode from "../../modes/antble-erg";
 import SmartTrainerCyclingMode from "../../modes/antble-smarttrainer";
-import { ControllerConfig } from "../../types/adapter";
 
 const DEFAULT_BIKE_WEIGHT_MOUNTAIN = 14.5;
-const MAX_RETRIES = 3;
 
 interface AntFEStartDeviceProperties extends AntDeviceProperties {
     reconnect?:boolean
@@ -32,13 +28,11 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
     protected distanceInternal?: number;
     protected startProps : AntDeviceProperties;
     protected promiseReconnect: Promise<boolean>
-    protected sensorConnected: boolean
 
     constructor ( settings:AntDeviceSettings, props?:AntDeviceProperties) {
         super(settings, props)
 
         this.startProps = {};
-        this.sensorConnected = false;      
 
         this.capabilities = [ 
             IncyclistCapability.Power, IncyclistCapability.Speed, IncyclistCapability.Cadence, 
@@ -50,11 +44,6 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
         const {InstantaneousPower} = this.deviceData;
         const pwrStr = InstantaneousPower ? ` (${InstantaneousPower})` : '';
         return `${this.getUniqueName()}${pwrStr}`        
-    }
-
-    /* istanbul ignore next */
-    getDefaultReconnectDelay(): number {
-        return 2000;    
     }
 
     /* istanbul ignore next */
@@ -165,159 +154,38 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
         this.data = data
     }
 
-    async start( props?: AntFEStartDeviceProperties ): Promise<any> {
-
-        const isReconnect = props?.reconnect||false;
-        const startProps = Object.assign({}, props||{})
-        delete startProps.reconnect
-        return await this.performStart(props,isReconnect)
+    async start(props:AntFEStartDeviceProperties={}): Promise<boolean>{
+        return await super.start(props)
     }
 
 
-    async performStart( props: AntFEStartDeviceProperties, isReconnect:boolean ): Promise<any> {
-        const wasPaused = this.paused 
-        const wasStopped = this.stopped;
+    resetStartStatus(): void {
+        const props: AntFEStartDeviceProperties = this.startProps as AntFEStartDeviceProperties
+        const isReconnect = props.reconnect||false;
+        super.resetStartStatus()
+        if (isReconnect) {
+            delete props.reconnect
+            this.startStatus.userInitialized = true;
+            this.startStatus.controlInitialized = true
+        }        
+    }
 
+    async startPreChecks(props:AntFEStartDeviceProperties):Promise< 'done' | 'connected' | 'connection-failed' > {
         this.startProps = props;
+        this.setFEDefaultTimeout() // set Timeout for a resonse of a Acknowledge message
 
-        if (wasPaused)
-            this.resume()
-        
-        this.stopped = false;
-
-        if (this.started && !wasPaused && !wasStopped) {
-            return true;
-        }
-       
-        const connected = await this.connect()
-        if (!connected)
-            throw new Error(`could not start device, reason:could not connect`)
-
-
-        this.logEvent( {message:'starting device', props, isStarted: this.started, isReconnecting: isReconnect})
-
-        const {startupTimeout=this.getDefaultStartupTimeout(), reconnectTimeout=this.getDefaultReconnectDelay()} = props||{}
-        const totalTimeout = Math.min( startupTimeout+10000, startupTimeout*2);
-        let status = { timeout:false, sensorStarted:false, hasData:false, userSent: false, slopeSent:false}
-
-        const doStart =  async ()=>{
-
-            this.setFEDefaultTimeout() // set Timeout for a resonse of a Acknowledge message
-
-            let success = false;
-            let retry =0;
-
-            if (isReconnect) {
-                status.userSent = true;
-                status.slopeSent = true;
-            }
-
-            while (!success && retry<MAX_RETRIES && !status.timeout) {
-                if (retry!==0) {
-                    console.log('~~~ RETRY', status)
-                }
-                retry++;
-
-                await this.initSensor(status,props);
-                await this.waitForInitialData(status,startupTimeout)
-                await this.sendInititalUserMessage(status, props)
-                await this.sendInitialRequest(status,props)
-                
-                if (!status.hasData) {                    
-                    await this.stopSensor()
-                    await sleep(reconnectTimeout)
-                    continue
-                }
-                success = status.sensorStarted && status.hasData && status.userSent && status.slopeSent                    
-                
-            }
-
-            if (success) {
-                this.logEvent( {message:'ANT FE start success'})
-                this.started = true;
-                this.paused = false;
-                return true;
-            }
-            else {
-                this.started = false;
-                if (!status.sensorStarted) { 
-                    this.logEvent( {message:'ANT FE start failed',reason:'could not connect'})            
-                    throw new Error('could not start device, reason:could not connect')
-                }
-
-                else if (!status.hasData) {          
-                    this.logEvent( {message:'ANT FE start failed',reason:'no data received'})                
-                    throw new Error('could not start device, reason:no data received')
-                }
-                else  {                    
-                    this.logEvent( {message:'ANT FE start failed',reason:'could not send FE commands'})                
-                    throw new Error('could not start device, reason:could not send FE commands')
-                }
-
-            }
-    
-        }
-
-        try {
-            await runWithTimeout(doStart(),totalTimeout)
-        }
-        catch(err) {
-            if (err.message === 'Timeout') {
-                this.started = false
-                status.timeout = true;
-                throw new Error(`could not start device, reason:timeout`)   
-            }
-            throw err
-        }
-
-        return true;
-
+        return await super.startPreChecks(props)
+    }
+ 
+    async  initControl(): Promise<void> {
+        await this.sendInititalUserMessage()
+        await this.sendInitialRequest()
     }
 
-    private async waitForInitialData(status,startupTimeout):Promise<void> {
-        if ((status.sensorStarted && status.hasData) || !status.sensorStarted || status.timeout) 
-            return;
-       
-        this.logEvent({ message: 'wait for sensor data', });
-        status.hasData = await this.waitForData(startupTimeout)               
-        if (status.hasData)
-            this.logEvent({ message: 'sensor data received', });
-    }
-
-    async stopSensor() {
-        if (!this.sensorConnected)
-            return;
-
-        try {
-            await await this.ant.stopSensor(this.sensor);
-            this.sensorConnected = false;
-        }
-        catch { }
-    }
-
-    async initSensor(status, props: any):Promise<boolean> {
-        status.sensorStarted = this.sensorConnected
-        if (status.sensorStarted || status.timeout) 
-            return;
-
-        this.logEvent({ message: 'start sensor', props });
-
-        try {
-            this.sensorConnected = await this.startSensor();
-
-            if (this.sensorConnected) {
-                this.logEvent({ message: 'sensor started', props });
-                status.sensorStarted = true;
-            }
-    
-        }
-        catch (err) {
-            this.logEvent({ message: 'start sensor failed', reason:err.message, props });
-        }       
-    }
-
-    async sendInititalUserMessage(status,props):Promise<void> {
-        if (!status.sensorStarted || !status.hasData || status.userSent || status.timeout)
+    async sendInititalUserMessage():Promise<void> {
+        const props = this.startProps;
+        const {sensorStarted,hasData,userInitialized, timeout} = this.startStatus
+        if (!sensorStarted || !hasData || userInitialized|| timeout)
             return;
 
         const opts = props || {} as any;
@@ -332,16 +200,17 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
             const userWeight = args.userWeight || user.weight ||DEFAULT_USER_WEIGHT;
             const bikeWeight = args.bikeWeight||defaultBikeWeight;
 
-            status.userSent = status.userSent || await fe.sendUserConfiguration( userWeight, bikeWeight, args.wheelDiameter, args.gearRatio);
+            this.startStatus.userInitialized = await fe.sendUserConfiguration( userWeight, bikeWeight, args.wheelDiameter, args.gearRatio);
         }
         catch(err) {
             this.logEvent( { message:'sending FE message error', error:err.message })
-            status.userSent = false;
+            this.startStatus.userInitialized = false;
         }
     }
 
-    async sendInitialRequest(status,props):Promise<void> {
-        if (!status.sensorStarted || !status.hasData || status.slopeSent || status.timeout)
+    async sendInitialRequest():Promise<void> {
+        const {sensorStarted,hasData,controlInitialized, timeout} = this.startStatus
+        if (!sensorStarted || !hasData || controlInitialized|| timeout)
             return;
 
         const fe = this.sensor as FitnessEquipmentSensor;
@@ -349,23 +218,23 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
             const startRequest = this.getCyclingMode().getBikeInitRequest()
             if (startRequest){
                 if (startRequest.targetPower!==undefined && startRequest.targetPower!==null) {
-                    status.slopeSent = await fe.sendTargetPower(startRequest.targetPower) 
+                    this.startStatus.controlInitialized = await fe.sendTargetPower(startRequest.targetPower) 
                 }
                 else if (startRequest.slope!==undefined && startRequest.slope!==null) {
-                    status.slopeSent = await fe.sendTrackResistance(startRequest.slope)
+                    this.startStatus.controlInitialized = await fe.sendTrackResistance(startRequest.slope)
                 }                            
                 else {
-                    status.slopeSent = true;
+                    this.startStatus.controlInitialized = true;
                 }
             }
             else {
-                status.slopeSent = await fe.sendTrackResistance(0.0)                            
+                this.startStatus.controlInitialized = await fe.sendTrackResistance(0.0)                            
             }
 
         }
         catch(err) {
             this.logEvent( { message:'sending FE message error', error:err.message })
-            status.slopeSent = false
+            this.startStatus.controlInitialized = false
         }
 
     } 
@@ -396,7 +265,7 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
         const doReconnect = async ():Promise<boolean> => {
             try {          
                 await this.stop();
-                await this.performStart(this.startProps,true)
+                await this.start({...this.startProps,reconnect:true})
                 this.started = true;
                 this.logEvent( {message:'reconnect success'})
                 return true;
@@ -427,7 +296,6 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
                 }
             }
             catch (err) {
-                console.log(err)
                 return false
             }
         }
@@ -435,6 +303,5 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
         return false
     
     }
-
 
 }
