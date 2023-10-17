@@ -4,10 +4,12 @@ import BleHrmDevice from './comm';
 import { IncyclistAdapterData,IncyclistCapability,IAdapter,DeviceProperties } from '../../types';
 import { BleDeviceSettings } from '../types';
 import { HrmData } from './types';
+import { LegacyProfile } from '../../antv2/types';
 
 
-export default class HrmAdapter extends BleAdapter{
-   
+export default class HrmAdapter extends BleAdapter<HrmData,BleHrmDevice>{
+    protected static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Heartrate Monitor'
+
     ignore: boolean = false;
 
     constructor( settings:BleDeviceSettings, props?:DeviceProperties) {
@@ -32,10 +34,7 @@ export default class HrmAdapter extends BleAdapter{
         return this.isEqual(device.settings as BleDeviceSettings)
     }
 
-   
-    getProfile() {
-        return 'Heartrate Monitor';
-    }
+  
 
     getName() {
         return `${this.device.name}`        

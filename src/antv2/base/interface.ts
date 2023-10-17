@@ -200,7 +200,7 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         if (scanStopRequested) 
             this.emit('scan stopped',true)           
 
-        this.activeScan.emitter.removeAllListeners()
+        this.activeScan?.emitter.removeAllListeners()
     }
 
     async scan(props:AntScanProps={}):Promise<AntDeviceSettings[]> {
@@ -210,11 +210,12 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
             return await this.scanPromise
         }
 
+
         this.activeScan = { emitter: new EventEmitter()}
+        const detected = [];
  
         const _scan =  ()=> new Promise<AntDeviceSettings[]> ( async (done) => {
 
-            const detected = [];
 
             const onDetected = (profile:string,deviceID:number)=>{
                 if (deviceID && detected.find( s => s.deviceID===deviceID && s.profile===profile)===undefined) {
@@ -287,8 +288,12 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
 
             this.activeScan.emitter.on('timeout',async ()=>{
                 this.activeScan.emitter.removeAllListeners()
+                await this.activeScan.channel.stopScanner()
                 this.emit('stop-scan')
                 removeListeners(channel)
+
+                this.logEvent({message:'scan finished(timeout) ..'})
+
                 done(detected)
             })
 
@@ -300,11 +305,13 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         this.scanPromise = _scan()
 
         if (timeout) {
-            const res = await waitWithTimeout( this.scanPromise, timeout,()=>{
+            await waitWithTimeout( this.scanPromise, timeout,()=>{
                 this.activeScan?.emitter.emit('timeout')
             }) 
-
-            return res||[]
+            
+            this.scanPromise = null;
+            this.activeScan =null;
+            return detected
         }
         else {
             const res = await this.scanPromise            
@@ -329,6 +336,7 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
 
             this.activeScan.emitter.emit('stop')
             this.once('scan stopped',(res)=>{
+                this.logEvent({message:'stopping scan done ..'})
                 done(res)
             })
         })

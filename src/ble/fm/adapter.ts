@@ -10,10 +10,11 @@ import { cRR, cwABike } from './consts';
 import { sleep } from '../../utils/utils';
 import { BleDeviceProperties, BleDeviceSettings, BleStartProperties } from '../types';
 import { IAdapter,IncyclistCapability,IncyclistAdapterData,IncyclistBikeData } from '../../types';
-import { BleFmComms } from '.';
+import { LegacyProfile } from '../../antv2/types';
 
-export default class BleFmAdapter extends BleAdapter {
-   
+export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMachineDevice> {
+    protected static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Smart Trainer'
+
     distanceInternal: number = 0;
     connectPromise: Promise<boolean>
 
@@ -39,17 +40,9 @@ export default class BleFmAdapter extends BleAdapter {
         return this.isEqual(device.settings as BleDeviceSettings)
     }
 
-   
-    getProfile() {
-        return'Smart Trainer'
-    }
-
+  
     getName() {
         return `${this.device.name}`        
-    }
-
-    getDisplayName() {
-        return this.getName();
     }
 
     isControllable(): boolean {
@@ -60,7 +53,7 @@ export default class BleFmAdapter extends BleAdapter {
 
         const modes:Array<typeof CyclingMode> =[PowerMeterCyclingMode]
 
-        const features = (this.getComms() as BleFmComms)?.features
+        const features = this.getComms()?.features
         if (!features)
             return [PowerMeterCyclingMode, FtmsCyclingMode,BleERGCyclingMode] 
 
@@ -76,7 +69,7 @@ export default class BleFmAdapter extends BleAdapter {
  
     getDefaultCyclingMode(): ICyclingMode {
 
-        const features = (this.getComms() as BleFmComms)?.features
+        const features = this.getComms()?.features
         if (!features)
             return new FtmsCyclingMode(this);
 
@@ -187,7 +180,7 @@ export default class BleFmAdapter extends BleAdapter {
             
         try {
             
-            const comms = this.device as BleFmComms
+            const comms = this.device
             if (comms) {                
 
                 if (!scanOnly) {

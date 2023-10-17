@@ -60,7 +60,7 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
         let isReset = request.reset && Object.keys(request).length===1 
         const update = isReset ? this.getCyclingMode().getBikeInitRequest() : this.getCyclingMode().sendBikeUpdate(request)
 
-        this.logEvent({message: 'send bike update requested', update, request})
+        this.logEvent({message: 'send bike update requested', device:this.getName(),update, request})
 
         try {
             const fe = this.sensor as FitnessEquipmentSensor;
@@ -84,7 +84,7 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
                 }
             }
 
-            this.logEvent( {message:'sendBikeUpdate() error',error:err.message})
+            this.logEvent( {message:'sendBikeUpdate() error',device:this.getName(),error:err.message})
         }
 
 
@@ -203,7 +203,7 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
             this.startStatus.userInitialized = await fe.sendUserConfiguration( userWeight, bikeWeight, args.wheelDiameter, args.gearRatio);
         }
         catch(err) {
-            this.logEvent( { message:'sending FE message error', error:err.message })
+            this.logEvent( { message:'sending FE message error',device:this.getName(), error:err.message })
             this.startStatus.userInitialized = false;
         }
     }
@@ -233,7 +233,7 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
 
         }
         catch(err) {
-            this.logEvent( { message:'sending FE message error', error:err.message })
+            this.logEvent( { message:'sending FE message error',device:this.getName(), error:err.message })
             this.startStatus.controlInitialized = false
         }
 
@@ -255,7 +255,7 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
 
 
     async reconnect(): Promise<boolean> {
-        this.logEvent( {message:'reconnect to device'})
+        this.logEvent( {message:'reconnect to device',device:this.getName()})
 
         // already reconnecting ?
         if (this.promiseReconnect) {
@@ -267,11 +267,11 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
                 await this.stop();
                 await this.start({...this.startProps,reconnect:true})
                 this.started = true;
-                this.logEvent( {message:'reconnect success'})
+                this.logEvent( {message:'reconnect success',device:this.getName()})
                 return true;
             }
             catch(err) {
-                this.logEvent( {message:'reconnect failed'})
+                this.logEvent( {message:'reconnect failed',device:this.getName()})
                 return false;
             }
         }

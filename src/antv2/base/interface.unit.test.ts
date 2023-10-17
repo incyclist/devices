@@ -250,6 +250,7 @@ describe('Ant Interface',()=>{
             channel.attach = jest.fn()
             channel.setProps = jest.fn()
             channel.startScanner = jest.fn().mockResolvedValue(true)
+            channel.stopScanner = jest.fn().mockResolvedValue(true)
            
             device = {
                 close: jest.fn().mockResolvedValue(true),
@@ -342,7 +343,15 @@ describe('Ant Interface',()=>{
             const res = await Promise.allSettled([s1,s2])
             expect(res[0]).toEqual( {status:'fulfilled', value:[]})
             expect(res[1]).toEqual( {status:'fulfilled', value:[]})
+        })
 
+        test('subsequent scans',async ()=> {
+            await i.scan({timeout:10})
+            await sleep(10)
+            
+            const tStart =Date.now()
+            await i.scan({timeout:100})
+            expect(Date.now()-tStart).toBeGreaterThan(99)
 
         })
 

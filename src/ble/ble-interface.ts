@@ -10,6 +10,7 @@ import BleAdapter from './base/adapter';
 import BlePeripheralCache, { PeripheralCacheItem } from './peripheral-cache';
 import EventEmitter from 'events';
 import { sleep } from '../utils/utils';
+import { BleDeviceData } from './base/types';
 
 const DEFAULT_SCAN_TIMEOUT = 20000;
 
@@ -52,7 +53,6 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
     logger: EventLogger
     props:BleInterfaceProps 
     binding: BleBinding
-    connectedDevices: Array<BleAdapter>
     sensorIsConnecting : boolean
     emittingAdapters: {comms:BleComms, cb:(data)=>void}[] = []
     
@@ -84,7 +84,6 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
             this.setBinding(props.binding)
 
         this.peripheralCache = new BlePeripheralCache();
-        this.connectedDevices = [];
 
         if ( props.logger ) 
             this.logger = props.logger
@@ -672,7 +671,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
                     this.onPeripheralFound(p, async (deviceSettings:BleDeviceSettings, characteristics: BleCharacteristic[],peripheral:BlePeripheral)=>{                        
                         if (deviceSettings) {
                             detected.push(deviceSettings)
-                            const device = this.getAdapterFactory().createInstance(deviceSettings) as BleAdapter
+                            const device = this.getAdapterFactory().createInstance(deviceSettings) as BleAdapter<BleDeviceData,BleComms>
                             
                             device.getComms().characteristics = characteristics
                             device.getComms().peripheral = peripheral
@@ -745,17 +744,5 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
 
 
 
-    addConnectedDevice(device:BleAdapter):void {
-        const idx = this.connectedDevices.findIndex( d => d.isSame(device))
-        if (idx===-1)
-            this.connectedDevices.push(device)
-    }
-
-
-    removeConnectedDevice(device: BleAdapter):void { 
-        const idx = this.connectedDevices.findIndex( d => d.isSame(device))
-        if (idx!==-1)
-            this.connectedDevices.splice(idx)
-    }
 
 }

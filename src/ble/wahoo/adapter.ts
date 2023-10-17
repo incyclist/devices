@@ -5,9 +5,11 @@ import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/consts";
 import { BleDeviceProperties, BleDeviceSettings, BleStartProperties } from '../types';
 import { IncyclistCapability,IAdapter } from '../../types';
 import { BleWahooComms } from '.';
+import { LegacyProfile } from '../../antv2/types';
 
 
 export default class BleWahooAdapter extends BleFmAdapter {
+    protected static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Smart Trainer'
    
     constructor( settings:BleDeviceSettings, props?:BleDeviceProperties) {
         super(settings,props);
@@ -32,7 +34,7 @@ export default class BleWahooAdapter extends BleFmAdapter {
     }
 
    
-    getProfile() {
+    getProfile():LegacyProfile {
         return 'Smart Trainer';
     }
 

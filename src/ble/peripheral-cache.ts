@@ -1,4 +1,6 @@
 import BleAdapter from "./base/adapter";
+import { BleComms } from "./base/comms";
+import { BleDeviceData } from "./base/types";
 import BlePeripheralConnector from "./ble-peripheral";
 import { BleCharacteristic, BlePeripheral } from "./types";
 
@@ -22,7 +24,7 @@ export interface PeripheralCacheItem {
 export default class BlePeripheralCache {
     peripherals: PeripheralCacheItem[] = []
 
-    findAdapter(adapter: BleAdapter):PeripheralCacheItem {
+    findAdapter(adapter: BleAdapter<BleDeviceData,BleComms>):PeripheralCacheItem {
         return this.find( adapter.getSettings())
     }
 

@@ -4,17 +4,19 @@ import { BleComms } from "./comms";
 import BleInterface from "../ble-interface";
 import { BleDeviceProperties, BleDeviceSettings, BleStartProperties } from "../types";
 import { IAdapter,IncyclistBikeData,IncyclistAdapterData,DeviceProperties} from "../../types";
+import { BleDeviceData } from "./types";
+import { LegacyProfile } from "../../antv2/types";
 
 const INTERFACE_NAME = 'ble'
 
-export default class BleAdapter  extends IncyclistDevice<BleDeviceProperties>  { 
+export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice extends BleComms>  extends IncyclistDevice<BleDeviceProperties>  { 
 
-    ble: BleInterface
-    deviceData: any
-    data: IncyclistAdapterData
-    dataMsgCount: number
-    lastDataTS: number;
-    device: BleComms
+    protected ble: BleInterface
+    protected deviceData: TDeviceData
+    protected data: IncyclistAdapterData
+    protected dataMsgCount: number
+    protected lastDataTS: number;
+    protected device: TDevice
 
 
     constructor( settings:BleDeviceSettings, props?:DeviceProperties) {
@@ -23,21 +25,19 @@ export default class BleAdapter  extends IncyclistDevice<BleDeviceProperties>  {
         if (this.settings.interface!==INTERFACE_NAME)
             throw new Error ('Incorrect interface')
 
-        this.deviceData = {}
+        this.deviceData = {} as TDeviceData
         this.data = {}
         this.dataMsgCount = 0;
         this.updateFrequency = 1000;
-    
 
         this.ble = BleInterface.getInstance()
     }
 
-
     getUniqueName(): string {
         const settings:BleDeviceSettings = this.settings as BleDeviceSettings
 
-        if (settings.name.match(/[0-9]/g) || settings.address===undefined)      
-            return this.settings.name
+        if (settings.name?.match(/[0-9]/g) || settings.address===undefined)      
+            return this.getName()
         else {
             const addressHash = settings.address.substring(0,2) + settings.address.slice(-2)
             return `${this.getName()} ${addressHash}`
@@ -45,8 +45,9 @@ export default class BleAdapter  extends IncyclistDevice<BleDeviceProperties>  {
     }
 
     async connect():Promise<boolean> { 
+        // istanbul ignore next
         if (!this.device) {
-            // should never happen
+            // should never happen            
             throw new Error('No Comms')
         }
 
@@ -69,15 +70,10 @@ export default class BleAdapter  extends IncyclistDevice<BleDeviceProperties>  {
         if (!this.device || !this.isConnected())
             return true;
 
-        if (this.device) {
-            await this.device.disconnect()
-            this.ble.removeConnectedDevice(this)
-            return true;
-        }
-
+        return await this.device.disconnect()       
     }
 
-    getComms():BleComms {
+    getComms():TDevice {
         return this.device
     }
 
@@ -109,7 +105,7 @@ export default class BleAdapter  extends IncyclistDevice<BleDeviceProperties>  {
 
     resetData() {
         this.dataMsgCount = 0;        
-        this.deviceData = {}
+        this.deviceData = {} as TDeviceData
         this.data= {}
         this.lastDataTS = undefined
     }
@@ -118,14 +114,20 @@ export default class BleAdapter  extends IncyclistDevice<BleDeviceProperties>  {
         return INTERFACE_NAME
     }
 
+    getProfile():LegacyProfile {
+        const C = this.constructor as typeof BleAdapter<TDeviceData,TDevice>
+        return C['INCYCLIST_PROFILE_NAME']
+    }
+
     getProtocolName():string {
         const settings = this.settings as BleDeviceSettings
         return settings.protocol
     }
 
-    getID(): string {
-        const settings = this.settings as BleDeviceSettings
-        return settings.id
+    getID():string {
+        const settings:BleDeviceSettings = this.settings as BleDeviceSettings
+
+        return settings.id || settings.address
     }
 
     getName(): string {
@@ -133,7 +135,7 @@ export default class BleAdapter  extends IncyclistDevice<BleDeviceProperties>  {
         return settings.name || settings.id || settings.address
     }
 
-    onDeviceData(deviceData:any) {
+    onDeviceData(deviceData:TDeviceData) {
         this.dataMsgCount++;
         this.lastDataTS = Date.now();
 
@@ -150,8 +152,7 @@ export default class BleAdapter  extends IncyclistDevice<BleDeviceProperties>  {
             const mappedData = this.mapData(deviceData) as IncyclistBikeData       
             
             // let cycling mode process the data
-            const incyclistData = this.getCyclingMode().updateData(mappedData);    
-                            
+            const incyclistData = this.getCyclingMode().updateData(mappedData);                               
 
             // transform data into structure expected by the application
             this.data =  this.transformData(incyclistData);                  
@@ -163,10 +164,12 @@ export default class BleAdapter  extends IncyclistDevice<BleDeviceProperties>  {
    
     }
 
-    mapData(deviceData:any):IncyclistAdapterData|IncyclistBikeData {
+    // istanbul ignore next
+    mapData(deviceData:TDeviceData):IncyclistAdapterData|IncyclistBikeData {
         throw new Error('message not implemented')    
     }
 
+    // istanbul ignore next
     transformData( data:IncyclistBikeData): IncyclistAdapterData {
         throw new Error('message not implemented')    
     }
@@ -253,6 +256,9 @@ export default class BleAdapter  extends IncyclistDevice<BleDeviceProperties>  {
         this.getComms()?.resume()
         return res;
     }
+
+
+
 
 }
 

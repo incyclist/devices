@@ -8,6 +8,7 @@ import { IncyclistCapability } from '../../types/capabilities';
 import { DeviceProperties,IncyclistAdapterData,IncyclistBikeData,ControllerConfig, IAdapter  } from '../../types';
 import { BleDeviceSettings } from '../types';
 import { BleEliteComms } from '.';
+import { LegacyProfile } from '../../antv2/types';
 
 /**
  * WORK IN PROGRESS --- DON'T USE YET
@@ -17,7 +18,8 @@ import { BleEliteComms } from '.';
 
 
  
-export default class BleEliteAdapter extends BleAdapter {  
+export default class BleEliteAdapter extends BleAdapter<PowerData,BleEliteDevice> {  
+    protected static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Smart Trainer'
     protected static controllers: ControllerConfig = {
         modes: [PowerMeterCyclingMode],
         default: PowerMeterCyclingMode
@@ -49,7 +51,7 @@ export default class BleEliteAdapter extends BleAdapter {
         return this.isEqual(device.settings as BleDeviceSettings)
     }
    
-    getProfile() {
+    getProfile():LegacyProfile {
         return 'Smart Trainer';
     }
 
@@ -146,17 +148,6 @@ export default class BleEliteAdapter extends BleAdapter {
 
         }
     }
-
-
-    async sendUpdate(request) {
-        // don't send any commands if we are pausing
-        if( this.paused)
-            return;
-
-        this.getCyclingMode().sendBikeUpdate(request)
-        //this.logger.logEvent({message:'sendUpdate',request});    
-        
-    } 
-
+ 
 }
 

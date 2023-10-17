@@ -5,9 +5,11 @@ import { PowerData } from './types';
 import {  BleDeviceSettings } from '../types';
 import { DeviceProperties,IncyclistBikeData,IncyclistAdapterData,IncyclistCapability, ControllerConfig, IAdapter  } from '../../types';
 import PowerMeterCyclingMode from '../../modes/power-meter';
+import { LegacyProfile } from '../../antv2/types';
 
 
-export default class PwrAdapter extends BleAdapter{  
+export default class PwrAdapter extends BleAdapter<PowerData,BleCyclingPowerDevice>{  
+    protected static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Power Meter'
     protected static controllers: ControllerConfig = {
         modes: [PowerMeterCyclingMode],
         default: PowerMeterCyclingMode
@@ -37,7 +39,7 @@ export default class PwrAdapter extends BleAdapter{
         return this.isEqual(device.settings as BleDeviceSettings)
     }
    
-    getProfile() {
+    getProfile():LegacyProfile {
         return 'Power Meter';
     }
 
@@ -97,16 +99,6 @@ export default class PwrAdapter extends BleAdapter{
 
         return data;
     }
-
-
-    async sendUpdate(request) {
-        // don't send any commands if we are pausing
-        if( this.paused)
-            return;
-
-        // nothing required to be sent to the device, but calling the Cycling Mode to adjust slope
-        this.getCyclingMode().sendBikeUpdate(request)        
-    } 
 
     async stop():Promise<boolean> {
         const stopped = await super.stop();

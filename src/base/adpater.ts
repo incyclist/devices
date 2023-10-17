@@ -70,7 +70,7 @@ export default class IncyclistDevice<P extends DeviceProperties>
     getName():string { 
         return this.settings.name
     }
-    getID():string { throw new Error('not implemented')}
+    getID():string { return ''}
 
     getUniqueName(): string {
         throw new Error("Method not implemented."); 
@@ -94,11 +94,14 @@ export default class IncyclistDevice<P extends DeviceProperties>
     stop(): Promise<boolean> { throw new Error("Method not implemented.");}
     
     async pause(): Promise<boolean> {
+        this.logEvent( {message:'pausing device', device:this.getName()})
+
         this.paused = true;
         return true;
     }
 
     async resume(): Promise<boolean> {
+        this.logger.logEvent( {message:'resuming device', device:this.getName()})
         this.paused = false;
         return true;
     }
@@ -229,7 +232,15 @@ export default class IncyclistDevice<P extends DeviceProperties>
         if (!this.isControllable())
             return;
 
-        throw new Error("Method not implemented."); 
+        if (this.isPaused() || this.isStopped())
+            return;
+
+        // in case the adapter is not abel to control the device, we are calling the Cycling Mode to adjust slope
+        // Otherwise the method needs to be overwritten
+        if (!this.hasCapability(IncyclistCapability.Control))
+            this.getCyclingMode().sendBikeUpdate(request) 
+        else 
+            throw new Error('method not implemented')
     }
 
     setUser(user: User): void {

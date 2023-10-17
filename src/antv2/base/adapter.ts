@@ -173,7 +173,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
                 return;
 
             const logData = this.getLogData(deviceData, ['PairedDevices','RawData']);
-            this.logEvent( {message:'onDeviceData',data:logData, paused:this.paused})
+            this.logEvent( {message:'onDeviceData', data:logData, paused:this.paused})
             
             if (this.isControllable()) {
                 // transform data into internal structure of Cycling Modes
@@ -265,8 +265,8 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
     getName(): string {
         if (this.settings.name)
             return this.settings.name
-        const deviceID = this.sensor.getDeviceID();
-        const profile  = this.sensor.getProfile();
+        const deviceID = this.getID()
+        const profile  = this.sensor?.getProfile();
 
         return `Ant+${profile} ${deviceID}`;
     }
@@ -340,21 +340,6 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
         return 20000
     }
 
-    sendUpdate(request: any) { 
-        if (!this.isControllable())
-            return;
-
-        if (this.isPaused() || this.isStopped())
-            return;
-
-        // in case the adapter is not abel to control the device, we are calling the Cycling Mode to adjust slope
-        // Otherwise the method needs to be overwritten
-        if (!this.hasCapability(IncyclistCapability.Control))
-            this.getCyclingMode().sendBikeUpdate(request) 
-        else 
-            throw new Error('method not implemented')
-    }
-
     async startPreChecks(props:AntDeviceProperties):Promise< 'done' | 'connected' | 'connection-failed' > {
         const wasPaused = this.paused 
         const wasStopped = this.stopped;
@@ -397,7 +382,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
         const success = this.isStartSuccess()
 
         if (success) {
-            this.logEvent( {message:'start device success'})
+            this.logEvent( {message:'start device success', device:this.getName()})
             this.started = true;
             this.paused = false;
             return true;
@@ -411,16 +396,16 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
                 return;
 
             if (!sensorStarted) { 
-                this.logEvent( {message:'start device failed',reason:'could not connect'})            
+                this.logEvent( {message:'start device failed', device:this.getName(),reason:'could not connect'})            
                 throw new Error('could not start device, reason:could not connect')
             }
 
             else if (!hasData) {          
-                this.logEvent( {message:'start device failed',reason:'no data received'})                
+                this.logEvent( {message:'start device failed', device:this.getName(),reason:'no data received'})                
                 throw new Error('could not start device, reason:no data received')
             }
             else  {                    
-                this.logEvent( {message:'start device failed',reason:'could not send FE commands'})                
+                this.logEvent( {message:'start device failed', device:this.getName(),reason:'could not send FE commands'})                
                 throw new Error('could not start device, reason:could not send FE commands')
             }
 
@@ -433,10 +418,10 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
         if ((sensorStarted && hasData) || !sensorStarted || timeout) 
             return;
        
-        this.logEvent({ message: 'wait for sensor data', });
+        this.logEvent({ message: 'wait for sensor data', device:this.getName() });
         this.startStatus.hasData = await this.waitForData(startupTimeout)               
         if (this.startStatus.hasData)
-            this.logEvent({ message: 'sensor data received', });
+            this.logEvent({ message: 'sensor data received', device:this.getName() });
     }
 
 
@@ -445,7 +430,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
         if (this.startStatus.sensorStarted || this.startStatus.sensorStarted) 
             return;
 
-        this.logEvent({ message: 'start sensor', props });
+        this.logEvent({ message: 'start sensor', device:this.getName(), props });
 
         try {
             this.sensorConnected = await this.startSensor();
@@ -457,7 +442,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
     
         }
         catch (err) {
-            this.logEvent({ message: 'start sensor failed', reason:err.message, props });
+            this.logEvent({ message: 'start sensor failed', device:this.getName(), reason:err.message, props });
         }       
     }
 
@@ -469,7 +454,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
         if (preCheckResult==='connection-failed')
             throw new Error(`could not start device, reason:could not connect`)
     
-        this.logEvent( {message:'starting device', props, isStarted: this.started})
+        this.logEvent( {message:'starting device', device:this.getName(), props, isStarted: this.started})
 
         this.resetStartStatus()
         this.resetData();      
@@ -506,7 +491,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
                 }
                 catch(err) {
                     // istanbul ignore next
-                    this.logEvent({message:'error',fn:'start#doStart',error:err.message, stack:err.stack})
+                    this.logEvent({message:'error',fn:'start#doStart', device:this.getName(),error:err.message, stack:err.stack})
                 }
                 
             }
@@ -522,6 +507,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
             if (err.message === 'Timeout') {
                 this.started = false
                 this.startStatus.timeout = true;
+                this.logEvent( {message:'start device failed', device:this.getName(),reason:'timeout'})                
                 throw new Error(`could not start device, reason:timeout`)   
             }
             throw err
@@ -534,6 +520,8 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
 
     async stop(): Promise<boolean> {
         let stopped;
+
+        this.logger.logEvent( {message:'stopping device', device:this.getName()})
 
         // in case there was a start ongoing, enforce stop of waiting for data and interrup start
         this.promiseWaitForData = null;
@@ -552,6 +540,9 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
         this.stopped = true; 
         this.paused = false
         this.removeAllListeners()
+
+        this.logEvent( {message:'stopping device finished', device:this.getName(),stopped})
+
         return stopped;
     }
 

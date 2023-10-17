@@ -33,9 +33,12 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
     }
 
     initLogger(defaultLogName) {
+        /*
         const a = this.adapter as IncyclistDeviceAdapter
         this.logger =  a.getLogger() 
-        if (!this.logger) this.logger = new EventLogger(defaultLogName)
+        if (!this.logger) 
+        */
+        this.logger = new EventLogger(defaultLogName)
     }
 
     getWeight() {

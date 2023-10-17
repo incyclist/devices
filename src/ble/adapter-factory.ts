@@ -4,10 +4,11 @@ import { DeviceProperties } from "../types";
 import { BleComms } from "./base/comms";
 import { getDevicesFromServices } from "./base/comms-utils";
 import { mapLegacyProfile } from "./utils";
+import { BleDeviceData } from "./base/types";
 
 export interface BleAdapterInfo {
     protocol: BleProtocol,
-    Adapter: typeof BleAdapter
+    Adapter: typeof BleAdapter<BleDeviceData,BleComms>
     Comm: typeof BleComms
 }
 
@@ -16,7 +17,7 @@ export default class BleAdapterFactory {
     static _instance:BleAdapterFactory;
 
     implementations: BleAdapterInfo[]
-    instances: Array<BleAdapter>
+    instances: Array<BleAdapter<BleDeviceData,BleComms>>
 
     static getInstance(): BleAdapterFactory {
         if (!BleAdapterFactory._instance)
@@ -36,7 +37,7 @@ export default class BleAdapterFactory {
         return this.implementations
     }
 
-    createInstance(settings:BleDeviceSettings,props?:DeviceProperties):BleAdapter {
+    createInstance(settings:BleDeviceSettings,props?:DeviceProperties):BleAdapter<BleDeviceData,BleComms> {
         let {profile, protocol} = settings;
 
         const adapterSettings = Object.assign( {}, settings)
@@ -72,7 +73,7 @@ export default class BleAdapterFactory {
         return adapter
     }
 
-    removeInstance( query:{settings?:BleDeviceSettings, adapter?:BleAdapter}):void {
+    removeInstance( query:{settings?:BleDeviceSettings, adapter?:BleAdapter<BleDeviceData,BleComms>}):void {
         let idx=-1;
 
         if (query.settings) {   
@@ -90,7 +91,7 @@ export default class BleAdapterFactory {
     }
 
 
-    register( protocol: BleProtocol, Adapter: typeof BleAdapter,Comm: typeof BleComms)  {       
+    register( protocol: BleProtocol, Adapter: typeof BleAdapter<BleDeviceData,BleComms>,Comm: typeof BleComms)  {       
         const info = Object.assign({},{protocol, Adapter,Comm})
         const existing = this.implementations.findIndex( a => a.protocol===protocol) 
 
@@ -100,7 +101,7 @@ export default class BleAdapterFactory {
             this.implementations.push(info)
     }
 
-    getAllInstances(): Array<BleAdapter> {
+    getAllInstances(): Array<BleAdapter<BleDeviceData,BleComms>> {
         return this.instances
     }
 
@@ -109,7 +110,7 @@ export default class BleAdapterFactory {
         const supported = BleAdapterFactory.getInstance().getAll()
         return supported.map( info => info.Comm)
     }
-    getAllSupportedAdapters(): Array<(typeof BleAdapter)> {
+    getAllSupportedAdapters(): Array<(typeof BleAdapter<BleDeviceData,BleComms>)> {
         const supported = BleAdapterFactory.getInstance().getAll()
         return supported.map( info => info.Adapter)
     }
