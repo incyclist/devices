@@ -47,6 +47,16 @@ export default class IncyclistDevice<P extends DeviceProperties>
 
     getLogger(): EventLogger { return this.logger}
 
+    isDebugEnabled() {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const w = global.window as any
+  
+        if (w?.DEVICE_DEBUG||process.env.BLE_DEBUG || process.env.ANT_DEBUG) {
+            return true;
+        }
+        return false;
+    }
+
     logEvent( event) {
 
         if (!this.logger || this.paused)
@@ -54,10 +64,7 @@ export default class IncyclistDevice<P extends DeviceProperties>
 
         this.logger.logEvent(event)
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const w = global.window as any
-  
-        if (w?.DEVICE_DEBUG||process.env.BLE_DEBUG || process.env.ANT_DEBUG) {
+        if (this.isDebugEnabled()) {
             const logText = `~~~ ${this.getInterface()}: ${this.logger.getName()}`
             console.log(logText,event)
         }
@@ -94,14 +101,16 @@ export default class IncyclistDevice<P extends DeviceProperties>
     stop(): Promise<boolean> { throw new Error("Method not implemented.");}
     
     async pause(): Promise<boolean> {
-        this.logEvent( {message:'pausing device', device:this.getName()})
+        if (this.isStarted() && !this.isStopped())
+            this.logEvent( {message:'pausing device', device:this.getName()})
 
         this.paused = true;
         return true;
     }
 
     async resume(): Promise<boolean> {
-        this.logger.logEvent( {message:'resuming device', device:this.getName()})
+        if (this.isStarted() && !this.isStopped())
+            this.logger.logEvent( {message:'resuming device', device:this.getName()})
         this.paused = false;
         return true;
     }

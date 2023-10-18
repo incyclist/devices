@@ -7,7 +7,7 @@ import { AntDeviceProperties, AntDeviceSettings, isLegacyProfile, LegacyProfile,
 import { IAdapter,IncyclistAdapterData,IncyclistBikeData,IncyclistCapability } from '../../types';
 import { runWithTimeout, sleep } from '../../utils/utils';
 import { getBrand, mapLegacyProfile } from '../utils';
-import { DEFAULT_UPDATE_FREQUENCY, NO_DATA_TIMEOUT } from '../consts';
+import { DEFAULT_UPDATE_FREQUENCY } from '../consts';
 import SensorFactory from '../factories/sensor-factory';
 import { EventLogger } from 'gd-eventlog';
 
@@ -69,7 +69,11 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
 
         this.updateFrequency = DEFAULT_UPDATE_FREQUENCY;
         this.channel = undefined;
-        this.ant = AntInterface.getInstance()
+        this.ant = AntInterface.getInstance();
+
+        if (this.isDebugEnabled()) {
+            this.ant.setLogger(this as unknown as EventLogger)
+        }
     }
 
     getProfileName():Profile  {
@@ -162,18 +166,12 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
             if (!ManId && deviceData.ManId) {
                 this.emit('device-info', this.getSettings(), {manufacturer: getBrand(deviceData.ManId)})
             }
-            
-            if (!this.started || this.isStopped())
-                return;
-    
-            //this.triggerTimeoutCheck()
-    
-    
-            if (!this.canEmitData()) 
-                return;
 
             const logData = this.getLogData(deviceData, ['PairedDevices','RawData']);
             this.logEvent( {message:'onDeviceData', data:logData, paused:this.paused})
+
+            if (!this.started || this.isStopped() || !this.canEmitData())
+                return;   
             
             if (this.isControllable()) {
                 // transform data into internal structure of Cycling Modes
@@ -213,6 +211,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
                     resolve(true)
                 }
                 if (!this.promiseWaitForData) {
+                    resolve(false)
                     clearInterval(iv)
                 }
             }, 10)    
@@ -245,9 +244,9 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
         
         try {    
             this.promiseWaitForData = runWithTimeout(this._wait(),timeout)
-            await this.promiseWaitForData
+            const hasData = await this.promiseWaitForData
             this.promiseWaitForData =null;
-            return true
+            return hasData
         }
         catch(err) {
             this.promiseWaitForData =null;
@@ -392,8 +391,10 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
         
 
             const {sensorStarted,hasData,interrupted} = this.startStatus
-            if (interrupted)
-                return;
+            if (interrupted) {
+                this.logEvent( {message:'start device interrupted', device:this.getName()})
+                return false;
+            }
 
             if (!sensorStarted) { 
                 this.logEvent( {message:'start device failed', device:this.getName(),reason:'could not connect'})            
@@ -482,7 +483,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
                     if ( this.hasCapability( IncyclistCapability.Control ) )
                         await this.initControl()
                     
-                    if (!this.startStatus.hasData) {                    
+                    if (!this.startStatus.hasData && !this.startStatus.interrupted) {                    
                         await this.stopSensor()
                         await sleep(retryDelay)
                         continue
@@ -496,6 +497,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
                 
             }
             this.reportStartStatus()
+            
             return this.started
     
         }
@@ -513,7 +515,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
             throw err
         }
 
-        return true;
+        return this.started;
 
     }
 
@@ -525,9 +527,11 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
 
         // in case there was a start ongoing, enforce stop of waiting for data and interrup start
         this.promiseWaitForData = null;
-        if (this.startStatus)
+        if (this.startStatus) {
             this.startStatus.interrupted = true
-
+            console.log('~~~ still starting')
+            await sleep(20)
+        }
         try {
             stopped = await this.ant.stopSensor(this.sensor)
         }

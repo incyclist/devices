@@ -13,6 +13,7 @@ const DEFAULT_BIKE_WEIGHT_MOUNTAIN = 14.5;
 
 interface AntFEStartDeviceProperties extends AntDeviceProperties {
     reconnect?:boolean
+    restart?:boolean,
     reconnectTimeout?: number
 }
 
@@ -155,6 +156,7 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
     }
 
     async start(props:AntFEStartDeviceProperties={}): Promise<boolean>{
+        
         return await super.start(props)
     }
 
@@ -162,20 +164,36 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
     resetStartStatus(): void {
         const props: AntFEStartDeviceProperties = this.startProps as AntFEStartDeviceProperties
         const isReconnect = props.reconnect||false;
+        const isRestart  =props.restart|| false
+
         super.resetStartStatus()
+
         if (isReconnect) {
             delete props.reconnect
             this.startStatus.userInitialized = true;
             this.startStatus.controlInitialized = true
         }        
-    }
+        if (isRestart) {
+            delete props.restart
+            this.startStatus.sensorStarted = true;
+            this.startStatus.hasData = true;
+        }
+     }
 
-    async startPreChecks(props:AntFEStartDeviceProperties):Promise< 'done' | 'connected' | 'connection-failed' > {
+    async startPreChecks(props:AntFEStartDeviceProperties):Promise< 'done' | 'connected' | 'connection-failed'   > {
         this.startProps = props;
         this.setFEDefaultTimeout() // set Timeout for a resonse of a Acknowledge message
 
+
+        if (this.started && this.paused ) { 
+            this.resume()
+            props.restart =true;
+            return 'connected';
+        }
         return await super.startPreChecks(props)
     }
+
+
  
     async  initControl(): Promise<void> {
         await this.sendInititalUserMessage()
