@@ -126,15 +126,10 @@ describe('Simulator',() => {
         test('Simulator is not started',async () => {
             s.paused = false;
             s.started = false;
-            let error = undefined;
-            try {
-                await s.pause();                
-            }
-            catch (err) {
-                error = err;
-            }            
-            expect(error).toBeDefined();
-            expect(s.paused).toBe(false)
+            
+            await s.pause();                
+            
+            expect(s.paused).toBe(true)
         }) 
 
     });
@@ -164,16 +159,9 @@ describe('Simulator',() => {
             expect(s.paused).toBe(false)
         }) 
         test('Simulator is not started',async () => {
-            s.paused = false;
+            s.paused = true;
             s.started = false;
-            let error = undefined;
-            try {
-                await s.resume();                
-            }
-            catch (err) {
-                error = err;
-            }            
-            expect(error).toBeDefined();
+            await s.resume();                
             expect(s.paused).toBe(false)
         }) 
 

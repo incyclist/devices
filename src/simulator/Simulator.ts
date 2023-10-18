@@ -57,7 +57,7 @@ export class Simulator extends IncyclistDevice<SimulatorProperties> {
 
         this.capabilities = [ 
             IncyclistCapability.Power, IncyclistCapability.Speed, IncyclistCapability.Cadence, IncyclistCapability.Gear,
-            IncyclistCapability.Control
+            IncyclistCapability.Control,IncyclistCapability.HeartRate
         ]
 
         
@@ -82,6 +82,7 @@ export class Simulator extends IncyclistDevice<SimulatorProperties> {
 
         
         this.startProps = props;
+        this.stopped = false;
         this.paused = false;
 
         if (props)
@@ -91,7 +92,7 @@ export class Simulator extends IncyclistDevice<SimulatorProperties> {
         return new Promise( (resolve) => {
 
             if (!this.isBot)
-                this.logger.logEvent({message:'start',iv:this.iv});    
+                this.logEvent( {message:'starting device', device:this.getName(), props})
              
             if ( this.started) {
                 return resolve(true);  
@@ -134,38 +135,31 @@ export class Simulator extends IncyclistDevice<SimulatorProperties> {
     }
 
 
-    pause(): Promise<boolean> {
-        return new Promise( (resolve, reject) => {
-            //const error = (data,err) => callback ? callback(data,err ) : reject(err) 
-            if (!this.started)
-                return reject( new Error('illegal state - pause() has been called before start()'));
-
-            if (!this.isBot)
-                this.logger.logEvent({message:'pause',iv:this.iv});      
-            this.paused = true;
-            resolve(true)
-        })
+    async pause(): Promise<boolean> {
+        
+        if (!this.isBot && this.isStarted())
+            this.logEvent( {message:'pausing device', device:this.getName()})
+        this.paused = true;
+        return true;
+        
     }
 
-    resume(): Promise<boolean> {
-        return new Promise( (resolve, reject) => {
-            //const error = (data,err) => callback ? callback(data,err ) : reject(err) 
-            if (!this.started)
-                reject( new Error('illegal state - resume() has been called before start()'));
-
-            if (!this.isBot)
-                this.logger.logEvent({message:'resume',iv:this.iv});      
-            this.paused = false;
-            resolve(true)
-        })
+    async resume(): Promise<boolean> {
+        
+        if (!this.isBot && this.isStarted())
+            this.logger.logEvent( {message:'resuming device', device:this.getName()})
+        this.paused = false;
+        return true;
+        
     }
 
-    toggle() : Promise<boolean> {
+    async toggle() : Promise<boolean> {
         if ( this.started) {
-            return this.stop()
+            return await this.stop()
         }
         else {
-            return this.start().then( ()=> { return true});
+            await this.start();
+            return true;
         }
     }
 
