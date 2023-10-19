@@ -190,11 +190,10 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
 
     async start( props: BleStartProperties={} ): Promise<any> {
 
-        const wasPaused = this.paused
         const wasStopped = this.stopped
 
-        if (wasPaused)
-            this.resume()
+        // always resume to ensure that logging on the interface is resumed
+        this.resume()
         
 
         if (this.started && !wasStopped)

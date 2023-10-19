@@ -55,6 +55,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
     binding: BleBinding
     sensorIsConnecting : boolean
     emittingAdapters: {comms:BleComms, cb:(data)=>void}[] = []
+    loggingPaused: boolean
     
     
     static _instance: BleInterface;
@@ -89,7 +90,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
             this.logger = props.logger
         else 
             this.logger = new EventLogger( 'BLE');
-
+        this.loggingPaused = false;
     }
 
     getBinding(): BleBinding { return this.binding }
@@ -117,15 +118,49 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
         return BleAdapterFactory.getInstance()
     }
 
-    logEvent(event) {
-        if ( this.logger) {
-            this.logger.logEvent(event)
+    pauseLogging() {
+        this.logEvent({message:'pause logging on BLE Interface'})
+        this.loggingPaused = true
+
+        try {
+            this.getBinding().pauseLogging()        
+        }
+        catch{}
+    }
+
+    resumeLogging() {
+        const event = {message:'resume logging on BLE Interface'}
+        this.logger.logEvent(event)
+
+        if (this.isDebugEnabled()) {
+            console.log( '~~~ BLE', event)
         }
 
+        this.loggingPaused = false
+
+        try {
+            this.getBinding().resumeLogging()
+        }
+        catch{}
+
+    }
+
+    isDebugEnabled() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const w = global.window as any
     
         if (w?.DEVICE_DEBUG||process.env.BLE_DEBUG) {
+            return true;
+        }
+        return false
+    }
+
+    logEvent(event) {
+        if ( this.logger && !this.loggingPaused) {
+            this.logger.logEvent(event)
+        }
+   
+        if (this.isDebugEnabled()) {
             console.log( '~~~ BLE', event)
         }
     }
@@ -146,7 +181,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
     }
 
     connect(to?:number): Promise<boolean> {
-        
+        this.resumeLogging()
         const timeout = this.props.timeout || to  || 2000;
 
 
@@ -264,6 +299,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
             this.connectState.timeout= null;
         }
         this.logEvent({message:'disconnect result: success'});
+        this.pauseLogging()
         return true;
     }
 

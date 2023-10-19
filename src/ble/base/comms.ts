@@ -94,11 +94,13 @@ export class BleComms extends  EventEmitter  {
     }
 
     pause() {
+        this.ble.pauseLogging()        
         this.paused = true;
     }
 
     resume() {
         this.paused = false;
+        this.ble.resumeLogging()        
     }
 
     getServiceUUids(): string[] {
@@ -402,6 +404,7 @@ export class BleComms extends  EventEmitter  {
 
 
     async connect(props?: BleCommsConnectProps): Promise<boolean> {
+        this.ble.resumeLogging()        
 
         if (!this.ble.isConnected()) {
             try {
@@ -541,7 +544,7 @@ export class BleComms extends  EventEmitter  {
         const {id,name,address } = this;
         this.logEvent({message:'disconnect requested',device: { id, name, address} })
 
-        
+        this.ble.pauseLogging()        
 
         this.connectState.isDisconnecting = true;
 

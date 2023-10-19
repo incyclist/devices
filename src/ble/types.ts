@@ -11,6 +11,8 @@ export interface BleBinding extends EventEmitter {
     startScanning(serviceUUIDs?: string[], allowDuplicates?: boolean, callback?: (error?: Error) => void): void;
     stopScanning(callback?: () => void): void;
 //    open(): {err: Error, opened: boolean}
+    pauseLogging()
+    resumeLogging()
     _bindings: any;
     state: BleInterfaceState;
     on(eventName: string | symbol, listener: (...args: any[]) => void):this
