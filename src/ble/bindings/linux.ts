@@ -28,6 +28,14 @@ export class BleLinuxBinding extends EventEmitter implements BleBinding{
         throw new Error('Method not implemented.');
     }
 
+    pauseLogging() {
+        
+    }
+
+    resumeLogging() {
+        
+    }
+
     // implement "lacy initializing", i.e. init upon first listener being added
     on(eventName: string | symbol, listener: (...args: any[]) => void):this {
         super.addListener(eventName,listener)    

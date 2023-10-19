@@ -38,6 +38,14 @@ class Binding extends EventEmitter implements BleBinding {
 
     init() {}
 
+    pauseLogging() {
+        
+    }
+
+    resumeLogging() {
+        
+    }
+
     addMock(peripheral:BleMockPeripheral):void {
         this.peripherals.push(peripheral)
     }
