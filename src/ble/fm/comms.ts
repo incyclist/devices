@@ -131,11 +131,13 @@ export default class BleFitnessMachineDevice extends BleComms {
 
     constructor (props?) {
         super(props)
-        this.data = {}
+
+        this.reset()
         this.services = BleFitnessMachineDevice.services;
     }
 
     static isMatching(characteristics: string[]): boolean {
+        // istanbul ignore next
         if (!characteristics)
             return false;
 
@@ -206,9 +208,8 @@ export default class BleFitnessMachineDevice extends BleComms {
             return true;
             
         }
-        catch (err) {
+        catch (err) { // istanbul ignore next
             this.logEvent( {message:'error',fn:'BleFitnessMachineDevice.init()',error:err.message||err, stack:err.stack})
-
             return false
         }
     }
@@ -359,7 +360,7 @@ export default class BleFitnessMachineDevice extends BleComms {
     }
 
     
-    async getFitnessMachineFeatures() {
+    async getFitnessMachineFeatures():Promise<IndoorBikeFeatures|undefined> {
         if (this.features)
             return this.features;
         
@@ -388,6 +389,7 @@ export default class BleFitnessMachineDevice extends BleComms {
         }
         catch(err) {
             this.logEvent({message:'could not read FitnessMachineFeatures', error:err.message, stack: err.stack})
+            return undefined
         }
 
         

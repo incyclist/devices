@@ -1,4 +1,3 @@
-import { BleTacxComms } from ".";
 import { LegacyProfile } from "../../antv2/types";
 import { CSC_MEASUREMENT, CSP_MEASUREMENT, FTMS_CP, FTMS_STATUS, INDOOR_BIKE_DATA, TACX_FE_C_BLE, TACX_FE_C_RX, TACX_FE_C_TX } from "../consts";
 import { CrankData } from "../cp";
@@ -105,7 +104,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
     }
 
     getProtocol(): BleProtocol {
-        return BleTacxComms.protocol
+        return TacxAdvancedFitnessMachineDevice.protocol
     }
 
     getServiceUUids(): string[] {

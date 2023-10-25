@@ -249,10 +249,10 @@ export class BleComms extends  EventEmitter  {
     initDevice(): Promise<boolean> {
         this.logEvent({message: 'get device info'})
 
-        return this.getDeviceInfo().then( ()=> { 
-            this.emit('deviceInfo',this.deviceInfo)
+        return this.getDeviceInfo().then( (info)=> { 
+            this.emit('deviceInfo',info)
 
-            this.logEvent({message:'device init done',...this.deviceInfo})
+            this.logEvent({message:'device init done',...info})
             this.isInitialized = true;
 
             return true;

@@ -3,6 +3,27 @@ import { CSP_MEASUREMENT } from "../consts";
 import TacxAdvancedFitnessMachineDevice from "./comms";
 
 describe('BleTacxComms',()=> {
+
+    describe('constructor',()=>{
+
+        test('without peripheral',()=>{
+            const c = new TacxAdvancedFitnessMachineDevice({id:'4711',logger:MockLogger})
+
+            // statics
+            expect(c.getProfile()).toBe('Smart Trainer')
+            expect(c.getProtocol()).toBe('tacx')
+            expect(c.getServiceUUids()).toEqual(['6e40fec1'])
+
+
+        })
+        test('with peripheral',()=>{
+            
+        })
+
+
+    })
+
+
     describe ('onData',()=>{
         test('trainerData',()=>{
             const data = [164,9,78,5,25,165,0,36,92,0,0,32,2]
@@ -63,7 +84,31 @@ describe('BleTacxComms',()=> {
         
     
     })
+
+    describe('writeFtmsMessage',()=>{})
+
+    describe('requestControl',()=>{})
+    describe('setTargetPower',()=>{})
+    describe ('setSlope',()=>{
     
+        test('slope 0.0, rr not set',async ()=>{
+            const expected = Buffer.from( 'A4094F0533FFFFFFFF204E42F8','hex')
+            const tacx = new TacxAdvancedFitnessMachineDevice({id:'4711',logger:MockLogger});
+            tacx.sendMessage = jest.fn( ()=> Promise.resolve(true) )
+            const res = await tacx.setSlope(0.0)
+            expect(res).toBe(true)
+            expect(tacx.sendMessage).toHaveBeenCalledWith( expected)
+        })
+    
+    
+    })
+
+    describe('setTargetInclination',()=>{})
+    describe('setIndoorBikeSimulation',()=>{})
+    describe('startRequest',()=>{})
+    describe('stopRequest',()=>{})
+    describe('PauseRequest',()=>{})
+
     describe( 'parsePower',()=>{
     
         test('bug:strange rpm values',()=>{
@@ -106,19 +151,6 @@ describe('BleTacxComms',()=> {
     })
     
     
-    describe ('setSlope',()=>{
-    
-        test('slope 0.0, rr not set',async ()=>{
-            const expected = Buffer.from( 'A4094F0533FFFFFFFF204E42F8','hex')
-            const tacx = new TacxAdvancedFitnessMachineDevice({id:'4711',logger:MockLogger});
-            tacx.sendMessage = jest.fn( ()=> Promise.resolve(true) )
-            const res = await tacx.setSlope(0.0)
-            expect(res).toBe(true)
-            expect(tacx.sendMessage).toHaveBeenCalledWith( expected)
-        })
-    
-    
-    })
 })
 
 
