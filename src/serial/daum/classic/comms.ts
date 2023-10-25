@@ -11,11 +11,12 @@ import { DeviceType,IncyclistBikeData,User } from '../../../types'
 const ByteLength = require('@serialport/parser-byte-length')
 
 
-const TIMEOUT_SEND  = 2000;    // 2s
+const TIMEOUT_SEND  = 5000;    // 5s
 
 export default class Daum8008 extends SerialPortComms<DaumClassicCommsState,DaumClassicRequest, DaumClassicResponse > implements DaumSerialComms{
 
     protected bikeNo:number;
+    protected prevFailedPayload;
 
     constructor( props: SerialCommProps) {
         super(props)
@@ -72,14 +73,21 @@ export default class Daum8008 extends SerialPortComms<DaumClassicCommsState,Daum
        
         this.initForResponse(expected)
         await this.write( Buffer.from(payload ))            
-        const response = await this.waitForResponse()
+        let response = await this.waitForResponse()
 
         if(response.type==='Error')
             throw response.error
 
+        /*
+        if (this.prevFailedPayload && this.prevFailedPayload[0]!==payload[0] && response.data[0]===this.prevFailedPayload[0]) {
+            response = await this.waitForResponse()
+        }
+        */
+
         if ( response.data[0]!==payload[0] ) {
             this.portFlush();
-            throw new Error('illegal response')
+            this.logEvent({message:"sendCommand:received:",port:this.path, hex:Buffer.from(response.data).toString('hex')});
+            throw new Error('illegal response' )
         }
 
         return response;
@@ -108,13 +116,14 @@ export default class Daum8008 extends SerialPortComms<DaumClassicCommsState,Daum
 
                 this.logEvent({message:"sendCommand:received:",...logPayload, hex:Buffer.from(res.data).toString('hex')});
                 this.sendCmdPromise = null;
+                this.prevFailedPayload = null;
                 resolve(res)
     
             }
             catch (err)  {
                 this.logEvent({message:"sendCommand:error:",...logPayload,error:err.message});
                 this.sendCmdPromise = null;
-
+                this.prevFailedPayload = payload
                 reject(err)
             }          
     
