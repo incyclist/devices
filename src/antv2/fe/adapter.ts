@@ -29,6 +29,7 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
     protected distanceInternal?: number;
     protected startProps : AntDeviceProperties;
     protected promiseReconnect: Promise<boolean>
+    protected promiseSendUpdate: Promise<boolean>
 
     constructor ( settings:AntDeviceSettings, props?:AntDeviceProperties) {
         super(settings, props)
@@ -58,6 +59,13 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
         if( (this.paused || this.isReconnecting()) && !forced)
             return;
 
+        // busy with previous update
+        if (this.promiseSendUpdate) {
+
+            this.logEvent({message: 'send bike update skipped', device:this.getName(),request, reason:'busy'})
+            return;
+        }
+
         let isReset = request.reset && Object.keys(request).length===1 
         const update = isReset ? this.getCyclingMode().getBikeInitRequest() : this.getCyclingMode().sendBikeUpdate(request)
 
@@ -66,17 +74,21 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
         try {
             const fe = this.sensor as FitnessEquipmentSensor;
             
+            
             if (update.slope!==undefined) {
-                await fe.sendTrackResistance(update.slope)
+                this.promiseSendUpdate =  fe.sendTrackResistance(update.slope)
             }
     
             if (update.targetPower!==undefined) {
-                await fe.sendTargetPower(update.targetPower)
+                this.promiseSendUpdate = fe.sendTargetPower(update.targetPower)
             }
+            await this.promiseSendUpdate
+            delete this.promiseSendUpdate
         
         }
         catch( err) {
 
+            delete this.promiseSendUpdate
             if (err.message && err.message.toLowerCase()==='timeout') {
                 
                 this.emit('timeout')

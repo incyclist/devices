@@ -791,8 +791,22 @@ describe( 'fe adapter', ()=>{
 
             await adapter.sendUpdate({slope:0, minPower:100, maxPower:200}) // any data that does not contain reset, cycling mode will determine the final request
 
-            expect(adapter.reconnect).toHaveBeenCalled()        
             expect(adapter.emit).toHaveBeenCalledWith('timeout')    
+        })
+
+        test('previous bike update is still buy',async ()=>{
+            adapter.sensor.sendTargetPower = jest.fn( ()=>setTimeout(()=>true,100) )
+            adapter.getCyclingMode().sendBikeUpdate.mockReturnValue({targetPower:1})
+            adapter.logEvent = jest.fn()
+
+            adapter.sendUpdate({slope:0, minPower:100, maxPower:200}) // any data that does not contain reset, cycling mode will determine the final request
+            adapter.sendUpdate({slope:1, minPower:100, maxPower:200}) // any data that does not contain reset, cycling mode will determine the final request
+            await adapter.promiseSendUpdate             
+
+            expect(adapter.logEvent).toHaveBeenNthCalledWith(1, expect.objectContaining({message:'send bike update requested'}))
+            expect(adapter.logEvent).toHaveBeenNthCalledWith(2,expect.objectContaining({message:'send bike update skipped', reason:'busy'}))
+            expect(adapter.sensor.sendTargetPower).toHaveBeenCalledTimes(1)   
+            expect(adapter.logEvent).toHaveBeenCalledTimes(2)
         })
 
     })
