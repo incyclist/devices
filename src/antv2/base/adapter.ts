@@ -437,8 +437,11 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
             this.sensorConnected = await this.startSensor();
 
             if (this.sensorConnected) {
-                this.logEvent({ message: 'sensor started', props });
+                this.logEvent({ message: 'sensor started', device:this.getName(), props });
                 this.startStatus.sensorStarted = true;
+            }
+            else {
+                this.logEvent({ message: 'start sensor failed', device:this.getName(), reason:'unknown', props });    
             }
     
         }
