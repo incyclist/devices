@@ -645,7 +645,7 @@ export default class Daum8i extends SerialPortComms<DaumPremiumCommsState,DaumPr
     
         }
         catch ( err ) {
-            this.logEvent({message:'error', fn:'programUpload', error:err.message, stack:err.stack})
+            this.logEvent({message:'programUpload failed', reason:err.message})
             return false;
         }       
     }
