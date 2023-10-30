@@ -168,9 +168,9 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
             }
 
             const logData = this.getLogData(deviceData, ['PairedDevices','RawData']);
-            this.logEvent( {message:'onDeviceData', data:logData, paused:this.paused})
+            this.logEvent( {message:'onDeviceData', data:logData, paused:this.paused,started:this.started, canEmit:this.canEmitData()})
 
-            if (!this.started || this.isStopped() || !this.canEmitData())
+            if ( this.isStopped() || !this.canEmitData())
                 return;   
             
             if (this.isControllable()) {
@@ -532,7 +532,6 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
         this.promiseWaitForData = null;
         if (this.startStatus) {
             this.startStatus.interrupted = true
-            console.log('~~~ still starting')
             await sleep(20)
         }
         try {

@@ -209,7 +209,7 @@ describe( 'fe adapter', ()=>{
 
             adapter.onDeviceData({DeviceID:'2606', InstantaneousPower:100})
             expect(adapter.deviceData).toMatchObject({DeviceID:'2606'})
-            expect(adapter.emitData).not.toHaveBeenCalled()
+            expect(adapter.emitData).toHaveBeenCalledWith(expect.objectContaining({power:100}))
             expect(adapter.lastDataTS).toBeDefined()
             expect(adapter.dataMsgCount).toBe(1)
             expect(adapter.startDataTimeoutCheck).not.toHaveBeenCalled()

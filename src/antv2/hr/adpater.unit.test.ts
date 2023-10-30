@@ -1,3 +1,4 @@
+import exp from 'constants'
 import { IncyclistCapability } from '../../types/capabilities'
 import { sleep } from '../../utils/utils'
 import { AntDeviceSettings } from '../types'
@@ -175,17 +176,21 @@ describe( 'ANT HR adapter', ()=>{
         })
 
         test('initial data - not started',()=>{
+            adapter.deviceData = {DeviceID:'2606'}
             adapter.started = false;
+            adapter.paused = false
+            adapter.lastDataTS = undefined;
+            adapter.lastUpdate = undefined
             adapter.dataMsgCount = 0
-            adapter.deviceData={}
 
             adapter.onDeviceData({DeviceID:2606, ComputedHeartRate:60})
             expect(adapter.deviceData).toMatchObject({DeviceID:2606})
-            expect(adapter.emit).not.toHaveBeenCalledWith()
-            expect(adapter.lastUpdate).toBeUndefined()
+            expect(adapter.emit).toHaveBeenCalledWith('data',expect.objectContaining({deviceID:'2606'}),expect.objectContaining({heartrate:60}))
+            expect(adapter.lastUpdate).toBeDefined()
             expect(adapter.lastDataTS).toBeDefined()
             expect(adapter.dataMsgCount).toBe(1)
             expect(adapter.startDataTimeoutCheck).not.toHaveBeenCalled()
+
         })
 
 
