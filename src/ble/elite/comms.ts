@@ -4,7 +4,7 @@ import { BleComms } from "../base/comms";
 import { CSP_FEATURE, CSP_MEASUREMENT, ELITE_TRAINER_SVC } from "../consts";
 import { CrankData, PowerData } from "../cp";
 import { BleProtocol, IBlePeripheralConnector } from "../types";
-import { matches } from "../utils";
+import { matches, uuid } from "../utils";
 
 export default class BleEliteDevice extends BleComms {
     static protocol: BleProtocol = 'elite'
@@ -29,8 +29,10 @@ export default class BleEliteDevice extends BleComms {
         if (!characteristics)
             return false;
 
-        const hasCPMeasurement =  characteristics.find( c => c===CSP_MEASUREMENT)!==undefined
-        const hasCPFeature = characteristics.find( c => c===CSP_FEATURE)!==undefined
+        const announced = characteristics.map( c=> uuid(c))
+                        
+        const hasCPMeasurement =  announced.find( c => c===CSP_MEASUREMENT)!==undefined
+        const hasCPFeature = announced.find( c => c===CSP_FEATURE)!==undefined
         
         return hasCPMeasurement && hasCPFeature
     }

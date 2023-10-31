@@ -28,6 +28,9 @@ export class BleLinuxBinding extends EventEmitter implements BleBinding{
         throw new Error('Method not implemented.');
     }
 
+    setServerDebug(enabled: boolean) {
+        
+    }
     pauseLogging() {
         
     }

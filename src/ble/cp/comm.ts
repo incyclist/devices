@@ -1,6 +1,6 @@
 import { CrankData, PowerData } from './types';
 import {CSP, CSP_MEASUREMENT,CSP_FEATURE}  from '../consts'
-import { matches } from '../utils';
+import { matches, uuid } from '../utils';
 import { BleComms } from '../base/comms';
 import { LegacyProfile } from '../../antv2/types';
 import { BleProtocol, IBlePeripheralConnector } from '../types';
@@ -25,8 +25,10 @@ export default class BleCyclingPowerDevice extends BleComms {
         if (!characteristics)
             return false;
 
-        const hasCPMeasurement =  characteristics.find( c => c===CSP_MEASUREMENT)!==undefined
-        const hasCPFeature = characteristics.find( c => c===CSP_FEATURE)!==undefined
+        const announced = characteristics.map( c=> uuid(c))
+
+        const hasCPMeasurement =  announced.find( c => c===CSP_MEASUREMENT)!==undefined
+        const hasCPFeature = announced.find( c => c===CSP_FEATURE)!==undefined
         
         return hasCPMeasurement && hasCPFeature
     }

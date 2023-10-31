@@ -6,7 +6,7 @@ import { CrankData } from "../cp";
 import { IndoorBikeData } from "../fm";
 import BleFitnessMachineDevice from "../fm/comms";
 import { BleProtocol, BleWriteProps, IBlePeripheralConnector } from "../types";
-import { matches } from "../utils";
+import { matches, uuid } from "../utils";
 
 export const enum OpCode   {
     unlock                     = 32,
@@ -56,8 +56,10 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
         if (!characteristics)
             return false;
 
-        const hasWahooCP = characteristics.find( c => matches(c,WAHOO_ADVANCED_TRAINER_CP))!==undefined 
-        const hasFTMS = characteristics.find( c => matches(c,FTMS_CP))!==undefined 
+        const announced = characteristics.map( c=> uuid(c))
+
+        const hasWahooCP = announced.find( c => matches(c,WAHOO_ADVANCED_TRAINER_CP))!==undefined 
+        const hasFTMS = announced.find( c => matches(c,FTMS_CP))!==undefined 
 
         return   hasWahooCP && !hasFTMS;
     }

@@ -1,12 +1,14 @@
 import { LegacyProfile } from '../../antv2/types';
 import { BleComms } from '../base/comms';
+import { HR_MEASUREMENT } from '../consts';
 import { BleProtocol } from '../types';
+import { uuid } from '../utils';
 import { HrmData } from './types';
 
 export default class BleHrmDevice extends BleComms {
     static protocol:BleProtocol = 'hr'
     static services =  ['180d'];
-    static characteristics =  ['2a37', '2a38', '2a39', '2a3c'];
+    static characteristics =  [HR_MEASUREMENT, '2a38', '2a39', '2a3c'];
     static detectionPriority = 1;
     
     heartrate: number;
@@ -30,6 +32,18 @@ export default class BleHrmDevice extends BleComms {
     getServiceUUids(): string[] {
         return BleHrmDevice.services;
     }
+
+    static isMatching(characteristics: string[]): boolean {
+        if (!characteristics)
+            return false;
+
+        const announced = characteristics.map( c=> uuid(c))
+
+        const hasHRMeasurement =  announced.find( c => c===HR_MEASUREMENT)!==undefined
+        
+        return hasHRMeasurement
+    }
+
 
     parseHrm(_data: Uint8Array):HrmData { 
         const data = Buffer.from(_data);

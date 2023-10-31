@@ -20,7 +20,8 @@ export interface ScanState {
     isBackgroundScan: boolean;
     timeout?: NodeJS.Timeout;
     peripherals?: Map<string, BlePeripheral>;
-    detected?: string[]
+    detected?: string[];
+    emitter?: EventEmitter
 }
 
 export interface ConnectState {
@@ -98,7 +99,12 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
     getName(): string {
         return 'ble' 
     }
-    
+
+    protected getReconnectPause(): number {
+        return 1000;
+    }
+
+
     startConnectSensor() {
         this.sensorIsConnecting = true
     }
@@ -118,9 +124,12 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
         return BleAdapterFactory.getInstance()
     }
 
-    pauseLogging() {
-        this.logEvent({message:'pause logging on BLE Interface'})
-        this.loggingPaused = true
+    pauseLogging(debugOnly=false) {
+        if (this.loggingPaused)
+            return;
+
+        this.logEvent({message:'pause logging on BLE Interface',debugOnly})
+        this.loggingPaused = debugOnly
 
         try {
             this.getBinding().pauseLogging()        
@@ -129,9 +138,13 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
     }
 
     resumeLogging() {
-        const event = {message:'resume logging on BLE Interface'}
-        this.logger.logEvent(event)
+        if (!this.loggingPaused)
+            return;
 
+        const event = {message:'resume logging on BLE Interface'}
+
+        // log this event - as logger is paused, we can't use this.logEvent()
+        this.logger.logEvent(event)
         if (this.isDebugEnabled()) {
             console.log( '~~~ BLE', event)
         }
@@ -145,7 +158,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
 
     }
 
-    isDebugEnabled() {
+    protected isDebugEnabled() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const w = global.window as any
     
@@ -155,7 +168,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
         return false
     }
 
-    logEvent(event) {
+    protected logEvent(event) {
         if ( this.logger && !this.loggingPaused) {
             this.logger.logEvent(event)
         }
@@ -166,7 +179,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
     }
 
 
-    onStateChange(state:BleInterfaceState) {        
+    protected onStateChange(state:BleInterfaceState) {        
         if(state !== 'poweredOn'){       
             this.logEvent({message:'Ble disconnected',});
 
@@ -176,7 +189,8 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
             this.connectState.isConnected = true;
         }         
     }
-    onError(err) {
+
+    protected onError(err) {
         this.logEvent({message:'error', error:err.message, stack:err.stack});
     }
 
@@ -307,35 +321,28 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
         return this.connectState.isConnected;
     }
 
-
-    waitForConnectFinished( timeout) {
-        const waitStart = Date.now();
-        const waitTimeout = waitStart + timeout;
-
-        return new Promise( (resolve, reject) => {
-            const waitIv = setInterval( ()=>{
-                    
-                if (this.scanState.isConnecting && Date.now()>waitTimeout)  {
-                    clearInterval(waitIv)
-                    return reject(new Error('Connecting already in progress'))
-                }
-                if (!this.scanState.isConnecting) {
-                    clearInterval(waitIv)
-                    return resolve(true)
-                }
-    
-            }, 100)
-    
-        })
-
-    }
-
-
     onDisconnect(peripheral):void {        
         this.peripheralCache.remove(peripheral)        
     }
 
-    async getCharacteristics( peripheral:BlePeripheral):Promise<BleCharacteristic[]> {
+    protected async scannerWaitForConnection(tsTimeoutExpired?: number) {
+
+        const timeoutExpired = () => {
+            if (!tsTimeoutExpired)
+                return false
+            return Date.now() >= tsTimeoutExpired
+        }
+
+        while (!this.isConnected() && this.scanState.isScanning && !timeoutExpired()) {
+            const connected = await this.connect();
+            if (!connected)
+                await sleep(this.getReconnectPause());
+        }
+    }
+
+
+
+    protected async getCharacteristics( peripheral:BlePeripheral):Promise<BleCharacteristic[]> {
         let characteristics = undefined;
         let chachedPeripheralInfo:PeripheralCacheItem = this.peripheralCache.find( {peripheral})
 
@@ -384,7 +391,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
 
     }
 
-    waitForScanFinished( timeout) {
+    protected waitForScanFinished( timeout) {
         const waitStart = Date.now();
         const waitTimeout = waitStart + timeout;
 
@@ -406,7 +413,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
 
     }
 
-    async onPeripheralFound (p:BlePeripheral, callback, props:{request?:BleDeviceSettings, comms?:BleComms, protocolFilter?:BleProtocol[]|null} ={})   {                
+    protected async onPeripheralFound (p:BlePeripheral, callback, props:{request?:BleDeviceSettings, comms?:BleComms, protocolFilter?:BleProtocol[]|null} ={})   {                
         let peripheral = p;
         if ( !peripheral ||!peripheral.advertisement || !peripheral.advertisement.localName  /*|| (!props.comms && !peripheral.advertisement.serviceUuids)*/ ) {
             return
@@ -511,6 +518,11 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
         const request = comms.getSettings();
         const {protocol} = request
         const ble = this.getBinding()
+
+        try {
+            this.getBinding().setServerDebug(true)
+        }
+        catch {}
                 
         if (!this.isConnected()) {
             await this.connect();
@@ -553,6 +565,12 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
                 this.logEvent({message:`${opStr}: stop scanning`, request})
                 ble.stopScanning ( ()=> {
                     this.scanState.isScanning = false;                    
+
+                    try {
+                        this.getBinding().setServerDebug(false)
+                    }
+                    catch {}
+            
                     reject( new Error('device not found'))
                     return 
                 })
@@ -591,6 +609,12 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
                             ble.stopScanning ( ()=> {
                                 ble.removeAllListeners('discover');
                                 this.scanState.isScanning = false;
+
+                                try {
+                                    this.getBinding().setServerDebug(false)
+                                }
+                                catch {}
+                        
                                 resolve(peripheral)
                             })
             
@@ -613,11 +637,11 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
         })            
     }
 
-
-
     async scan( props:BleScanProps={}) : Promise<BleDeviceSettings[]> {
+        this.resumeLogging()
+        this.logEvent({message:'starting scan ..'})
 
-        const {timeout=DEFAULT_SCAN_TIMEOUT, protocol,protocols } = props;
+        const {timeout, protocol,protocols } = props;
 
         const requestedProtocols = protocols || []
         if (protocol && !requestedProtocols.find(p => p===protocol))
@@ -626,6 +650,8 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
         const protocolFilter = requestedProtocols.length>0 ? requestedProtocols : null;
         const services =  protocolFilter===null ? this.getAdapterFactory().getAllSupportedServices() : getServicesFromProtocols(protocolFilter)
         const ble = this.getBinding()
+        if ( !ble)
+            throw new Error('no binding defined') 
 
 
         // if scan is already in progress, wait until previous scan is finished 
@@ -642,22 +668,18 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
         }
 
         this.scanState.isScanning = true;
+        this.scanState.emitter = new EventEmitter()
+
         const tsStart = Date.now()
-        const tsTimeoutExpired = tsStart+timeout
-        while (!this.isConnected() && this.scanState.isScanning && Date.now()<tsTimeoutExpired) {
-            const connected = await this.connect();
-            if (!connected)
-                await sleep(1000)
-        }
+        const tsTimeoutExpired = timeout ? tsStart+timeout : undefined
+        await this.scannerWaitForConnection(tsTimeoutExpired);
 
-        if ( Date.now()>tsTimeoutExpired ) {
-            return []
-        }
-        if (!this.scanState.isScanning) {
+        // if timeout has expired or scan was stopped in the meantime
+        if ( Date.now()>tsTimeoutExpired || !this.scanState.isScanning) {
             return []
         }
 
-        const adjustedScanTimeout = tsStart-Date.now()+timeout
+        const adjustedScanTimeout = timeout 
 
         const supported = BleAdapterFactory.getInstance().getAll().map(i => i.protocol )
         this.logEvent({message:'scan start', services,supported});
@@ -668,35 +690,47 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
             const detected:BleDeviceSettings[] = [];
             const requested = protocolFilter;
 
-            const onTimeout = ()=>{                               
+            const onTimeoutOrStopped = async (wasTimeout=false)=>{                               
                 if (!this.scanState.isScanning || !this.scanState.timeout)
                     return;
 
-                this.scanState.timeout = null;
+                if (this.scanState.timeout) {
+                    clearTimeout(this.scanState.timeout)
+                    this.scanState.timeout = null;
+                }
+
                 const devices = detected.map( d => {
                     const { id,name,address,protocol } = d
                     return { id,name,address,protocol }
                 } )
-                this.logEvent({message:`${opStr} result: timeout, devices found`, requested , devices});
-                ble.removeAllListeners('discover');
-                this.logEvent({message:`${opStr}: stop scanning`, requested})
-                ble.stopScanning ( ()=> {
-                    this.scanState.isScanning = false;
-                    resolve(detected)
-                })
 
+                if (wasTimeout)
+                    this.logEvent({message:`${opStr} result: timeout, devices found`, requested , devices});
+
+                ble.removeAllListeners('discover');
+                
+                await ble.stopScanning ( )
+                resolve(detected)
+              
+                
                 this.emittingAdapters.forEach( a=> {
                     a.comms.off('data',a.cb)                    
                     a.comms.unsubscribeAll()
                 })
                 this.emittingAdapters = []
-        
-
+                
+                this.emit('scan stopped',true)
             }
 
-            this.logEvent({message:`${opStr}: start scanning`, requested ,timeout})           
+            if (timeout)
+                this.scanState.timeout = setTimeout( onTimeoutOrStopped, adjustedScanTimeout)
 
-            this.scanState.timeout = setTimeout( onTimeout, adjustedScanTimeout)
+            this.scanState.emitter.on('stop',()=>{
+                this.emit('stop-scan')
+                onTimeoutOrStopped()
+                
+            })
+
             ble.startScanning(protocolFilter? services : [], false, (err) => {                
                 if (err) {
                     this.logEvent({message:`${opStr} result: error`, requested,error:err.message});
@@ -743,40 +777,32 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
     
     }
 
-    
-    
     async stopScan() : Promise<boolean> {
-        this.logEvent({message:'scan stop request'});
+        this.logEvent({message:'stopping scan ..'})
+        this.pauseLogging(true)
 
-        if ( !this.scanState.isScanning) {
-            this.logEvent({message:'scan stop result: not scanning'});
+        if (!this.isScanning()) {
+            this.logEvent({message:'stopping scan done ..'})            
             return true;
         }
 
-        const ble = this.getBinding()
-        if ( !ble)
-            throw new Error('no binding defined') 
-
-        ble.removeAllListeners('discover');
-        this.peripheralCache.handleStopScan()       
-        ble.stopScanning();
-
-
-        this.emittingAdapters.forEach( a=> {
-            a.comms.unsubscribeAll()
-            a.comms.off('data',a.cb)
+        await  new Promise<boolean>( done => {
+            this.scanState.emitter?.emit('stop')
+            this.once('scan stopped',(res)=>{
+                done(res)
+            })
         })
-        this.emittingAdapters = []
-
         this.scanState.isScanning = false;
-        this.logEvent({message:'scan stop result: success'});
-        return true;                    
-    }
+        
+        this.logEvent({message:'stopping scan done ..'})
+        return true;
 
+    }
 
     isScanning(): boolean {
         return this.scanState.isScanning===true
     }
+
 
 
 

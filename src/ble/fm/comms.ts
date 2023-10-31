@@ -3,6 +3,7 @@ import { CSC_MEASUREMENT, CSP_MEASUREMENT, FTMS, FTMS_CP, FTMS_STATUS, HR_MEASUR
 import { IndoorBikeData, IndoorBikeFeatures } from "./types";
 import { BleComms } from "../base/comms";
 import { LegacyProfile } from "../../antv2/types";
+import { uuid } from "../utils";
 
 
 
@@ -141,9 +142,11 @@ export default class BleFitnessMachineDevice extends BleComms {
         if (!characteristics)
             return false;
 
-        const hasStatus =  characteristics.find( c => c===FTMS_STATUS)!==undefined
-        const hasCP = characteristics.find( c => c===FTMS_CP)!==undefined
-        const hasIndoorBike = characteristics.find( c => c===INDOOR_BIKE_DATA)!==undefined
+        const announced = characteristics.map( c=> uuid(c))
+
+        const hasStatus =  announced.find( c => c===FTMS_STATUS)!==undefined
+        const hasCP = announced.find( c => c===FTMS_CP)!==undefined
+        const hasIndoorBike = announced.find( c => c===INDOOR_BIKE_DATA)!==undefined
 
         return hasStatus && hasCP && hasIndoorBike;
     }

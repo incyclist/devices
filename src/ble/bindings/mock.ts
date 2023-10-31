@@ -38,6 +38,9 @@ class Binding extends EventEmitter implements BleBinding {
 
     init() {}
 
+    setServerDebug(enabled: boolean) {
+        
+    }
     pauseLogging() {
         
     }

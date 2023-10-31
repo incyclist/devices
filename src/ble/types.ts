@@ -13,6 +13,7 @@ export interface BleBinding extends EventEmitter {
 //    open(): {err: Error, opened: boolean}
     pauseLogging()
     resumeLogging()
+    setServerDebug(enabled:boolean)
     _bindings: any;
     state: BleInterfaceState;
     on(eventName: string | symbol, listener: (...args: any[]) => void):this
