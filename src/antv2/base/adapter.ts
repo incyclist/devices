@@ -456,7 +456,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
             return this.started
 
         if (preCheckResult==='connection-failed')
-            throw new Error(`could not connect`)
+            throw new Error(`could not start device, reason:could not connect`)
     
         this.logEvent( {message:'starting device', device:this.getName(), props, isStarted: this.started})
 
