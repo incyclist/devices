@@ -110,7 +110,7 @@ describe( 'DaumClassicAdapter', ()=>{
         test('initial launch ok',async ()=>{
             const {started,error} = await run()
 
-            expect(device.performStart).toHaveBeenCalledWith(undefined, false)
+            expect(device.performStart).toHaveBeenCalledWith(undefined, false,false)
             expect(started).toBeTruthy();
             expect(error).toBeUndefined()
             expect(device.started).toBe(true)
@@ -120,7 +120,7 @@ describe( 'DaumClassicAdapter', ()=>{
             device.started = true
             const {started,error} = await run()
 
-            expect(device.performStart).toHaveBeenCalledWith(undefined, true)
+            expect(device.performStart).toHaveBeenCalledWith(undefined, true,false)
             expect(started).toBeTruthy();
             expect(error).toBeUndefined()
             expect(device.started).toBe(true)

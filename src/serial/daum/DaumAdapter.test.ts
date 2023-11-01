@@ -308,6 +308,8 @@ describe( 'DaumAdapter', ()=>{
             a.performStart = jest.fn( async () => {await sleep(200); return true  })
             a.performCheck = jest.fn( async () => {await sleep(200); return true  })
             a.getDeviceInfo = jest.fn().mockResolvedValue({})
+            a.logger = { logEvent:jest.fn() }
+            a.logEvent = a.logger.logEvent
 
             const promise1 = a.start()
             await sleep(50)
@@ -318,11 +320,11 @@ describe( 'DaumAdapter', ()=>{
             expect(res[1]).toEqual( {status:'fulfilled', value:true})
             expect(a.startPromise).toBeUndefined()
 
-            expect(a.logEvent).toHaveBeenNthCalledWith( 1,expect.objectContaining({message:'initial start of device'}))
-            expect(a.logEvent).toHaveBeenNthCalledWith( 2,expect.objectContaining({message:'waiting for previous device launch'}))
-            expect(a.logEvent).toHaveBeenNthCalledWith( 3,expect.objectContaining({message:'device info'}))
-            expect(a.logEvent).toHaveBeenNthCalledWith( 4,expect.objectContaining({message:'start result: success'}))
-            expect(a.logEvent).toHaveBeenNthCalledWith( 5,expect.objectContaining({message:'previous device launch attempt completed'}))
+            expect(a.logger.logEvent).toHaveBeenNthCalledWith( 1,expect.objectContaining({message:'initial start of device'}))
+            expect(a.logger.logEvent).toHaveBeenNthCalledWith( 2,expect.objectContaining({message:'waiting for previous device launch'}))
+            expect(a.logger.logEvent).toHaveBeenNthCalledWith( 3,expect.objectContaining({message:'device info'}))
+            expect(a.logger.logEvent).toHaveBeenNthCalledWith( 4,expect.objectContaining({message:'start result: success'}))
+            expect(a.logger.logEvent).toHaveBeenNthCalledWith( 5,expect.objectContaining({message:'previous device launch attempt completed'}))
 
         })
 
@@ -340,6 +342,9 @@ describe( 'DaumAdapter', ()=>{
         })
 
         test('concurrent requests',async ()=>{
+            a.logger = { logEvent:jest.fn() }
+            a.logEvent = a.logger.logEvent
+
             a.performStart = jest.fn( async () => {await sleep(200); return true  })
 
             const promise1 = a.start()
@@ -363,6 +368,9 @@ describe( 'DaumAdapter', ()=>{
         })
 
         test('start while check is busy',async ()=>{
+            a.logger = { logEvent:jest.fn() }
+            a.logEvent = a.logger.logEvent
+
             a.performStart = jest.fn( async () => {await sleep(200); return true  })
             a.performCheck = jest.fn( async () => {await sleep(200); return true  })
 
@@ -384,6 +392,9 @@ describe( 'DaumAdapter', ()=>{
         })
 
         test('concurrent requests throwing error',async ()=>{
+            a.logger = { logEvent:jest.fn() }
+            a.logEvent = a.logger.logEvent
+
             a.performStart = jest.fn( async () => {await sleep(200); throw new Error('not connected')  })
 
             const promise1 = a.start()
@@ -410,19 +421,31 @@ describe( 'DaumAdapter', ()=>{
 
             const res = await a.start()
             expect(res).toBe(true)
-            expect(a.performStart).toHaveBeenCalledWith(undefined,false)
+            expect(a.performStart).toHaveBeenCalledWith(undefined,false,false)
             expect(a.getDeviceInfo).toHaveBeenCalled()
             expect(a.startPromise).toBeUndefined()
         })
 
-        test('device is already started',async ()=>{
+        test('device is already started and paused',async ()=>{
+            a.started = true
+            a.paused = true
+            a.performStart = jest.fn().mockResolvedValue(true)
+
+            const res = await a.start()
+            expect(res).toBe(true)
+            expect(a.started).toBe(true)
+            expect(a.performStart).toHaveBeenCalledWith(undefined,true,true)
+            expect(a.getDeviceInfo).not.toHaveBeenCalled()
+            expect(a.startPromise).toBeUndefined()
+        })
+        test('device is already started and not paused',async ()=>{
             a.started = true
             a.performStart = jest.fn().mockResolvedValue(true)
 
             const res = await a.start()
             expect(res).toBe(true)
             expect(a.started).toBe(true)
-            expect(a.performStart).toHaveBeenCalledWith(undefined,true)
+            expect(a.performStart).toHaveBeenCalledWith(undefined,true,false)
             expect(a.getDeviceInfo).not.toHaveBeenCalled()
             expect(a.startPromise).toBeUndefined()
         })

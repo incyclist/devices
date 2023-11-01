@@ -142,14 +142,14 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
 
     async pause(): Promise<boolean> {
         const paused  = await super.pause()
-        this.comms.pauseLogging()
+        this.comms?.pauseLogging()
         return paused
     }
 
 
     async resume(): Promise<boolean> {
         const resumed = await super.resume()
-        this.comms.resumeLogging()
+        this.comms?.resumeLogging()
         return resumed
     }
 
@@ -209,7 +209,7 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         const isRelaunch = this.started
         const message = isRelaunch ? 'relaunch of device' :'initial start of device';
         
-        this.logger.logEvent({message});
+        this.logger?.logEvent({message});
 
         try {
             let wasPaused = false;

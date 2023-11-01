@@ -411,7 +411,7 @@ describe( 'DaumPremiumAdapter', ()=>{
             device.performStart = jest.fn().mockResolvedValue(true)
             const {started,error} = await run()
 
-            expect(device.performStart).toHaveBeenCalledWith(undefined,false)
+            expect(device.performStart).toHaveBeenCalledWith(undefined,false,false)
             expect(device.started).toBeTruthy()
             expect(device.paused).toBeFalsy()
 
@@ -427,7 +427,7 @@ describe( 'DaumPremiumAdapter', ()=>{
 
             const {started,error} = await run()
 
-            expect(device.performStart).toHaveBeenCalledWith(undefined, true)
+            expect(device.performStart).toHaveBeenCalledWith(undefined, true,true)
             expect(started).toBeTruthy();
             expect(error).toBeUndefined()
         })
