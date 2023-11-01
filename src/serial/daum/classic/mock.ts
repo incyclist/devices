@@ -1,7 +1,7 @@
 /* istanbul ignore file */
 import {MockBindingInterface, MockPortBinding,CreatePortOptions, MockBinding} from '@serialport/binding-mock'
 import { BindingInterface } from '@serialport/bindings-interface'
-import { resolveNextTick } from '../../../utils/utils';
+import { resolveNextTick, sleep } from '../../../utils/utils';
 import calc from '../../../utils/calculations'
 import SerialPortProvider from '../../base/serialport';
 import SerialInterface from '../../base/serial-interface';
@@ -136,6 +136,7 @@ export class DaumClassicSimulator {
     _timeoutResponse: number = 0;
     _simulateNoReponseCnt:number = 0
     _simulateIllegalResponseCnt:number = 0;
+    _simulatePartialDelayed:number = 0
     openHandles: Array<NodeJS.Timeout> = []
 
     constructor() {
@@ -171,6 +172,10 @@ export class DaumClassicSimulator {
 
     simulateIllegalResponse(cnt=1) {
         this._simulateIllegalResponseCnt+=cnt;
+    }
+
+    simulatePartialDelayed(cnt=1) {
+        this._simulatePartialDelayed+=cnt
     }
 
     addHandle(handle:NodeJS.Timeout) {
@@ -294,10 +299,28 @@ export class DaumClassicMockBinding extends MockPortBinding {
  
 
 
-    emitData(data: string | Buffer): void {
+    async emitData(data: string | Buffer): Promise<void> {
         if (!this.isOpen || !this.port)
             return
-        super.emitData(data)
+
+        if (this.simulator._simulatePartialDelayed>0) {
+            this.simulator._simulatePartialDelayed--;
+
+            let buffer;
+            if (Buffer.isBuffer(data)) 
+                buffer = data
+            else 
+                buffer = Buffer.from(data)
+
+            const data1 = buffer.subarray(0,buffer.length-1)
+            const data2 = buffer.subarray(buffer.length-1, buffer.length)
+            super.emitData(data1)
+            await sleep(10)
+            super.emitData(data2)
+        }
+        else {
+            super.emitData(data)
+        }
     }
 
     onCheckCockpit(payload:Buffer):void {

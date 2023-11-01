@@ -46,10 +46,17 @@ export default class Daum8008 extends SerialPortComms<DaumClassicCommsState,Daum
         if (!parser)
             return;
 
-        parser.on('data', (data:Uint8Array) => {
+        const onDataHandler = (data:Uint8Array) => {
+            if (data.length<expected) {
+                this.logEvent({message:'Partial response', data:Buffer.from(data).toString('hex')})
+                return;
+            }
             this.portUnpipe();
+            parser.off('data',onDataHandler)
             this.recvState.data.enqueue({type:'Response',data})
-        })
+        }            
+
+        parser.on('data', onDataHandler)
     }
 
     async waitForResponse():Promise<DaumClassicResponse> {

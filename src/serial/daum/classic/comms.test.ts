@@ -568,6 +568,17 @@ describe( 'bike',()=> {
             .toThrow(ResponseTimeout)
         })
 
+        test('parts of response is delayed from bike',async ()=>{           
+            simulator.simulatePartialDelayed(1)
+            bike.getTimeoutValue = jest.fn().mockReturnValue(100)
+
+            const res = await bike.resetDevice() ;
+            expect(res).toMatchObject({bike:0}) 
+            
+            const res2 = await bike.resetDevice() ;
+            expect(res2).toMatchObject({bike:0}) 
+        })
+
     })
 
     describe( 'startProg',()=> {
