@@ -522,10 +522,12 @@ describe( 'DaumAdapter', ()=>{
         let a
         beforeEach( ()=>{
             a = new DaumAdapter(DEFAULT_SETTINGS,  {userWeight:80, bikeWeight:10});
-            a.bikeSync = jest.fn()
+            //a.bikeSync = jest.fn()
             a.emitData = jest.fn()
             a.refreshRequests = jest.fn()
             a.logEvent = jest.fn()
+            a.sendRequests = jest.fn().mockResolvedValue(true)
+            a.update = jest.fn().mockResolvedValue(true)
             jest.useRealTimers()
         })
 
@@ -543,13 +545,8 @@ describe( 'DaumAdapter', ()=>{
         })
 
         test('already started',async ()=>{
-            const iv =  {
-                sync: setInterval( ()=>{}, 100),
-                update: setInterval( ()=>{}, 100)
-            }
-
-            a.iv = iv
-            a.stopUpdatePull()
+            await a.startUpdatePull()
+            await a.stopUpdatePull()
             expect(a.iv).toBeUndefined()
             expect(a.logEvent).toHaveBeenCalledWith( expect.objectContaining({message:'stop update pull'}))
             

@@ -9,6 +9,7 @@ import SerialInterface from '../base/serial-interface';
 
 import SmartTrainerCyclingMode from '../../modes/daum-smarttrainer';
 import DaumPowerMeterCyclingMode from '../../modes/daum-power';
+import EventEmitter from 'events';
 
 export default class DaumAdapter<S extends SerialDeviceSettings, P extends DeviceProperties, C extends DaumSerialComms> extends SerialIncyclistDevice<P>  {
 
@@ -22,7 +23,12 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
 
     deviceData: IncyclistBikeData;
     requests: Array<any> = []
-    iv;
+    iv: { 
+        sync: NodeJS.Timeout,
+        update: NodeJS.Timeout,
+        emitter: EventEmitter
+        stopRequested?: boolean
+    };
 
     tsPrevData: number;
     adapterTime: number=0;
@@ -286,20 +292,40 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
 
         this.iv = {
             sync: ivSync,
-            update: ivUpdate
+            update: ivUpdate,
+            emitter: new EventEmitter()            
         }
+        this.iv.emitter.once('stop' ,()=>{ 
+            this.iv.stopRequested=true
+        })
 
 
     }
 
-    stopUpdatePull() { 
-        if (!this.iv)
-            return;
-        
-        this.logEvent({message:'stop update pull', port:this.getPort()})
+    protected cleanupInterval() {
         clearInterval(this.iv.sync)
         clearInterval(this.iv.update)
+        this.iv.emitter.removeAllListeners()
+
         this.iv = undefined
+    }
+
+    async stopUpdatePull():Promise<void> { 
+        if (!this.iv || !this.iv.emitter)
+            return;
+
+        return new Promise( done => {
+            
+            this.iv.emitter.on('stop-done',()=>{
+                this.logEvent({message:'stop update pull done', port:this.getPort()})
+                this.cleanupInterval()
+                done()
+            })
+    
+            this.iv.emitter.emit('stop')
+            this.logEvent({message:'stop update pull', port:this.getPort()})   
+        })
+
     }
 
     async connect():Promise<boolean> {
@@ -374,7 +400,7 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
             this.resume()
 
         try {
-            this.stopUpdatePull()
+            await this.stopUpdatePull()
             await this.comms.close()
             this.logEvent({message:'stop request completed'});        
             this.stopped = true;
@@ -470,8 +496,14 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
     }
 
     async bikeSync() {
-        await this.sendRequests();
-        await this.update()
+        if (!this.iv?.stopRequested)
+            await this.sendRequests();
+        if (!this.iv?.stopRequested)
+            await this.update()
+        
+        if (this.iv?.stopRequested) {
+            this.iv.emitter.emit('stop-done', 'bikeSync')
+        }
     }
 
     updateData(bikeData:IncyclistBikeData): IncyclistBikeData {       
