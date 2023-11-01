@@ -44,8 +44,8 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceP
     private requestBusy: boolean;
     private comms: SerialComms<KettlerRacerCommand>;
     private prevDistance: number;
-
-    protected static ontrollers: ControllerConfig = { 
+    
+    protected static controllers: ControllerConfig = { 
         modes: [ PowerMeterCyclingMode, ERGCyclingMode],
         default:ERGCyclingMode
     }
@@ -659,7 +659,7 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceP
 
     refreshRequests() {
         // not pedaling => no need to generate a new request
-        if ( this.kettlerData.cadence===0) 
+        if ( this.kettlerData?.cadence===0) 
             return;
 
         let bikeRequest = this.getCyclingMode().sendBikeUpdate({refresh:true}) || {}
