@@ -212,6 +212,10 @@ export class TCPPortBinding implements BindingPortInterface  {
     writeOperation: null | Promise<any>;
     data: Buffer;
     private pendingRead: null | ((err: null | Error) => void)
+    private onDataHandler = this.onData.bind(this)
+    private onErrorHandler = this.onError.bind(this)
+    private onTimeoutHandler = this.onTimeout.bind(this)
+    private onCloseHandler = this.onClose.bind(this)
 
     constructor(socket:net.Socket, options: Required<OpenOptions>) {
 
@@ -222,13 +226,12 @@ export class TCPPortBinding implements BindingPortInterface  {
         this.writeOperation = null;
         this.data = null
 
-        this.socket.removeAllListeners();
-
-        this.socket.on('data', this.onData.bind(this))
-        this.socket.on('error', this.onError.bind(this))
-        this.socket.on('close', ()=>{this.close()})
-        this.socket.on('end', ()=>{this.close()})
-        this.socket.on('timeout',()=>{this.onError(new Error('socket timeout'))})
+        this.socket.removeAllListeners();      
+        this.socket.on('data', this.onDataHandler)
+        this.socket.on('error',this.onErrorHandler )
+        this.socket.on('close',this.onCloseHandler)
+        this.socket.on('end', this.onCloseHandler)
+        this.socket.on('timeout',this.onTimeoutHandler)
     }
 
     get isOpen() {
@@ -247,12 +250,24 @@ export class TCPPortBinding implements BindingPortInterface  {
     }
 
     onError(err:Error) {
-
+        this.logger.logEvent({message:'Port Error', error:err.message})
         if (this.pendingRead) {
             this.pendingRead(err)
             this.socket = null;
         }
 
+    }
+
+    onTimeout() {
+        this.logger.logEvent({message:'Port Timeout'})
+        if (this.pendingRead) {
+            this.pendingRead( new Error('timeout'))            
+        }
+        
+    }
+
+    onClose() {
+        this.close()
     }
 
     
@@ -319,7 +334,13 @@ export class TCPPortBinding implements BindingPortInterface  {
         if (!this.data || this.data.length===0) {
             return new Promise((resolve, reject) => {
                 this.pendingRead = err => {
+
+                    
                     if (err) {
+                        if (err.message==='timeout') {
+                            resolve( {buffer:Buffer.from([]),bytesRead:0})
+                            return;
+                        }
                         return reject(err)
                     }
                     this.read(buffer, offset, length).then(resolve, reject)

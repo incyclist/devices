@@ -148,15 +148,15 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
 
     async pause(): Promise<boolean> {
         await this.stopUpdatePull()
-        const paused  = await super.pause()
-        this.comms?.pauseLogging()
+        const paused  = await super.pause()        
+        this.comms?.pause()
         return paused
     }
 
 
     async resume(startUpdatePull=true): Promise<boolean> {
         const resumed = await super.resume()
-        this.comms?.resumeLogging()
+        this.comms?.resume()
         if (startUpdatePull)
             await this.startUpdatePull()
         return resumed
@@ -303,9 +303,17 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
     }
 
     protected cleanupInterval() {
-        clearInterval(this.iv.sync)
-        clearInterval(this.iv.update)
-        this.iv.emitter.removeAllListeners()
+        if (!this.iv)
+            return;
+
+        if (this.iv.sync)
+            clearInterval(this.iv.sync)
+
+        if (this.iv.sync)
+            clearInterval(this.iv.update)
+
+        if (this.iv.emitter)
+            this.iv.emitter.removeAllListeners()
 
         this.iv = undefined
     }

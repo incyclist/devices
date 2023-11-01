@@ -100,6 +100,14 @@ export default class SerialPortComms<T extends CommsState, C extends Request, R 
         this.isLoggingPaused =false;
     }
 
+    pause() {
+        this.pauseLogging()
+    }
+
+    resume() {
+        this.resumeLogging()
+    }
+
 
     logEvent(e) {
         if(this.isLoggingPaused)

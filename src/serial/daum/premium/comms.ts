@@ -9,6 +9,7 @@ import { DEFAULT_ACK_TIMEOUT, DEFAULT_TIMEOUT, DS_BITS_ENDLESS_RACE, DS_BITS_OFF
 
 export default class Daum8i extends SerialPortComms<DaumPremiumCommsState,DaumPremiumRequest,ResponseObject > implements DaumSerialComms {
 
+    private onDataHandler = this.onData.bind(this)
 
     validatePath(path:string): string {
         return validatePath(path)
@@ -27,7 +28,7 @@ export default class Daum8i extends SerialPortComms<DaumPremiumCommsState,DaumPr
     }
 
     onConnected():void {
-        this.sp.on('data',  this.onData.bind(this) );          
+        this.sp.on('data',  this.onDataHandler );          
     }
 
     getInitialCommsState(): DaumPremiumCommsState {
@@ -45,6 +46,7 @@ export default class Daum8i extends SerialPortComms<DaumPremiumCommsState,DaumPr
     }
 
     async onData (data:any, depth=0)  {
+
         let cmd ='';
         const MAX_DEPTH = 5
 
@@ -255,7 +257,6 @@ export default class Daum8i extends SerialPortComms<DaumPremiumCommsState,DaumPr
 
     
     async waitForACK():Promise<boolean> {
-        
         this.setState(true,false,false) 
         const timeout = this.getAckTimeoutValue()
 
@@ -648,6 +649,14 @@ export default class Daum8i extends SerialPortComms<DaumPremiumCommsState,DaumPr
             this.logEvent({message:'programUpload failed', reason:err.message})
             return false;
         }       
+    }
+
+    pause() {
+        super.pause()
+    }
+
+    resume() {
+        super.resume()
     }
 
 
