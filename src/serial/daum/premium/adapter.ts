@@ -154,21 +154,28 @@ export default class DaumPremiumAdapter extends DaumAdapter<SerialDeviceSettings
         return START_RETRY_TIMEOUT
     }
 
-    async performStart(props:DaumPremiumDeviceProperties={},_isRelaunch:boolean=false) {
+    async performStart(props:DaumPremiumDeviceProperties={},_isRelaunch:boolean=false, wasPaused=false) {
 
         // relaunch argument will be ignored: we will always perform a fresh start, as we might have to upload the route data as part of the start procedure
 
         this.setBikeProps(props)
         this.initData();   
     
-        // Always stop, even in case of relaunch
-        await this.stop();
+        
+        if (!wasPaused)
+            await this.stop();
+
         var info = {} as any
 
         await runWithRetries( async ()=>{
            
             try {
-                
+        
+                if (wasPaused) {
+                    info.deviceType = 'Resumed'
+                    info.version = "Resumed"
+                }
+
                 info.connected = await this.connect();
                 if (!info.connected)
                     throw new Error('not connected')

@@ -209,13 +209,16 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         const isRelaunch = this.started
         const message = isRelaunch ? 'relaunch of device' :'initial start of device';
         
-        this.logEvent({message});
+        this.logger.logEvent({message});
 
         try {
-            if (isRelaunch && this.isPaused())
+            let wasPaused = false;
+            if (isRelaunch && this.isPaused()){
                 this.resume()
+                wasPaused = true;
+            }
 
-            this.startPromise = this.performStart(props, isRelaunch).then( async (started):Promise<boolean>=>{
+            this.startPromise = this.performStart(props, isRelaunch, wasPaused).then( async (started):Promise<boolean>=>{
                 if (!started) {
                     this.logEvent({message: 'start result: not started'})
                     this.started = false
@@ -252,7 +255,7 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
 
 
     /* istanbul ignore next */
-    performStart( props?: P,isRelaunch=false ): Promise<boolean> {
+    performStart( props?: P,isRelaunch=false,wasPaused=false ): Promise<boolean> {
         throw new Error('Method not implemented.');
     }
 

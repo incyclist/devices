@@ -117,7 +117,7 @@ export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings
 
     }
 
-    performStart(props:DaumClassicProperties={}, isRelaunch=false):Promise<boolean> {
+    performStart(props:DaumClassicProperties={}, isRelaunch=false, wasPaused=false):Promise<boolean> {
         
         this.stopUpdatePull();
         
@@ -131,6 +131,7 @@ export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings
         this.initData();        
 
         let startState = { } as any;        
+
         return runWithRetries( async ()=>{
             try {
                 this.logEvent({message: 'start attempt',   isRelaunch, isConnected:this.getComms().isConnected()})
