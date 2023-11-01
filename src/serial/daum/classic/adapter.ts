@@ -139,25 +139,26 @@ export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings
                 if (!isRelaunch && !this.getComms().isConnected()) {
                     await this.verifyConnection()
                 }
-                    
-                await this.getComms().resetDevice();
+                
+                if (!wasPaused)
+                    await this.getComms().resetDevice();
 
-                if ( !startState.setProg) {
+                if ( !wasPaused && !startState.setProg) {
                     await this.getComms().setProg(0);
                     startState.setProg = true;
                 }
-                if ( !startState.setPerson) {
+                if ( !wasPaused && !startState.setPerson) {
                     await this.getComms().setPerson(user);
                     startState.setPerson = true;
                 }
 
-                if (!startState.setBikeType) {            
+                if ( !wasPaused && !startState.setBikeType) {            
                     const bikeType = this.getCyclingMode().getSetting('bikeType') || 'race'                    
                     await this.getComms().setBikeType(bikeType.toLowerCase());                    
                     startState.setBikeType = true;                    
                 }
 
-                if ( !startState.startProg) {              
+                if ( !wasPaused && !startState.startProg) {              
                     await this.getComms().startProg();
                     startState.startProg = true;
                 }

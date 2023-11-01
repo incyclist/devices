@@ -17,10 +17,12 @@ export default class Daum8008 extends SerialPortComms<DaumClassicCommsState,Daum
 
     protected bikeNo:number;
     protected prevFailedPayload;
+    protected expected
 
     constructor( props: SerialCommProps) {
         super(props)
         this.bikeNo=0
+        this.expected=undefined
     }
     
     validatePath(path:string): string {
@@ -40,8 +42,10 @@ export default class Daum8008 extends SerialPortComms<DaumClassicCommsState,Daum
         return TIMEOUT_SEND
     }
 
-    async initForResponse(expected) {        
-
+    async initForResponse(expected) {    
+        
+        this.expected = expected
+        /*
         const parser = this.portPipe(new ByteLength({length: expected}))
         if (!parser)
             return;
@@ -57,9 +61,27 @@ export default class Daum8008 extends SerialPortComms<DaumClassicCommsState,Daum
         }            
 
         parser.on('data', onDataHandler)
+        */
     }
 
     async waitForResponse():Promise<DaumClassicResponse> {
+
+            const timeout = this.getTimeoutValue()
+
+            let waitingForResponse = true;
+            let start = Date.now()
+            let tsTimeout = start+timeout            
+    
+            while( waitingForResponse && Date.now()<tsTimeout) {
+                const data = await this.portRead(this.expected)
+                if (data)
+                    return {type:'Response',data}
+                await sleep(5)                
+            }
+            throw new ResponseTimeout()
+
+        
+        /*
         const timeout = this.getTimeoutValue()
         let waitingForResponse = true;
         let start = Date.now()
@@ -74,6 +96,7 @@ export default class Daum8008 extends SerialPortComms<DaumClassicCommsState,Daum
             
         }
         throw new ResponseTimeout()
+        */
     }
 
     async doSend(expected:number, payload:Uint8Array):Promise<DaumClassicResponse> {

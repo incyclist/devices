@@ -338,6 +338,15 @@ export default class SerialPortComms<T extends CommsState, C extends Request, R 
         }    
     }
 
+    async portRead(size?:number) { 
+        if (!this.sp) {
+            this.logEvent({message:'write failed', error:'port is not opened'})
+            return;
+        }
+
+        return await this.sp.read(size)
+    }
+
     async write(buffer:Buffer):Promise<void> {
 
         // previous write still busy? wait for it to finish
