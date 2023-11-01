@@ -4,7 +4,7 @@ import { CrankData } from "../cp";
 import { IndoorBikeData } from "../fm";
 import BleFitnessMachineDevice from "../fm/comms";
 import { BleProtocol, IBlePeripheralConnector } from "../types";
-import { matches } from "../utils";
+import { matches, uuid } from "../utils";
 import { BleFeBikeData } from "./types";
 
 enum  ANTMessages {
@@ -63,8 +63,9 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         if (!characteristics)
             return false;
 
-        const hasTacxCP = characteristics.find( c => matches(c,TACX_FE_C_RX) )!==undefined  && 
-                          characteristics.find( c => matches(c,TACX_FE_C_TX) )!==undefined
+        const announced = characteristics.map( c=> uuid(c))
+        const hasTacxCP = announced.find( c => matches(c,TACX_FE_C_RX) )!==undefined  && 
+                          announced.find( c => matches(c,TACX_FE_C_TX) )!==undefined
 
         return   hasTacxCP;
     }

@@ -17,7 +17,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     protected dataMsgCount: number
     protected lastDataTS: number;
     protected device: TDevice
-
+    protected onDeviceDataHandler = this.onDeviceData.bind(this)
 
     constructor( settings:BleDeviceSettings, props?:DeviceProperties) {
         super(settings,props)
@@ -188,34 +188,44 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     }
 
 
-    async start( props: BleStartProperties={} ): Promise<any> {
+    async startPreChecks(props:BleStartProperties):Promise< 'done' | 'connected' | 'connection-failed' > {
+        const wasPaused = this.paused 
+        const wasStopped = this.stopped;
+       
+        this.stopped = false;
+        if (wasPaused)
+            this.resume()
 
-        const wasStopped = this.stopped
-
-        // always resume to ensure that logging on the interface is resumed
-        this.resume()
-        
-
-        if (this.started && !wasStopped)
-            return true;
-        
-        this.stopped = false
+        if (this.started && !wasPaused && !wasStopped) {
+            return 'done';
+        }
+        if (this.started && wasPaused ) { 
+            return 'done';
+        }
+       
         const connected = await this.connect()
         if (!connected)
-            throw new Error(`could not start device, reason:could not connect`)
-            
+            return 'connection-failed'
 
+        return 'connected'
+    }
+
+
+    async start( props: BleStartProperties={} ): Promise<boolean> {
+        const preCheckResult = await this.startPreChecks(props)
+        if (preCheckResult==='done')
+            return this.started
+
+        if (preCheckResult==='connection-failed')
+            throw new Error(`could not start device, reason:could not connect`)
         
-        this.logger.logEvent({message: 'start requested', protocol:this.getProtocolName(),props})
-        try {
+            this.logEvent( {message:'starting device', device:this.getName(), props, isStarted: this.started})
+            try {
             const comms = this.device;
             
             if (comms) {
                 
-                comms.on('data', (data)=> {
-                    this.onDeviceData(data)
-                    
-                })
+                comms.on('data', this.onDeviceDataHandler)
                 this.resetData();      
                 this.stopped = false;    
                 this.started = true;
@@ -226,14 +236,16 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         }
         catch(err) {
             this.logger.logEvent({message: 'start result: error', error: err.message, protocol:this.getProtocolName()})
+            this.getComms()?.pause()
             throw new Error(`could not start device, reason:${err.message}`)
 
         }
     }
 
     async stop(): Promise<boolean> { 
-        this.logger.logEvent({message: 'stop requested', protocol:this.getProtocolName()})
+        this.logger.logEvent( {message:'stopping device', device:this.getName()})
         this.device.reset();
+        this.device.off('data',this.onDeviceDataHandler)
         const stopped =this.device.disconnect();        
         if (stopped) {
             this.stopped = true;

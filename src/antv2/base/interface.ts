@@ -229,16 +229,18 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
                     }
                 }
             }
+            const onData = this.onData.bind(this)
+            const onError = this.onError.bind(this)
 
             const addListeners = (channel) => {
                 channel.on('detected', onDetected)
-                channel.on('data',this.onData.bind(this))
-                channel.on('error',this.onError.bind(this))   
+                channel.on('data',onData)
+                channel.on('error',onError)   
             }
             const removeListeners = (channel) => {
                 channel.off('detected',onDetected)
-                channel.off('data',this.onData.bind(this))
-                channel.off('error',this.onError.bind(this))                
+                channel.off('data',onData)
+                channel.off('error',onError)                
             }
 
             await this.scannerWaitForConnection()
@@ -329,8 +331,10 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
     async stopScan():Promise<boolean> {
         this.logEvent({message:'stopping scan ..'})
 
-        if (!this.isScanning())
+        if (!this.isScanning()) {
+            this.logEvent({message:'stopping scan done ..'})            
             return true;
+        }
         
         return new Promise<boolean>( done => {
 
