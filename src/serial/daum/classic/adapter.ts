@@ -140,8 +140,10 @@ export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings
                     await this.verifyConnection()
                 }
                 
-                if (!wasPaused)
+                if (!wasPaused && !startState.reset) {
                     await this.getComms().resetDevice();
+                    startState.reset = true;
+                }
 
                 if ( !wasPaused && !startState.setProg) {
                     await this.getComms().setProg(0);
