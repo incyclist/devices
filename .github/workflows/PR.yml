@@ -5,10 +5,10 @@ name: Commit and PR
 
 on:
   push: 
-    branches-ignore:
-      - master
+    branches:
+      - '**'
     tags-ignore:
-      - v*
+      - '**'
     paths-ignore:
       - 'README.MD'
       - '.github/**'
