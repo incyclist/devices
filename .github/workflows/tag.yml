@@ -1,0 +1,16 @@
+name: Release
+
+on:
+  push: 
+    tags:
+      - '**'
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      echo "Creating a new Release ..."
