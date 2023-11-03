@@ -8,7 +8,11 @@ on:
     branches-ignore:
       - master
     tags-ignore:
-      - '**'
+      - v*
+    paths-ignore:
+      - 'README.MD'
+      - '.github/**'
+
   pull_request:
     branches: [ master ]
     paths-ignore:
