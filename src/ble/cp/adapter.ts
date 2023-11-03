@@ -108,5 +108,16 @@ export default class PwrAdapter extends BleAdapter<PowerData,BleCyclingPowerDevi
 
     }
 
+    // just implemented based on the assumption, that the lack was somehow causing a crash ("Method not implemented")
+    sendUpdate(request: any): void {
+        try {
+            super.sendUpdate(request)
+        }
+        catch(err) {
+            this.logEvent({message:'Error',fn:'sendUpdate',error:err.message })
+        }
+        
+    }
+
 }
 
