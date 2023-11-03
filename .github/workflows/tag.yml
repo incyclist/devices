@@ -13,4 +13,7 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      echo "Creating a new Release ..."
+    - uses: actions/checkout@v3
+    - run: echo "Creating a new Release ..."
+
+      
