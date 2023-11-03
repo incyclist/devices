@@ -136,31 +136,37 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     }
 
     onDeviceData(deviceData:TDeviceData) {
-        this.dataMsgCount++;
-        this.lastDataTS = Date.now();
-
-        this.deviceData = Object.assign( {},deviceData);        
+        try {
+            this.dataMsgCount++;
+            this.lastDataTS = Date.now();
     
-        if (!this.started ||!this.canEmitData())
-            return;       
-
-        this.logEvent( {message:'onDeviceData',data:deviceData, isControllable:this.isControllable()})        
-
-        if (this.isControllable()) {
-            
-            // transform data into internal structure of Cycling Modes
-            const mappedData = this.mapData(deviceData) as IncyclistBikeData       
-            
-            // let cycling mode process the data
-            const incyclistData = this.getCyclingMode().updateData(mappedData);                               
-
-            // transform data into structure expected by the application
-            this.data =  this.transformData(incyclistData);                  
+            this.deviceData = Object.assign( {},deviceData);        
+        
+            if (!this.canEmitData())
+                return;       
+    
+            this.logEvent( {message:'onDeviceData',data:deviceData, isControllable:this.isControllable()})        
+    
+            if (this.isControllable()) {
+                
+                // transform data into internal structure of Cycling Modes
+                const mappedData = this.mapData(deviceData) as IncyclistBikeData       
+                
+                // let cycling mode process the data
+                const incyclistData = this.getCyclingMode().updateData(mappedData);                               
+    
+                // transform data into structure expected by the application
+                this.data =  this.transformData(incyclistData);                  
+            }
+            else {
+                this.data =  this.mapData(this.deviceData)
+            }
+            this.emitData(this.data)
+    
         }
-        else {
-            this.data =  this.mapData(this.deviceData)
+        catch(err) {
+            this.logEvent({message:'Error',fn:'onDeviceData', error:err.message})
         }
-        this.emitData(this.data)
    
     }
 
@@ -266,6 +272,10 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         const res = await super.resume()    
         this.getComms()?.resume()
         return res;
+    }
+
+    update(): void {
+        // not required for BLE
     }
 
 
