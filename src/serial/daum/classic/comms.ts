@@ -11,7 +11,7 @@ import { DeviceType,IncyclistBikeData,User } from '../../../types'
 const ByteLength = require('@serialport/parser-byte-length')
 
 
-const TIMEOUT_SEND  = 5000;    // 5s
+const TIMEOUT_SEND  = 1000;    // 1s
 
 export default class Daum8008 extends SerialPortComms<DaumClassicCommsState,DaumClassicRequest, DaumClassicResponse > implements DaumSerialComms{
 
