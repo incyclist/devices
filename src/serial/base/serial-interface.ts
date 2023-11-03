@@ -260,7 +260,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
 
             if (attemptNo===0)
                 this.logEvent({message:'checking for ports',interface:this.ifaceName, port, excludes:this.inUse})
-            else 
+            //else 
                 //this.logEvent({message:'checking for ports retry',interface:this.ifaceName, retry: attemptNo})
 
             attemptNo++;
