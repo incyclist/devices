@@ -55,7 +55,7 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         }
 
         this.capabilities = [ 
-            IncyclistCapability.Power, IncyclistCapability.Speed, IncyclistCapability.Cadence, IncyclistCapability.Gear,IncyclistCapability.HeartRate, 
+            IncyclistCapability.Power, IncyclistCapability.Speed, IncyclistCapability.Cadence, IncyclistCapability.HeartRate, 
             IncyclistCapability.Control
         ]
        

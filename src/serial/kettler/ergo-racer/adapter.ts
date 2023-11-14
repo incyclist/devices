@@ -60,7 +60,7 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceP
         this.iv = null;
         this.comms = new SerialComms<KettlerRacerCommand>({ interface:settings.interface, port: settings.port, logger:this.logger});
         this.capabilities = [ 
-            IncyclistCapability.Power, IncyclistCapability.Speed, IncyclistCapability.Cadence, IncyclistCapability.Gear,IncyclistCapability.HeartRate, 
+            IncyclistCapability.Power, IncyclistCapability.Speed, IncyclistCapability.Cadence, IncyclistCapability.HeartRate, 
             IncyclistCapability.Control
         ]
 

@@ -56,7 +56,7 @@ export class Simulator extends IncyclistDevice<SimulatorProperties> {
         this.setCyclingMode(name,modeSettings);
 
         this.capabilities = [ 
-            IncyclistCapability.Power, IncyclistCapability.Speed, IncyclistCapability.Cadence, IncyclistCapability.Gear,
+            IncyclistCapability.Power, IncyclistCapability.Speed, IncyclistCapability.Cadence, 
             IncyclistCapability.Control,IncyclistCapability.HeartRate
         ]
 
