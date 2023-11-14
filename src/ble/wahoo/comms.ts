@@ -1,7 +1,7 @@
 import { BleWahooComms } from ".";
 import { LegacyProfile } from "../../antv2/types";
 import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/consts";
-import { CSP, CSP_MEASUREMENT, FTMS_CP, FTMS_STATUS, HR_MEASUREMENT, INDOOR_BIKE_DATA, WAHOO_ADVANCED_TRAINER_CP, WAHOO_ADVANCED_TRAINER_CP_FULL } from "../consts";
+import { CSP, CSP_MEASUREMENT, FTMS_CP, FTMS_FEATURE, FTMS_STATUS, HR_MEASUREMENT, INDOOR_BIKE_DATA, POWER_RANGE, RES_LEVEL_RANGE, WAHOO_ADVANCED_TRAINER_CP, WAHOO_ADVANCED_TRAINER_CP_FULL } from "../consts";
 import { CrankData } from "../cp";
 import { IndoorBikeData } from "../fm";
 import BleFitnessMachineDevice from "../fm/comms";
@@ -24,10 +24,12 @@ export const enum OpCode   {
 
 const ErgWriteDelay = 2000 //ms
 
+
+
 export default class BleWahooDevice extends BleFitnessMachineDevice {
     static protocol: BleProtocol = 'wahoo'
     static services =  [CSP];
-    static characteristics =  [ '2acc', '2ad2', '2ad6', '2ad8', '2ad9', '2ada', WAHOO_ADVANCED_TRAINER_CP];
+    static characteristics =  [  FTMS_FEATURE, INDOOR_BIKE_DATA, RES_LEVEL_RANGE, POWER_RANGE, FTMS_CP, FTMS_STATUS, WAHOO_ADVANCED_TRAINER_CP];
     static detectionPriority = 5;
 
     prevCrankData: CrankData = undefined

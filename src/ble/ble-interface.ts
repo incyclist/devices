@@ -536,6 +536,9 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
         opStr = 'search device';
         this.logEvent({message:'search device request',request});
 
+        const wasLoggingPaused = this.loggingPaused
+        this.resumeLogging()
+
 
         // if scan is already in progress, wait until previous scan is finished 
         if ( this.scanState.isScanning) {
@@ -563,6 +566,9 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
                 this.logEvent({message:`${opStr} result: timeout`, request});
                 ble.removeAllListeners('discover');
                 this.logEvent({message:`${opStr}: stop scanning`, request})
+
+                if (wasLoggingPaused)
+                    this.pauseLogging()
                 ble.stopScanning ( ()=> {
                     this.scanState.isScanning = false;                    
 
@@ -605,7 +611,9 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
                                 this.scanState.timeout= null;
                             }
                             this.logEvent({message:`${opStr}: stop scanning`, request })
-            
+                            if (wasLoggingPaused)
+                                this.pauseLogging()
+                    
                             ble.stopScanning ( ()=> {
                                 ble.removeAllListeners('discover');
                                 this.scanState.isScanning = false;
@@ -638,8 +646,9 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
     }
 
     async scan( props:BleScanProps={}) : Promise<BleDeviceSettings[]> {
-        this.resumeLogging()
+
         this.logEvent({message:'starting scan ..'})
+        this.resumeLogging()
 
         const {timeout, protocol,protocols } = props;
 
