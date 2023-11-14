@@ -14,6 +14,7 @@ import { SinglePathScanner } from "./serial-scanner";
 
 
 const DEFAULT_SCAN_TIMEOUT = 10000;
+const MAX_PARALLEL_SCANS = 5;
 
 export default class SerialInterface  extends EventEmitter implements IncyclistInterface { 
 
@@ -272,6 +273,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
                 }
                 else {
                     paths = await binding.list() || []
+                    
                 }
     
             }
@@ -279,6 +281,9 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
                 this.logEvent({message:'error',fn:'scan#detect ports', error:err.message, interface:this.ifaceName, port, excludes:this.inUse})
             }
             paths = paths.filter( p => !this.inUse.includes(p.path))
+
+
+            
 
 
             if ( (!paths || paths.length===0) && attemptNo===1 ) {
@@ -303,8 +308,13 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
         
         this.logEvent({message:'scanning on ',interface:this.ifaceName, paths:paths.map(p=>p.path).join(','),timeout})
 
+        let listReduced = false;
+        if (paths.length>MAX_PARALLEL_SCANS) {
+            paths = paths.filter ( (p,idx) => idx<MAX_PARALLEL_SCANS)
+        }
 
         const scanners: SinglePathScanner[] = paths.map( p=> new SinglePathScanner(p.path, this,{...props,logger:this.logger}))
+
 
         try {
             await Promise.all( scanners.map( s =>  
@@ -330,10 +340,15 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
         catch (err) {
             this.logEvent({message:'error', fn:'scan()',error:err.message||err, stack:err.stack})
         }
+
         if (this.toScan) {
             clearTimeout(this.toScan)
             this.toScan = null;
         }
+        if (listReduced) {
+            paths.forEach( p => this.inUse.push(p.path))
+        }
+        
         this.isScanning = false
 
 

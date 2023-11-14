@@ -58,6 +58,7 @@ export class SinglePathScanner {
             this.serial.scanEvents.on('timeout', () => this.onStopRequest(resolve));
             this.serial.scanEvents.on('stop', () => this.onStopRequest(resolve));
 
+            
             let found = false;
             while (!found && this.isScanning) {
                 try {
@@ -75,19 +76,23 @@ export class SinglePathScanner {
                     const adapterSettings = { interface: this.serial.getName(), host, port, protocol };
 
                     const adapter = SerialAdapterFactory.getInstance().createInstance(adapterSettings);
+                    await sleep(1000);
+                    if (this.isScanning) {
 
-                    found = await adapter?.check();
-                    if (found) {
-                        this.isFound = true;
-                        const name = adapter.getName();
-                        resolve({ ...adapterSettings, name });
+                        found = await adapter?.check();
+                        if (found) {
+                            this.isFound = true;
+                            const name = adapter.getName();
+                            resolve({ ...adapterSettings, name });
+                        }
+                        await adapter.close()
                     }
-                    await sleep(100);
+                        
                 }
                 catch (err) {
                     /* ignore*/
                     this.logEvent({ message: 'error', fn: 'scan()', error: err.message || err, stack: err.stack });
-                    await sleep(100);
+                    await sleep(2000);
                 }
 
             }
