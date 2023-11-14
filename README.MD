@@ -8,6 +8,9 @@ __ANT__
 - Smart Trainers (ANT+ FE)
 - Power Meters (ANT+PWR)
 - Heartrate Monitors (ANT+HR)
+- Cadence Sensors (ANT+CAD)
+- Speed Sensors (ANT+SPD)
+- Speed + Cadence Sensors (ANT+SC)
 
 __BLE__
 - Smart Trainers (BLE FTMS)

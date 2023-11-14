@@ -74,16 +74,24 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
         if (this.isDebugEnabled()) {
             this.ant.setLogger(this as unknown as EventLogger)
         }
+        if (this.getStaticCapabilities() )
+            this.capabilities = this.getStaticCapabilities() 
     }
 
     getProfileName():Profile  {
-        const C = this.constructor as typeof AntAdapter<TDeviceData>
-        return C['ANT_PROFILE_NAME']
+        const C = this.constructor as typeof AntAdapter<TDeviceData>     
+            
+        return this.sensor?.getProfile() || C['ANT_PROFILE_NAME']
     }
 
     getLegacyProfileName():LegacyProfile {
         const C = this.constructor as typeof AntAdapter<TDeviceData>
         return C['INCYCLIST_PROFILE_NAME']
+    }
+
+    protected getStaticCapabilities():Array<IncyclistCapability> {
+        const C = this.constructor as typeof AntAdapter<TDeviceData>
+        return C['CAPABILITIES']
     }
 
 
@@ -265,7 +273,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
         if (this.settings.name)
             return this.settings.name
         const deviceID = this.getID()
-        const profile  = this.sensor?.getProfile();
+        const profile  = this.getProfileName()
 
         return `Ant+${profile} ${deviceID}`;
     }
