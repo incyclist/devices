@@ -3,10 +3,12 @@
 import AntPwrAdapter from "./pwr";
 import AntFEAdapter from "./fe";
 import AntHrAdapter from "./hr";
-import AntCADAdapter from "./cad";
+import AntCadAdapter from "./cad";
 import AntAdapterFactory from "./factories/adapter-factory";
 import AntInterface from "./base/interface";
 import { AntInterfaceProps } from "./types";
+import AntSpdAdapter from "./spd";
+import AntScAdapter from "./sc";
 
 export { AntDeviceSettings,AntDeviceProperties,AntScanProps } from "./types";
 
@@ -14,10 +16,12 @@ const af = AntAdapterFactory.getInstance()
 af.register('PWR', 'Power Meter', AntPwrAdapter)
 af.register('HR', 'Heartrate Monitor', AntHrAdapter )
 af.register('FE', 'Smart Trainer', AntFEAdapter)
-af.register('CAD', 'Cadence Sensor', AntCADAdapter)
+af.register('CAD', 'Cadence Sensor', AntCadAdapter)
+af.register('SPD', 'Speed Sensor', AntSpdAdapter)
+af.register('SC', 'Speed + Cadence Sensor', AntScAdapter)
 
 export {
-    AntAdapterFactory,AntFEAdapter,AntHrAdapter,AntPwrAdapter,
+    AntAdapterFactory,AntFEAdapter,AntHrAdapter,AntPwrAdapter,AntScAdapter,AntSpdAdapter,AntCadAdapter,
     
     AntInterface,AntInterfaceProps
 }
