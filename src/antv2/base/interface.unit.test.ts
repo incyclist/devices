@@ -369,6 +369,7 @@ describe('Ant Interface',()=>{
             i.isConnected = jest.fn().mockResolvedValue(true)
 
             channel = new EventEmitter() as Channel
+            channel.getChannelNo=jest.fn().mockReturnValue(0)
             channel.attach = jest.fn()
             channel.setProps = jest.fn()
             channel.startScanner = jest.fn().mockResolvedValue(true)
@@ -440,6 +441,7 @@ describe('Ant Interface',()=>{
             jest.spyOn(i,'emit')
 
             channel = new EventEmitter() as Channel
+            channel.getChannelNo = jest.fn().mockReturnValue(0)
             channel.attach = jest.fn()
             channel.setProps = jest.fn()
             channel.startSensor = jest.fn().mockResolvedValue(true)
