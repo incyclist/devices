@@ -7,6 +7,12 @@ import AntDeviceBinding from "./binding";
 import SensorFactory from "../factories/sensor-factory";
 import { isTrue, sleep, waitWithTimeout } from "../../utils/utils";
 
+type ChannelUsage = 'scan'|'sensor'
+interface ChannelInfo  {
+    channel: Channel
+    usage: ChannelUsage
+}
+
 export default class AntInterface   extends EventEmitter implements IncyclistInterface {
 
     // statics
@@ -34,6 +40,7 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
     protected activeScan: { emitter:EventEmitter, channel?: IChannel}
     protected props: AntInterfaceProps
     protected logEnabled: boolean
+    protected channelsInUse: Array<ChannelInfo> 
     
 
     constructor(props:AntInterfaceProps) {  
@@ -43,7 +50,7 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         this.device = undefined;
         this.connected = false
         this.connectPromise = null
-        
+        this.channelsInUse = [];
         this.logEnabled = props.log||true
         const {binding, logger} = props;
 
@@ -142,20 +149,41 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
     async disconnect():Promise<boolean> {
         
         this.logEvent({message:'ANT+ disconnecting ...'})
-
         let closed = false;
-        if (this.device) {
-            try {
-                closed = await this.device.close();
-            }
-            catch {
-                closed = false
-            }
-        }
-        else {
-            closed = true
-        }
 
+        try {
+            let promises = []
+            if (this.channelsInUse.length>0) {
+                this.channelsInUse.forEach(c=>{
+                    if (c.usage==='scan')
+                        promises.push(this.stopScan())
+                    else 
+                        promises.push(c.channel.stopAllSensors())
+                })
+    
+                await Promise.allSettled( promises)
+
+                await sleep(200);
+    
+            }
+     
+            if (this.device) {
+                try {
+                    closed = await this.device.close();
+                }
+                catch {
+                    closed = false
+                }
+            }
+            else {
+                closed = true
+            }
+    
+    
+        }
+        catch(err) {
+            this.logEvent( {message:'Error', fn:'', error:err.message, stack:err.stack})
+        }
         this.logEvent({message:'ANT+ disconnected'})
 
         this.connectPromise = null;
@@ -265,10 +293,12 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
             
             try {
                 const success = await channel.startScanner()
+                this.blockChannel(channel,'scan')
                 this.logEvent({message:'scan started',success})
             }
             catch( err) {
                 this.logEvent({message:'scan could not be started',error:err.message, stack:err.stack})    
+                this.unblockChannel(channel)
                 removeListeners(channel)
                 return done(detected)
             }
@@ -335,12 +365,16 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
             this.logEvent({message:'stopping scan done ..'})            
             return true;
         }
+
+        const channel = this.activeScan.channel
         
         return new Promise<boolean>( done => {
 
             this.activeScan.emitter.emit('stop')
             this.once('scan stopped',(res)=>{
                 this.logEvent({message:'stopping scan done ..'})
+                this.unblockChannel(channel)
+
                 done(res)
             })
         })
@@ -359,6 +393,8 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         if (!channel)
             return false
 
+        this.blockChannel(channel,'sensor'); 
+    
         channel.setProps({logger:this.logger})
         const onData = (profile,deviceID,data,tag)=>{
             if (profile===sensor.getProfile() && deviceID===sensor.getDeviceID())
@@ -382,12 +418,22 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
             this.logEvent( {message:'could not start sensor', error:err.message, stack:err.stack})
             channel.off('data',onData)
             try {
-                await channel.stopSensor(sensor)
+                await channel.stopSensor(sensor)                
             }
             catch{}
-
+            this.unblockChannel(channel);
             return false;
         }
+    }
+
+    private blockChannel(channel: any,usage:ChannelUsage) {
+        this.channelsInUse.push({ channel:channel as Channel, usage});
+    }
+
+    private unblockChannel(channel: any) {
+        const idx = this.channelsInUse.findIndex(c => c.channel?.getChannelNo() === channel.getChannelNo());
+        if (idx!==-1)
+            this.channelsInUse.splice(idx, 1);
     }
 
     async stopSensor(sensor:ISensor): Promise<boolean> {
@@ -415,6 +461,7 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
                 channel.removeAllListeners('data')
                 
                 const stopped = await channel.stopSensor(sensor)
+                this.unblockChannel(channel)
                 return stopped
             }
             catch(err) {
