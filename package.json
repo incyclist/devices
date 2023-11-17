@@ -11,7 +11,7 @@
     "win32filetime": "^1.0.2"
   },
   "peerDependencies": {
-    "gd-eventlog": "^0.1.24"
+    "gd-eventlog": "^0.1.26"
   },
   "devDependencies": {
     "@serialport/binding-mock": "^10.2.2",
