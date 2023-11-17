@@ -123,6 +123,7 @@ export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings
         
 
         this.setBikeProps(props)
+        this.getComms().resumeLogging()
 
         const user: User = this.getUser()
         const {gear=DEFAULT_GEAR} = props
