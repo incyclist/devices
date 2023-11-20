@@ -11,13 +11,14 @@ import { DeviceType,IncyclistBikeData,User } from '../../../types'
 const ByteLength = require('@serialport/parser-byte-length')
 
 
-const TIMEOUT_SEND  = 1000;    // 1s
+const TIMEOUT_SEND  = 2000;    // 1s
 
 export default class Daum8008 extends SerialPortComms<DaumClassicCommsState,DaumClassicRequest, DaumClassicResponse > implements DaumSerialComms{
 
     protected bikeNo:number;
     protected prevFailedPayload;
     protected expected
+    protected wasPrevCmdError: boolean
 
     constructor( props: SerialCommProps) {
         super(props)
@@ -42,7 +43,12 @@ export default class Daum8008 extends SerialPortComms<DaumClassicCommsState,Daum
         return TIMEOUT_SEND
     }
 
-    async initForResponse(expected) {    
+    async initForResponse(expected) { 
+        
+        if (this.wasPrevCmdError) {
+            await this.portRead()  
+            this.wasPrevCmdError = false;
+        }          
         
         this.expected = expected
         /*
@@ -154,6 +160,7 @@ export default class Daum8008 extends SerialPortComms<DaumClassicCommsState,Daum
                 this.logEvent({message:"sendCommand:error:",...logPayload,error:err.message});
                 this.sendCmdPromise = null;
                 this.prevFailedPayload = payload
+                this.wasPrevCmdError = true
                 reject(err)
             }          
     
