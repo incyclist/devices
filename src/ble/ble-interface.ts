@@ -196,8 +196,6 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
     }
 
     async connect(to?:number): Promise<boolean> {
-        try { throw new Error() } catch(err) {console.log('~~~ DEBUG:Connect BLE', err.stack)}
-
         if ( this.connectState.isConnected) {
             return true;
         }
