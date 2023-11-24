@@ -686,7 +686,7 @@ describe( 'DaumAdapter', ()=>{
         })
 
         test('already connected',async ()=>{
-            a.comms = { isConnected:jest.fn().mockReturnValue(true),close:jest.fn().mockResolvedValue(true), connect:jest.fn().mockResolvedValue(true)}
+            a.comms = { isConnected:jest.fn().mockReturnValue(true),close:jest.fn().mockResolvedValue(true), connect:jest.fn().mockResolvedValue(true),getPort:jest.fn().mockReturnValue('COM1')}
             const res = await a.reconnect()
             expect(res).toBe(true)
             expect(a.comms.close).toHaveBeenCalled()
@@ -695,7 +695,7 @@ describe( 'DaumAdapter', ()=>{
         })
 
         test('not yet connected',async ()=>{
-            a.comms = { isConnected:jest.fn().mockReturnValue(false),close:jest.fn().mockResolvedValue(true), connect:jest.fn().mockResolvedValue(true)}
+            a.comms = { isConnected:jest.fn().mockReturnValue(false),close:jest.fn().mockResolvedValue(true), connect:jest.fn().mockResolvedValue(true),getPort:jest.fn().mockReturnValue('COM1')}
             const res = await a.reconnect()
             expect(res).toBe(true)
             expect(a.comms.close).toHaveBeenCalled()
@@ -703,13 +703,13 @@ describe( 'DaumAdapter', ()=>{
         })
 
         test('close throws error',async ()=>{
-            a.comms = { close:jest.fn().mockRejectedValue( new Error('XXX')), connect:jest.fn().mockResolvedValue(true)}
+            a.comms = { close:jest.fn().mockRejectedValue( new Error('XXX')), connect:jest.fn().mockResolvedValue(true),getPort:jest.fn().mockReturnValue('COM1')}
             const res = await a.reconnect()
             expect(res).toBe(false)            
         })
 
         test('connect throws error',async ()=>{
-            a.comms = { close:jest.fn().mockResolvedValue(true), connect:jest.fn().mockRejectedValue( new Error('XXX'))}
+            a.comms = { close:jest.fn().mockResolvedValue(true), connect:jest.fn().mockRejectedValue( new Error('XXX')),getPort:jest.fn().mockReturnValue('COM1')}
             const res = await a.reconnect()
             expect(res).toBe(false)            
         })
@@ -723,7 +723,10 @@ describe( 'DaumAdapter', ()=>{
             a.logEvent = jest.fn()
             a.resume = jest.fn()
             a.stopUpdatePull = jest.fn()
-            a.comms = {close:jest.fn().mockResolvedValue(true)}
+            a.comms = {
+                close:jest.fn().mockResolvedValue(true),
+                getPort:jest.fn().mockReturnValue('COM1')
+            }
         })
 
         afterEach( ()=>{
@@ -752,7 +755,7 @@ describe( 'DaumAdapter', ()=>{
 
 
         test('close throws error',async ()=>{
-            a.comms = { close:jest.fn().mockRejectedValue( new Error('XXX'))}
+            a.comms = { close:jest.fn().mockRejectedValue( new Error('XXX')),getPort:jest.fn().mockReturnValue('COM1')}
 
             await expect( async () => {await a.stop()}).rejects.toThrow()
 
