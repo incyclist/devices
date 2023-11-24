@@ -8,9 +8,6 @@ import { DaumSerialComms,ResponseTimeout } from '../types'
 import { SerialCommProps } from '../../types'
 import { DeviceType,IncyclistBikeData,User } from '../../../types'
 
-const ByteLength = require('@serialport/parser-byte-length')
-
-
 const TIMEOUT_SEND  = 2000;    // 1s
 
 export default class Daum8008 extends SerialPortComms<DaumClassicCommsState,DaumClassicRequest, DaumClassicResponse > implements DaumSerialComms{
@@ -51,23 +48,6 @@ export default class Daum8008 extends SerialPortComms<DaumClassicCommsState,Daum
         }          
         
         this.expected = expected
-        /*
-        const parser = this.portPipe(new ByteLength({length: expected}))
-        if (!parser)
-            return;
-
-        const onDataHandler = (data:Uint8Array) => {
-            if (data.length<expected) {
-                this.logEvent({message:'Partial response', data:Buffer.from(data).toString('hex')})
-                return;
-            }
-            this.portUnpipe();
-            parser.off('data',onDataHandler)
-            this.recvState.data.enqueue({type:'Response',data})
-        }            
-
-        parser.on('data', onDataHandler)
-        */
     }
 
     async waitForResponse():Promise<DaumClassicResponse> {
@@ -85,24 +65,7 @@ export default class Daum8008 extends SerialPortComms<DaumClassicCommsState,Daum
                 await sleep(5)                
             }
             throw new ResponseTimeout()
-
-        
-        /*
-        const timeout = this.getTimeoutValue()
-        let waitingForResponse = true;
-        let start = Date.now()
-        let tsTimeout = start+timeout
-
-        while( waitingForResponse && Date.now()<tsTimeout) {
-            const response = this.recvState.data.dequeue()
-            if (response) {
-                return response
-            }
-            await sleep(5)
-            
-        }
-        throw new ResponseTimeout()
-        */
+       
     }
 
     async doSend(expected:number, payload:Uint8Array):Promise<DaumClassicResponse> {
@@ -113,12 +76,6 @@ export default class Daum8008 extends SerialPortComms<DaumClassicCommsState,Daum
 
         if(response.type==='Error')
             throw response.error
-
-        /*
-        if (this.prevFailedPayload && this.prevFailedPayload[0]!==payload[0] && response.data[0]===this.prevFailedPayload[0]) {
-            response = await this.waitForResponse()
-        }
-        */
 
         if ( response.data[0]!==payload[0] ) {
             this.portFlush();
