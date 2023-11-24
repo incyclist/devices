@@ -123,13 +123,8 @@ export default class SerialPortComms<T extends CommsState, C extends Request, R 
 
     }
 
+    async waitForAnyOpenConnectionAttempt() {
 
-    async connect():Promise<boolean> {
-        if ( this.isConnected()  && this.sp) {            
-            return true;
-        }
-
-        // already connecting?, wait until previous connection is finished
         if (this.connectState === 'Connecting') {
             if (this.connectPromise)  {
                 try {
@@ -141,6 +136,19 @@ export default class SerialPortComms<T extends CommsState, C extends Request, R 
             }
             return this.isConnected()
         }
+        return null;
+    }
+
+
+    async connect():Promise<boolean> {
+        if ( this.isConnected()  && this.sp) {            
+            return true;
+        }
+
+        // already connecting?, wait until previous connection is finished
+        const connectResult = await this.waitForAnyOpenConnectionAttempt()
+        if (connectResult!==null)
+            return connectResult
 
     
         try {
@@ -326,7 +334,6 @@ export default class SerialPortComms<T extends CommsState, C extends Request, R 
     async portWrite(buffer:Buffer):Promise<void> {        
 
         if (!this.sp) {
-            this.logEvent({message:'write failed', error:'port is not opened'})
             return;
         }
 
@@ -340,7 +347,6 @@ export default class SerialPortComms<T extends CommsState, C extends Request, R 
 
     async portRead(size?:number) { 
         if (!this.sp) {
-            this.logEvent({message:'write failed', error:'port is not opened'})
             return;
         }
 
@@ -348,6 +354,12 @@ export default class SerialPortComms<T extends CommsState, C extends Request, R 
     }
 
     async write(buffer:Buffer):Promise<void> {
+
+        
+        // connection stil busy?
+        await this.waitForAnyOpenConnectionAttempt()
+        if (!this.isConnected()) 
+            return 
 
         // previous write still busy? wait for it to finish
         if (this.writePromise) {

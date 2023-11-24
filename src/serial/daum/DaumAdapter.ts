@@ -403,18 +403,18 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         if (this.stopped)
             return true;
 
-        this.logEvent({message:'stop request'});        
+        this.logEvent({message:'stop request', port:this.getPort()});        
         if (this.paused)
             this.resume()
 
         try {
             await this.stopUpdatePull()
             await this.comms.close()
-            this.logEvent({message:'stop request completed'});        
+            this.logEvent({message:'stop request completed', port:this.getPort()});        
             this.stopped = true;
         }
         catch (err) {
-            this.logEvent({message:'stop request failed',reason:err.message});                        
+            this.logEvent({message:'stop request failed', port:this.getPort(),reason:err.message});                        
             throw(err)
         }
 
@@ -427,7 +427,7 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         if( this.paused || this.stopped)
             return;
         
-        this.logEvent({message:'sendUpdate',request,waiting:this.requests.length});    
+        this.logEvent({message:'sendUpdate', port:this.getPort(),request,waiting:this.requests.length});    
         return await this.processClientRequest(request);
     } 
 
@@ -454,7 +454,7 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         }
         catch(err) {
             try{
-                this.logEvent({message:'bike update error',error:err.message,stack:err.stack })
+                this.logEvent({message:'bike update error', port:this.getPort(),error:err.message,stack:err.stack })
 
                 // use previous values
                 const incyclistData =this.updateData( this.deviceData)
@@ -481,7 +481,7 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
             if (cnt>1) {
                 this.requests.forEach( (request,idx) => {
                     if (idx!==cnt-1) {
-                        this.logEvent({message:'ignoring bike update request',request})
+                        this.logEvent({message:'ignoring bike update request', port:this.getPort(),request})
                     }
                 })
                 this.requests = [this.requests[cnt-1]]
@@ -496,7 +496,7 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
 
             }
             catch (err) {
-                this.logEvent({message:'bike update error',error:err.message,stack:err.stack,request})
+                this.logEvent({message:'bike update error', port:this.getPort(),error:err.message,stack:err.stack,request})
             }
             
         }    
