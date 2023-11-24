@@ -29,6 +29,7 @@ export interface ConnectState {
     isConnected: boolean;
     timeout?: NodeJS.Timeout;
     isInitSuccess: boolean;
+    connectPromise?:Promise<boolean>
 }
 
 
@@ -194,19 +195,27 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
         this.logEvent({message:'error', error:err.message, stack:err.stack});
     }
 
-    connect(to?:number): Promise<boolean> {
+    async connect(to?:number): Promise<boolean> {
+        try { throw new Error() } catch(err) {console.log('~~~ DEBUG:Connect BLE', err.stack)}
+
+        if ( this.connectState.isConnected) {
+            return true;
+        }
+
+        if ( this.connectState.isConnecting) {
+            return await this.connectState.connectPromise
+        }
+
+
         this.resumeLogging()
         const timeout = this.props.timeout || to  || 2000;
 
 
-        return new Promise((resolve, reject) => {
-            if ( this.connectState.isConnected) {
-                return resolve(true);
-            }
-            this.logEvent({message:'Ble connect request',});
+        const connect = new Promise<boolean> ((resolve, reject) => {
+            this.logEvent({message:'Ble connect request'});
             
             if ( !this.getBinding()) 
-                return Promise.reject(new Error('no binding defined')) 
+                return reject(new Error('no binding defined')) 
 
                 
             this.connectState.timeout = setTimeout( ()=>{
@@ -230,7 +239,7 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
 
                     this.connectState.isConnected = true;
                     this.connectState.isConnecting = false;
-                    this.logEvent({message:'connect result: success'});
+                    this.logEvent({message:'connect result: already connected'});
                     resolve(true);
                     return;
                     
@@ -284,6 +293,30 @@ export default class BleInterface  extends EventEmitter implements IncyclistInte
 
 
         })            
+
+        const cleanup = ()=> {
+            if (this.connectState.timeout) {
+                clearTimeout(this.connectState.timeout)
+                this.connectState.timeout = null
+            }
+
+            this.connectState.isConnecting=false;
+            delete this.connectState.connectPromise
+        }
+        
+        this.connectState.isConnecting=true;
+        this.connectState.connectPromise = connect
+        try {
+            const connected  = await connect
+            cleanup()
+            return connected
+        }
+        catch(err) {
+            cleanup()
+            throw err
+        }
+
+        
     }
 
     async disconnect(): Promise<boolean> {
