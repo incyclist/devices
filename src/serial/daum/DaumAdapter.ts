@@ -459,10 +459,9 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         catch(err) {
             try{
                 this.logEvent({message:'bike update error', port:this.getPort(),error:err.message,stack:err.stack })
-
                 // use previous values
                 const incyclistData =this.updateData( this.deviceData)
-                this.transformData(incyclistData);
+                this.transformData(incyclistData, false);
             }
             catch{}
 
@@ -537,7 +536,7 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
     }
 
 
-    transformData(cyclingData:IncyclistBikeData ): IncyclistAdapterData {
+    transformData(cyclingData:IncyclistBikeData,fromBike=true ): IncyclistAdapterData {
    
         let distance=0;
         if ( this.distanceInternal!==undefined && cyclingData.distanceInternal!==undefined ) {
@@ -554,12 +553,12 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
             cadence: intVal(cyclingData.pedalRpm),
             heartrate: intVal(cyclingData.heartrate),
             distance,
-            timestamp: Date.now(),
             deviceTime: cyclingData.time,
             deviceDistanceCounter: cyclingData.distanceInternal
         } as IncyclistAdapterData;
 
-
+        
+        data.timestamp = fromBike ? Date.now() : this.data.timestamp
         this.data = data;
         return data
     }
