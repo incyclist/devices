@@ -399,7 +399,9 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceP
     }
 
     // start a training session
-    async start(props?: any): Promise<boolean> {
+    async start(startProps?: any): Promise<boolean> {
+        const props = this.getStartProps(startProps)
+
         this.logEvent({message:'start()'});        
         
         var info = {} as any

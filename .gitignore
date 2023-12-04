@@ -37,3 +37,4 @@ typings
 # VS Code settings
 .settings
 .vscode
+nohup.out

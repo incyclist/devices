@@ -52,9 +52,9 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         this.connectPromise = null
         this.channelsInUse = [];
         this.logEnabled = props.log||true
-        const {binding, logger} = props;
+        const {binding} = props;
 
-        this.setLogger(logger || new EventLogger( 'Ant+'))
+        this.setLogger(new EventLogger( 'Ant+'))
         if (binding) {
             this.setBinding(binding)
 

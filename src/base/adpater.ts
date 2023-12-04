@@ -3,6 +3,7 @@ import { DeviceProperties, DeviceSettings,ControllerConfig, IAdapter, OnDeviceDa
 import { EventLogger } from "gd-eventlog";
 import EventEmitter from "events";
 import { DEFAULT_PROPS, DEFAULT_USER_WEIGHT, DEFAULT_BIKE_WEIGHT } from "./consts";
+import { sleep } from "../utils/utils";
 
 export default class IncyclistDevice<P extends DeviceProperties> 
                 extends EventEmitter 
@@ -94,6 +95,18 @@ export default class IncyclistDevice<P extends DeviceProperties>
 
     getInterface(): string {
         return  typeof this.settings.interface==='string' ? this.settings.interface : this.settings.interface.getName()
+    }
+
+    async restart(pause?:number):Promise<boolean> {
+
+        const stopped = await this.stop();
+        if (!stopped)
+            return false;
+
+        if (pause)
+            await sleep(pause)
+
+        return await this.start()
     }
 
     check(): Promise<boolean> {throw new Error("Method not implemented.");}
@@ -313,6 +326,12 @@ export default class IncyclistDevice<P extends DeviceProperties>
 
     getData() {
         return this.data
+    }
+
+    getStartProps(startProps?:P):P {
+        if (startProps)
+            this.props = startProps
+        return startProps||{} as P
     }
 
     //@deprecate  ( use on('data) instead)

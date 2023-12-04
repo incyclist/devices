@@ -210,7 +210,10 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         }
     }
 
-    async start(props?:P):Promise<boolean> {
+    async start(startProps?:P):Promise<boolean> {
+
+        const props = this.getStartProps(startProps)
+
 
         await this.waitForPrevCheckFinished()
         await this.waitForPrevStartFinished()
@@ -227,7 +230,8 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
                 wasPaused = true;
             }
 
-            this.startPromise = this.performStart(props, isRelaunch, wasPaused).then( async (started):Promise<boolean>=>{
+            const p = Object.keys(props).length? props : undefined
+            this.startPromise = this.performStart(p , isRelaunch, wasPaused).then( async (started):Promise<boolean>=>{
                 if (!started) {
                     this.logEvent({message: 'start result: not started'})
                     this.started = false
