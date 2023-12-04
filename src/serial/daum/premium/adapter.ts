@@ -154,6 +154,14 @@ export default class DaumPremiumAdapter extends DaumAdapter<SerialDeviceSettings
         return START_RETRY_TIMEOUT
     }
 
+    async restart(pause?: number): Promise<boolean> {
+        // if we are in "Daum Classic Mode", we can't perform a restart
+        if (this.requiresProgramUpload())
+            return false
+    
+        return await super.restart(pause)
+    }
+
     async performStart(props:DaumPremiumDeviceProperties={},_isRelaunch:boolean=false, wasPaused=false) {
 
         // relaunch argument will be ignored: we will always perform a fresh start, as we might have to upload the route data as part of the start procedure
