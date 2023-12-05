@@ -283,9 +283,13 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
     }
 
     async stop(): Promise<boolean> {
+        if (this.promiseStop)
+            return await this.promiseStop
+
         this.promiseStop = super.stop()
         this.sensorConnected = false;
         const stopped = await this.promiseStop
+        delete this.promiseStop
         return stopped
     }
 

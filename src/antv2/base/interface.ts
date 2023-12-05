@@ -161,7 +161,11 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
                         promises.push(c.channel.stopAllSensors())
                 })
     
-                await Promise.allSettled( promises)
+                
+                await waitWithTimeout(Promise.allSettled( promises), 2000, ()=>{
+                    this.logEvent({message:'ANT+ disconnect timeout'})            
+                })
+
 
                 await sleep(200);
     
@@ -169,7 +173,7 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
      
             if (this.device) {
                 try {
-                    closed = await this.device.close();
+                    closed = await waitWithTimeout(this.device.close(),1000);
                 }
                 catch {
                     closed = false
@@ -184,6 +188,7 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         catch(err) {
             this.logEvent( {message:'Error', fn:'', error:err.message, stack:err.stack})
         }
+
         this.logEvent({message:'ANT+ disconnected'})
 
         this.connectPromise = null;

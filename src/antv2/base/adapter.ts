@@ -546,8 +546,8 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
             this.startStatus.interrupted = true
             await sleep(20)
         }
-        try {
-            stopped = await this.ant.stopSensor(this.sensor)
+        try {            
+            stopped = await runWithTimeout( this.ant.stopSensor(this.sensor),5000);           
         }
         catch(err) {
             this.logEvent({message:'stop sensor failed', reason:err.message})

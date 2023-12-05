@@ -15,7 +15,7 @@ export default class InterfaceFactory {
         switch(ifaceName) {
             case INTERFACE.SERIAL: 
             case INTERFACE.TCPIP:
-                const serialProps = props as SerialInterfaceProps
+                const serialProps = (props||{}) as SerialInterfaceProps
                 serialProps.ifaceName = ifaceName
                 return SerialInterface.getInstance(serialProps)
             case INTERFACE.ANT:
