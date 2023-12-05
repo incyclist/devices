@@ -5,7 +5,7 @@ import { AntDeviceSettings, AntScanProps,AntInterfaceProps  } from "../types";
 import { IncyclistInterface } from "../../types";
 import AntDeviceBinding from "./binding";
 import SensorFactory from "../factories/sensor-factory";
-import { isTrue, sleep, waitWithTimeout } from "../../utils/utils";
+import { isTrue, runWithTimeout, sleep, waitWithTimeout } from "../../utils/utils";
 
 type ChannelUsage = 'scan'|'sensor'
 interface ChannelInfo  {
@@ -173,7 +173,8 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
      
             if (this.device) {
                 try {
-                    closed = await waitWithTimeout(this.device.close(),1000);
+                    
+                    closed = await runWithTimeout(this.device.close(),1000);
                 }
                 catch {
                     closed = false
@@ -187,6 +188,7 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         }
         catch(err) {
             this.logEvent( {message:'Error', fn:'', error:err.message, stack:err.stack})
+            closed = false;
         }
 
         this.logEvent({message:'ANT+ disconnected'})
