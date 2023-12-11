@@ -143,19 +143,20 @@ describe('BLE Pwr Adapter',()=>{
         
     })
 
-    describe.skip('transformData',()=>{
+    describe('transformData',()=>{
         let a: BlePwrAdapter
         beforeEach( ()=>{
             a = new BlePwrAdapter({interface:'ble', protocol:'cp',name:'CP-Mock',address:'44:0d:ec:12:40:61'})
         })
 
+
         test('normal data',()=>{
-            a.transformData({power:100, pedalRpm:90,speed:0, isPedalling:true, time:10})
-            expect(a.getData()).toEqual({power:100, cadence:90, deviceTime:10, timestamp:expect.anything(),})
+            const data = a.transformData({power:100, pedalRpm:90,speed:10, isPedalling:true, time:10})
+            expect(data).toEqual({power:100, cadence:90, deviceTime:10, speed:10,timestamp:expect.anything()})
         })
         test('no time',()=>{
-            a.transformData({power:100, pedalRpm:90,speed:0, isPedalling:true})
-            expect(a.getData()).toEqual({power:100, cadence:90,  timestamp:expect.anything()})
+            const data = a.transformData({power:100, pedalRpm:90,speed:0, isPedalling:true})
+            expect(data).toEqual({power:100, cadence:90,  speed:0, timestamp:expect.anything()})
         })
  
     })

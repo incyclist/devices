@@ -79,24 +79,19 @@ export default class PwrAdapter extends BleAdapter<PowerData,BleCyclingPowerDevi
        
         if ( bikeData===undefined)
             return;
-    
-        let distance=0;
-        if ( this.distanceInternal!==undefined && bikeData.distanceInternal!==undefined ) {
-            distance = Math.round(bikeData.distanceInternal-this.distanceInternal)
-        }
-
-        if (bikeData.distanceInternal!==undefined)
-            this.distanceInternal = bikeData.distanceInternal;
+   
         
         let data =  {
             speed: bikeData.speed,
-            slope: bikeData.slope,
-            power: bikeData.power!==undefined ? Math.round(bikeData.power) : undefined,
-            cadence: bikeData.pedalRpm!==undefined ? Math.round(bikeData.pedalRpm) : undefined,
-            distance,
+            power: bikeData.power,
+            cadence: bikeData.pedalRpm,
             timestamp: Date.now()
         } as IncyclistAdapterData;
 
+        if (bikeData.time)
+            data.deviceTime = bikeData.time
+
+        this.data = data
         return data;
     }
 
