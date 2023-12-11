@@ -209,13 +209,36 @@ describe( 'ANT PWR adapter', ()=>{
 
         test('normal data',()=>{
             a.transformData({power:100, pedalRpm:90,speed:0, isPedalling:true, time:10})
-            expect(a.getData()).toEqual({power:100, cadence:90, deviceTime:10, timestamp:expect.anything(),})
+            expect(a.getData()).toEqual({power:100, cadence:90, speed:0,deviceTime:10, timestamp:expect.anything(),})
         })
         test('no time',()=>{
             a.transformData({power:100, pedalRpm:90,speed:0, isPedalling:true})
-            expect(a.getData()).toEqual({power:100, cadence:90,  timestamp:expect.anything()})
+            expect(a.getData()).toEqual({power:100, cadence:90, speed:0, timestamp:expect.anything()})
         })
  
+    })
+
+    describe('onDeviceData',()=>{
+        let a:AntPwrAdapter 
+
+        beforeEach(()=>{
+            jest.useFakeTimers()
+            a  = new AntPwrAdapter({deviceID: '2606',profile: 'PWR',interface: 'ant'})
+            jest.spyOn(a,'emitData')
+        })
+
+        afterEach( ()=>{
+            jest.useRealTimers()
+        })
+
+        test('normal data',()=>{
+            
+            a.onDeviceData({offset:0,DeviceID:29832,PedalPower:100,RightPedalPower:100,LeftPedalPower:0,Cadence:52,AccumulatedPower:7274,Power:150,ManId:51})
+            jest.advanceTimersByTime(1005)
+            a.onDeviceData({offset:0,DeviceID:29832,PedalPower:100,RightPedalPower:100,LeftPedalPower:0,Cadence:52,AccumulatedPower:7274,Power:150,ManId:51})
+            expect(a.emitData).toHaveBeenLastCalledWith({speed:expect.closeTo(6.8,1),cadence:52, power:150, deviceTime:expect.closeTo(1,0), timestamp:expect.anything()})
+        })
+
     })
 
 

@@ -49,6 +49,7 @@ export default class AntPwrAdapter extends AntAdapter<BicyclePowerSensorState> {
         const data: IncyclistAdapterData = {            
             power: bikeData.power,
             cadence: bikeData.pedalRpm,
+            speed: bikeData.speed,
             timestamp: Date.now()
         }         
 
