@@ -5,7 +5,7 @@ import { AntDeviceSettings, AntScanProps,AntInterfaceProps  } from "../types";
 import { IncyclistInterface } from "../../types";
 import AntDeviceBinding from "./binding";
 import SensorFactory from "../factories/sensor-factory";
-import { isTrue, sleep, waitWithTimeout } from "../../utils/utils";
+import { isTrue, runWithTimeout, sleep, waitWithTimeout } from "../../utils/utils";
 
 type ChannelUsage = 'scan'|'sensor'
 interface ChannelInfo  {
@@ -52,9 +52,9 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         this.connectPromise = null
         this.channelsInUse = [];
         this.logEnabled = props.log||true
-        const {binding, logger} = props;
+        const {binding} = props;
 
-        this.setLogger(logger || new EventLogger( 'Ant+'))
+        this.setLogger(new EventLogger( 'Ant+'))
         if (binding) {
             this.setBinding(binding)
 
@@ -161,7 +161,11 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
                         promises.push(c.channel.stopAllSensors())
                 })
     
-                await Promise.allSettled( promises)
+                
+                await waitWithTimeout(Promise.allSettled( promises), 2000, ()=>{
+                    this.logEvent({message:'ANT+ disconnect timeout'})            
+                })
+
 
                 await sleep(200);
     
@@ -169,7 +173,8 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
      
             if (this.device) {
                 try {
-                    closed = await this.device.close();
+                    
+                    closed = await runWithTimeout(this.device.close(),1000);
                 }
                 catch {
                     closed = false
@@ -183,7 +188,9 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         }
         catch(err) {
             this.logEvent( {message:'Error', fn:'', error:err.message, stack:err.stack})
+            closed = false;
         }
+
         this.logEvent({message:'ANT+ disconnected'})
 
         this.connectPromise = null;

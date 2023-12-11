@@ -30,6 +30,7 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
     protected startProps : AntDeviceProperties;
     protected promiseReconnect: Promise<boolean>
     protected promiseSendUpdate: Promise<boolean>
+    protected promiseStop: Promise<boolean>
 
     constructor ( settings:AntDeviceSettings, props?:AntDeviceProperties) {
         super(settings, props)
@@ -55,11 +56,16 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
 
     async sendUpdate(request:UpdateRequest, forced=false):Promise<void> {
 
+
         // don't send any commands if we are pausing or reconnecting
         if( (this.paused || this.isReconnecting()) && !forced)
             return;
 
-        // busy with previous update
+        // currently stopping
+        if (this.promiseStop)
+            return
+
+        // busy with previous update 
         if (this.promiseSendUpdate) {
 
             this.logEvent({message: 'send bike update skipped', device:this.getName(),request, reason:'busy'})
@@ -276,9 +282,14 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
         
     }
 
-    stop(): Promise<boolean> {
-        const stopped = super.stop()
+    async stop(): Promise<boolean> {
+        if (this.promiseStop)
+            return await this.promiseStop
+
+        this.promiseStop = super.stop()
         this.sensorConnected = false;
+        const stopped = await this.promiseStop
+        delete this.promiseStop
         return stopped
     }
 

@@ -34,6 +34,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
     protected startStatus: AdapterStartStatus
     protected startupRetryPause: number = 1000;
 
+
     constructor ( settings:AntDeviceSettings, props?:AntDeviceProperties) {
 
         super(settings, props)
@@ -458,7 +459,10 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
         }       
     }
 
-    async start( props:AntDeviceProperties={} ): Promise<boolean> {
+
+    async start( startProps?:AntDeviceProperties ): Promise<boolean> {
+        const props = this.getStartProps(startProps) as AntDeviceProperties
+
         const preCheckResult = await this.startPreChecks(props)
         if (preCheckResult==='done')
             return this.started
@@ -471,7 +475,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
         this.resetStartStatus()
         this.resetData();      
 
-        const {startupTimeout=this.getDefaultStartupTimeout()} = props||{}
+        const {startupTimeout=this.getDefaultStartupTimeout()} = props
         const retryDelay = this.getDefaultReconnectDelay()
         const totalTimeout = Math.min( startupTimeout+10000, (startupTimeout+retryDelay)*MAX_RETRIES);
       
@@ -542,8 +546,8 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
             this.startStatus.interrupted = true
             await sleep(20)
         }
-        try {
-            stopped = await this.ant.stopSensor(this.sensor)
+        try {            
+            stopped = await runWithTimeout( this.ant.stopSensor(this.sensor),5000);           
         }
         catch(err) {
             this.logEvent({message:'stop sensor failed', reason:err.message})

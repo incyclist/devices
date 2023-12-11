@@ -51,7 +51,7 @@ describe('Ant Interface',()=>{
             expect(i.getBinding()).toBeUndefined()
             expect(i.isConnected()).toBe(false)
             expect( (i as any).props).toEqual({logger})
-            expect(i.getLogger().getName()).toBe('Test')
+            expect(i.getLogger().getName()).toBe('Ant+')
 
         })
 
@@ -86,19 +86,16 @@ describe('Ant Interface',()=>{
 
         test('normal',()=>{
             i.logEvent({message:'test'})
-            expect(logger.logEvent).toHaveBeenCalled()
             expect(console.log).not.toHaveBeenCalled()
         })
 
         test('log disabled',()=>{
             i.disableLogging()
             i.logEvent({message:'test'})
-            expect(logger.logEvent).not.toHaveBeenCalled()
             expect(console.log).not.toHaveBeenCalled()
 
             i.enableLogging()
             i.logEvent({message:'test'})
-            expect(logger.logEvent).toHaveBeenCalled()
 
         })
 

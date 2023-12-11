@@ -217,7 +217,10 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     }
 
 
-    async start( props: BleStartProperties={} ): Promise<boolean> {
+    async start( startProps?: BleStartProperties ): Promise<boolean> {
+
+        const props = this.getStartProps(startProps)
+
         const preCheckResult = await this.startPreChecks(props)
         if (preCheckResult==='done')
             return this.started
