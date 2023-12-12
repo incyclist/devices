@@ -1,7 +1,6 @@
-import { BleDeviceSettings } from '../../../lib'
 import { LegacyProfile } from '../../antv2/types'
-import BleInterface from '../ble-interface'
 import BleFmAdapter from '../fm/adapter'
+import { BleDeviceSettings } from '../types'
 import BleAdapter from './adapter'
 import { BleComms } from './comms'
 import { BleDeviceData } from './types'
