@@ -38,6 +38,7 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
 
     startPromise: Promise<boolean>
     checkPromise: Promise<boolean>
+    internalEmitter: EventEmitter = new EventEmitter()
 
     constructor( settings:S,props?: P) {
         super(settings,props);
@@ -250,7 +251,9 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
                 this.started = true;
                 return true;    
             })
+            this.internalEmitter.emit('start')
             const started = await this.startPromise
+            this.internalEmitter.emit('started',started)
         
             this.startPromise = undefined
             return started;
@@ -403,10 +406,15 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
           
 
     async stop(): Promise<boolean> {
-
-        if (this.stopped)
+        console.log('~~~ STOP', this.stopped)
+        
+        if (this.stopped) {
+            
             return true;
+        }
+        this.internalEmitter.emit('stop')
 
+                        
         this.logEvent({message:'stop request', port:this.getPort()});        
         if (this.paused)
             this.resume()
@@ -422,6 +430,7 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
             throw(err)
         }
 
+        this.internalEmitter.emit('stopped',this.stopped)
         return this.stopped
     }
 

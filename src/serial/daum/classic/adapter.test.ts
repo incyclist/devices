@@ -2,6 +2,7 @@ import { EventLogger } from 'gd-eventlog';
 import DaumClassicAdapter from './adapter';
 import { MockBinding } from '@serialport/binding-mock';
 import SerialPortProvider from '../../base/serialport';
+import { sleep } from '../../../utils/utils';
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
@@ -126,5 +127,41 @@ describe( 'DaumClassicAdapter', ()=>{
             expect(device.started).toBe(true)
         })
 
+    })
+
+    describe('performStart',()=>{
+        let device
+        beforeEach( ()=>{
+            device = new DaumClassicAdapter( {interface:'serial', port:'COM5', protocol:'Daum Classic'})
+            device.getComms().resetDevice = jest.fn().mockResolvedValue(true)
+            device.getComms().setProg = jest.fn( async ()=> { 
+                await sleep(500); 
+                throw ( new Error('RESP timeout'))
+            }) 
+            device.getComms().getVersion = jest.fn().mockResolvedValue({serialNo:'Test',cockpit:'Test'})
+            device.getComms().isConnected = jest.fn().mockReturnValue(true)
+            jest.useRealTimers()
+
+        })
+
+        afterEach( ()=> {
+            jest.resetAllMocks()
+        })
+
+        test('stop during start attempt',async ()=>{
+            const startPromise = device.performStart()
+            await sleep(200)
+
+            const t1 = Date.now()
+            device.stop()
+
+            const res = await startPromise
+            expect(res).toBe(false)
+            console.log(Date.now()-t1)
+
+            
+
+
+        })
     })
 })

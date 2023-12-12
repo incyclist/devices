@@ -130,11 +130,19 @@ export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings
 
 
         this.initData();        
+        let stopped = false
 
-        let startState = { } as any;        
+        let startState = { } as any;  
 
-        return runWithRetries( async ()=>{
+        const start = async ()=>{
+
             try {
+                if (stopped) {
+                    this.started = false;
+                    return false
+                }
+    
+
                 this.logEvent({message: 'start attempt',   isRelaunch, isConnected:this.getComms().isConnected()})
 
                 if (!isRelaunch && !this.getComms().isConnected()) {
@@ -177,16 +185,19 @@ export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings
                 const data = await this.getComms().runData();
                 
                 if (startRequest.targetPower && startRequest.targetPower!==25 && data.power===25) {
-                    throw new Error( 'invalid device response: runData');
+                    throw (new Error( 'invalid device response: runData'));
                 }
 
                 this.started = true;
                 this.startUpdatePull();
                 
-                return true;
+                return (true);
                 
             }
             catch (err) {
+                if (stopped)
+                    return false;
+
                 this.logEvent({message: 'start attempt failed',  error:err.message})
                 this.started = false;
                 
@@ -195,7 +206,17 @@ export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings
                 }
                 throw( new Error(`could not start device, reason:${err.message}`));
             }
-        }, 5, 1000 )
+        }
+
+        const  checkInterrupt = ()=>new Promise ( done=> {
+            this.internalEmitter.on('stop', ()=>{ 
+                stopped = true;
+                this.started = false;
+                done(false)
+            })
+        })
+
+        return runWithRetries( ()=>Promise.race([start(),checkInterrupt()]), 5, 1000 )
     }
 
     async getCurrentBikeData():Promise<IncyclistBikeData> {

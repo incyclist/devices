@@ -175,9 +175,15 @@ export default class DaumPremiumAdapter extends DaumAdapter<SerialDeviceSettings
 
         var info = {} as any
 
-        await runWithRetries( async ()=>{
+        // we are starting, thus reset stopped flags
+        let stopped = false;
+        this.stopped =false;
+
+        const start = async ()=>{
            
             try {
+                if(stopped)
+                    return false
         
                 if (wasPaused) {
                     info.deviceType = 'Resumed'
@@ -225,9 +231,12 @@ export default class DaumPremiumAdapter extends DaumAdapter<SerialDeviceSettings
                 if (!this.getCyclingMode().getModeProperty('eppSupport')) {
                     info.gear = await this.getComms().setGear( this.deviceData.gear || gear || DEFAULT_GEAR);                       
                 }
-                return;
+                return true;
             }
             catch(err) {
+                if (stopped)
+                    return false;
+                
                 // reconnect if very first request was failing
                 if (info.connected && !info.deviceType) {
                     await sleep(500)
@@ -237,15 +246,29 @@ export default class DaumPremiumAdapter extends DaumAdapter<SerialDeviceSettings
                 throw( err);
             }
 
-        }, this.getStartRetries(), this.getStartRetryTimeout() )
+        }
 
+        const  checkInterrupt = ()=>new Promise ( done=> {
+            this.internalEmitter.on('stop', ()=>{ 
+                stopped = true;
+                this.started = false;
+                done(false)
+            })
+        })
 
-        this.stopped = false;
-        this.paused = false;
-        this.started = true;
+        const started = await runWithRetries( 
+            ()=> Promise.race( [start(), checkInterrupt()]), 
+            this.getStartRetries(), this.getStartRetryTimeout() 
+        )
 
-        this.startUpdatePull();
-        return true;
+        if (started) {
+            this.stopped = false;
+            this.paused = false;
+            this.started = true;    
+            this.startUpdatePull();    
+        }
+
+        return started;
 
     }
 
@@ -270,5 +293,3 @@ export default class DaumPremiumAdapter extends DaumAdapter<SerialDeviceSettings
 
 
 }
-
-

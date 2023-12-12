@@ -5,6 +5,7 @@ import DaumClassicCyclingMode from '../../../modes/daum-classic-standard';
 import SerialPortProvider from '../../base/serialport';
 import { SerialInterfaceType } from '../../types';
 import SerialInterface from '../../base/serial-interface';
+import { sleep } from 'incyclist-devices/lib/utils/utils';
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
@@ -569,6 +570,32 @@ describe( 'DaumPremiumAdapter', ()=>{
             expect(error).toMatchObject({message:'Timeout'})
 
         })
+
+
+        test('stop during start attempt',async ()=>{
+            device = new DaumPremiumAdapter( {interface:'serial', port:'COM5', protocol:'Daum Premium'})            
+            device.connect = jest.fn().mockResolvedValue(true)         
+            device.reconnect   = jest.fn().mockResolvedValue(true)
+            device.comms.getDeviceType = jest.fn( async ()=> { 
+                await sleep(5000); 
+                throw ( new Error('RESP timeout'))
+            }) 
+
+            const startPromise = device.performStart()
+            await sleep(200)
+
+            const t1 = Date.now()
+            device.stop()
+
+            const res = await startPromise
+            expect(res).toBe(false)
+            console.log(Date.now()-t1)
+
+            
+
+
+        })
+
 
         describe('Daum Classic Mode - EPP not supported', ()=>{
             beforeEach( ()=>{
