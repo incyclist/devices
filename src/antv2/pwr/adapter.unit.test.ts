@@ -233,9 +233,9 @@ describe( 'ANT PWR adapter', ()=>{
 
         test('normal data',()=>{
             
-            a.onDeviceData({offset:0,DeviceID:29832,PedalPower:100,RightPedalPower:100,LeftPedalPower:0,Cadence:52,AccumulatedPower:7274,Power:150,ManId:51})
+            a.onDeviceData({Offset:0,DeviceID:29832,PedalPower:100,RightPedalPower:100,LeftPedalPower:0,Cadence:52,AccumulatedPower:7274,Power:150,ManId:51})
             jest.advanceTimersByTime(1005)
-            a.onDeviceData({offset:0,DeviceID:29832,PedalPower:100,RightPedalPower:100,LeftPedalPower:0,Cadence:52,AccumulatedPower:7274,Power:150,ManId:51})
+            a.onDeviceData({Offset:0,DeviceID:29832,PedalPower:100,RightPedalPower:100,LeftPedalPower:0,Cadence:52,AccumulatedPower:7274,Power:150,ManId:51})
             expect(a.emitData).toHaveBeenLastCalledWith({speed:expect.closeTo(6.8,1),cadence:52, power:150, deviceTime:expect.closeTo(1,0), timestamp:expect.anything()})
         })
 

@@ -204,7 +204,7 @@ export default class DaumPremiumAdapter extends DaumAdapter<SerialDeviceSettings
                 const user: User = this.getUser()
                 const {route,onStatusUpdate,gear} = props
 
-                if ( this.requiresProgramUpload() ) {
+                if ( route && this.requiresProgramUpload() ) {
                     const bikeType = this.getCyclingMode().getSetting('bikeType')
             
                     if (!info.upload) {

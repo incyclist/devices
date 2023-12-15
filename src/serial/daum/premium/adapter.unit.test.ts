@@ -3,9 +3,8 @@ import DaumPremiumAdapter from './adapter'
 import { MockBinding } from '@serialport/binding-mock';
 import DaumClassicCyclingMode from '../../../modes/daum-classic-standard';
 import SerialPortProvider from '../../base/serialport';
-import { SerialInterfaceType } from '../../types';
 import SerialInterface from '../../base/serial-interface';
-import { sleep } from 'incyclist-devices/lib/utils/utils';
+import { sleep } from '../../../utils/utils';
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
@@ -665,11 +664,11 @@ describe( 'DaumPremiumAdapter', ()=>{
                 expect(error).toBeUndefined()
 
                 expect(device.stop).toHaveBeenCalled()
-                expect(device.startUpdatePull).toBeCalled();
+                expect(device.startUpdatePull).toHaveBeenCalled();
                 expect(device.stopped).toBeFalsy()
                 expect(device.paused).toBeFalsy()
-                expect(bike.programUpload).toHaveBeenCalled()
-                expect(bike.startProgram).toHaveBeenCalled()
+                expect(bike.programUpload).not.toHaveBeenCalled()
+                expect(bike.startProgram).not.toHaveBeenCalled()
                 expect(bike.setGear).not.toHaveBeenCalled()
             })
 
@@ -682,11 +681,11 @@ describe( 'DaumPremiumAdapter', ()=>{
                 expect(error).toBeUndefined()
 
                 expect(device.stop).toHaveBeenCalled()
-                expect(device.startUpdatePull).toBeCalled();
+                expect(device.startUpdatePull).toHaveBeenCalled();
                 expect(device.stopped).toBeFalsy()
                 expect(device.paused).toBeFalsy()
-                expect(bike.programUpload).toHaveBeenCalled()
-                expect(bike.startProgram).toHaveBeenCalled()
+                expect(bike.programUpload).not.toHaveBeenCalled()
+                expect(bike.startProgram).not.toHaveBeenCalled()
                 expect(bike.setGear).not.toHaveBeenCalled()
             })
 
@@ -701,11 +700,11 @@ describe( 'DaumPremiumAdapter', ()=>{
                 expect(error).toBeUndefined()
 
                 expect(device.stop).toHaveBeenCalled()
-                expect(device.startUpdatePull).toBeCalled();
+                expect(device.startUpdatePull).toHaveBeenCalled();
                 expect(device.stopped).toBeFalsy()
                 expect(device.paused).toBeFalsy()
-                expect(bike.programUpload).toHaveBeenCalled()
-                expect(bike.startProgram).toHaveBeenCalled()
+                expect(bike.programUpload).not.toHaveBeenCalled()
+                expect(bike.startProgram).not.toHaveBeenCalled()
             })
 
             test('initial performStart with user and bike settings ',async ()=>{                
@@ -717,11 +716,11 @@ describe( 'DaumPremiumAdapter', ()=>{
                 expect(error).toBeUndefined()
 
                 expect(device.stop).toHaveBeenCalled()
-                expect(device.startUpdatePull).toBeCalled();
+                expect(device.startUpdatePull).toHaveBeenCalled();
                 expect(device.stopped).toBeFalsy()
                 expect(device.paused).toBeFalsy()
-                expect(bike.programUpload).toHaveBeenCalled()
-                expect(bike.startProgram).toHaveBeenCalledWith(0)
+                expect(bike.programUpload).not.toHaveBeenCalled()
+                expect(bike.startProgram).not.toHaveBeenCalledWith(0)
             })
 
             test('initial performStart with route ',async ()=>{                
@@ -734,7 +733,7 @@ describe( 'DaumPremiumAdapter', ()=>{
                 expect(error).toBeUndefined()
 
                 expect(device.stop).toHaveBeenCalled()
-                expect(device.startUpdatePull).toBeCalled();
+                expect(device.startUpdatePull).toHaveBeenCalled();
                 expect(device.stopped).toBeFalsy()
                 expect(device.paused).toBeFalsy()
                 expect(bike.programUpload).toHaveBeenCalled()
@@ -742,12 +741,31 @@ describe( 'DaumPremiumAdapter', ()=>{
             })
 
 
+            test('initial performStart without route ',async ()=>{                
+                bike.programUpload.mockResolvedValue(true)
+                bike.startProgram.mockResolvedValue(true)
+
+                
+                const {started,error} = await run( {}, false)
+                expect(started).toBeTruthy()                
+                expect(error).toBeUndefined()
+
+                expect(device.stop).toHaveBeenCalled()
+                expect(device.startUpdatePull).toHaveBeenCalled();
+                expect(device.stopped).toBeFalsy()
+                expect(device.paused).toBeFalsy()
+                expect(bike.programUpload).not.toHaveBeenCalled()
+                expect(bike.startProgram).not.toHaveBeenCalledWith(123)
+            })
+
+
             test('Epp upload commands fails permanently  ',async ()=>{
 
                 device._startRetryTimeout = 50;
                 bike.programUpload.mockResolvedValue(false)
-                
-                const {started,error} = await run( {user: {weight:100}, bikeSettings:{weight:15}}, true)
+
+                const route = {programId:123}
+                const {started,error} = await run( {route, user: {weight:100}, bikeSettings:{weight:15}}, true)
 
 
                 expect(started).toBeFalsy()
@@ -760,7 +778,8 @@ describe( 'DaumPremiumAdapter', ()=>{
                 bike.programUpload.mockResolvedValue(true)
                 bike.startProgram.mockResolvedValue(false)
                 
-                const {started,error} = await run( {user: {weight:100}, bikeSettings:{weight:15}}, true)
+                const route = {programId:123}
+                const {started,error} = await run( {route,user: {weight:100}, bikeSettings:{weight:15}}, true)
 
 
                 expect(started).toBeFalsy()
@@ -773,7 +792,8 @@ describe( 'DaumPremiumAdapter', ()=>{
                 bike.programUpload = jest.fn( ()=> {throw new Error('XXXXX')})
                 bike.startProgram.mockResolvedValue(false)
                 
-                const {started,error} = await run( {user: {weight:100}, bikeSettings:{weight:15}}, true)
+                const route = {programId:123}
+                const {started,error} = await run( {route,user: {weight:100}, bikeSettings:{weight:15}}, true)
 
 
                 expect(started).toBeFalsy()
@@ -787,7 +807,8 @@ describe( 'DaumPremiumAdapter', ()=>{
                 bike.startProgram.mockResolvedValue(true)
                 device.getStartRetries= jest.fn().mockReturnValue(5)
                 
-                const {started,error} = await run( {user: {weight:100}, bikeSettings:{weight:15}}, true)
+                const route = {programId:123}
+                const {started,error} = await run( {route,user: {weight:100}, bikeSettings:{weight:15}}, true)
 
                 expect(started).toBeTruthy()
                 expect(error).toBeUndefined()
@@ -795,6 +816,7 @@ describe( 'DaumPremiumAdapter', ()=>{
 
 
         })
+
 
     })
 

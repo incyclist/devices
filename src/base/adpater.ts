@@ -99,9 +99,12 @@ export default class IncyclistDevice<P extends DeviceProperties>
 
     async restart(pause?:number):Promise<boolean> {
 
+        this.logger.logEvent({message:'restarting device',  device:this.getName()})
         const stopped = await this.stop();
-        if (!stopped)
+        if (!stopped && !this.isStopped()) {
+            this.logger.logEvent({message:'restarting device - stop failed',  device:this.getName()})
             return false;
+        }
 
         if (pause)
             await sleep(pause)
