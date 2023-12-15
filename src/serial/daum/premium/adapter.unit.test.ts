@@ -3,9 +3,8 @@ import DaumPremiumAdapter from './adapter'
 import { MockBinding } from '@serialport/binding-mock';
 import DaumClassicCyclingMode from '../../../modes/daum-classic-standard';
 import SerialPortProvider from '../../base/serialport';
-import { SerialInterfaceType } from '../../types';
 import SerialInterface from '../../base/serial-interface';
-import { sleep } from 'incyclist-devices/lib/utils/utils';
+import { sleep } from '../../../utils/utils';
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
