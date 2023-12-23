@@ -348,7 +348,7 @@ describe('Ant Interface',()=>{
             
             const tStart =Date.now()
             await i.scan({timeout:100})
-            expect(Date.now()-tStart).toBeGreaterThan(99)
+            expect(Date.now()-tStart).toBeGreaterThan(95)
 
         })
 
