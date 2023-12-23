@@ -7,7 +7,7 @@
     "@serialport/parser-delimiter": "^9.0.1",
     "@serialport/parser-readline": "^10.5.0",
     "@serialport/stream": "^10.5.0",
-    "incyclist-ant-plus": "^0.3.0",
+    "incyclist-ant-plus": "^0.3.1",
     "win32filetime": "^1.0.2"
   },
   "peerDependencies": {
