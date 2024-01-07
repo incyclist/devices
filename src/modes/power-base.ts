@@ -125,9 +125,8 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
             if (target && target < request.minPower) {
                 newRequest.targetPower = request.minPower;
             }
-            else {
-                if (this.prevRequest)
-                    newRequest.targetPower = this.prevRequest.targetPower;
+            else {                
+                newRequest.targetPower = target
             }
             newRequest.minPower = request.minPower;
         }
@@ -140,8 +139,7 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
                 newRequest.targetPower = request.maxPower;
             }
             else {
-                if (this.prevRequest)
-                    newRequest.targetPower = this.prevRequest.targetPower;
+                newRequest.targetPower = target
             }
             newRequest.maxPower = request.maxPower;
         }
