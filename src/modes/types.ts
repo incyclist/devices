@@ -10,6 +10,7 @@ export type UpdateRequest = {
     reset?: boolean;
     refresh?: boolean;
     init?: boolean;
+    gear?: number;
 }
 export enum CyclingModeProperyType {
     Integer = 'Integer',

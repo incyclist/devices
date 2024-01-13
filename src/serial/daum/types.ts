@@ -11,6 +11,7 @@ export abstract class DaumSerialComms {
     
     abstract setTargetSlope(slope:number):Promise<void>
     abstract setTargetPower(power:number):Promise<void>
+    abstract setTargetGear(gear:number):Promise<void>
 
 
     

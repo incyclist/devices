@@ -38,7 +38,7 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
     getBikeInitRequest(): UpdateRequest {
         const startPower = this.getSetting('startPower');
         return { targetPower: startPower, init:true};
-    }    
+    }   
 
     sendBikeUpdate(request: UpdateRequest): UpdateRequest {
         const getData= ()=>{
@@ -64,8 +64,9 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
                 if (!this.data) this.data = {} as any;
                 this.data.slope = request.slope;
             }
+            this.checkForTempPowerAdjustments(request);
 
-            if (request.targetPower!==undefined) {
+            if (request.targetPower!==undefined || request.gear!==undefined) {
                 delete request.slope                
                 delete request.refresh;               
             }
@@ -112,11 +113,15 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
                     request.targetPower = request.maxPower;                
                 }
         
-                if (request.targetPower===undefined) {
+                if (request.targetPower===undefined && request.gear===undefined) {
                     newRequest.targetPower = this.calculateTargetPower(request)
                 }
                 else {
-                    newRequest.targetPower = request.targetPower;
+                    if (!request.gear || request.targetPower!==undefined)
+                        newRequest.targetPower = request.targetPower;
+                }
+                if (request.gear) {
+                    newRequest.gear = request.gear
                 }
                 delete request.slope;
                 
@@ -157,7 +162,7 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
 
         }
 
-        this.event.gearUpdated = false;
+        this.event.gearUpdated = false
         this.event.rpmUpdated = false;
         return newRequest;
 
@@ -236,5 +241,19 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
         
         return target;
     }
+
+
+    protected checkForTempPowerAdjustments(request: UpdateRequest) {
+        const data = this.getData()
+        if (request.targetPowerDelta && data?.gear) {
+            if (Math.abs(request.targetPowerDelta)===5) // single gear
+                request.gear = data.gear+Math.sign(request.targetPowerDelta)
+            if (Math.abs(request.targetPowerDelta)===50) // multiple gears
+                request.gear = data.gear+Math.sign(request.targetPowerDelta)*5
+
+            delete request.targetPowerDelta;
+        }
+    }
+
 
 }

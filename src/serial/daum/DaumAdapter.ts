@@ -590,6 +590,9 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
             if (request.targetPower!==undefined ) {
                 await bike.setTargetPower(request.targetPower);
             }
+            if (request.gear!==undefined) {
+                await bike.setTargetGear(request.gear);
+            }
             this.requestBusy = false;
             return request
         

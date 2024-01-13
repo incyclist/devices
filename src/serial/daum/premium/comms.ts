@@ -344,6 +344,14 @@ export default class Daum8i extends SerialPortComms<DaumPremiumCommsState,DaumPr
         return
     }
 
+    async setTargetGear(gear: number): Promise<void> {
+        let target = gear;
+        if (target<2) target = 1
+        if (target>28) target = 28
+        await this.setGear(target)
+    }
+
+
 
 
     /*
