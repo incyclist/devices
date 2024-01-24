@@ -16,5 +16,14 @@ exports[`Adv SmartTrainer statics 2`] = `
     ],
     "type": "SingleSelect",
   },
+  {
+    "default": 100,
+    "description": "Percentage of slope that should be sent to the SmartTrainer. Should be used in case the slopes are feeling too hard",
+    "key": "slopeAdj",
+    "max": 200,
+    "min": 0,
+    "name": "Slope Adjustment",
+    "type": "Integer",
+  },
 ]
 `;
