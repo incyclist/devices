@@ -46,8 +46,7 @@ export default class SimulatorCyclingMode extends PowerBasedCyclingModeBase {
     }    
 
 
-    updateData(bikeData: IncyclistBikeData): IncyclistBikeData {
-        
+    updateData(bikeData: IncyclistBikeData): IncyclistBikeData {       
         const prevData = JSON.parse(JSON.stringify(this.data || {} ))
         const prevSpeed = prevData.speed;        
         const prevRequest = this.prevRequest || {};
@@ -61,7 +60,7 @@ export default class SimulatorCyclingMode extends PowerBasedCyclingModeBase {
 
         try {
 
-            let rpm = 90;
+            let rpm = bikeData.pedalRpm===undefined ? 90 : bikeData.pedalRpm;
             let power = (!mode || mode.toLowerCase()==='power' ) ? Number(this.getSetting('power')): bikeData.power || 0;
             let slope = ( prevData.slope!==undefined ? prevData.slope : prevRequest.slope || 0); 
             let speed = mode.toLowerCase()==='speed' ? Number(this.getSetting('speed')): bikeData.speed || 0;
@@ -73,8 +72,14 @@ export default class SimulatorCyclingMode extends PowerBasedCyclingModeBase {
             const t =  this.getTimeSinceLastUpdate();
             let distance=0;
 
+
+
             //let speed = calc.calculateSpeedDaum(gear, rpm, bikeType)
             if (!mode || mode.toLowerCase()==='power' )  { 
+
+                if (rpm===0)
+                    power=0;
+
                 const res = this.calculateSpeedAndDistance(power,slope,m,t,{bikeType});
                 //console.log( '~~~Simulator.calculateSpeedAndDistance', distanceInternal,data.time, {power, slope,m,t,bikeType}, res.speed,res.distance)
 
@@ -83,6 +88,9 @@ export default class SimulatorCyclingMode extends PowerBasedCyclingModeBase {
                 
             }
             else if (mode.toLowerCase()==='speed') {
+                if (rpm===0)
+                    speed=0;
+
                 const res = this.calculatePowerAndDistance(speed,slope,m,t,{bikeType});
                 //console.log( '~~~Simulator.calculatePowerAndDistance', distanceInternal,data.time, {speed, slope,m,t,bikeType}, res.power,res.distance)
                 power = res.power;
@@ -120,7 +128,8 @@ export default class SimulatorCyclingMode extends PowerBasedCyclingModeBase {
                 data.distanceInternal = distanceInternal+distance;
             } 
     
-            data.speed = speed;
+            if (data.speed<0.1)
+                data.speed = 0
             data.power = Math.round(power);
             data.distanceInternal = distanceInternal+distance;
             data.slope = slope;

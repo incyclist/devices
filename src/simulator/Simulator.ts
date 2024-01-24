@@ -163,6 +163,16 @@ export class Simulator extends IncyclistDevice<SimulatorProperties> {
         }
     }
 
+    adjustCadence(delta)  {
+        
+        this.cadence+=delta
+        if (this.cadence<0)
+            this.cadence=0;
+
+        this.logger.logEvent( {message:'cadence adjusted', device:this.getName(),cadence:this.cadence})
+        
+    }
+
     faster() {
         if (this.speed<15)
             this.speed += 5;
@@ -191,7 +201,6 @@ export class Simulator extends IncyclistDevice<SimulatorProperties> {
     }
 
     update() {
-
         const startDelay = this.getCyclingMode().getSetting('delay')
         const timeSinceStart = Date.now() - this.startTS;
 
@@ -206,13 +215,16 @@ export class Simulator extends IncyclistDevice<SimulatorProperties> {
         const d = this.data as IncyclistAdapterData;
         const prevTime = d.deviceTime;
 
+        
+        this.data.pedalRpm = this.cadence;
+
         this.data = this.getCyclingMode().updateData(this.data);
     
         let data =  {
             speed: this.data.speed,
             slope: this.data.slope,
-            power: this.data.power,
-            cadence: this.data.pedalRpm,
+            power: this.cadence===0 ? 0 : this.data.power,
+            cadence: this.cadence,
             distance: this.data.distanceInternal-prevDist,
             heartrate: Math.round(this.data.power-10+Math.random()*20),
             timestamp: Date.now(),
