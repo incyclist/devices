@@ -32,13 +32,14 @@ describe('BLE-SmartTrainer',()=>{
 
     describe('sendUpdate',()=>{
 
-        let cm;
+        let cm:SmartTrainerCyclingMode;
         let bikeType = 'Race'
 
         beforeEach( ()=>{
             cm = new SmartTrainerCyclingMode(adapter);
             cm.getSetting = jest.fn( (key) => { 
                 if (key==='bikeType') return bikeType
+                return cm.settings[key]
             });
 
         })
@@ -143,6 +144,18 @@ describe('BLE-SmartTrainer',()=>{
 
             res = cm.sendBikeUpdate({targetPowerDelta:10})
             expect(res).toEqual({slope:1,refresh:true})
+
+        })
+
+        test('slope adjustment has been set',()=>{
+            let res;
+
+            cm.setSetting('slopeAdj',50)
+            
+            res = cm.sendBikeUpdate({ slope:10})
+            expect(res).toEqual({slope:5})
+            expect(cm.data.slope).toBe(10)
+
 
         })
 

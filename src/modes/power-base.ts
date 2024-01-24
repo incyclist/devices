@@ -199,6 +199,11 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
             data.speed = speed;
             data.distanceInternal = distanceInternal + distance;
         }
+
+        // avoid that ride continues with speed = 0.000001 or similar
+        if (data.speed<0.1)
+            data.speed = 0;
+        
         return t;
     }
 

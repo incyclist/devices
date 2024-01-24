@@ -9,7 +9,8 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         name: "Smart Trainer",
         description: "Calculates speed based on power and slope. Slope is set to the device",
         properties: [
-            {key:'bikeType',name: 'Bike Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Race','Mountain','Triathlon'], default: 'Race'}
+            {key:'bikeType',name: 'Bike Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Race','Mountain','Triathlon'], default: 'Race'},
+            {key:'slopeAdj', name:'Slope Adjustment', description:'Percentage of slope that should be sent to the SmartTrainer. Should be used in case the slopes are feeling too hard', type: CyclingModeProperyType.Integer,default:100,min:0, max:200}
         ]
     }
 
@@ -40,6 +41,16 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         if (request.slope!==undefined) {
             newRequest.slope = parseFloat(request.slope.toFixed(1));
             this.data.slope = newRequest.slope;
+
+            try {
+                const slopeAdj = this.getSetting('slopeAdj')
+                if (slopeAdj!==undefined)
+                    newRequest.slope = newRequest.slope * slopeAdj/100
+            }
+            catch {
+
+            }
+            
         }
 
     }
