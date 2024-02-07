@@ -164,8 +164,13 @@ export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings
                 }
 
                 if ( !wasPaused && !startState.setBikeType) {            
-                    const bikeType = this.getCyclingMode().getSetting('bikeType') || 'race'                    
-                    await this.getComms().setBikeType(bikeType.toLowerCase());                    
+                    const bikeType = this.getCyclingMode().getSetting('bikeType') || 'race' 
+                    try {                   
+                        await this.getComms().setBikeType(bikeType.toLowerCase());                    
+                    }
+                    catch(err) {
+                        //ignore for now
+                    }
                     startState.setBikeType = true;                    
                 }
 
