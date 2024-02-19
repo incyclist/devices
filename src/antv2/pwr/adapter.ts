@@ -69,4 +69,17 @@ export default class AntPwrAdapter extends AntAdapter<BicyclePowerSensorState> {
         return hasData
     } 
 
+    sendUpdate(request: any): void {
+        try {
+            if (this.isPaused() || this.isStopped())
+                return;
+
+            this.getCyclingMode().sendBikeUpdate(request) 
+        }
+        catch(err) {
+             this.logEvent({message:'Error',fn:'sendUpdate',error:err.message })
+        }       
+    }
+
+
 }
