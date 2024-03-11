@@ -497,7 +497,7 @@ export default class Daum8i extends SerialPortComms<DaumPremiumCommsState,DaumPr
         const {sex,age,length,weight} = person;
         
         /* istanbul ignore next*/
-        const logStr = `setPerson(${sex===undefined?'':sex},${age===undefined?'':age},${length===undefined?'':length},${weight===undefined?'':length})`;
+        const logStr = `setPerson(${sex??''},${age??''},${length??''},${weight??''})`;
         const res = await this.sendReservedDaum8iCommand( logStr, ReservedCommands.PERSON_SET, getPersonData(person))
         
             const buffer = Buffer.from(res);
