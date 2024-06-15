@@ -165,7 +165,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     
         }
         catch(err) {
-            this.logEvent({message:'Error',fn:'onDeviceData', error:err.message})
+            this.logEvent({message:'Error',fn:'onDeviceData', error:err.message,stack:err.stack})
         }
    
     }

@@ -175,27 +175,27 @@ describe('Simulator',() => {
             
         })
 
-        test('refresh - no limits set before',() => {
-            const res = s.sendUpdate({refresh:true});
+        test('refresh - no limits set before',async () => {
+            const res = await s.sendUpdate({refresh:true});
             expect(res).toEqual({})
         }) 
 
-        test('refresh - limits have been set before',() => {
+        test('refresh - limits have been set before',async () => {
             s.sendUpdate({ targetPower:100 });
             
-            const res = s.sendUpdate({refresh:true});
+            const res = await s.sendUpdate({refresh:true});
             expect(res).toEqual({ targetPower:100 })
         }) 
 
-        test('refresh and limits - limits have been set before',() => {
+        test('refresh and limits - limits have been set before',async () => {
             s.sendUpdate({ targetPower:100 });
-            const res = s.sendUpdate({refresh:true,targetPower:200});
+            const res = await s.sendUpdate({refresh:true,targetPower:200});
             expect(res).toEqual({ targetPower:200 })
         }) 
 
-        test('new limits - limits have been set before',() => {
+        test('new limits - limits have been set before',async () => {
             s.sendUpdate( { minPower:100, maxPower:200 });
-            const res = s.sendUpdate({targetPower:200});
+            const res = await s.sendUpdate({targetPower:200});
             expect(res).toEqual({ targetPower:200 })
         }) 
 

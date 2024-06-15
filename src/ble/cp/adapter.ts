@@ -6,6 +6,7 @@ import {  BleDeviceSettings } from '../types';
 import { DeviceProperties,IncyclistBikeData,IncyclistAdapterData,IncyclistCapability, ControllerConfig, IAdapter  } from '../../types';
 import PowerMeterCyclingMode from '../../modes/power-meter';
 import { LegacyProfile } from '../../antv2/types';
+import { UpdateRequest } from '../../modes/types';
 
 
 export default class PwrAdapter extends BleAdapter<PowerData,BleCyclingPowerDevice>{  
@@ -104,12 +105,12 @@ export default class PwrAdapter extends BleAdapter<PowerData,BleCyclingPowerDevi
     }
 
     
-    sendUpdate(request: any): void {
+    async sendUpdate(request: any): Promise<UpdateRequest|void> {
         try {
             if (this.isPaused() || this.isStopped())
                 return;
 
-            this.getCyclingMode().sendBikeUpdate(request) 
+            return await this.getCyclingMode().sendBikeUpdate(request) 
         }
         catch(err) {
              this.logEvent({message:'Error',fn:'sendUpdate',error:err.message })

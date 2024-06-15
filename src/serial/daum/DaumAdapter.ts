@@ -10,6 +10,7 @@ import SerialInterface from '../base/serial-interface';
 import SmartTrainerCyclingMode from '../../modes/daum-smarttrainer';
 import DaumPowerMeterCyclingMode from '../../modes/daum-power';
 import EventEmitter from 'events';
+import { UpdateRequest } from '../../modes/types';
 
 export default class DaumAdapter<S extends SerialDeviceSettings, P extends DeviceProperties, C extends DaumSerialComms> extends SerialIncyclistDevice<P>  {
 
@@ -435,13 +436,13 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
     }
 
     
-    async sendUpdate(request) {
+    async sendUpdate(request):Promise<UpdateRequest|void> {
         // don't send any commands if we are pausing
         if( this.paused || this.stopped)
             return;
         
         this.logEvent({message:'sendUpdate', port:this.getPort(),request,waiting:this.requests.length});    
-        return await this.processClientRequest(request);
+        return await this.processClientRequest(request);        
     } 
 
     async update():Promise<void> {
@@ -625,7 +626,7 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
     }
 
 
-    processClientRequest(request) {
+    processClientRequest(request):Promise<UpdateRequest> {
         if ( request.slope!==undefined) {
             this.deviceData.slope = request.slope;
         }

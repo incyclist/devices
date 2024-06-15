@@ -3,6 +3,7 @@ import AntAdapter from "../base/adapter";
 import PowerMeterCyclingMode from "../../modes/power-meter";
 import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "../types";
 import { IncyclistCapability,ControllerConfig,IncyclistBikeData, IncyclistAdapterData } from "../../types";
+import { UpdateRequest } from "../../modes/types";
 
 export default class AntPwrAdapter extends AntAdapter<BicyclePowerSensorState> {
 
@@ -69,12 +70,13 @@ export default class AntPwrAdapter extends AntAdapter<BicyclePowerSensorState> {
         return hasData
     } 
 
-    sendUpdate(request: any): void {
+    async sendUpdate(request: any): Promise<UpdateRequest|void> {
         try {
             if (this.isPaused() || this.isStopped())
                 return;
 
-            this.getCyclingMode().sendBikeUpdate(request) 
+            return await this.getCyclingMode().sendBikeUpdate(request) 
+            
         }
         catch(err) {
              this.logEvent({message:'Error',fn:'sendUpdate',error:err.message })

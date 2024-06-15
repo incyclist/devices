@@ -10,6 +10,7 @@ import ERGCyclingMode from "../../../modes/kettler-erg";
 import { SerialIncyclistDevice } from "../../base/adapter";
 import SerialInterface from "../../base/serial-interface";
 import { IncyclistCapability,ControllerConfig, IAdapter,IncyclistAdapterData,DeviceProperties } from "../../../types";
+import { UpdateRequest } from "../../../modes/types";
 
 export interface KettlerRacerCommand extends Command  {
     
@@ -650,13 +651,14 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceP
 
     }
 
-    async sendUpdate(request) {
+    async sendUpdate(request):Promise<UpdateRequest|void> {
         // don't send any commands if we are pausing
         if( this.paused)
             return;
         
         this.logEvent({message:'sendUpdate',request,waiting:this.requests.length});    
         return await this.processClientRequest(request);
+        
     } 
 
     refreshRequests() {
@@ -674,7 +676,7 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceP
     }
 
 
-    processClientRequest(request) {
+    processClientRequest(request):Promise<UpdateRequest> {
         if ( request.slope!==undefined) {
             this.data.slope = request.slope;
         }

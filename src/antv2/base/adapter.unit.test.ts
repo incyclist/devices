@@ -306,14 +306,15 @@ describe( 'adapter', ()=>{
 
         test('default -- needs to be implemented by subclass',()=>{
             a.capabilities=[IncyclistCapability.Control]
-            expect( ()=>{ a.sendUpdate({slope:0}) } )
+
+            expect( async ()=>{ await a.sendUpdate({slope:0}) } ).rejects
             .toThrow('method not implemented')
 
         })
 
-        test('not controllable',()=>{
+        test('not controllable',async ()=>{
             a.isControllable = jest.fn().mockReturnValue(false)
-            a.sendUpdate({slope:0})
+            await a.sendUpdate({slope:0})
             expect(a.getCyclingMode().sendBikeUpdate).not.toHaveBeenCalled()
         })
 

@@ -1,4 +1,4 @@
-import ICyclingMode,{ CyclingMode } from "../modes/types";
+import ICyclingMode,{ CyclingMode, UpdateRequest } from "../modes/types";
 import { DeviceProperties, DeviceSettings,ControllerConfig, IAdapter, OnDeviceDataCallback,IncyclistCapability,IncyclistAdapterData,User  } from "../types";
 import { EventLogger } from "gd-eventlog";
 import EventEmitter from "events";
@@ -253,7 +253,7 @@ export default class IncyclistDevice<P extends DeviceProperties>
         return false;
     }
 
-    sendUpdate(request: any) { 
+    async sendUpdate(request: any):Promise<UpdateRequest|void> { 
         if (!this.isControllable())
             return;
 
@@ -263,7 +263,7 @@ export default class IncyclistDevice<P extends DeviceProperties>
         // in case the adapter is not abel to control the device, we are calling the Cycling Mode to adjust slope
         // Otherwise the method needs to be overwritten
         if (!this.hasCapability(IncyclistCapability.Control))
-            this.getCyclingMode().sendBikeUpdate(request) 
+            return await this.getCyclingMode().sendBikeUpdate(request) 
         else 
             throw new Error('method not implemented')
     }

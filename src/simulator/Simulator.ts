@@ -2,6 +2,7 @@ import {EventLogger} from 'gd-eventlog'
 import SimulatorCyclingMode from '../modes/simulator';
 import IncyclistDevice from '../base/adpater';
 import { IAdapter,IncyclistBikeData,DeviceProperties, DeviceSettings,IncyclistCapability,IncyclistAdapterData } from '../types';
+import { UpdateRequest } from '../modes/types';
 
 const DEFAULT_PROPS = {isBot:false }
 
@@ -248,11 +249,11 @@ export class Simulator extends IncyclistDevice<SimulatorProperties> {
     }
 
 
-    sendUpdate( request ) {
+    async sendUpdate( request ):Promise<UpdateRequest|void> {
         if (this.paused)
             return;
 
-        return this.getCyclingMode().sendBikeUpdate(request)
+        return await this.getCyclingMode().sendBikeUpdate(request)
     }
 
 }

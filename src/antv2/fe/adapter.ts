@@ -54,8 +54,8 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
         return this.promiseReconnect!==null && this.promiseReconnect!==undefined
     }
 
-    async sendUpdate(request:UpdateRequest, forced=false):Promise<void> {
-
+    
+    async sendUpdate(request:UpdateRequest, forced=false):Promise<UpdateRequest|void> {
 
         // don't send any commands if we are pausing or reconnecting
         if( (this.paused || this.isReconnecting()) && !forced)
@@ -90,6 +90,8 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
             }
             await this.promiseSendUpdate
             delete this.promiseSendUpdate
+
+            return update
         
         }
         catch( err) {

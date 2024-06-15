@@ -1,5 +1,5 @@
 import EventEmitter from "events";
-import ICyclingMode, { CyclingMode } from "../modes/types"
+import ICyclingMode, { CyclingMode, UpdateRequest } from "../modes/types"
 import { IncyclistCapability } from "./capabilities";
 import { IncyclistAdapterData } from "./data";
 import { DeviceProperties, DeviceSettings } from "./device"
@@ -21,7 +21,7 @@ export interface IBike {
 
     // send Init Commands after cycle mode has changed
     sendInitCommands():Promise<boolean>
-    sendUpdate(request)  
+    sendUpdate(request):Promise<UpdateRequest|void>  
 
     setUser(user:User): void  
     getWeight():number
