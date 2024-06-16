@@ -11,6 +11,7 @@ export type UpdateRequest = {
     refresh?: boolean;
     init?: boolean;
     gear?: number;
+    forced?:boolean
 }
 export enum CyclingModeProperyType {
     Integer = 'Integer',

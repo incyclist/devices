@@ -55,10 +55,10 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
     }
 
     
-    async sendUpdate(request:UpdateRequest, forced=false):Promise<UpdateRequest|void> {
+    async sendUpdate(request:UpdateRequest):Promise<UpdateRequest|void> {
 
         // don't send any commands if we are pausing or reconnecting
-        if( (this.paused || this.isReconnecting()) && !forced)
+        if( (this.paused || this.isReconnecting()) && !request.forced)
             return;
 
         // currently stopping
@@ -334,7 +334,7 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
                 
                     const power = this.data.power
                     const request = power ? {targetPower:power} : this.getCyclingMode().getBikeInitRequest()
-                    await this.sendUpdate(request,true)
+                    await this.sendUpdate({...request,forced:true})
                     return true
                 }
             }

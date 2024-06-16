@@ -257,7 +257,7 @@ export default class IncyclistDevice<P extends DeviceProperties>
         if (!this.isControllable())
             return;
 
-        if (this.isPaused() || this.isStopped())
+        if (!request.enforced && (this.isPaused() || this.isStopped()))
             return;
 
         // in case the adapter is not abel to control the device, we are calling the Cycling Mode to adjust slope

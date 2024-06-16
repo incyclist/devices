@@ -889,7 +889,7 @@ describe( 'fe adapter', ()=>{
             adapter.getCyclingMode=jest.fn().mockReturnValue(ERGMode) 
             const res = await adapter.sendInitCommands()
             expect(res).toBe(true)
-            expect(adapter.sendUpdate).toHaveBeenCalledWith({targetPower:123},true)
+            expect(adapter.sendUpdate).toHaveBeenCalledWith({targetPower:123,forced:true})
 
         })
         test('switched to ERG Cycling Mode - no power set',async ()=>{
@@ -898,7 +898,7 @@ describe( 'fe adapter', ()=>{
             adapter.getCyclingMode=jest.fn().mockReturnValue(ERGMode) 
             const res = await adapter.sendInitCommands()
             expect(res).toBe(true)
-            expect(adapter.sendUpdate).toHaveBeenCalledWith({targetPower:100},true)
+            expect(adapter.sendUpdate).toHaveBeenCalledWith({targetPower:100,forced:true})
 
         })
 
