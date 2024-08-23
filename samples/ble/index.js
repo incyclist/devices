@@ -74,7 +74,8 @@ const  main = async(props = {})=> {
     ble.on('device', device=>{ console.log('> found device',device)})
 
     ble.on('error',console.log)
-    binding.on('error',(err)=>{console.log('>binding error',err.message)})
+    if (binding)
+        binding.on('error',(err)=>{console.log('>binding error',err.message)})
 
     const {command,id,name,address,protocol,protocols} = props
     
