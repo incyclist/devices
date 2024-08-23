@@ -407,8 +407,7 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
           
 
     async stop(): Promise<boolean> {
-        console.log('~~~ STOP', this.stopped)
-        
+       
         if (this.stopped) {
             
             return true;
