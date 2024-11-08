@@ -523,35 +523,64 @@ export default class Daum8i extends SerialPortComms<DaumPremiumCommsState,DaumPr
     }
 
     async programUploadStart(bikeType:string, route?: Route):Promise<Uint8Array> {
-        const payload = Buffer.alloc(40);
         
-        const epp = route ? routeToEpp(route) : undefined;
-        const eppLength = epp ? epp.length : 0;
-        const bikeTypeVal = getBikeType(bikeType);
-        const wBits = route.lapMode ? DS_BITS_ENDLESS_RACE:  DS_BITS_OFF;
+        let payload, epp, eppLength, bikeTypeVal, wBits
 
-        payload.writeInt32LE(0,0);              // pType
-        payload.writeInt8(bikeTypeVal,4);          // bikeType       
-        payload.writeInt8(0,5);                 // startAt (LSB)
-        payload.writeInt16LE(0,6);              // startAt (HSB)
-        payload.writeInt32LE(0,8);              // mType
-        payload.writeInt32LE(0,12);             // duration
-        payload.writeFloatLE(0,16);             // energy
-        payload.writeFloatLE(0,20);             // value
-        payload.writeInt16LE(0,24);             // startWatt
-        payload.writeInt16LE(0,26);             // endWatt
-        payload.writeInt16LE(0,28);             // deltaWatt
-        payload.writeInt16LE(wBits,30);             // wBits
-        payload.writeInt32LE(7,32);             // eppVersion (4) - EPP_CURRENT_VERSION
-        payload.writeInt32LE(eppLength,36);    // eppSize
-       
-        const res =await this.sendReservedDaum8iCommand('programUploadStart()', ReservedCommands.PROGRAM_LIST_NEW_PROGRAM,payload)
-        const buffer = Buffer.from(res);
-        if ( buffer.readInt16LE(0) ===ReservedCommands.PROGRAM_LIST_NEW_PROGRAM) {
-            this.logEvent( {message:'programUploadStart() response', success:true})
-            return epp
+        try {
+            payload = Buffer.alloc(40);
+            epp = route ? routeToEpp(route) : undefined;
+            eppLength = epp ? epp.length : 0;
+            bikeTypeVal = getBikeType(bikeType);
+            wBits = route.lapMode ? DS_BITS_ENDLESS_RACE:  DS_BITS_OFF;
         }
-        this.logEvent( {message:'programUploadStart() response', success:false})
+        catch(err) {
+            this.logEvent({message:'error', fn:'programUploadStart#prepare',epp,error:err.message,stack:err.stack})
+            throw err;
+        }
+        
+        // const payload = Buffer.alloc(40);
+        
+        // const epp = route ? routeToEpp(route) : undefined;
+        // const eppLength = epp ? epp.length : 0;
+        // const bikeTypeVal = getBikeType(bikeType);
+        // const wBits = route.lapMode ? DS_BITS_ENDLESS_RACE:  DS_BITS_OFF;
+
+        try {
+
+            payload.writeInt32LE(0,0);              // pType
+            payload.writeInt8(bikeTypeVal,4);          // bikeType       
+            payload.writeInt8(0,5);                 // startAt (LSB)
+            payload.writeInt16LE(0,6);              // startAt (HSB)
+            payload.writeInt32LE(0,8);              // mType
+            payload.writeInt32LE(0,12);             // duration
+            payload.writeFloatLE(0,16);             // energy
+            payload.writeFloatLE(0,20);             // value
+            payload.writeInt16LE(0,24);             // startWatt
+            payload.writeInt16LE(0,26);             // endWatt
+            payload.writeInt16LE(0,28);             // deltaWatt
+            payload.writeInt16LE(wBits,30);             // wBits
+            payload.writeInt32LE(7,32);             // eppVersion (4) - EPP_CURRENT_VERSION
+            payload.writeInt32LE(eppLength,36);    // eppSize
+        }
+        catch(err) {
+            this.logEvent({message:'error', fn:'programUploadStart#createPayload',bikeTypeVal,wBits,eppLength,error:err.message,stack:err.stack})
+            throw err
+        }
+       
+        try {
+            const res =await this.sendReservedDaum8iCommand('programUploadStart()', ReservedCommands.PROGRAM_LIST_NEW_PROGRAM,payload)
+            const buffer = Buffer.from(res);
+            if ( buffer.readInt16LE(0) ===ReservedCommands.PROGRAM_LIST_NEW_PROGRAM) {
+                this.logEvent( {message:'programUploadStart() response', success:true})
+                return epp
+            }
+            this.logEvent( {message:'programUploadStart() response', success:false})
+        }
+        catch(err) {
+            this.logEvent({message:'error', fn:'programUploadStart#send',payload:payload.toString('hex'),error:err.message,stack:err.stack})
+            throw err
+
+        }
         throw new Error('Illegal Response' )
     }
 

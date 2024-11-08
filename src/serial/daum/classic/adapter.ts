@@ -214,11 +214,13 @@ export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings
         }
 
         const  checkInterrupt = ()=>new Promise ( done=> {
-            this.internalEmitter.on('stop', ()=>{ 
+            const onStop = ()=>{ 
                 stopped = true;
                 this.started = false;
                 done(false)
-            })
+                this.internalEmitter.off('stop', onStop)    
+            }
+            this.internalEmitter.on('stop', onStop)
         })
 
         return runWithRetries( ()=>Promise.race([start(),checkInterrupt()]), 5, 1000 )
