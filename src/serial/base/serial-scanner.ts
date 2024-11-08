@@ -76,6 +76,12 @@ export class SinglePathScanner {
                     const adapterSettings = { interface: this.serial.getName(), host, port, protocol };
 
                     const adapter = SerialAdapterFactory.getInstance().createInstance(adapterSettings);
+
+                    if (!adapter) {
+                        this.isScanning = false;
+                        resolve(this.result)
+                        return
+                    }
                     
                     if (this.isScanning) {
 
