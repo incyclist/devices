@@ -462,13 +462,14 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
         }       
     }
 
-    getStartProps(startProps?: AntDeviceProperties): AntDeviceProperties {
-        const {user,userWeight,bikeWeight,startupTimeout,automaticReconnect} = startProps
+    getLogProps(startProps?: AntDeviceProperties): AntDeviceProperties {
+        const {user,userWeight,bikeWeight,startupTimeout,automaticReconnect} = startProps??{}
         return {user,userWeight,bikeWeight,startupTimeout,automaticReconnect}
     }
 
     async start( startProps?:AntDeviceProperties ): Promise<boolean> {
         const props = this.getStartProps(startProps) as AntDeviceProperties
+        const logProps = this.getLogProps(startProps)
 
         const preCheckResult = await this.startPreChecks(props)
         if (preCheckResult==='done')
@@ -477,7 +478,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
         if (preCheckResult==='connection-failed')
             throw new Error(`could not start device, reason:could not connect`)
     
-        this.logEvent( {message:'starting device', device:this.getName(), props, isStarted: this.started, isPaused: this.isPaused, isStopped:this.isStopped})
+        this.logEvent( {message:'starting device', device:this.getName(), props:logProps, isStarted: this.started, isPaused: this.isPaused, isStopped:this.isStopped})
 
         this.resetStartStatus()
         this.resetData();      
