@@ -7,6 +7,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
 
     protected static config ={
         name: "Smart Trainer",
+        isSIM: true,
         description: "Calculates speed based on power and slope. Slope is set to the device",
         properties: [
             {key:'bikeType',name: 'Bike Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Race','Mountain','Triathlon'], default: 'Race'},
