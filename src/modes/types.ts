@@ -63,7 +63,8 @@ export default interface ICyclingMode {
 
 export type CyclingModeConfig = {
     isERG?:boolean
-    name: string
+    isSIM?:boolean,
+    name: string,
     description: string,
     properties: CyclingModeProperty[]
 }
@@ -114,4 +115,17 @@ export class CyclingMode implements ICyclingMode {
     getModeProperty(_name: string) {
         throw new Error("Method not implemented.");
     }
+
+    getConfig():CyclingModeConfig {
+        throw new Error("Method not implemented.");
+    } 
+
+    isERG():boolean {
+        return this.getConfig().isERG
+    }
+    isSIM():boolean {
+        return this.getConfig().isSIM
+
+    }
+
 }
