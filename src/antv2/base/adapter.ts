@@ -11,6 +11,7 @@ import { DEFAULT_UPDATE_FREQUENCY } from '../consts';
 import SensorFactory from '../factories/sensor-factory';
 import { EventLogger } from 'gd-eventlog';
 import EventEmitter from 'events';
+import ICyclingMode from '../../modes/types';
 
 const INTERFACE_NAME = 'ant'
 const MAX_RETRIES = 3;
@@ -164,6 +165,32 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
     /* istanbul ignore next */
     mapToAdapterData(deviceData):void {
         throw new Error('message not implemented')        
+    }
+
+    refreshDeviceData()     {
+        if ( this.isStopped() || this.isPaused())
+            return;   
+
+        const logData = this.getLogData(this.deviceData, ['PairedDevices','RawData','_RawData']);
+        this.logEvent( {message:'refreshDeviceData', data:logData, paused:this.paused,started:this.started, canEmit:this.canEmitData()})
+
+        
+        if (this.isControllable()) {
+            // transform data into internal structure of Cycling Modes
+            let incyclistData = this.mapData(this.deviceData)      
+
+            // let cycling mode process the data
+            incyclistData = this.getCyclingMode().updateData(incyclistData);   
+
+            // transform data into structure expected by the application
+            this.transformData(incyclistData,this.deviceData);                          
+
+        }
+        else  {
+            this.mapToAdapterData(this.deviceData)                            
+        }
+
+        this.emitData(this.data)
     }
 
 
@@ -597,7 +624,12 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
         catch { }
     }
 
+    setCyclingMode(mode: string | ICyclingMode, settings?: any, sendInitCommands?: boolean): void { 
+        super.setCyclingMode(mode,settings,sendInitCommands);
 
+        // recalculate speed based on latest data
+        this.refreshDeviceData()
+    }
 }
 
 

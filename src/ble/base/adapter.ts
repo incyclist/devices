@@ -6,6 +6,7 @@ import { BleDeviceProperties, BleDeviceSettings, BleStartProperties } from "../t
 import { IAdapter,IncyclistBikeData,IncyclistAdapterData,DeviceProperties} from "../../types";
 import { BleDeviceData } from "./types";
 import { LegacyProfile } from "../../antv2/types";
+import ICyclingMode from "../../modes/types";
 
 const INTERFACE_NAME = 'ble'
 
@@ -133,6 +134,36 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     getName(): string {
         const settings = this.settings as BleDeviceSettings
         return settings.name || settings.id || settings.address
+    }
+
+    refreshDeviceData()     {
+        if ( this.isStopped() || this.isPaused())
+            return;   
+
+        try {
+            this.logEvent( {message:'refreshDeviceData',data:this.deviceData, isControllable:this.isControllable()})        
+        
+            if (this.isControllable()) {
+                
+                // transform data into internal structure of Cycling Modes
+                const mappedData = this.mapData(this.deviceData) as IncyclistBikeData       
+                
+                // let cycling mode process the data
+                const incyclistData = this.getCyclingMode().updateData(mappedData);                               
+
+                // transform data into structure expected by the application
+                this.data =  this.transformData(incyclistData);                  
+            }
+            else {
+                this.data =  this.mapData(this.deviceData)
+            }
+            this.emitData(this.data)
+        }
+        catch(err) {
+            this.logEvent({message:'error', fn:'refreshDeviceData', error:err.message, stack:err.stack})
+        }
+
+
     }
 
     onDeviceData(deviceData:TDeviceData) {
@@ -281,6 +312,12 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         // not required for BLE
     }
 
+    setCyclingMode(mode: string | ICyclingMode, settings?: any, sendInitCommands?: boolean): void { 
+        super.setCyclingMode(mode,settings,sendInitCommands);
+
+        // recalculate speed based on latest data
+        this.refreshDeviceData()
+    }
 
 
 
