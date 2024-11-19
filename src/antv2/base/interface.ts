@@ -6,6 +6,7 @@ import { IncyclistInterface } from "../../types";
 import AntDeviceBinding from "./binding";
 import SensorFactory from "../factories/sensor-factory";
 import { isTrue, runWithTimeout, sleep, waitWithTimeout } from "../../utils/utils";
+import { AdapterFactory } from "incyclist-devices";
 
 type ChannelUsage = 'scan'|'sensor'
 interface ChannelInfo  {
@@ -314,6 +315,9 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
                 this.activeScan.emitter.removeAllListeners()
 
                 this.emit('stop-scan')
+                await this.stopDevices(detected)
+                await this.stopAllSensors(sensors)
+
                 const stopped = await this.activeScan.channel.stopScanner()
                 this.logEvent({message:'scan stopped'})
 
@@ -364,6 +368,38 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         return this.scanPromise!==undefined && this.scanPromise !== null
     }
 
+    protected async stopAllSensors(sensors:Array<ISensor>):Promise<void> {
+        this.logger.logEvent({message:'stopping all sensors '})
+        let promises = []
+       
+        sensors.forEach( (sensor)=>{
+            promises.push(this.stopSensor(sensor).catch(err => {
+                this.logger.logEvent({message:'could not stop sensor', error:err.message,channel:sensor.getChannel()?.getChannelNo(), stack:err.stack})
+            }))
+        })
+        if (promises.length>0) {
+            await Promise.allSettled(promises)
+        }
+        this.logger.logEvent({message:'sensors stopped'})
+    }
+
+    protected async stopDevices(detected:AntDeviceSettings[]):Promise<void> {
+        this.logger.logEvent({message:'stopping devices'})
+        let promises = []
+
+        detected.forEach( (settings)=>{
+            const adapter = AdapterFactory.create(settings)
+            promises.push(adapter.stop().catch(err => {
+                this.logger.logEvent({message:'could not stop device', error:err.message,deviceID:settings.deviceID, stack:err.stack})
+            }))
+        })
+
+        if (promises.length>0) {
+            await Promise.allSettled(promises)
+        }
+        this.logger.logEvent({message:'devices stopped'})
+
+    }
 
     async stopScan():Promise<boolean> {
         this.logEvent({message:'stopping scan ..'})
@@ -450,7 +486,7 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         }
 
         const channel = sensor.getChannel() as Channel
-        if (channel) {
+        if (channel!==undefined) {
             try {
 
                 // old versions of ant-plus library did not have a flush functionn
@@ -477,8 +513,8 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
             }
         }
         else {
-            this.logEvent( {message:'could not stop sensor', deviceID:sensor.getDeviceID(), error:'no channel attached'})
-            return false;
+            //this.logEvent( {message:'could not stop sensor', deviceID:sensor.getDeviceID(), error:'no channel attached'})
+            return true;
         }
     }
 

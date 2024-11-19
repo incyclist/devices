@@ -589,7 +589,7 @@ describe('Ant Interface',()=>{
         test('no channel',async ()=>{
             sensor.getChannel = jest.fn().mockReturnValue(undefined)
             const res = await i.stopSensor(sensor)
-            expect(res).toBe(false)
+            expect(res).toBe(true)
         })
 
         test('channel flush does not exist',async ()=>{

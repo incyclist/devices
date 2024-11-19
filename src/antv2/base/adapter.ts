@@ -581,10 +581,14 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
     async stop(): Promise<boolean> {
         let stopped;
 
-        this.logger.logEvent( {message:'stopping device', device:this.getName()})
-
         // in case there was a start ongoing, enforce stop of waiting for data and interrup start
         this.internalEmitter.emit('stop')
+
+        if (this.stopped)
+            return
+
+        this.logger.logEvent( {message:'stopping device', device:this.getName()})
+
 
         this.promiseWaitForData = null;
         if (this.startStatus) {
