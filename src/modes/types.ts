@@ -61,6 +61,11 @@ export default interface ICyclingMode {
 
 }
 
+export interface IVirtualShifting {
+    initGears(): Promise<number>;
+    gearUp(numGears: number): Promise<number>;
+}
+
 export type CyclingModeConfig = {
     isERG?:boolean
     isSIM?:boolean,
@@ -112,7 +117,7 @@ export class CyclingMode implements ICyclingMode {
     setModeProperty(_name: string, _value: any): void {
         throw new Error("Method not implemented.");
     }
-    getModeProperty(_name: string) {
+    getModeProperty(_name: string):any {
         throw new Error("Method not implemented.");
     }
 
@@ -129,3 +134,4 @@ export class CyclingMode implements ICyclingMode {
     }
 
 }
+

@@ -1,9 +1,19 @@
-import ICyclingMode, { CyclingModeProperyType, UpdateRequest } from "./types";
+import ICyclingMode, { CyclingModeProperyType, IVirtualShifting, UpdateRequest } from "./types";
 import PowerBasedCyclingModeBase from "./power-base";
 import { IAdapter } from "../types";
+import calc from '../utils/calculations'
 
+const NUM_GEARS = 30
 
-export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase implements ICyclingMode {
+export type GearConfigEntry = { chainConfig: number[], cassetteConfig: number[], wheelCirc: number, numGears: number }
+
+const GearConfig:Record<string,GearConfigEntry> = {
+    race: { chainConfig:[34,50], cassetteConfig:[11,36], wheelCirc: 2125, numGears: NUM_GEARS },
+    mountain: { chainConfig:[26,36], cassetteConfig:[10,44], wheelCirc: 2344, numGears: NUM_GEARS },
+    triathlon: { chainConfig:[36,52], cassetteConfig:[11,30], wheelCirc: 2125, numGears: NUM_GEARS },
+}
+
+export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase implements ICyclingMode, IVirtualShifting {
 
     protected static config ={
         name: "Smart Trainer",
@@ -14,6 +24,8 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
             {key:'slopeAdj', name:'Slope Adjustment', description:'Percentage of slope that should be sent to the SmartTrainer. Should be used in case the slopes are feeling too hard', type: CyclingModeProperyType.Integer,default:100,min:0, max:200}
         ]
     }
+
+    protected gear;
 
     constructor(adapter: IAdapter, props?:any) {
         super(adapter,props);
@@ -38,18 +50,24 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
 
     }
 
+
     protected checkSlope(request: UpdateRequest, newRequest: UpdateRequest={}) { 
         if (request.slope!==undefined) {
             newRequest.slope = parseFloat(request.slope.toFixed(1));
             this.data.slope = newRequest.slope;
 
             try {
+                if (this.gear!==undefined) {
+                    const slopeTarget = this.switchGear(this.gear,this.gear)
+                    newRequest.slope = slopeTarget
+                }
+
                 const slopeAdj = this.getSetting('slopeAdj')
                 if (slopeAdj!==undefined)
                     newRequest.slope = newRequest.slope * slopeAdj/100
             }
-            catch {
-
+            catch (err) {
+                this.logger.logEvent( {message:"error",fn:'',error:err.message, request,prev:this.prevRequest,data:this.getData()} );
             }
             
         }
@@ -94,6 +112,123 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         return newRequest
         
     }
+
+    async initGears(): Promise<number> {
+
+        this.gear = this.findBestGear();
+        return this.gear;
+    }
+    async gearUp(numGears: number): Promise<number> {
+        let target = this.gear + numGears;
+        if (target > NUM_GEARS) 
+            target = NUM_GEARS;
+        if (target < 1)
+            target=1
+
+        this.gear = target
+        return this.gear
+    }
+
+    protected switchGear = (gear,prevGear) => {
+
+        const {chainConfig,cassetteConfig,wheelCirc,numGears} = this.getCurrentGearConfig()        
+        const {pedalRpm,speed,power,slope} = this.getData()??{}
+        const m = this.getWeight()
+
+        let cadence = pedalRpm??this.getDefaultCadence()
+        let currentPower = power??this.getDefaultPower()
+
+        const prevGearSpeed = calc.calculateSpeedBike( prevGear, cadence,  chainConfig, cassetteConfig, {numGears, wheelCirc} )
+        const targetGearSpeed = calc.calculateSpeedBike( gear, cadence,  chainConfig, cassetteConfig, {numGears, wheelCirc} )
+
+
+        const targetGearPower = calc.calculatePower(m,targetGearSpeed/3.6,0)
+        const prevGearPower = calc.calculatePower(m,prevGearSpeed/3.6,0)
+
+        /*
+        const vPrev = (prevSpeed )/3.6
+        const EkinPrev = 1/2*m*vPrev*vPrev;
+
+        const vNew = (speed )/3.6
+        const EkinNew = 1/2*m*vNew*vNew;
+
+        const powerDelta = (EkinNew - EkinPrev)/3;
+        const slopeTargetA = C.calculateSlope(m, power, (speedInApp)/3.6);
+        const slopeTargetB = C.calculateSlope(m, power+(power2-power1), (speedInApp)/3.6);
+
+        //power = power+ powerDelta 
+        */
+        const targetPower = currentPower+(targetGearPower-prevGearPower)
+        const slopeTarget = calc.calculateSlope(m,targetPower, speed/3.6);
+        
+
+        console.log('Gear',gear,'power',targetPower, 'speed', speed.toFixed(1),'slope',slope.toFixed(1),'virtual slope',slopeTarget.toFixed(1))        
+
+        return slopeTarget
+    }
+
+    protected findBestGear() {
+
+        const {chainConfig,cassetteConfig,wheelCirc,numGears} = this.getCurrentGearConfig()        
+        const {pedalRpm,speed,power,slope} = this.getData()??{}
+        const m = this.getWeight()
+
+        let cadence = pedalRpm??this.getDefaultCadence()
+        let currentPower = power??this.getDefaultPower()
+
+        let minDiff, gearInitial
+
+        if (speed===0) {            
+            const speedInitial = calc.calculateSpeed(m,currentPower,slope)
+            for (let i=1;i<=numGears;i++) {
+                const speed = calc.calculateSpeedBike( i, cadence,  chainConfig, cassetteConfig, {numGears, wheelCirc} )
+    
+    
+                const diff = Math.abs(speed - speedInitial)
+                if (!minDiff || diff<minDiff) {
+                    minDiff = diff
+                    gearInitial = i
+                }
+    
+            }
+    
+        }
+        else {
+            for (let i=1;i<=numGears;i++) {
+                const speed = calc.calculateSpeedBike( i, cadence,  chainConfig, cassetteConfig, {numGears, wheelCirc} )
+                const targetPower = calc.calculatePower(m,speed/3.6,slope)    
+    
+                const diff = Math.abs(currentPower - targetPower)
+                if (!minDiff || diff<minDiff) {
+                    minDiff = diff
+                    gearInitial = i
+                }
+    
+            }
+
+        }
+
+
+        return gearInitial
+
+
+
+    }
+    getCurrentGearConfig():GearConfigEntry {
+        const type = this.getSetting('bikeType')??'Race'
+        return GearConfig[type.toLowerCase()]
+
+    }
+
+    protected getDefaultCadence() {
+        return 90
+    }
+
+    protected getDefaultPower() {
+        return 120
+    }
+   
+
 
 
 }

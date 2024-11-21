@@ -54,9 +54,9 @@ export default class C {
         if (power===undefined || power===null || power<0)
             throw new IllegalArgumentException("power must be a positive number");
 
-        const _rho = props.rho || rho;
-        const _cRR = props.cRR || cRR;
-        const _cwA = props.cwA || cwABike[props.bikeType||'race'] || cwABike.race
+        const _rho = props.rho ?? rho;
+        const _cRR = props.cRR ?? cRR;
+        const _cwA = props.cwA ?? (cwABike[props.bikeType||'race'] ?? cwABike.race)
 
 		let sl = Math.atan(slope/100);
 		let c1 = 0.5*_rho*_cwA//+2 *k;
@@ -100,6 +100,35 @@ export default class C {
 		return 0;
 	}
 
+    static calculateSlope (m:number, P:number, v:number, props={} as any) { 
+        if (m===undefined || m===null || m<0)
+            throw new IllegalArgumentException("m must be a positive number");
+
+        if (P===undefined || P===null || P<0)
+            throw new IllegalArgumentException("power must be a positive number");
+
+        if (v===undefined || v===null || v===0)
+            throw new IllegalArgumentException("v must be a positive number");
+
+        const _rho = props.rho ?? rho;
+        const _cRR = props.cRR ?? cRR;
+        const _cwA = props.cwA ?? (cwABike[props.bikeType||'race'] || cwABike.race)
+        
+        
+
+		/** 
+		 * P = 1/2*rho*cWA*v^3 +2*k v^3 + m*g*sl*v + cRR*m*g*v 
+         * 
+         * => P-cRR*m*g*v-2*k v^3-1/2*rho*cWA*v^3 / ( m*g*v) =   sl
+		 */
+		
+        const sl = (P - (0.5*_rho*_cwA/*+2*k*/)*Math.pow(v,3.0))/(m*g*v)-_cRR
+
+        return Math.tan(Math.asin(sl))*100
+        
+    }
+
+
     static calculatePower (m:number,  v:number,  slope:number, props={} as any) {
         if (m===undefined || m===null || m<0)
             throw new IllegalArgumentException("m must be a positive number");
@@ -107,16 +136,16 @@ export default class C {
         if (v===undefined || v===null || v<0)
             throw new IllegalArgumentException("v must be a positive number");
 
-        let _rho = props.rho || rho;
-        let _cRR = props.cRR || cRR;
-        let _cwA = props.cwA || cwABike[props.bikeType||'race']
+        let _rho = props.rho ?? rho;
+        let _cRR = props.cRR ?? cRR;
+        let _cwA = props.cwA ?? cwABike[props.bikeType||'race']
 
 		/** 
 		 * P = 1/2*rho*cWA*v^3 +2*k v^3 + m*g*sl*v + cRR*m*g*v 
 		 */
 		let sl = Math.sin(Math.atan(slope/100));
 		let P = (0.5*_rho*_cwA/*+2*k*/)*Math.pow(v,3.0)+(sl +_cRR)*m*g*v; 
-		
+		        
 		return P;
     }	
 
@@ -158,6 +187,7 @@ export default class C {
         let speed = rpm*distRotation*60/1000;         // speed [km/h]
         return speed;			
 	}
+    
     
 }
 

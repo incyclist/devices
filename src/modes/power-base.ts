@@ -5,7 +5,6 @@ import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../base/consts";
 import calc from '../utils/calculations'
 import { EventLogger } from 'gd-eventlog';
 import { CyclingModeBase } from './base';
-import { IncyclistDeviceAdapter } from '../base/adpater';
 
 const MIN_SPEED = 10;
 

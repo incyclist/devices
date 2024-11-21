@@ -142,6 +142,7 @@ describe('Calculations', () => {
 
         })
 
+
         test('chainData missing',()=>{
             expect(() => { C.calculateSpeedBike(1,88,[],[11,30],{numGears:28, wheelCirc:2125});}).toThrow(IllegalArgumentException);                               
 
@@ -239,6 +240,54 @@ describe('Calculations', () => {
 
     } ) 
 
+    describe('calculateSlope',()=>{
+
+        const v = (x)=>x/3.6
+        const sl = (slope)=> Math.atan(slope/100)
+
+
+        it('70kg,100W,5% slope', ()=> {
+            const vT = C.calculateSpeed(70, 100, 5);
+            expect(vT).toBeCloseTo(9.4,1)
+            console.log( sl(5))
+            
+            const result = C.calculateSlope(70, 100, v(vT));
+            expect(result).toBeCloseTo(5,1)
+
+        })
+
+        it('70kg,100W,49.1km/h => -5% slope', ()=> {
+            console.log( sl(-5))
+
+            const result = C.calculateSlope(70, 100, v(49.1));
+            expect(result).toBeCloseTo(-5,1)
+        })
+
+        it('100kg,100W,27.1km/h => no slope', ()=> {
+            const speed = C.calculateSpeed(100, 100, 0);
+            console.log(speed)
+
+            const power = C.calculatePower(100, v(27.1), 0);
+            
+            const result = C.calculateSlope(100, 100, v(speed))
+            expect(result).toBeCloseTo(0,1)
+
+            const result1 = C.calculateSlope(100, power, v(27.1))
+            expect(result1).toBeCloseTo(0,1)
+        })
+
+        it('70kg,100W,-10% slope', ()=> {
+
+            const P = C.calculatePower(70, v(66), -10);
+            const result = C.calculateSlope(70, P, v(66));
+            expect(result).toBeCloseTo(-10,1)
+        })
+
+
+
+
+    })
+
     describe('solveCubic',()=>{
         test('solveCubic (-7, -6)',()=>{
             const res = solveCubic(-7, -6);
@@ -293,6 +342,153 @@ describe('Calculations', () => {
             expect(res.length).toBe(1);
             expect(res[0]).toBeCloseTo(0,1);
         } )
+
+    })
+
+    describe.skip('virtual Shifting',()=>{
+
+        const numGears = 30
+        const slopeInApp = -5
+        const powerInitial = 50
+        const m = 70
+        const cadence = 90
+        const speedInitial = 30.6 // C.calculateSpeed(m,powerInitial,slope)
+
+
+        let gearInitial = 15;
+
+        if (!gearInitial) {
+            let minDiff
+
+            for (let i=1;i<=numGears;i++) {
+                const speed = C.calculateSpeedBike( i, cadence,  [34,50], [11,36], {numGears, wheelCirc:2125} )
+                const diff = Math.abs(speed - speedInitial)
+                if (!minDiff || diff<minDiff) {
+                    minDiff = diff
+                    gearInitial = i
+                }
+    
+            }
+    
+    
+        }
+        // shift up
+        console.log('initial Gear',gearInitial,'speed', speedInitial.toFixed(1),'slope',slopeInApp)
+        
+
+        const calculatePowerAndDistance = (speed: number,prevSpeed:number, slope: number, m: number, t: number, props= {}) =>{ 
+            
+    
+            const vPrev = (prevSpeed)/3.6
+            const EkinPrev = 1/2*m*vPrev*vPrev;
+            const vTarget = (speed||0) /3.6;
+            const Ekin = 1/2*m*vTarget*vTarget;
+    
+            const powerDelta = t!==0 ? (EkinPrev - Ekin)/t : 0;
+            const powerToMaintainSpeed = C.calculatePower(m,vPrev,slope,props);
+            const power = powerToMaintainSpeed - powerDelta;
+            
+            const v = speed/3.6
+            const distance = v*t;
+    
+            
+            return power
+    
+        }
+
+        const calculateSpeedAndDistance = (power: number,prevSpeed:number, slope: number, m: number, t: number, props= {}) => { 
+            
+    
+            const vPrev = (prevSpeed )/3.6
+            const EkinPrev = 1/2*m*vPrev*vPrev;
+    
+    
+            let powerToMaintainSpeed = C.calculatePower(m,vPrev,slope,props);
+    
+            //no update for more than 30s - we need to reset
+            if (t>=30) {
+                const speed = C.calculateSpeed(m,power,slope,props)            
+                return speed
+            }
+    
+            const powerDelta = powerToMaintainSpeed - power;
+            const Ekin = EkinPrev-powerDelta*t;
+    
+            if (Ekin>0) {
+                const v = Math.sqrt(2*Ekin/m);
+                const speed = v*3.6;
+                
+    
+                
+                return speed
+            }
+            else {
+                // Power is not sufficiant to keep moving
+                const v = vPrev *0.5;
+                const speed = v*3.6;
+                
+                
+                return speed
+    
+            }
+        }
+
+
+
+
+        let slopeTarget = slopeInApp
+        let speed = speedInitial        
+        let power = powerInitial
+        let speedInApp = speedInitial
+
+        const switchGear = (gear,prevGear) => {
+            let prevSpeed = C.calculateSpeedBike( prevGear, cadence,  [34,50], [11,36], {numGears, wheelCirc:2125} )
+            speed = C.calculateSpeedBike( gear, cadence,  [34,50], [11,36], {numGears, wheelCirc:2125} )
+            // / C.calculateSpeedBike( gear-1, cadence,  [34,50], [11,36], {numGears, wheelCirc:2125} ) 
+
+            const power2 = C.calculatePower(m,speed/3.6,0)
+            const power1 = C.calculatePower(m,prevSpeed/3.6,0)
+
+
+            const vPrev = (prevSpeed )/3.6
+            const EkinPrev = 1/2*m*vPrev*vPrev;
+
+            const vNew = (speed )/3.6
+            const EkinNew = 1/2*m*vNew*vNew;
+
+            const powerDelta = (EkinNew - EkinPrev)/3;
+            const slopeTargetA = C.calculateSlope(m, power, (speedInApp)/3.6);
+            const slopeTargetB = C.calculateSlope(m, power+(power2-power1), (speedInApp)/3.6);
+
+            //power = power+ powerDelta 
+            
+            slopeTarget = C.calculateSlope(m,power+ power2-power1, (speedInApp)/3.6);
+            
+
+            speedInApp = calculateSpeedAndDistance(power,speedInApp, slopeInApp,m,3)
+            speedInApp = calculateSpeedAndDistance(power+ power2-power1,speedInApp, slopeInApp,m,7)
+            power = power+ power2-power1
+                    
+            
+
+            console.log('Gear',gear,'power',power, 'speed', speedInApp.toFixed(1),'slope',slopeInApp,'virtual slope',slopeTarget.toFixed(1))        
+
+        }
+
+        /*
+        for (let gear=gearInitial+1;gear<=numGears;gear++) {
+            switchGear(gear,gear-1)
+        }
+        for (let gear=numGears-1;gear>0;gear--) {
+            switchGear(gear,gear+1)
+        }
+            */
+        
+        switchGear(18,15)
+        switchGear(19,18)
+        switchGear(19,19)
+        switchGear(20,19)
+
 
     })
 })
