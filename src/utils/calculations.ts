@@ -170,16 +170,29 @@ export default class C {
 
 	static  calculateSpeedBike( gear:number, rpm:number,  chain: number[], cassette: number[], props?:{numGears?:number, wheelCirc?:number} ) 
 	{
-        if ( chain.length!==2 || cassette.length!==2)
-            throw new IllegalArgumentException("chain and cassette must be an array of 2 numbers");
-        if ( cassette[0]<1 || cassette[1]<1)
-            throw new IllegalArgumentException("cassette must be an array of 2 positive numbers");
+        if ( cassette.length<2)
+            throw new IllegalArgumentException("cassette must be an array of 2 ore more numbers");
+        if ( cassette.find(c=>c<=0))
+            throw new IllegalArgumentException("cassette must be an array of positive numbers");
+
+        const minChain = Math.min(...chain)
+        const maxChain = Math.max(...chain)
+        const minCassette = Math.min(...cassette)
+        const maxCassette = Math.max(...cassette)
 
         const bikeProps = props || {};
-        const minGearRatio =chain[0]/cassette[1]
-        const maxGearRatio =chain[1]/cassette[0]
-        const numGears = bikeProps.numGears || 28;
         const wheelCirc = bikeProps.wheelCirc || 2125;
+
+        if (minChain===maxChain && props.numGears===cassette.length) {
+            const gearRatio = minChain/cassette[cassette.length-gear]    
+            let	distRotation = wheelCirc*gearRatio/1000;  // distance per rotation [m]
+            let speed = rpm*distRotation*60/1000;         // speed [km/h]
+            return speed;			
+    
+        }
+        const minGearRatio =minChain/maxCassette
+        const maxGearRatio =maxChain/minCassette
+        const numGears = bikeProps.numGears || 28;
         const gearRatio = minGearRatio + (maxGearRatio-minGearRatio)*(gear-1)/(numGears-1);
 
         
@@ -187,6 +200,35 @@ export default class C {
         let speed = rpm*distRotation*60/1000;         // speed [km/h]
         return speed;			
 	}
+
+    static calculateGearRatio( gear:number, rpm:number,  chain: number[], cassette: number[], props?:{numGears?:number, wheelCirc?:number} ) {
+        if ( cassette.length<2)
+            throw new IllegalArgumentException("cassette must be an array of 2 ore more numbers");
+        if ( cassette.find(c=>c<=0))
+            throw new IllegalArgumentException("cassette must be an array of positive numbers");
+
+        const minChain = Math.min(...chain)
+        const maxChain = Math.max(...chain)
+        const minCassette = Math.min(...cassette)
+        const maxCassette = Math.max(...cassette)
+
+        const bikeProps = props || {};
+        const wheelCirc = bikeProps.wheelCirc || 2125;
+
+        if (minChain===maxChain && props.numGears===cassette.length) {
+            const gearRatio = minChain/cassette[cassette.length-gear]    
+            return gearRatio			
+    
+        }
+        const minGearRatio =minChain/maxCassette
+        const maxGearRatio =maxChain/minCassette
+        const numGears = bikeProps.numGears || 28;
+        const gearRatio = minGearRatio + (maxGearRatio-minGearRatio)*(gear-1)/(numGears-1);
+      
+        return gearRatio;			
+
+    }
+
     
     
 }

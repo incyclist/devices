@@ -10,7 +10,8 @@ export type GearConfigEntry = { chainConfig: number[], cassetteConfig: number[],
 const GearConfig:Record<string,GearConfigEntry> = {
     race: { chainConfig:[34,50], cassetteConfig:[11,36], wheelCirc: 2125, numGears: NUM_GEARS },
     mountain: { chainConfig:[26,36], cassetteConfig:[10,44], wheelCirc: 2344, numGears: NUM_GEARS },
-    triathlon: { chainConfig:[36,52], cassetteConfig:[11,30], wheelCirc: 2125, numGears: NUM_GEARS },
+    triathlon_org: { chainConfig:[36,52], cassetteConfig:[11,30], wheelCirc: 2125, numGears: NUM_GEARS },
+    triathlon: { chainConfig:[39,39], cassetteConfig:[12,13,14,15,16,17,19,21,23,25],wheelCirc: 2096, numGears: 10}
 }
 
 export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase implements ICyclingMode, IVirtualShifting {
@@ -52,8 +53,11 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
 
 
     protected checkSlope(request: UpdateRequest, newRequest: UpdateRequest={}) { 
-        if (request.slope!==undefined) {
-            newRequest.slope = parseFloat(request.slope.toFixed(1));
+        if (request.slope!==undefined || this.gear!==undefined) {
+
+            const slope  = request.slope ?? this.getData().slope
+
+            newRequest.slope = parseFloat(slope.toFixed(1));
             this.data.slope = newRequest.slope;
 
             try {
@@ -120,8 +124,10 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
     }
     async gearUp(numGears: number): Promise<number> {
         let target = this.gear + numGears;
-        if (target > NUM_GEARS) 
-            target = NUM_GEARS;
+
+        const maxGear = this.getCurrentGearConfig()?.numGears ?? NUM_GEARS
+        if (target > maxGear) 
+            target = maxGear;
         if (target < 1)
             target=1
 
@@ -194,6 +200,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
     
         }
         else {
+            let info = []
             for (let i=1;i<=numGears;i++) {
                 const speed = calc.calculateSpeedBike( i, cadence,  chainConfig, cassetteConfig, {numGears, wheelCirc} )
                 const targetPower = calc.calculatePower(m,speed/3.6,slope)    
@@ -203,8 +210,13 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                     minDiff = diff
                     gearInitial = i
                 }
-    
+                info.push('gear: '+i+' speed: '+speed.toFixed(1)+' power: '+targetPower.toFixed(0))
+                
             }
+            info.push('selected: '+gearInitial)
+
+            console.log('~~~ INFO',info.join('\n'))
+            this.logger.logEvent({message:'gear info',info:info.join('|')})
 
         }
 
