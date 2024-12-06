@@ -9,7 +9,7 @@ function bit(nr) {
 }
 
 const CadenceSupported = bit(1);
-//const HeartRateMeasurementSupported = bit(10);
+const HeartRateMeasurementSupported = bit(10);
 const PowerMeasurementSupported = bit(14);
 
 const PowerTargetSettingSupported = bit(3);
@@ -29,7 +29,7 @@ export class FitnessMachineFeatureCharacteristic extends  Characteristic<TValue>
     });
 
     const flags = Buffer.alloc(8);
-    flags.writeUInt32LE(CadenceSupported | PowerMeasurementSupported);
+    flags.writeUInt32LE(CadenceSupported | PowerMeasurementSupported | HeartRateMeasurementSupported, 0);
     flags.writeUInt32LE(IndoorBikeSimulationParametersSupported | PowerTargetSettingSupported, 4);
 
     this.value = flags

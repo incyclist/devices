@@ -1,14 +1,7 @@
 import { Characteristic } from "../base";
 import { TValue } from "../types";
 
-
-// function bit(nr) {
-//   return (1 << nr);
-// }
-
-//const HeartRateValueFormat = bit(0);
 const HeartRateValueFormatUint8 = 0;
-//const HeartRateValueFormatUint16 = HeartRateValueFormat;
 
 export interface HeartRateMeasurement extends TValue {
     heart_rate: number
