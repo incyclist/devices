@@ -11,7 +11,6 @@ export interface TDCWriteCharacteristicRequestBody extends TDCBody {
 }
 export interface TDCWriteCharacteristicResponseBody extends TDCBody {
     characteristicUUID: string; // UUID of the characteristic being written
-    //response:Buffer
 }
 
 
@@ -32,7 +31,6 @@ export class WriteCharacteristicMessage extends Message<TDCWriteCharacteristicRe
     buildResponseBody  (body: TDCWriteCharacteristicResponseBody): Buffer {       
         return Buffer.concat([
             Buffer.from(body.characteristicUUID, "hex"),
-            //Buffer.from(body.response)
         ]);
     }
 
@@ -49,11 +47,9 @@ export class WriteCharacteristicMessage extends Message<TDCWriteCharacteristicRe
     }
     parseResponseBody(body: Buffer): TDCWriteCharacteristicResponseBody {
         const characteristicUUID = body.subarray(0, 16).toString("hex");
-        //const response = body.subarray(16);    
     
         return {
             characteristicUUID,
-            //response
         };
         
     }

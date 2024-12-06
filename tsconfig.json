@@ -10,9 +10,12 @@
     },
     "include": [
         "src/**/*.js",
-        "src/**/*.ts"
+        "src/**/*.ts",
+        "tools/src/*.ts"
       ],
     "exclude": [
+      "build/**/*.*",
+      "tools/build/**/*.ts",
       "src/**/*.spec.*",
       "src/**/*.test.*",
         "src/**/*.tests.*",
