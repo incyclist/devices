@@ -1,0 +1,20 @@
+{
+	"compilerOptions": {
+    "target": "es6",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "baseUrl": "./src",
+    "outDir": "./build",
+		"module": "commonjs",
+    "declaration": true,
+    "removeComments": true
+    },
+    "include": [
+        "./src/**/*.ts"
+      ],
+    "exclude": [
+        "src/**/*.test.*",
+        "node_modules"
+      ]
+}
