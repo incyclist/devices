@@ -69,7 +69,9 @@ export interface BleInterfaceProps extends InterfaceProps {
 
 export type BleService = {
     uuid: string;
+    characteristics?: BleCharacteristic[]
 }
+
 
 export type DiscoverResult = {
     services: BleService[]
@@ -108,9 +110,11 @@ export interface IBlePeripheralConnector {
     getPeripheral(): BlePeripheral 
 }
 
+export type BleProperty = 'notify' | 'read' | 'write'
+
 export interface BleCharacteristic extends EventEmitter {
     uuid: string;
-    properties: string[];
+    properties: BleProperty[];
     _serviceUuid?: string;
     name?: string;
 

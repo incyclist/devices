@@ -1,7 +1,6 @@
 import EventEmitter from "events"
-import { BleCharacteristic } from "../types"
+import { BleCharacteristic, BleProperty } from "../types"
 
-export type Property = 'read'| 'write' | 'notify' | 'indicate'
 
 export type Descriptor = {
     uuid: string
@@ -10,7 +9,7 @@ export type Descriptor = {
 
 export type Characteristic = {
     uuid:string;
-    properties: Property[];
+    properties: BleProperty[];
     secure?: boolean;
     value: Buffer
     descriptors:Descriptor[];
@@ -25,7 +24,7 @@ export const RESULT_UNLIKELY_ERROR           = 0x0e;
 
 export class MockCharacteristic extends EventEmitter implements BleCharacteristic {
     uuid: string
-    properties: Property[]
+    properties: BleProperty[]
     secure?: boolean | undefined
     value: Buffer
     descriptors: Descriptor[]

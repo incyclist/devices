@@ -1,4 +1,5 @@
-import { AntAdapterFactory, AntDeviceSettings } from "../antv2";
+import { AntDeviceSettings } from "../antv2/types";
+import AntAdapterFactory from "../antv2/factories/adapter-factory";
 import { IncyclistDeviceAdapter } from "../base/adpater";
 import { BleAdapterFactory } from "../ble";
 import { BleDeviceSettings } from "../ble/types";

@@ -1,7 +1,7 @@
 import EventEmitter from 'events';
 import BleFitnessMachineDevice from './comms';
 import { sleep } from '../../utils/utils';
-import { BleCharacteristic } from '../types';
+import { BleCharacteristic, BleProperty } from '../types';
 import { CSC_MEASUREMENT, CSP_MEASUREMENT, FTMS_CP, FTMS_STATUS, HR_MEASUREMENT, INDOOR_BIKE_DATA } from '../consts';
 
 const data = (input) => {
@@ -16,7 +16,7 @@ const data = (input) => {
 
 class MockChar extends EventEmitter implements BleCharacteristic {
     uuid: string;
-    properties: string[];
+    properties: BleProperty[];
     _serviceUuid?: string | undefined;
     name?: string | undefined;
 
