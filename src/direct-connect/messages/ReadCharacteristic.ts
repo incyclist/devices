@@ -1,5 +1,5 @@
 import { DC_MESSAGE_READ_CHARACTERISTIC } from "../consts";
-import { EmptyBody, TDCBody, TDCRequest, TDCResponse } from "../types";
+import { TDCBody, TDCRequest, TDCResponse } from "../types";
 import { Message } from "./message";
 
 export type TDCReadCharacteristicRequest = TDCRequest<TDCReadCharacteristicRequestBody>
