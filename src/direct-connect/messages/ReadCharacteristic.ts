@@ -14,7 +14,7 @@ export interface TDCReadCharacteristicResponseBody extends TDCBody {
 }
 
 
-export class ReadCharacteristicMessage extends Message<EmptyBody,TDCReadCharacteristicResponseBody> {
+export class ReadCharacteristicMessage extends Message<TDCReadCharacteristicRequestBody,TDCReadCharacteristicResponseBody> {
 
     constructor() {
         super(DC_MESSAGE_READ_CHARACTERISTIC)
