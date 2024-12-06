@@ -6,7 +6,7 @@ import { IncyclistInterface } from "../../types";
 import AntDeviceBinding from "./binding";
 import SensorFactory from "../factories/sensor-factory";
 import { isTrue, runWithTimeout, sleep, waitWithTimeout } from "../../utils/utils";
-import { AdapterFactory } from "incyclist-devices";
+import { AdapterFactory } from "../../factories";
 
 type ChannelUsage = 'scan'|'sensor'
 interface ChannelInfo  {
