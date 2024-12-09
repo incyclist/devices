@@ -1,5 +1,5 @@
 import { DC_ERROR_INVALID_MESSAGE_LENGTH, DC_ERROR_INVALID_MESSAGE_TYPE } from "../consts";
-import { TDCBody, TDCMessageHeader, TDCRequest, TDCResponse } from "../types";
+import { EmptyBody, TDCBody, TDCMessageHeader, TDCRequest, TDCResponse } from "../types";
 import { IllegalMessageError } from "./error";
 
 export class Message<TReq extends TDCBody,TRes extends TDCBody > {
@@ -35,9 +35,23 @@ export class Message<TReq extends TDCBody,TRes extends TDCBody > {
         return Buffer.concat([headerBuffer, bodyBuffer]);
     }
 
+    createRequest(seqNum, body:TReq):Buffer {
+        
+        const header = {
+            msgId:this.msgId,
+            seqNum,
+            respCode: 0,
+            msgVersion: 1,
+            length:0
+        }
+        
+        return this.buildRequest({header,body})        
+    
+    }
+
 
     parseRequest(buffer:Buffer):TDCRequest<TReq> {
-        const header = this.parseHeader(buffer)
+        const header = parseHeader(buffer)
         this.verifyHeader(header)
         const bodyBuffer = buffer.subarray(6)
 
@@ -53,7 +67,7 @@ export class Message<TReq extends TDCBody,TRes extends TDCBody > {
     }
 
     parseResponse(buffer:Buffer):TDCResponse<TRes> {
-        const header = this.parseHeader(buffer)
+        const header = parseHeader(buffer)
         this.verifyHeader(header)
         const bodyBuffer = buffer.subarray(6)
 
@@ -83,17 +97,6 @@ export class Message<TReq extends TDCBody,TRes extends TDCBody > {
         return Buffer.from([])
     }
 
-    parseHeader(buffer:Buffer):TDCMessageHeader {
-        if (buffer.length < 6) {
-            throw new IllegalMessageError(DC_ERROR_INVALID_MESSAGE_LENGTH)
-        }
-        const msgVersion = buffer.readUInt8(0);
-        const msgId = buffer.readUInt8(1);
-        const seqNum = buffer.readUInt8(2);
-        const respCode = buffer.readUInt8(3); // Response Code
-        const length = buffer.readUInt16BE(4); // Length of the message body
-        return { msgVersion, msgId, seqNum, respCode, length }
-    }
 
     verifyHeader(header:TDCMessageHeader):boolean {
         if (header.msgId !== this.msgId) {
@@ -111,3 +114,16 @@ export class Message<TReq extends TDCBody,TRes extends TDCBody > {
     }
 
 }
+
+export const  parseHeader  = (buffer:Buffer):TDCMessageHeader => {
+    if (buffer.length < 6) {
+        throw new IllegalMessageError(DC_ERROR_INVALID_MESSAGE_LENGTH)
+    }
+    const msgVersion = buffer.readUInt8(0);
+    const msgId = buffer.readUInt8(1);
+    const seqNum = buffer.readUInt8(2);
+    const respCode = buffer.readUInt8(3); // Response Code
+    const length = buffer.readUInt16BE(4); // Length of the message body
+    return { msgVersion, msgId, seqNum, respCode, length }
+}
+

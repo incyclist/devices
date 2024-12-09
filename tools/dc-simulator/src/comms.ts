@@ -3,7 +3,7 @@ import {Service} from './emulator/services'
 
 import {CharacteristicNotificationMessage, DC_MESSAGE_CHARACTERISTIC_NOTIFICATION, DC_MESSAGE_DISCOVER_CHARACTERISTICS, DC_MESSAGE_DISCOVER_SERVICES, DC_MESSAGE_ENABLE_CHARACTERISTIC_NOTIFICATIONS, DC_MESSAGE_READ_CHARACTERISTIC, DC_MESSAGE_WRITE_CHARACTERISTIC, 
        DC_RC_CHARACTERISTIC_NOT_FOUND, 
-       DC_RC_REQUEST_COMPLETED_SUCCESSFULLY, DCMessageFactory, 
+       DC_RC_REQUEST_COMPLETED_SUCCESSFULLY, DC_RC_SERVICE_NOT_FOUND, DCMessageFactory, 
        DiscoverCharacteristicsMessage, DiscoverServiceMessage, EnableCharacteristicNotificationsMessage, IllegalMessageError, parseUUID, ReadCharacteristicMessage, TDCDiscoverCharacteristicsRequest,
        TDCDiscoverCharacteristicsResponseBody, TDCDiscoverServicesResponseBody,
        TDCReadCharacteristicRequest,
@@ -106,9 +106,10 @@ export class DirectConnectComms {
 
     handleDiscoverCharacteristics (buffer,message:DiscoverCharacteristicsMessage) {
         const request:TDCDiscoverCharacteristicsRequest = message.parseRequest(buffer)
-        console.log('handleDiscoverServices',request.body)
+        console.log('handleDiscoverCharacteristics',request.body)
 
         const {serviceUUID} = request.body
+        let found = false
         this.services.forEach( s => {            
             if (parseUUID(s.uuid) === parseUUID(serviceUUID)) {
                 const characteristicDefinitions = s.characteristics.map((c) => (
@@ -119,10 +120,21 @@ export class DirectConnectComms {
                 const response = message.prepareResponse(request,DC_RC_REQUEST_COMPLETED_SUCCESSFULLY,body)
                 const respBuffer = message.buildResponse(response)
     
+                found = true
                 this.write(respBuffer)
     
             }
         })
+
+        if (!found) {
+            console.log('service not found', serviceUUID, this.services.map( s=>parseUUID(s.uuid)).join(','))
+            const body:TDCDiscoverCharacteristicsResponseBody = {serviceUUID,characteristicDefinitions:[]}
+            const response = message.prepareResponse(request,DC_RC_SERVICE_NOT_FOUND,body)
+            const respBuffer = message.buildResponse(response)
+    
+            this.write(respBuffer)
+    
+        }
 
     }
 

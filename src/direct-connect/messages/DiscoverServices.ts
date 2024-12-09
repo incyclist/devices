@@ -16,6 +16,7 @@ export class DiscoverServiceMessage extends Message<EmptyBody,TDCDiscoverService
         super(DC_MESSAGE_DISCOVER_SERVICES)
     }
 
+
     buildResponseBody  (body: TDCDiscoverServicesResponseBody): Buffer {
         const serviceBuffers = body.serviceDefinitions.map((service) => {
             return Buffer.from(service.serviceUUID, "hex");

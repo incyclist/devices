@@ -1,8 +1,8 @@
 import { BleProperty } from "../../ble/types";
+import { propertyFromVal, propertyVal } from "../../ble/utils";
 import { DC_MESSAGE_DISCOVER_CHARACTERISTICS } from "../consts";
 import { TDCBody, TDCRequest, TDCResponse } from "../types";
 import { Message } from "./message";
-import { propertyFromVal, propertyVal } from "../utils";
 
 export type TDCDiscoverCharacteristicsRequest = TDCRequest<TDCDiscoverCharacteristicsRequestBody>
 export type TDCDiscoverCharacteristicsResponse = TDCResponse<TDCDiscoverCharacteristicsResponseBody>

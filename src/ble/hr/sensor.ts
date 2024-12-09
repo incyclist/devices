@@ -1,24 +1,18 @@
 import { LegacyProfile } from '../../antv2/types';
-import { BleComms } from '../base/comms';
+import { BleSensor } from '../base/sensor';
 import { HR_MEASUREMENT } from '../consts';
 import { BleProtocol } from '../types';
-import { uuid } from '../utils';
+import { beautifyUUID, matches, uuid } from '../utils';
 import { HrmData } from './types';
 
-export default class BleHrmDevice extends BleComms {
-    static protocol:BleProtocol = 'hr'
-    static services =  ['180d'];
-    static characteristics =  [HR_MEASUREMENT, '2a38', '2a39', '2a3c'];
-    static detectionPriority = 1;
+export default class BleHrmDevice extends BleSensor {
+    static readonly protocol:BleProtocol = 'hr'
+    static readonly services =  ['180d'];
+    static readonly characteristics =  [HR_MEASUREMENT, '2a38', '2a39', '2a3c'];
+    static readonly detectionPriority = 1;
     
     heartrate: number;
     rr: number;
-
-    constructor(props?) {
-        super(props);
-        this.heartrate = undefined
-        this.rr = undefined
-    }
 
     getProfile(): LegacyProfile {
         return 'Heartrate Monitor';
@@ -33,15 +27,9 @@ export default class BleHrmDevice extends BleComms {
         return BleHrmDevice.services;
     }
 
-    static isMatching(characteristics: string[]): boolean {
-        if (!characteristics)
-            return false;
-
-        const announced = characteristics.map( c=> uuid(c))
-
-        const hasHRMeasurement =  announced.find( c => c===HR_MEASUREMENT)!==undefined
-        
-        return hasHRMeasurement
+    isMatching(serviceUUIDs: string[]): boolean {             
+        const uuids = serviceUUIDs.map( uuid=>beautifyUUID(uuid))
+        return uuids.includes(beautifyUUID('180d'));
     }
 
 
@@ -79,7 +67,7 @@ export default class BleHrmDevice extends BleComms {
             return;
 
 
-        if (characteristic.toLocaleLowerCase() === '2a37') { //  name: 'Heart Rate Measurement',
+        if ( matches(characteristic.toLocaleLowerCase(),'2a37')) { //  name: 'Heart Rate Measurement',
             const res = this.parseHrm(data)
             this.emit('data', res)
             return false;

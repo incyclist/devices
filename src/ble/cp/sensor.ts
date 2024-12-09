@@ -1,16 +1,16 @@
-import { BleEliteComms } from ".";
-import { LegacyProfile } from "../../antv2/types";
-import { BleComms } from "../base/comms";
-import { CSP_FEATURE, CSP_MEASUREMENT, ELITE_TRAINER_SVC } from "../consts";
-import { CrankData, PowerData } from "../cp";
-import { BleProtocol, IBlePeripheralConnector } from "../types";
-import { matches, uuid } from "../utils";
+import { CrankData, PowerData } from './types';
+import {CSP, CSP_MEASUREMENT,CSP_FEATURE}  from '../consts'
+import { beautifyUUID, matches, uuid } from '../utils';
+import { LegacyProfile } from '../../antv2/types';
+import { BleProtocol } from '../types';
+import { BleSensor } from '../base/sensor';
 
-export default class BleEliteDevice extends BleComms {
-    static protocol: BleProtocol = 'elite'
-    static services =  [ELITE_TRAINER_SVC];
+
+export default class BleCyclingPowerDevice extends BleSensor {
+    static protocol:BleProtocol = 'cp'
+    static services =  [CSP];
     static characteristics =  [ CSP_MEASUREMENT, CSP_FEATURE, '2a5d', '2a3c' ];
-    static detectionPriority = 10;
+    static detectionPriority = 1;
     
     instantaneousPower: number = undefined;
     balance: number = undefined;
@@ -21,33 +21,25 @@ export default class BleEliteDevice extends BleComms {
     currentCrankData: CrankData = undefined
     prevCrankData: CrankData = undefined
     
-    constructor (props?) {
-        super(props)
-    }
-
-    static isMatching(characteristics: string[]): boolean {
-        if (!characteristics)
-            return false;
-
-        const announced = characteristics.map( c=> uuid(c))
-                        
-        const hasCPMeasurement =  announced.find( c => c===CSP_MEASUREMENT)!==undefined
-        const hasCPFeature = announced.find( c => c===CSP_FEATURE)!==undefined
-        
-        return hasCPMeasurement && hasCPFeature
-    }
 
     getProfile(): LegacyProfile {
         return 'Power Meter';
     }
 
     getProtocol(): BleProtocol {
-        return BleEliteComms.protocol
+        return BleCyclingPowerDevice.protocol
     }
 
     getServiceUUids(): string[] {
-        return BleEliteDevice.services;
+        return BleCyclingPowerDevice.services;
     }
+
+    isMatching(serviceUUIDs: string[]): boolean {             
+        const uuids = serviceUUIDs.map( uuid=>beautifyUUID(uuid))
+        return uuids.includes(beautifyUUID(CSP));
+    }
+
+
 
     parseCrankData(crankData) {
         if (!this.prevCrankData) this.prevCrankData= {revolutions:0,time:0, cntUpdateMissing:-1}
@@ -103,7 +95,7 @@ export default class BleEliteDevice extends BleComms {
             }
 
             if ( flags&0x10)  {  // wheel revolutions
-
+                offset+=6
             }
             if ( flags&0x20)  {  // crank revolutions
                 const crankData = { 
@@ -140,16 +132,6 @@ export default class BleEliteDevice extends BleComms {
   
     }
 
-    subscribeAll(conn?: IBlePeripheralConnector):Promise<void> {
-        
-        const characteristics = [ CSP_MEASUREMENT  ]
-
-
-        return this.subscribeMultiple(characteristics,conn)
-
-    }
-
-
     reset() {
         this.instantaneousPower = undefined;
         this.balance = undefined;
@@ -163,3 +145,4 @@ export default class BleEliteDevice extends BleComms {
     }
 
 }
+

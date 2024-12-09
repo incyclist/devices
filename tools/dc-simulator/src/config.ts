@@ -1,7 +1,7 @@
 import fs from 'fs/promises'
 import { getAddress } from './net'
 import { hostname } from 'os'
-import { beautifyUUID } from '../../../lib'
+import { beautifyUUID } from 'incyclist-devices'
 
 const createRawText = (txt) => {
     const buffer = Buffer.from(txt,'utf8')

@@ -2,9 +2,9 @@ import { LegacyProfile } from "../../antv2/types";
 import { CSC_MEASUREMENT, CSP_MEASUREMENT, FTMS_CP, FTMS_STATUS, INDOOR_BIKE_DATA, TACX_FE_C_BLE, TACX_FE_C_RX, TACX_FE_C_TX } from "../consts";
 import { CrankData } from "../cp";
 import { IndoorBikeData } from "../fm";
-import BleFitnessMachineDevice from "../fm/comms";
-import { BleProtocol, IBlePeripheralConnector } from "../types";
-import { matches, uuid } from "../utils";
+import BleFitnessMachineDevice from "../fm/sensor";
+import { BleProtocol } from "../types";
+import { beautifyUUID, matches, uuid } from "../utils";
 import { BleFeBikeData } from "./types";
 
 enum  ANTMessages {
@@ -32,11 +32,11 @@ const ACKNOWLEDGED_DATA = 0x4F; //79
 
 
 export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineDevice {
-    static protocol: BleProtocol = 'tacx'
-    static services =  [TACX_FE_C_BLE];
-    static characteristics =  [ '2acc', '2ad2', '2ad6', '2ad8', '2ad9', '2ada', TACX_FE_C_RX, TACX_FE_C_TX];
-    static PROFILE = PROFILE_ID;
-    static detectionPriority = 10;
+    static readonly protocol: BleProtocol = 'tacx'
+    static readonly services =  [TACX_FE_C_BLE];
+    static readonly characteristics =  [ '2acc', '2ad2', '2ad6', '2ad8', '2ad9', '2ada', TACX_FE_C_RX, TACX_FE_C_TX];
+    static readonly PROFILE = PROFILE_ID;
+    static readonly detectionPriority = 10;
 
     prevCrankData: CrankData = undefined
     currentCrankData: CrankData = undefined
@@ -49,8 +49,8 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
     tacxRx: string;
     tacxTx: string
 
-    constructor (props?) {
-        super(props)
+    constructor (peripheral, props?) {
+        super(peripheral,props)
         this.data = {}
         this.hasFECData = false;
         this.messageCnt = 0;
@@ -59,15 +59,9 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 
     }
 
-    static isMatching(characteristics: string[]): boolean {
-        if (!characteristics)
-            return false;
-
-        const announced = characteristics.map( c=> uuid(c))
-        const hasTacxCP = announced.find( c => matches(c,TACX_FE_C_RX) )!==undefined  && 
-                          announced.find( c => matches(c,TACX_FE_C_TX) )!==undefined
-
-        return   hasTacxCP;
+    isMatching(serviceUUIDs: string[]): boolean {             
+        const uuids = serviceUUIDs.map( uuid=>beautifyUUID(uuid))
+        return uuids.includes(beautifyUUID(TACX_FE_C_BLE));
     }
 
     setCharacteristicUUIDs(uuids: string[]): void {
@@ -77,26 +71,6 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
             if (matches(c,TACX_FE_C_TX))
                 this.tacxTx = c;
         })
-    }
-
-
-    subscribeAll(conn?: IBlePeripheralConnector):Promise<void> {
-            
-        const characteristics = [ CSC_MEASUREMENT, CSP_MEASUREMENT, INDOOR_BIKE_DATA, FTMS_STATUS,FTMS_CP, TACX_FE_C_RX]
-        return this.subscribeMultiple(characteristics,conn)
-
-
-    }
-
-
-    async init(): Promise<boolean> {
-        try {
-            return await super.initDevice();                        
-        }
-        catch (err) {
-            this.logEvent( {message:'error',fn:'TacxAdvancedFitnessMachineDevice.init()',error:err.message||err, stack:err.stack})                        
-            return false;
-        }
     }
 
 
@@ -461,6 +435,10 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         return res;
     }
 
+    checkForDuplicate(characteristic:string,data: Buffer):boolean {
+        // TODO
+        return false
+    }
 
 
     onData(characteristic:string,data: Buffer):boolean {     

@@ -70,8 +70,9 @@ class DirectConnectComms {
     }
     handleDiscoverCharacteristics(buffer, message) {
         const request = message.parseRequest(buffer);
-        console.log('handleDiscoverServices', request.body);
+        console.log('handleDiscoverCharacteristics', request.body);
         const { serviceUUID } = request.body;
+        let found = false;
         this.services.forEach(s => {
             if ((0, incyclist_devices_1.parseUUID)(s.uuid) === (0, incyclist_devices_1.parseUUID)(serviceUUID)) {
                 const characteristicDefinitions = s.characteristics.map((c) => ({ characteristicUUID: (0, incyclist_devices_1.parseUUID)(c.uuid),
@@ -80,9 +81,17 @@ class DirectConnectComms {
                 const body = { serviceUUID, characteristicDefinitions };
                 const response = message.prepareResponse(request, incyclist_devices_1.DC_RC_REQUEST_COMPLETED_SUCCESSFULLY, body);
                 const respBuffer = message.buildResponse(response);
+                found = true;
                 this.write(respBuffer);
             }
         });
+        if (!found) {
+            console.log('service not found', serviceUUID, this.services.map(s => (0, incyclist_devices_1.parseUUID)(s.uuid)).join(','));
+            const body = { serviceUUID, characteristicDefinitions: [] };
+            const response = message.prepareResponse(request, incyclist_devices_1.DC_RC_SERVICE_NOT_FOUND, body);
+            const respBuffer = message.buildResponse(response);
+            this.write(respBuffer);
+        }
     }
     handleReadCharacteristic(buffer, message) {
         const request = message.parseRequest(buffer);

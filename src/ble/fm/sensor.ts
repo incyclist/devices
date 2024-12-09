@@ -1,9 +1,9 @@
-import { BleProtocol, BleWriteProps, IBlePeripheralConnector } from "../types";
-import { CSC_MEASUREMENT, CSP_MEASUREMENT, FTMS, FTMS_CP, FTMS_STATUS, HR_MEASUREMENT, INDOOR_BIKE_DATA } from "../consts";
+import { BleProtocol, BleWriteProps  } from "../types";
+import { FTMS, FTMS_CP, FTMS_STATUS, INDOOR_BIKE_DATA } from "../consts";
 import { IndoorBikeData, IndoorBikeFeatures } from "./types";
-import { BleComms } from "../base/comms";
+import { BleSensor } from "../base/sensor";
 import { LegacyProfile } from "../../antv2/types";
-import { uuid } from "../utils";
+import { beautifyUUID, uuid } from "../utils";
 
 
 
@@ -113,11 +113,11 @@ const TargetSettingFeatureFlag = {
 }
   
 
-export default class BleFitnessMachineDevice extends BleComms {
-    static protocol: BleProtocol = 'fm'
-    static services =  [FTMS];
-    static characteristics =  [ '2acc', INDOOR_BIKE_DATA, '2ad6', '2ad8', FTMS_CP, FTMS_STATUS ];
-    static detectionPriority = 100;
+export default class BleFitnessMachineDevice extends BleSensor {
+    static readonly protocol: BleProtocol = 'fm'
+    static readonly services =  [FTMS];
+    static readonly characteristics =  [ '2acc', INDOOR_BIKE_DATA, '2ad6', '2ad8', FTMS_CP, FTMS_STATUS ];
+    static readonly detectionPriority:number = 100;
 
     data: IndoorBikeData
     features: IndoorBikeFeatures = undefined
@@ -130,98 +130,23 @@ export default class BleFitnessMachineDevice extends BleComms {
     windSpeed = 0;
     wheelSize = 2100;
 
-    constructor (props?) {
-        super(props)
+    constructor (peripheral, props?) {
+        super(peripheral,props)
 
         this.reset()
-        this.services = BleFitnessMachineDevice.services;
+        
     }
 
-    static isMatching(characteristics: string[]): boolean {
-        // istanbul ignore next
-        if (!characteristics)
-            return false;
-
-        const announced = characteristics.map( c=> uuid(c))
-
-        const hasStatus =  announced.find( c => c===FTMS_STATUS)!==undefined
-        const hasCP = announced.find( c => c===FTMS_CP)!==undefined
-        const hasIndoorBike = announced.find( c => c===INDOOR_BIKE_DATA)!==undefined
-
-        return hasStatus && hasCP && hasIndoorBike;
+    get services(): string[] {
+        return BleFitnessMachineDevice.services;
     }
 
-    async subscribeWriteResponse(cuuid: string) {
-
-        this.logEvent({message:'subscribe to CP response',characteristics:cuuid})
-        const connector = this.ble.peripheralCache.getConnector( this.peripheral)
-
-            const isAlreadySubscribed = connector.isSubscribed(cuuid)            
-            if ( !isAlreadySubscribed) {   
-                connector.removeAllListeners(cuuid);
-
-                let prev= undefined;
-                let prevTS = undefined;
-                connector.on(cuuid, (uuid,data)=>{  
-
-                    // Workaround App Verion 0.8.0
-                    // This app release will send all events twice
-                    // Therefore we need to filter out duplicate messages
-                    const message = data.toString('hex');
-
-                    if (prevTS && prev &&message===prev && Date.now()-prevTS<500) {
-                        return;
-                    }
-                    prevTS = Date.now();
-                    prev = message
-                    // END Workouround
-                    
-                    
-                    this.onData(uuid,data)
-                })
-                await connector.subscribe(cuuid)
-            }
-            
-    }
-
-    subscribeAll(conn?: IBlePeripheralConnector):Promise<void> {
-
-        const characteristics = [ INDOOR_BIKE_DATA, FTMS_STATUS,FTMS_CP ]
-
-        if (!this.features || (this.features && this.features.cadence))
-            characteristics.push(CSC_MEASUREMENT)
-        if (!this.features || (this.features && this.features.power))
-            characteristics.push(CSP_MEASUREMENT)
-        if (!this.features || (this.features && this.features.heartrate))
-            characteristics.push(HR_MEASUREMENT)           
-
-        return this.subscribeMultiple(characteristics,conn)
-
+    isMatching(serviceUUIDs: string[]): boolean {             
+        const uuids = serviceUUIDs.map( uuid=>beautifyUUID(uuid))
+        return uuids.includes(beautifyUUID(FTMS));
     }
 
 
-    async init(): Promise<boolean> {
-        try {
-
-            
-            //await this.subscribeWriteResponse(FTMS_CP)            
-            await super.initDevice();
-            await this.getFitnessMachineFeatures();
-            this.logEvent({message: 'device info', deviceInfo:this.deviceInfo, features:this.features })
-            return true;
-            
-        }
-        catch (err) { // istanbul ignore next
-            this.logEvent( {message:'error',fn:'BleFitnessMachineDevice.init()',error:err.message||err, stack:err.stack})
-            return false
-        }
-    }
-
-
-    async onDisconnect():Promise<void> {
-        super.onDisconnect();
-        this.hasControl = false;
-    }
 
     getProfile(): LegacyProfile {
         return 'Smart Trainer';
@@ -409,7 +334,7 @@ export default class BleFitnessMachineDevice extends BleComms {
 
 
         let res = undefined
-        switch(uuid) {
+        switch( beautifyUUID( uuid).toLowerCase() ) {
             case INDOOR_BIKE_DATA:    //  name: 'Indoor Bike Data',
                 res = this.parseIndoorBikeData(data)
                 break;

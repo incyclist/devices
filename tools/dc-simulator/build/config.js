@@ -16,7 +16,7 @@ exports.prepareConfig = void 0;
 const promises_1 = __importDefault(require("fs/promises"));
 const net_1 = require("./net");
 const os_1 = require("os");
-const lib_1 = require("../../../lib");
+const incyclist_devices_1 = require("incyclist-devices");
 const createRawText = (txt) => {
     const buffer = Buffer.from(txt, 'utf8');
     return buffer;
@@ -32,7 +32,7 @@ const prepareConfig = (file, name, uuids) => __awaiter(void 0, void 0, void 0, f
     target.host = `${(0, os_1.hostname)()}.local`;
     target.name = name;
     target.fqdn = `${name}._wahoo-fitness-tnp._tcp.local`;
-    target.txt['ble-service-uuids'] = uuids.map(s => (0, lib_1.beautifyUUID)(s, true)).join(',');
+    target.txt['ble-service-uuids'] = uuids.map(s => (0, incyclist_devices_1.beautifyUUID)(s, true)).join(',');
     console.log(config, "\n", target);
     target.rawTxt = [];
     const keys = Object.keys(target.txt);

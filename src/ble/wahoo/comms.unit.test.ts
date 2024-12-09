@@ -1,4 +1,4 @@
-import WahooAdapter,{OpCode} from './comms'
+import WahooAdapter,{OpCode} from './sensor'
 import {MockLogger} from '../../../test/logger'
 
 describe ( 'WahooAdvancedFmAdapter',()=>{

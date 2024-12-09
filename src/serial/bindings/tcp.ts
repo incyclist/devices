@@ -11,6 +11,7 @@ export interface TCPOpenOptions extends OpenOptions {
 
 export declare interface TCPBindingInterface<T extends BindingPortInterface = BindingPortInterface, R extends OpenOptions = OpenOptions, P extends PortInfo = PortInfo> extends BindingInterface<TCPPortBinding,TCPOpenOptions> {
     list(port?:number, excludeList?:string[]): Promise<P[]>;
+    open(options: TCPOpenOptions): Promise<TCPPortBinding>
 }
 
 //export type TCPBindingInterface = BindingInterface<TCPPortBinding,TCPOpenOptions>

@@ -125,6 +125,7 @@ export default class IncyclistDevice<P extends DeviceProperties>
     }
 
     async resume(): Promise<boolean> {
+        console.log('~~~ resume')
         if (this.isStarted() && !this.isStopped())
             this.logger?.logEvent( {message:'resuming device', device:this.getName()})
         this.paused = false;

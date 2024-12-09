@@ -8,7 +8,8 @@ export enum INTERFACE  {
     ANT= 'ant',
     BLE= 'ble',
     USB= 'usb',
-    SIMULATOR= 'simulator'
+    SIMULATOR= 'simulator',
+    DC = 'wifi'
 }
 
 export type DeviceType = 'race' | 'mountain' | 'triathlon'

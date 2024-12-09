@@ -1,6 +1,6 @@
 import EventEmitter from "events";
 import { EventLogger } from "gd-eventlog";
-import { DeviceProperties, DeviceSettings, DeviceStartProperties, IncyclistScanProps,InterfaceProps } from "../types";
+import { DeviceProperties, DeviceSettings, DeviceStartProperties, IncyclistInterface, IncyclistScanProps,InterfaceProps } from "../types";
 
 
 export type BleProtocol = 'hr' | 'fm' | 'cp' | 'tacx' | 'wahoo' | 'elite'
@@ -17,7 +17,54 @@ export interface BleBinding extends EventEmitter {
     _bindings: any;
     state: BleInterfaceState;
     on(eventName: string | symbol, listener: (...args: any[]) => void):this
+}
 
+
+
+/** 
+ * Peripheral as provided by the binding (Noble library)
+ * this will be used as interface to communicate with the device
+ **/
+export interface BleRawPeripheral extends EventEmitter{
+    id?: string;
+    address?: string;
+    name?: string;
+
+    services: [];
+    advertisement: any;
+    state: string
+
+    connectAsync(): Promise<void>;
+    disconnectAsync(): Promise<void>;
+
+    disconnect( cb:(err?:Error)=>void ): Promise<void>;
+    discoverSomeServicesAndCharacteristicsAsync(serviceUUIDs: string[], characteristicUUIDs: string[]): Promise<DiscoverResult>;
+    discoverServicesAsync?(serviceUUIDs: string[]): Promise<BleService[]>;
+    
+
+}
+
+
+export interface PeripheralAnnouncement {
+    name        : string
+    serviceUUIDs: string[]
+    transport:    string  
+}
+
+export interface BlePeripheralAnnouncement extends PeripheralAnnouncement { 
+    advertisement: any;
+    peripheral: BleRawPeripheral
+}
+
+export interface BlePeripheralInfo {
+    id: string;
+    uuid: string
+    address: string;
+    addressType: string;
+    advertisement: any;
+    rssi: number;
+    serviceUUIDs: string[]
+    stats: string
 }
 
 
@@ -30,10 +77,9 @@ export interface BleScanProps extends IncyclistScanProps{
 
 
 
-export interface BleDeviceConstructProps extends BleDeviceProps {
+export interface BleDeviceConstructProps extends BlePeripheralAnnouncement {
     log?: boolean;
-    logger?: EventLogger;
-    peripheral?: BlePeripheral
+    logger?: EventLogger;    
 }
 
 
@@ -43,10 +89,6 @@ export interface BleDeviceSettings extends DeviceSettings {
     profile?:string; // Legacy
     address?: string;    
     name?: string;
-}
-
-export interface BleDetectedDevice extends BleDeviceSettings {
-    peripheral: BlePeripheral
 }
 
 export interface BleDeviceProperties extends DeviceProperties {
@@ -67,71 +109,37 @@ export interface BleInterfaceProps extends InterfaceProps {
     reconnect?: boolean;
 }
 
-export type BleService = {
-    uuid: string;
-    characteristics?: BleCharacteristic[]
-}
 
 
 export type DiscoverResult = {
     services: BleService[]
-    characteristics: BleCharacteristic[]
+    characteristics: BleRawCharacteristic[]
 }
 
-export interface BlePeripheral extends EventEmitter, BlePeripheralIdentifier{
-    services: [];
-    advertisement: any;
-    state: string
 
-    connectAsync(): Promise<void>;
-    disconnect( cb:(err?:Error)=>void ): Promise<void>;
-    discoverSomeServicesAndCharacteristicsAsync(serviceUUIDs: string[], characteristicUUIDs: string[]): Promise<DiscoverResult>;
-    
-
-}
-
-export interface IBlePeripheralConnector {
-    connect():Promise<void>,
-    reconnect():Promise<void> 
-    initialize(enforce:boolean):Promise<boolean>
-    isSubscribed( characteristicUuid:string):boolean
-    subscribeAll( callback:(characteristicUuid:string, data)=>void): Promise<string[]> 
-    subscribe( characteristicUuid:string, timeout?:number): Promise<boolean>
-    onDisconnect():void
-    onData( characteristicUuid:string, data):void
-
-    on( characteristicUuid:string, callback:(characteristicUuid:string, data)=>void):void
-    off( characteristicUuid:string, callback:(characteristicUuid:string, data)=>void):void
-    removeAllListeners(characteristicUuid:string):void
-
-    getState():string 
-    getCharachteristics():BleCharacteristic [] 
-    getServices():string[] 
-    getPeripheral(): BlePeripheral 
-}
 
 export type BleProperty = 'notify' | 'read' | 'write'
 
-export interface BleCharacteristic extends EventEmitter {
+export interface BleCharacteristic  {
     uuid: string;
     properties: BleProperty[];
-    _serviceUuid?: string;
-    name?: string;
+    name?: string
+    _serviceUuid?: string
+}
 
+export interface BleRawCharacteristic extends BleCharacteristic {
     subscribe( callback: (err:Error|undefined)=>void): void
     unsubscribe( callback: (err:Error|undefined)=>void): void
     read( callback: (err:Error|undefined, data:Buffer)=>void): void
     write(data:Buffer, withoutResponse:boolean,callback?: (err:Error|undefined)=>void): void
 }
 
-export type BleDeviceProps = {
-    id?: string;
-    address?: string;
-    name?: string;
-    services?: string[];
-    peripheral?: BlePeripheral;
-   
+
+export type BleService = {
+    uuid: string;
+    characteristics?: BleCharacteristic[]
 }
+
 
 export type BleCommsConnectProps = {
     timeout?: number;
@@ -145,15 +153,6 @@ export interface BleWriteProps {
 }
 
 
-export interface BlePeripheralIdentifier  {
-    id?: string;
-    address?: string;
-    name?: string;
-}
-
-export interface BlePeripheralDescription extends BlePeripheralIdentifier{
-    profile: string;
-}
 
 export interface ConnectState  {
     isConnecting: boolean;
@@ -169,6 +168,84 @@ export type BleDeviceInfo = {
     serialNo?: string;
 
 }
+export interface IBleInterface<T extends PeripheralAnnouncement> extends IncyclistInterface {
+    pauseLogging(debugOnly?: boolean): void;
+    resumeLogging();
+    isLoggingPaused():boolean
+    logEvent(event);
+    logError(err: Error, fn: string, args?);
+    createPeripheral(announcement: T):IBlePeripheral
+    createPeripheralFromSettings(settings:DeviceSettings):IBlePeripheral
+    createDeviceSetting(announcement: T):DeviceSettings
+
+    pauseDiscovery?():Promise<void>
+    resumeDiscovery?():Promise<void>
+}
 
 
+export interface IBlePeripheral {
+    services: BleService[];
 
+    connect(): Promise<boolean>;
+    disconnect(): Promise<boolean>;
+
+    isConnected():boolean
+    isConnecting():boolean
+
+    onDisconnect( callback:()=>void):void
+
+    discoverServices(): Promise<string[]>;
+    discoverCharacteristics(serviceUUID: string): Promise<BleCharacteristic[]>;
+    subscribe(characteristicUUID: string, callback: (characteristicUuid: string, data:Buffer) => void): Promise<boolean>;
+    unsubscribe(characteristicUUID: string): Promise<boolean>;
+    subscribeAll?(callback: (characteristicUuid: string, data: Buffer) => void): Promise<boolean>
+
+    read(characteristicUUID: string): Promise<Buffer>;
+    write(characteristicUUID: string, data: Buffer, options?: BleWriteProps): Promise<Buffer>;
+}
+
+export interface IBleSensor extends EventEmitter  {
+    startSensor(): Promise<boolean>;
+    stopSensor(): Promise<boolean>;
+    get services(): string[]
+
+    reset():void
+    isConnected():boolean
+    read(characteristicUUID: string): Promise<Buffer>;
+    write(characteristicUUID: string, data: Buffer, options?: BleWriteProps): Promise<Buffer>;
+}
+
+export class TBleSensor extends EventEmitter implements IBleSensor {
+
+    constructor(protected peripheral: IBlePeripheral,props?:{ logger?:EventLogger}) {        
+        super()
+    }
+
+    isMatching(serviceUUIDs: string[]): boolean {             
+        return false
+    }
+
+    startSensor(): Promise<boolean> {
+        throw new Error("Method not implemented.");
+    }
+    stopSensor(): Promise<boolean> {
+        throw new Error("Method not implemented.");
+    }
+    get services(): string[] {
+        throw new Error("Method not implemented.");
+    }
+    reset(): void {
+        throw new Error("Method not implemented.");
+    }
+    isConnected(): boolean {
+        throw new Error("Method not implemented.");
+    }
+    read(characteristicUUID: string): Promise<Buffer> {
+        throw new Error("Method not implemented.");
+    }
+    write(characteristicUUID: string, data: Buffer, options?: BleWriteProps): Promise<Buffer> {
+        throw new Error("Method not implemented.");
+    }
+
+
+}

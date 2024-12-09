@@ -2,7 +2,7 @@ import {EventLogger} from 'gd-eventlog';
 import PowerMeterCyclingMode from '../../modes/power-meter';
 import FtmsCyclingMode from '../../modes/antble-smarttrainer';
 import BleERGCyclingMode from '../../modes/antble-erg';
-import BleFitnessMachineDevice from './comms';
+import BleFitnessMachineDevice from './sensor';
 import BleAdapter  from '../base/adapter';
 import ICyclingMode, { CyclingMode } from '../../modes/types';
 import { IndoorBikeData } from './types';
@@ -22,11 +22,8 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         super(settings,props);
 
         this.logger = new EventLogger('BLE-FM')
-        const {id,address,name} = settings
-        const logger = this.logger
-        const ble = this.ble
 
-        this.device = new BleFitnessMachineDevice( {id,address,name,ble,logger})
+        this.device = new BleFitnessMachineDevice( this.getPeripheral(), {logger:this.logger})
         this.capabilities = [ 
             IncyclistCapability.Power, IncyclistCapability.Speed, IncyclistCapability.Cadence, 
             IncyclistCapability.Control
@@ -40,10 +37,6 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         return this.isEqual(device.settings as BleDeviceSettings)
     }
 
-  
-    getName() {
-        return `${this.device.name}`        
-    }
 
     isControllable(): boolean {
         return true;
@@ -131,6 +124,8 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
 
     async start( props: BleStartProperties={} ): Promise<any> {
+
+        console.log('~~~ start', props)
         const wasPaused = this.paused
         const wasStopped = this.stopped
 
@@ -143,44 +138,40 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
             return true;
 
         
-        this.logEvent({message: 'starting device', ...this.getSettings(),  protocol:this.getProtocolName(),props,isStarted:this.started, isConnected:this.getComms().isConnected() })
+        this.logEvent({message: 'starting device', ...this.getSettings(),  protocol:this.getProtocolName(),props,isStarted:this.started })
 
         const {restart=wasPaused} = props;
 
-        if ( !restart && this.ble.isScanning() && !this.getComms().isConnected()) {
-            //await this.ble.stopScan();
-        }
 
         let scanOnly = props.scanOnly
-        if (this.ble.isScanning() && this.getComms().isConnected()) {
-            scanOnly = true;
-        }
-        else {
 
-            const {timeout=20000} = props||{}            
+        const {timeout=20000} = props||{}            
 
-            if (!this.connectPromise)
-                this.connectPromise = this.connect()
-                
-            const res = await Promise.race( [ 
-                this.connectPromise.then((connected)=> {
-                    return {connected, reason:connected?null:'could not connect' }
-                }) ,
-                sleep(timeout).then(()=> ({connected: false, reason:'timeout'})) 
-            ])
-            this.connectPromise = undefined;
-            const connected = res.connected
-            if (!connected) {                
-                throw new Error(`could not start device, reason:${res.reason}`)   
-            }
-            
-            
+        console.log('~~~ connect')
+        if (!this.connectPromise)
+            this.connectPromise = this.connect()
+        
+        
+        const res = await Promise.race( [ 
+            this.connectPromise.then((connected)=> {
+                return {connected, reason:connected?null:'could not connect' }
+            }) ,
+            sleep(timeout).then(()=> ({connected: false, reason:'timeout'})) 
+        ])
+        this.connectPromise = undefined;
+        const connected = res.connected
+        if (!connected) {                
+            throw new Error(`could not start device, reason:${res.reason}`)   
         }
+        
+        
             
             
         try {
+            console.log('~~~ start device')
             
-            const comms = this.device
+            const comms = this.getComms()
+            await comms.startSensor()
             if (comms) {                
 
                 if (!scanOnly) {

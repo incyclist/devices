@@ -18,7 +18,8 @@ export default class AdapterFactory {
         AdapterFactory.adapters = []
         //SerialAdapterFactory.getInstance().adapters =[]
         //AntAdapterFactory.getInstance().adapters =[]        
-        BleAdapterFactory.getInstance().instances =[]
+        BleAdapterFactory.getInstance('ble').instances =[]
+        BleAdapterFactory.getInstance('wifi').instances =[]
     }
 
     static create( settings:DeviceSettings, props?:DeviceProperties) {
@@ -40,6 +41,7 @@ export default class AdapterFactory {
 
         const ifaceName = typeof settings.interface ==='string' ? settings.interface : (settings.interface as IncyclistInterface).getName()
 
+        console.log(`creating adapter for ${ifaceName}`)
         let adapter;
         switch (ifaceName) {
             case INTERFACE.SERIAL:
@@ -50,7 +52,14 @@ export default class AdapterFactory {
                 adapter = AntAdapterFactory.getInstance().createInstance(settings as AntDeviceSettings,props)
                 break;
             case INTERFACE.BLE:
-                adapter = BleAdapterFactory.getInstance().createInstance(settings as BleDeviceSettings,props)
+                adapter = BleAdapterFactory.getInstance('ble').createInstance(settings as BleDeviceSettings,props)
+                break;
+            case INTERFACE.DC:
+                {
+                    const factory = BleAdapterFactory.getInstance('wifi')
+                    console.log('creating wifi adapter for direct connect',factory)
+                    adapter = BleAdapterFactory.getInstance('wifi').createInstance(settings as BleDeviceSettings,props)
+                }
                 break;
             case INTERFACE.SIMULATOR:
                 adapter = new Simulator(settings,props)

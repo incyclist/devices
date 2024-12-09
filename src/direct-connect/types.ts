@@ -1,3 +1,6 @@
+import { BleProtocol } from "../ble/types"
+import { DeviceSettings, IncyclistScanProps } from "../types"
+
 export interface TDCMessageHeader {
     msgVersion: number
     msgId: number
@@ -23,14 +26,9 @@ export class TDCResponse<T extends TDCBody>  {
 export interface EmptyBody extends TDCBody {
 }
 
+export interface DirectConnectScanProps extends IncyclistScanProps{
+    serviceUUID?: string
+    serviceUUIDs?: string[]       
+}
 
-// Message ID: 0x01
-// msgId: 2; // Discover Characteristics message identifier
-
-
-// msgId: 3; // Read Characteristic message identifier
-
-// msgId: 4; // Write Characteristic message identifier
-
-// msgId: 5; // Enable Characteristic Notifications
 

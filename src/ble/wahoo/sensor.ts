@@ -1,12 +1,12 @@
 import { BleWahooComms } from ".";
 import { LegacyProfile } from "../../antv2/types";
 import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/consts";
-import { CSP, CSP_MEASUREMENT, FTMS_CP, FTMS_FEATURE, FTMS_STATUS, HR_MEASUREMENT, INDOOR_BIKE_DATA, POWER_RANGE, RES_LEVEL_RANGE, WAHOO_ADVANCED_TRAINER_CP, WAHOO_ADVANCED_TRAINER_CP_FULL } from "../consts";
+import { CSP, CSP_MEASUREMENT, FTMS_CP, FTMS_FEATURE, FTMS_STATUS, HR_MEASUREMENT, INDOOR_BIKE_DATA, POWER_RANGE, RES_LEVEL_RANGE, WAHOO_ADVANCED_FTMS, WAHOO_ADVANCED_TRAINER_CP, WAHOO_ADVANCED_TRAINER_CP_FULL } from "../consts";
 import { CrankData } from "../cp";
 import { IndoorBikeData } from "../fm";
-import BleFitnessMachineDevice from "../fm/comms";
-import { BleProtocol, BleWriteProps, IBlePeripheralConnector } from "../types";
-import { matches, uuid } from "../utils";
+import BleFitnessMachineDevice from "../fm/sensor";
+import { BleProtocol, BleWriteProps  } from "../types";
+import { beautifyUUID, matches, uuid } from "../utils";
 
 export const enum OpCode   {
     unlock                     = 32,
@@ -27,10 +27,10 @@ const ErgWriteDelay = 2000 //ms
 
 
 export default class BleWahooDevice extends BleFitnessMachineDevice {
-    static protocol: BleProtocol = 'wahoo'
-    static services =  [CSP];
-    static characteristics =  [  FTMS_FEATURE, INDOOR_BIKE_DATA, RES_LEVEL_RANGE, POWER_RANGE, FTMS_CP, FTMS_STATUS, WAHOO_ADVANCED_TRAINER_CP];
-    static detectionPriority = 5;
+    static readonly protocol: BleProtocol = 'wahoo'
+    static readonly services =  [CSP];
+    static readonly characteristics =  [  FTMS_FEATURE, INDOOR_BIKE_DATA, RES_LEVEL_RANGE, POWER_RANGE, FTMS_CP, FTMS_STATUS, WAHOO_ADVANCED_TRAINER_CP];
+    static readonly detectionPriority = 5;
 
     prevCrankData: CrankData = undefined
     currentCrankData: CrankData = undefined
@@ -48,44 +48,19 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
         cw: number
     }
     
-    constructor (props?) {
-        super(props)
+    constructor (peripheral, props?) {
+        super(peripheral,props)
         this.data = {}
         this.wahooCP = WAHOO_ADVANCED_TRAINER_CP;
     }
 
-    static isMatching(characteristics: string[]): boolean {
-        if (!characteristics)
-            return false;
-
-        const announced = characteristics.map( c=> uuid(c))
-
-        const hasWahooCP = announced.find( c => matches(c,WAHOO_ADVANCED_TRAINER_CP))!==undefined 
-        const hasFTMS = announced.find( c => matches(c,FTMS_CP))!==undefined 
-
-        return   hasWahooCP && !hasFTMS;
+    isMatching(serviceUUIDs: string[]): boolean {    
+        
+        
+        const uuids = serviceUUIDs.map( uuid=>beautifyUUID(uuid))
+        return uuids.includes(beautifyUUID(CSP)) && uuids.includes(beautifyUUID(WAHOO_ADVANCED_FTMS));
     }
 
-    async init(): Promise<boolean> {
-        try {
-            await this.subscribeWriteResponse(this.wahooCP);         
-            try {
-                if ( this.wahooCP!==WAHOO_ADVANCED_TRAINER_CP_FULL.toLowerCase())
-                    await this.subscribeWriteResponse(WAHOO_ADVANCED_TRAINER_CP_FULL.toLowerCase())
-            }
-            catch(err) {
-
-            }
-
-            return await super.initDevice();
-            
-            
-        }
-        catch (err) {
-            this.logEvent( {message:'error',fn:'WahooAdvancedFitnessMachineDevice.init()',error:err.message||err, stack:err.stack})
-            return false;
-        }
-    }
 
     setCharacteristicUUIDs(uuids: string[]): void {
 
@@ -218,13 +193,6 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
         return true;
  
     }
-
-
-    subscribeAll(conn?: IBlePeripheralConnector):Promise<void> {
-        return  this.subscribeMultiple( [ CSP_MEASUREMENT, INDOOR_BIKE_DATA, HR_MEASUREMENT, FTMS_STATUS, this.wahooCP ], conn)
-    }    
-
-
 
     async writeWahooFtmsMessage(requestedOpCode:number, data:Buffer,props?:BleWriteProps) {
         

@@ -1,5 +1,5 @@
 import EventEmitter from 'events';
-import BleFitnessMachineDevice from './comms';
+import BleFitnessMachineDevice from './sensor';
 import { sleep } from '../../utils/utils';
 import { BleCharacteristic, BleProperty } from '../types';
 import { CSC_MEASUREMENT, CSP_MEASUREMENT, FTMS_CP, FTMS_STATUS, HR_MEASUREMENT, INDOOR_BIKE_DATA } from '../consts';
