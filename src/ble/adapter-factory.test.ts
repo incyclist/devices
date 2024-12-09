@@ -1,11 +1,12 @@
 import BleAdapterFactory from './adapter-factory'
+import { BleSensor } from './base/sensor'
 import { BleFmAdapter } from './fm'
-import BleFitnessMachineDevice from './fm/comms'
+import BleFitnessMachineDevice from './fm/sensor'
 
 describe( 'BleAdapterFactory',()=>{
     describe('createInstance',()=>{
 
-        let factory: BleAdapterFactory
+        let factory: BleAdapterFactory<BleSensor>
         let adapterMock 
 
         beforeEach( ()=>{
@@ -19,7 +20,7 @@ describe( 'BleAdapterFactory',()=>{
     
             }
     
-            factory = BleAdapterFactory.getInstance()      
+            factory = BleAdapterFactory.getInstance('ble')      
             factory.find = jest.fn( ()=> undefined)    
             factory.getAdapterInfo = jest.fn( ()=> ({protocol: 'fm', Adapter:A, Comm: BleFitnessMachineDevice }))  
         })

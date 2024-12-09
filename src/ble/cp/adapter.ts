@@ -1,5 +1,5 @@
 import {EventLogger} from 'gd-eventlog';
-import BleCyclingPowerDevice from './comm';
+import BleCyclingPowerDevice from './sensor';
 import BleAdapter from '../base/adapter';
 import { PowerData } from './types';
 import {  BleDeviceSettings } from '../types';
@@ -22,11 +22,7 @@ export default class PwrAdapter extends BleAdapter<PowerData,BleCyclingPowerDevi
 
         this.logger = new EventLogger('Ble-CP')
 
-        const {id,address,name} = settings
-        const logger = this.logger
-        
-        
-        this.device = new BleCyclingPowerDevice( {id,address,name,logger})
+        this.device = new BleCyclingPowerDevice( this.getPeripheral() , {logger: this.logger})
         this.capabilities = [ 
             IncyclistCapability.Power, IncyclistCapability.Cadence, IncyclistCapability.Speed
         ]
@@ -44,12 +40,8 @@ export default class PwrAdapter extends BleAdapter<PowerData,BleCyclingPowerDevi
         return 'Power Meter';
     }
 
-    getName() {
-        return `${this.device.name}`        
-    }
-
     getDisplayName() {
-        const {name} = this.device;
+        const name = this.getName()
         const {instantaneousPower: power} = this.deviceData;
         const powerStr = power ? ` (${power})` : '';
         return `${name}${powerStr}`

@@ -9,7 +9,7 @@ const logger = new EventLogger('AntSampleApp')
 const isDebug = process.env.DEBUG
 
 logger.log('ANT Sample')
-var args = process.argv.slice(2);
+var args= process.argv.slice(2);
 
 function runDevice(device) {
     

@@ -1,6 +1,6 @@
 import {EventLogger} from 'gd-eventlog';
 import { BleFmAdapter, cRR, cwABike } from '../fm';
-import BleWahooDevice from './comms';
+import BleWahooDevice from './sensor';
 import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/consts";
 import { BleDeviceProperties, BleDeviceSettings, BleStartProperties } from '../types';
 import { IncyclistCapability,IAdapter } from '../../types';
@@ -15,11 +15,8 @@ export default class BleWahooAdapter extends BleFmAdapter {
         super(settings,props);
 
         this.logger = new EventLogger('BLE-WahooFM')
-        const {id,address,name} = settings
-        const logger = this.logger
-        const ble = this.ble
 
-        this.device = new BleWahooDevice( {id,address,name,ble,logger})
+        this.device = new BleWahooDevice( this.getPeripheral(), {logger:this.logger})
         this.capabilities = [ 
             IncyclistCapability.Power, IncyclistCapability.Speed, IncyclistCapability.Cadence, 
             IncyclistCapability.Control
@@ -55,11 +52,6 @@ export default class BleWahooAdapter extends BleFmAdapter {
         this.logger.logEvent({message: 'start requested', protocol:this.getProtocolName(),props})
             
         try {
-
-            if ( this.ble.isScanning()) {
-                this.logger.logEvent({message:'stop previous scan',isScanning:this.ble.isScanning()})
-                await this.ble.stopScan();
-            }
 
             const connected = await this.connect()
             if (!connected)

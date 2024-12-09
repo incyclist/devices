@@ -10,6 +10,9 @@ const { MockBinding } = require('incyclist-devices/lib/ble/bindings');
 const { HrMock } = require('incyclist-devices/lib/ble/hr/mock');
 const platform = os.platform()
 
+const {BleInterface} = require('incyclist-devices/lib/ble/base/interface');
+const { Interface } = require('readline');
+
 EventLogger.registerAdapter(new ConsoleAdapter()) 
 const Logger = new EventLogger('BleSampleApp')
 
@@ -23,7 +26,7 @@ else {
     // Select binding (based on OS)
     switch (platform) {
         case 'win32': binding= new Noble(new WinrtBindings());break;
-        case 'linux': break; // TODO
+        case 'linux': //break; // TODO
         case 'darwin': binding = new Noble(defaultBinding()); break;
         default:
             process.exit()
@@ -70,26 +73,37 @@ const parseArgs = ()=> {
 const  main = async(props = {})=> {
    
     
-    ble = InterfaceFactory.create('ble', {logger:Logger,binding})
+    const ble = InterfaceFactory.create('ble', {logger:Logger,binding})
+    //ble = new BleInterface(legacy)
+    
     ble.on('device', device=>{ console.log('> found device',device)})
-
     ble.on('error',console.log)
+
+
     if (binding)
         binding.on('error',(err)=>{console.log('>binding error',err.message)})
 
     const {command,id,name,address,protocol,protocols} = props
     
+    let cntStartet = 0
     if (command==='scan') {
         
-        const connected = await ble.connect({timeout:20000});
+        const connected = await ble.connect(20000);
         if (!connected) {
             console.log('> error could not connect')
             onAppExit()
             return;
         }
 
-        let cntStartet = 0;
-        let devices = await ble.scan({protocols,timeout:5000})
+        let devices
+
+        for (let i=0; i<10; i++) {
+            
+            devices = await ble.scan({protocols,timeout:10000})
+            console.log('> info', `${devices.length} device(s) found`)
+        }
+        
+        
         if (devices.length===0) {
             await sleep(2000)
             devices = await ble.scan({protocols,timeout:5000})
@@ -126,16 +140,30 @@ const  main = async(props = {})=> {
         }, 1000)
     }
     else {
+        const connected = await ble.connect(20000);
+        if (!connected) {
+            console.log('> error could not connect')
+            onAppExit()
+            return;
+        }
+
+        await sleep(5000)
        
-        const adapter = AdapterFactory.create( {interface: 'ble',protocol,id,name,address})
+
 
         try {
+            //const iface = InterfaceFactory.create('ble', {logger:Logger,binding})
+            //console.log('~~~ stopping scan on', iface.getName())
+            //await iface.pauseDiscovery()
+
+            console.log('~~~ starting adapter')
+            const adapter = AdapterFactory.create( {interface: 'ble',protocol,id,name,address})
             const started = await adapter.start()
             if (started)
                 adapter.on('data', (device,data)=>{ console.log('> data', {...device, ...data})})
         }
         catch(err) {
-            console.log('> error',err.message)            
+            console.log('> error',err.message, err.stack)            
             onAppExit()            
         }
         

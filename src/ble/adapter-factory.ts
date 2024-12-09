@@ -1,46 +1,44 @@
 import BleAdapter from "./base/adapter";
-import { BleDeviceSettings, BleProtocol } from "./types";
+import { BleDeviceSettings, BleProtocol, TBleSensor } from "./types";
 import { DeviceProperties } from "../types";
-import { BleComms } from "./base/comms";
-import { getDevicesFromServices } from "./base/comms-utils";
 import { mapLegacyProfile } from "./utils";
 import { BleDeviceData } from "./base/types";
 
-export interface BleAdapterInfo {
+export interface BleAdapterInfo<T extends TBleSensor> {
     protocol: BleProtocol,
-    Adapter: typeof BleAdapter<BleDeviceData,BleComms>
-    Comm: typeof BleComms
+    Adapter: typeof BleAdapter<BleDeviceData,T>
+    Comm: typeof TBleSensor    
 }
 
 
-export default class BleAdapterFactory {
-    static _instance:BleAdapterFactory;
+export default class BleAdapterFactory<T extends TBleSensor> {
+    static readonly _instances:Record<string, BleAdapterFactory<any>> = {};
 
-    implementations: BleAdapterInfo[]
-    instances: Array<BleAdapter<BleDeviceData,BleComms>>
+    implementations: BleAdapterInfo<any>[]
+    instances: Array<BleAdapter<BleDeviceData,T>>
 
-    static getInstance(): BleAdapterFactory {
-        if (!BleAdapterFactory._instance)
-            BleAdapterFactory._instance = new BleAdapterFactory() ;
-        return BleAdapterFactory._instance;
+    static getInstance(transport:string): BleAdapterFactory<any> {
+        if (!BleAdapterFactory._instances[transport])
+            BleAdapterFactory._instances[transport] = new BleAdapterFactory(transport) ;
+        return BleAdapterFactory._instances[transport];
     }
 
-    constructor() {
+    constructor(public transport:string) {
         this.implementations = []
         this.instances = []
     }
 
-    getAdapterInfo(protocol:BleProtocol):BleAdapterInfo {
+    getAdapterInfo(protocol:BleProtocol):BleAdapterInfo<T> {
         return  this.implementations.find(a=>a.protocol===protocol) 
     } 
-    getAll():BleAdapterInfo[] {
+    getAll():BleAdapterInfo<T>[] {
         return this.implementations
     }
 
-    createInstance(settings:BleDeviceSettings,props?:DeviceProperties):BleAdapter<BleDeviceData,BleComms> {
+    createInstance(settings:BleDeviceSettings,props?:DeviceProperties):BleAdapter<BleDeviceData,T> {
         let {profile, protocol} = settings;
 
-        const adapterSettings = Object.assign( {}, settings)
+        const adapterSettings = {...settings}
 
         if (profile) { // legacy settings 
             try {
@@ -65,7 +63,9 @@ export default class BleAdapterFactory {
         }
 
         const info = this.getAdapterInfo(protocol)
-        if (!info || !info.Adapter)
+        console.log('~~~~ INFO:',info)
+
+        if (!info?.Adapter)
             return
 
         const adapter= new info.Adapter(adapterSettings,props)      
@@ -73,7 +73,7 @@ export default class BleAdapterFactory {
         return adapter
     }
 
-    removeInstance( query:{settings?:BleDeviceSettings, adapter?:BleAdapter<BleDeviceData,BleComms>}):void {
+    removeInstance( query:{settings?:BleDeviceSettings, adapter?:BleAdapter<BleDeviceData,T>}):void {
         let idx=-1;
 
         if (query.settings) {   
@@ -91,7 +91,7 @@ export default class BleAdapterFactory {
     }
 
 
-    register( protocol: BleProtocol, Adapter: typeof BleAdapter<BleDeviceData,BleComms>,Comm: typeof BleComms)  {       
+    register( protocol: BleProtocol, Adapter: typeof BleAdapter<BleDeviceData,T>,Comm: typeof TBleSensor)  {       
         const info = Object.assign({},{protocol, Adapter,Comm})
         const existing = this.implementations.findIndex( a => a.protocol===protocol) 
 
@@ -101,27 +101,28 @@ export default class BleAdapterFactory {
             this.implementations.push(info)
     }
 
-    getAllInstances(): Array<BleAdapter<BleDeviceData,BleComms>> {
+    getAllInstances(): Array<BleAdapter<BleDeviceData,T>> {
         return this.instances
     }
 
 
-    getAllSupportedComms(): (typeof BleComms)[] {
-        const supported = BleAdapterFactory.getInstance().getAll()
+    getAllSupportedComms(): (typeof TBleSensor)[] {
+        const supported = this.getAll()
         return supported.map( info => info.Comm)
     }
-    getAllSupportedAdapters(): Array<(typeof BleAdapter<BleDeviceData,BleComms>)> {
-        const supported = BleAdapterFactory.getInstance().getAll()
+    getAllSupportedAdapters(): Array<(typeof BleAdapter<BleDeviceData,T>)> {
+        const supported = this.getAll()
         return supported.map( info => info.Adapter)
     }
     
     getAllSupportedServices():string[] {
-        const supported = BleAdapterFactory.getInstance().getAll()
-        const res = [];
-    
+        const supported = this.getAll()
+        const res = ['180d','1818','1826','6e40fec1'];
+ 
+        /*
         if (supported && supported.length>0) {
             supported.forEach( info => {
-                if (info && info.Comm && info.Comm.services) {
+                if (info?.Comm?.services) {
                     info.Comm.services.forEach( s => {
                         if ( !res.includes(s))
                             res.push(s)
@@ -130,31 +131,13 @@ export default class BleAdapterFactory {
     
             })
         }
+        */
     
         return res;
     }
 
 
     
-    getDeviceClasses (peripheral, props:{ protocol?: BleProtocol, services?: string[] } = {}): (typeof BleComms)[] {
-        let DeviceClasses;
-        const {protocol,services=peripheral.advertisement.serviceUuids}  = props;
-    
-    
-        // find matching Classes in the set of all registered Device Classes
-        const classes = this.getAllSupportedComms()
-        DeviceClasses = getDevicesFromServices( classes, services) 
-    
-        if (protocol && DeviceClasses && DeviceClasses.length>0) {
-            DeviceClasses = DeviceClasses.filter( (C: typeof BleComms)  => {                
-                const device = new C({peripheral});
-                if (device.getProtocol()!==protocol) 
-                    return false;
-                return true;
-            })
-        }
-        return DeviceClasses
-    }
     
 
 }

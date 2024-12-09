@@ -1,6 +1,6 @@
 import {EventLogger} from 'gd-eventlog';
 import { BleFmAdapter, cRR, cwABike } from '../fm';
-import TacxAdvancedFitnessMachineDevice from './comms';
+import TacxAdvancedFitnessMachineDevice from './sensor';
 import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/consts";
 import { BleDeviceSettings, BleStartProperties } from '../types';
 import { DeviceProperties,IncyclistCapability,IAdapter } from '../../types';
@@ -17,11 +17,9 @@ export default class BleTacxAdapter extends BleFmAdapter {
         super(settings,props);
 
         this.logger = new EventLogger('BLE-FEC-Tacx')
-        const {id,address,name} = settings
         const logger = this.logger
-        const ble = this.ble
 
-        this.device = new TacxAdvancedFitnessMachineDevice( {id,address,name,ble,logger})
+        this.device = new TacxAdvancedFitnessMachineDevice( this.getPeripheral(),{logger})
         this.capabilities = [ 
             IncyclistCapability.Power, IncyclistCapability.Speed, IncyclistCapability.Cadence, 
             IncyclistCapability.Control
@@ -54,13 +52,7 @@ export default class BleTacxAdapter extends BleFmAdapter {
 
         if (this.started && !wasPaused && !wasStopped)
             return true;
-
             
-        if ( this.ble.isScanning()) {
-            this.logger.logEvent({message:'stop previous scan',isScanning:this.ble.isScanning()})
-            await this.ble.stopScan();
-        }
-
         const connected = await this.connect()
         if (!connected)
             throw new Error(`could not start device, reason:could not connect`)                  
