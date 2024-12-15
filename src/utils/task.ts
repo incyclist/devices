@@ -82,11 +82,12 @@ export class InteruptableTask<T extends TaskState, P > {
 
             this.internalEvents.once('stopped',()=>{
 
+                this.clearTimeout()
                 this.internalState = { 
                     isRunning: false,
                 }
     
-                this.clearTimeout()
+                this.internalEvents.removeAllListeners();
 
                 if (this.getState().result==='completed' || this.getState().result==='error') 
                     return;
@@ -121,7 +122,10 @@ export class InteruptableTask<T extends TaskState, P > {
 
         return new Promise<boolean>( (resolve) => {
             this.internalEvents.emit('stopped')
-            resolve(true)
+            resolveNextTick().then( () => {
+                resolve(true)
+            })
+            
         })
 
     }

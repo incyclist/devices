@@ -1,14 +1,16 @@
-const {AdapterFactory, InterfaceFactory,IncyclistCapability} = require('incyclist-devices')
+const {AdapterFactory, IncyclistCapability} = require('incyclist-devices')
 const {EventLogger,ConsoleAdapter} = require( 'gd-eventlog');
-const { Bonjour } = require('bonjour-service')
-const { autoDetect } = require('@serialport/bindings-cpp');
 const { BleInterfaceFactory } = require('../../lib/ble/factories/interface-factory');
+
+const { Bonjour } = require('bonjour-service')
 const net = require('net');
 
 const createBinding = ()=>{
     return {
         mdns: new MDNSBinding(),
-        net      
+        net: {
+            createSocket: ()=>new net.Socket()
+        } 
     }
 }
 

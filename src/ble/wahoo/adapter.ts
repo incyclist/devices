@@ -2,7 +2,7 @@ import {EventLogger} from 'gd-eventlog';
 import { BleFmAdapter, cRR, cwABike } from '../fm';
 import BleWahooDevice from './sensor';
 import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/consts";
-import { BleDeviceProperties, BleDeviceSettings, BleStartProperties } from '../types';
+import { BleDeviceProperties, BleDeviceSettings, BleStartProperties, IBlePeripheral } from '../types';
 import { IncyclistCapability,IAdapter } from '../../types';
 import { BleWahooComms } from '.';
 import { LegacyProfile } from '../../antv2/types';
@@ -33,6 +33,11 @@ export default class BleWahooAdapter extends BleFmAdapter {
    
     getProfile():LegacyProfile {
         return 'Smart Trainer';
+    }
+
+
+    updateSensor(peripheral:IBlePeripheral) {
+        this.device = new BleWahooDevice( peripheral, {logger:this.logger})
     }
 
 

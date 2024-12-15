@@ -8,7 +8,7 @@ import ICyclingMode, { CyclingMode } from '../../modes/types';
 import { IndoorBikeData } from './types';
 import { cRR, cwABike } from './consts';
 import { sleep } from '../../utils/utils';
-import { BleDeviceProperties, BleDeviceSettings, BleStartProperties } from '../types';
+import { BleDeviceProperties, BleDeviceSettings, BleStartProperties, IBlePeripheral } from '../types';
 import { IAdapter,IncyclistCapability,IncyclistAdapterData,IncyclistBikeData } from '../../types';
 import { LegacyProfile } from '../../antv2/types';
 
@@ -29,6 +29,11 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
             IncyclistCapability.Control
         ]
 
+    }
+
+
+    updateSensor(peripheral:IBlePeripheral) {
+        this.device = new BleFitnessMachineDevice( peripheral, {logger:this.logger})
     }
 
     isSame(device:IAdapter):boolean {
@@ -125,7 +130,6 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
     async start( props: BleStartProperties={} ): Promise<any> {
 
-        console.log('~~~ start', props)
         const wasPaused = this.paused
         const wasStopped = this.stopped
 
@@ -147,7 +151,6 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
         const {timeout=20000} = props||{}            
 
-        console.log('~~~ connect')
         if (!this.connectPromise)
             this.connectPromise = this.connect()
         
@@ -168,11 +171,15 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
             
             
         try {
-            console.log('~~~ start device')
-            
-            const comms = this.getComms()
-            await comms.startSensor()
+            let comms = this.getComms()
+
+
+            if (!comms?.hasPeripheral() ) {
+                await this.waitForPeripheral()
+                comms = this.getComms()
+            }
             if (comms) {                
+                await comms.startSensor()
 
                 if (!scanOnly) {
 
@@ -215,13 +222,13 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
                 const before = this.capabilities.join(',')
 
-                if (comms.features.heartrate && !this.hasCapability(IncyclistCapability.HeartRate)) {
+                if (comms.features?.heartrate && !this.hasCapability(IncyclistCapability.HeartRate)) {
                     this.capabilities.push(IncyclistCapability.HeartRate)
                 }
-                if (comms.features.cadence && !this.hasCapability(IncyclistCapability.Cadence)) {
+                if (comms.features?.cadence && !this.hasCapability(IncyclistCapability.Cadence)) {
                     this.capabilities.push(IncyclistCapability.Cadence)
                 }
-                if (comms.features.power && !this.hasCapability(IncyclistCapability.Power)) {
+                if (comms.features?.power && !this.hasCapability(IncyclistCapability.Power)) {
                     this.capabilities.push(IncyclistCapability.Power)
                 }
                 const after = this.capabilities.join(',')
@@ -242,7 +249,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
             }    
         }
         catch(err) {
-            this.logEvent({message: 'start result: error', error: err.message, profile:this.getProfile()})
+            this.logEvent({message: 'start result: error', error: err.message, profile:this.getProfile(), stack: err.stack})    
             throw new Error(`could not start device, reason:${err.message}`)
 
         }

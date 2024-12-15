@@ -32,7 +32,7 @@ export class EnableCharacteristicNotificationsMessage extends Message<TDCEnableC
     }
 
     parseRequestBody(body: Buffer): TDCEnableCharacteristicNotificationsRequestBody {
-        const characteristicUUID = body.subarray(0, 16).toString("hex");
+        const characteristicUUID = Buffer.from(body.subarray(0, 16)).toString("hex");
         const enabledVal = body.readUInt8(16);
         const enable = enabledVal !== 0;
     
@@ -42,7 +42,7 @@ export class EnableCharacteristicNotificationsMessage extends Message<TDCEnableC
         
     }
     parseResponseBody(body: Buffer): TDCEnableCharacteristicNotificationsResponseBody {
-        const characteristicUUID = body.subarray(0, 16).toString("hex");
+        const characteristicUUID = Buffer.from(body.subarray(0, 16)).toString("hex");
     
         return {
             characteristicUUID,

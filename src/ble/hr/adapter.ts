@@ -2,7 +2,7 @@ import { EventLogger } from 'gd-eventlog';
 import BleAdapter from '../base/adapter';
 import BleHrmDevice from './sensor';
 import { IncyclistAdapterData,IncyclistCapability,IAdapter,DeviceProperties } from '../../types';
-import { BleDeviceSettings } from '../types';
+import { BleDeviceSettings, IBlePeripheral } from '../types';
 import { HrmData } from './types';
 import { LegacyProfile } from '../../antv2/types';
 
@@ -30,7 +30,10 @@ export default class HrmAdapter extends BleAdapter<HrmData,BleHrmDevice>{
         return this.isEqual(device.settings as BleDeviceSettings)
     }
 
-  
+    updateSensor(peripheral:IBlePeripheral) {
+        this.device = new BleHrmDevice( peripheral, {logger:this.logger})
+    }
+
 
 
     getDisplayName() {

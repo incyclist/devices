@@ -22,7 +22,7 @@ export class CharacteristicNotificationMessage extends Message<EmptyBody,TDCChar
     }
 
     parseResponseBody(body: Buffer): TDCCharacteristicNotificationBody {
-        const characteristicUUID = body.subarray(0, 16).toString("hex");
+        const characteristicUUID = Buffer.from(body.subarray(0, 16)).toString("hex");
         const characteristicData = body.subarray(16, body.length);
     
         return {

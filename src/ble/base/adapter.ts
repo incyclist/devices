@@ -1,6 +1,6 @@
 
 import IncyclistDevice from "../../base/adpater";
-import { BleDeviceProperties, BleDeviceSettings, BleStartProperties, IBleInterface, IBleSensor } from "../types";
+import { BleDeviceProperties, BleDeviceSettings, BleStartProperties, IBleInterface, IBlePeripheral, IBleSensor } from "../types";
 import { IAdapter,IncyclistBikeData,IncyclistAdapterData,DeviceProperties, IncyclistInterface} from "../../types";
 import { BleDeviceData } from "./types";
 import { LegacyProfile } from "../../antv2/types";
@@ -47,8 +47,18 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     getPeripheral() {
         const iface = BleInterfaceFactory.createInstane( this.getInterface() ) as unknown as IBleInterface<any>
         const p =  iface.createPeripheralFromSettings(this.settings)
-        console.log('~~~ Peripheral',p, this.settings)
         return p
+    }
+
+    async waitForPeripheral() {
+        const iface = BleInterfaceFactory.createInstane( this.getInterface() ) as unknown as IBleInterface<any>
+        const peripheral = await  iface.waitForPeripheral(this.settings)
+        this.updateSensor(peripheral)
+        
+    }
+
+    updateSensor(peripheral:IBlePeripheral) {
+        throw new Error('method not implemented')
     }
 
 
@@ -271,6 +281,9 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     }
 
     async startSensor():Promise<boolean> {
+        if (!this.getComms()) {
+            await this.waitForPeripheral()
+        }
         const connected = await this.getComms().startSensor()
         if(connected)
             this.getComms().on('data',this.onDeviceDataHandler) 
@@ -282,7 +295,11 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         
         let reason:string = 'unknown';
         let stopped = false
-        this.device.reset();
+        if (!this.getComms()) {
+            this.logEvent( {message:'device stopped - not started yet', device:this.getName()})    
+            return true;
+        }
+        this.getComms().reset();
         try {
 
             stopped = await this.getComms().stopSensor();
@@ -299,6 +316,24 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
 
         return stopped        
     }
+
+    async pause(): Promise<boolean> {
+        const res = await super.pause()
+
+        const iface = BleInterfaceFactory.createInstane( this.getInterface() )
+        iface.pauseLogging()
+
+        return res;
+    }
+
+    async resume(): Promise<boolean> {
+        const iface = BleInterfaceFactory.createInstane( this.getInterface() )
+        iface.resumeLogging()
+
+        const res = await super.resume()
+        return res;
+    }
+
 
 
     update(): void {

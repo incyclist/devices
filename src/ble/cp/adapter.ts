@@ -2,7 +2,7 @@ import {EventLogger} from 'gd-eventlog';
 import BleCyclingPowerDevice from './sensor';
 import BleAdapter from '../base/adapter';
 import { PowerData } from './types';
-import {  BleDeviceSettings } from '../types';
+import {  BleDeviceSettings, IBlePeripheral } from '../types';
 import { DeviceProperties,IncyclistBikeData,IncyclistAdapterData,IncyclistCapability, ControllerConfig, IAdapter  } from '../../types';
 import PowerMeterCyclingMode from '../../modes/power-meter';
 import { LegacyProfile } from '../../antv2/types';
@@ -35,6 +35,11 @@ export default class PwrAdapter extends BleAdapter<PowerData,BleCyclingPowerDevi
             return false;        
         return this.isEqual(device.settings as BleDeviceSettings)
     }
+
+    updateSensor(peripheral:IBlePeripheral) {
+        this.device = new BleCyclingPowerDevice( peripheral, {logger:this.logger})
+    }
+
    
     getProfile():LegacyProfile {
         return 'Power Meter';

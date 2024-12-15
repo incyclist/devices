@@ -2,7 +2,7 @@ import {EventLogger} from 'gd-eventlog';
 import { BleFmAdapter, cRR, cwABike } from '../fm';
 import TacxAdvancedFitnessMachineDevice from './sensor';
 import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/consts";
-import { BleDeviceSettings, BleStartProperties } from '../types';
+import { BleDeviceSettings, BleStartProperties, IBlePeripheral } from '../types';
 import { DeviceProperties,IncyclistCapability,IAdapter } from '../../types';
 import { BleTacxComms } from '.';
 import { LegacyProfile } from '../../antv2/types';
@@ -34,7 +34,10 @@ export default class BleTacxAdapter extends BleFmAdapter {
         return this.isEqual(device.settings as BleDeviceSettings)
     }
 
-   
+    updateSensor(peripheral:IBlePeripheral) {
+        this.device = new TacxAdvancedFitnessMachineDevice( peripheral, {logger:this.logger})
+    }
+
     getProfile():LegacyProfile {
         return 'Smart Trainer'
     }

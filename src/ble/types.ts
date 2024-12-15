@@ -174,9 +174,11 @@ export interface IBleInterface<T extends PeripheralAnnouncement> extends Incycli
     isLoggingPaused():boolean
     logEvent(event);
     logError(err: Error, fn: string, args?);
+
     createPeripheral(announcement: T):IBlePeripheral
     createPeripheralFromSettings(settings:DeviceSettings):IBlePeripheral
     createDeviceSetting(announcement: T):DeviceSettings
+    waitForPeripheral(settings:DeviceSettings): Promise<IBlePeripheral>
 
     pauseDiscovery?():Promise<void>
     resumeDiscovery?():Promise<void>

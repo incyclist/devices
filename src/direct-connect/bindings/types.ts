@@ -1,10 +1,20 @@
+import EventEmitter from "events"
 import { PeripheralAnnouncement } from "../../ble/types"
 
+export interface Socket extends EventEmitter {
+    connect(port: number, host:string): Socket
+    destroy(): void
+    write(data:Buffer):boolean
+}
+
+export interface NetBinding {
+    createSocket(): Socket
+}
 
 
 export interface DirectConnectBinding {
     mdns: MulticastDnsBinding
-    net
+    net:NetBinding
 }
 
 type KeyValue = { [key: string]: any }

@@ -33,7 +33,7 @@ export class ReadCharacteristicMessage extends Message<TDCReadCharacteristicRequ
 
 
     parseRequestBody(body: Buffer): TDCReadCharacteristicRequestBody {
-        const characteristicUUID = body.subarray(0, 16).toString("hex");
+        const characteristicUUID = Buffer.from(body.subarray(0, 16)).toString("hex");
     
         return {
             characteristicUUID,
@@ -42,7 +42,7 @@ export class ReadCharacteristicMessage extends Message<TDCReadCharacteristicRequ
     }
 
     parseResponseBody(body: Buffer): TDCReadCharacteristicResponseBody {
-        const characteristicUUID = body.subarray(0, 16).toString("hex");
+        const characteristicUUID = Buffer.from(body.subarray(0, 16)).toString("hex");
         const characteristicData = body.subarray(16, body.length);
     
         return {

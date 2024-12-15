@@ -1,6 +1,5 @@
 import { sleep } from "../../utils/utils";
-import { BleInterfaceFactory } from "../factories/interface-factory";
-import { TBleSensor, BleWriteProps, IBlePeripheral, IBleSensor } from "../types";
+import { TBleSensor, BleWriteProps, IBlePeripheral} from "../types";
 import { EventLogger } from "gd-eventlog";
 
 export class BleSensor  extends TBleSensor {
@@ -27,11 +26,14 @@ export class BleSensor  extends TBleSensor {
         throw new Error("Method not implemented.");
     }
 
+    hasPeripheral():boolean {
+        return !!this.peripheral
+    }
+
     async startSensor(reconnect?: boolean): Promise<boolean> {
 
         if (!reconnect)
             this.stopRequested = false
-        console.log('startSensor')
 
         if (!this.peripheral) {
             // TODO: wait for a device to be announced
@@ -49,12 +51,9 @@ export class BleSensor  extends TBleSensor {
     }
 
     async reconnectSensor() {
-
-        console.log('disconnect ....')
         let success = false
         do {
             success = await this.startSensor(true)
-            console.log('~~~ restart status', success)
         
             if (!success) {
                 await sleep(5000)

@@ -57,7 +57,7 @@ export class DiscoverCharacteristicsMessage extends Message<TDCDiscoverCharacter
         const serviceUUID = body.subarray(0, 16).toString("hex");
         const characteristicDefinitions = [];
         for (let i = 16; i < length; i += 17) {
-            const characteristicUUID = body.subarray(i, i + 16).toString("hex");
+            const characteristicUUID = Buffer.from(body.subarray(i, i + 16)).toString("hex");
             const properties = propertyFromVal(body.readUInt8(i + 16));
             characteristicDefinitions.push({ characteristicUUID, properties });
         }

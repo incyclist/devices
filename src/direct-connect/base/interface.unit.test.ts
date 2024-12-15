@@ -1,7 +1,7 @@
 import { resolveNextTick } from "../../utils/utils"
 import { DirectConnectBinding, MulticastDnsAnnouncement, MulticastDnsBinding } from "../bindings"
 import DirectConnectInterface from "./interface"
-
+import net from 'net'
 const mdns:MulticastDnsBinding = {
     
     find: jest.fn(),
@@ -10,9 +10,13 @@ const mdns:MulticastDnsBinding = {
 }
 
 const mock:DirectConnectBinding = {
-
-    mdns    
+    mdns,
+    net: {
+        createSocket: ()=>new net.Socket()
+    }    
 }
+
+const O = (o)=>expect.objectContaining(o)
 
 describe('DirectConnectInterface', () => { 
 
@@ -20,10 +24,12 @@ describe('DirectConnectInterface', () => {
     const logSpy = jest.fn()
     const deviceSpy = jest.fn()
 
-    afterEach(() => {
-        jest.resetAllMocks()
-    })
     describe('connect', () => {
+        afterEach(() => {
+            jest.resetAllMocks()
+            iface?.removeAllListeners()
+        })
+    
 
         test('normal connection', async () => {
             iface = new DirectConnectInterface({binding:mock})
@@ -41,8 +47,8 @@ describe('DirectConnectInterface', () => {
             expect(logSpy).toHaveBeenCalledWith({message:'starting multicast DNS scan ..'})
 
             await resolveNextTick()
-            expect(logSpy).toHaveBeenCalledWith({message:'device announced', device:'TEST'})
-            expect(deviceSpy).not.toHaveBeenCalled()
+            expect(logSpy).toHaveBeenCalledWith(O({message:'device announced', device:'TEST'}))
+            expect(deviceSpy).toHaveBeenCalled()
             
         })
         test('no binding', async () => {
@@ -80,7 +86,11 @@ describe('DirectConnectInterface', () => {
     })  
 
     describe('disconnect', () => {
-
+        afterEach(() => {
+            jest.resetAllMocks()   
+            iface?.removeAllListeners()
+        })
+    
         test('normal disconnection', async () => {
             iface = new DirectConnectInterface({binding:mock})
             iface.on('log',logSpy)
@@ -113,7 +123,7 @@ describe('DirectConnectInterface', () => {
             expect(success).toBe(true)  
             expect(logSpy).toHaveBeenCalledWith({message:'stopping scan ...'})
 
-            expect(logSpy).toHaveBeenCalledWith({message:'stopping scan done'})
+            expect(logSpy).toHaveBeenCalledWith({message:'scan stopped'})
         })
 
             

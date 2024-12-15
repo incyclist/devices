@@ -81,13 +81,6 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     protected constructor(props:InterfaceProps) {  
         super()
 
-        try {
-            throw new Error('')
-        } catch (error) {
-            console.log('~~ constructor',error.stack)
-        }
-        
-
         this.instanceId = ++instanceCount
 
         this.props = props;       
@@ -156,7 +149,6 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
      * @returns {Promise<boolean>} Whether the connection was successful.
      */
     async connect(reconnect?:boolean): Promise<boolean> {
-        console.log('~~~ BLE connect')
 
         if (!this.getBinding()) {
             this.logEvent({message:'BLE not available'})
@@ -287,14 +279,36 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     }
     createPeripheralFromSettings(settings: DeviceSettings): IBlePeripheral {
 
-        console.log( 'createPeripheralFromSettings', this.instanceId, settings, this.getAll(), this.services)
         const info = this.getAll().find(a=>a.service.name === settings.name)
 
-        console.log( 'createPeripheralFromSettings result', info)
         if (!info?.service)
             return null;
         return this.createPeripheral(info.service)
     }
+
+    waitForPeripheral(settings:DeviceSettings): Promise<IBlePeripheral> {
+        
+        const peripheral =  this.createPeripheralFromSettings(settings)
+        if (peripheral) return Promise.resolve(peripheral)
+
+        return new Promise ( (done)=>{
+
+            const onDevice = (device:DeviceSettings)=>{
+                if (device.name===settings.name) {
+                    const peripheral =  this.createPeripheralFromSettings(settings)
+                    if (peripheral) {
+                        this.off('device', onDevice)
+                        done(peripheral)
+                    }
+                }                        
+            }
+
+            this.on('device', onDevice)
+        })
+            
+
+    }
+
 
     createDeviceSetting(service:BlePeripheralAnnouncement):DeviceSettings {
         const name = service.name
@@ -411,7 +425,6 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
             if (this.find(announcement) || this.isCompleting(announcement)) {
                 return  
             }
-            console.log(this.incompleteServices.map(s=>s.name))
             this.updateWithServices(announcement)
                 .then( ()=>{
                     if (this.isSupportedPeripheral(announcement))
@@ -593,7 +606,6 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
                     this.matching.push(service.name)
                 }                
                 this.services.push( {ts:Date.now(),service})
-                console.log('addService',this.instanceId,   service.name, this.services)   
 
             }
         }

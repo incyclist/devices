@@ -1,4 +1,5 @@
-import {parseUUID,beautifyUUID} from './utils'
+import { beautifyUUID, parseUUID } from "../ble/utils"
+
 describe ('utils', () => {  
     describe ('parseUUID', () => {
         test('hex 16Bit', () => {
@@ -47,6 +48,11 @@ describe ('utils', () => {
             const res = beautifyUUID('0000ABCD00002000800000805F9B34FB')
             expect(res).toBe('0000ABCD-0000-2000-8000-00805F9B34FB')
         })
+        test('error', () => {
+            const res = beautifyUUID('00002AD900001000800000805F9B34')
+            expect(res).toBe('0000ABCD-0000-2000-8000-00805F9B34FB')
+        })
+        
 
     })
 })

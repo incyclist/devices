@@ -7,7 +7,6 @@ import { BleDeviceSettings, BleProtocol, IBleInterface, IBlePeripheral, TBleSens
 import { InteruptableTask,  TaskState } from "../../utils/task";
 import { DirectConnectPeripheral } from "./peripheral";
 import { BleAdapterFactory } from "../../ble";
-import { sleep } from "../../utils/utils";
 
 const DC_TYPE = 'wahoo-fitness-tnp'
 const DC_DEFAULT_SCAN_TIMEOUT = 30*1000; // 30s
@@ -48,7 +47,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
     protected internalEvents: EventEmitter
     protected services: Announcement[] = []
     protected scanTask: InteruptableTask<TaskState,DeviceSettings[]>;
-    protected matching?:Array<string> 
+    protected matching?:Array<string> = []
     protected instance:number
 
     static getInstance(props:InterfaceProps={}): DirectConnectInterface {
@@ -89,6 +88,8 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         }
         this.internalEvents = new EventEmitter()
         this.instance = ++instanceId
+
+        this.connect()
     }
     createPeripheral(announcement: MulticastDnsAnnouncement): IBlePeripheral {
         return DirectConnectPeripheral.create(announcement) 
@@ -160,19 +161,25 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
      * @returns {Promise<boolean>} Whether the connection was successful.
      */
     async connect(reconnect?:boolean): Promise<boolean> {
-        if (!this.getBinding()?.mdns) {
-            this.logEvent({message:'Direct Connect not available'})
-            return false;
+        try {
+            if (!this.getBinding()?.mdns) {
+                this.logEvent({message:'Direct Connect not available'})
+                return false;
+            }
+            this.getBinding().mdns.connect()
+
+            if (!reconnect)
+                this.logEvent({message:'starting multicast DNS scan ..'})
+
+            
+            this.getBinding().mdns.find( {type:DC_TYPE},( service:MulticastDnsAnnouncement )=>{
+                this.addService( service )  
+
+            } )
         }
-        this.getBinding().mdns.connect()
-
-        if (!reconnect)
-            this.logEvent({message:'starting multicast DNS scan ..'})
-
-        this.getBinding().mdns.find( {type:DC_TYPE},( service:MulticastDnsAnnouncement )=>{
-            this.addService( service )  
-
-        } )
+        catch (err) {
+            this.logError(err, 'connect')
+        }
         return true;
 
     }
@@ -182,9 +189,9 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
      * @returns {Promise<boolean>} Whether the disconnection was successful.
      */
     async disconnect(): Promise<boolean> {
-        this.getBinding()?.mdns?.disconnect()
-
         await this.stopScan()
+        this.getBinding()?.mdns?.disconnect()
+        this.internalEvents.removeAllListeners()
         return this.getBinding()?.mdns!==undefined && this.binding.mdns!==null
     }
 
@@ -230,11 +237,13 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
 
 
     }
-    stopScan(): Promise<boolean> {
+    async stopScan(): Promise<boolean> {
         if (!this.isScanning()) return Promise.resolve(true);
 
         this.logEvent({message:'stopping scan ...'})
-        this.scanTask.stop()
+        const res = await this.scanTask.stop()
+        delete this.scanTask
+        return res
     }
 
     onScanDone():DeviceSettings[] { 
@@ -253,6 +262,30 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
 
     isLoggingPaused(): boolean {
         return this.logDisabled
+    }
+
+    waitForPeripheral(settings:DeviceSettings): Promise<IBlePeripheral> {
+
+        const peripheral =  this.createPeripheralFromSettings(settings)
+        if (peripheral) return Promise.resolve(peripheral)
+
+        return new Promise ( (done)=>{
+
+            const onDevice = (device:BleDeviceSettings)=>{
+
+                if (device.name===settings.name) {
+                    const peripheral =  this.createPeripheralFromSettings(settings)
+                    if (peripheral) {
+                        this.off('device', onDevice)
+                        done(peripheral)
+                    }
+                }                        
+            }
+
+            this.on('device', onDevice)
+        })
+            
+
     }
 
 
@@ -306,13 +339,13 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
                 this.services[idx]= {ts:Date.now(),service}
             }
             else {
-                
+                this.logEvent({message:'device announced',device:service.name, announcement:service})
                 
                 this.services.push( {ts:Date.now(),service})
-                if (this.isScanning()) {
-                    this.emitDevice(service)                    
-                    this.matching.push(service.name)
-                }                
+               
+                this.emitDevice(service)                    
+                this.matching?.push(service.name)
+                
                 
 
                 
