@@ -1,5 +1,5 @@
 import { sleep } from "../../utils/utils";
-import { TBleSensor, BleWriteProps, IBlePeripheral} from "../types";
+import { TBleSensor, BleWriteProps, IBlePeripheral, BleProtocol} from "../types";
 import { EventLogger } from "gd-eventlog";
 
 export class BleSensor  extends TBleSensor {
@@ -17,6 +17,7 @@ export class BleSensor  extends TBleSensor {
     logEvent(event, ...args) {
         this.logger.logEvent(event, ...args)
     }
+
 
     get services(): string[] {
         return this.peripheral.services.map(s => s.uuid)

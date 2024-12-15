@@ -219,8 +219,16 @@ export interface IBleSensor extends EventEmitter  {
 
 export class TBleSensor extends EventEmitter implements IBleSensor {
 
+    static readonly protocol: BleProtocol
+
     constructor(protected peripheral: IBlePeripheral,props?:{ logger?:EventLogger}) {        
         super()
+    }
+
+
+    getProtocol(): BleProtocol {
+        const sensor = this.constructor as typeof TBleSensor
+        return sensor['protocol']
     }
 
     isMatching(serviceUUIDs: string[]): boolean {             

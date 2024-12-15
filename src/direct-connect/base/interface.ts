@@ -9,7 +9,6 @@ import { DirectConnectPeripheral } from "./peripheral";
 import { BleAdapterFactory } from "../../ble";
 
 const DC_TYPE = 'wahoo-fitness-tnp'
-const DC_DEFAULT_SCAN_TIMEOUT = 30*1000; // 30s
 const DC_EXPIRATION_TIMEOUT = 10*1000*60 // 10min
 
 
@@ -89,7 +88,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         this.internalEvents = new EventEmitter()
         this.instance = ++instanceId
 
-        this.connect()
+        this.autoConnect()
     }
     createPeripheral(announcement: MulticastDnsAnnouncement): IBlePeripheral {
         return DirectConnectPeripheral.create(announcement) 
@@ -153,6 +152,9 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         return this.binding
     }
 
+    autoConnect():void {
+        this.connect()
+    }
 
     /**
      * Connects to the interface.
@@ -404,14 +406,11 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
             return device.isMatching(announcement.serviceUUIDs)
         })
 
-        // TODO: refactor - this needs to be type safe
-        let DeviceClass
+        let DeviceClass: typeof TBleSensor
+        
         DeviceClass = this.getBestDeviceMatch( matching)
-
-        
-        return DeviceClass.protocol
-        
-        
+        const C = new DeviceClass(null)
+        return C.getProtocol()
     }
 
     protected getBestDeviceMatch(DeviceClasses : (typeof TBleSensor)[]):typeof TBleSensor {

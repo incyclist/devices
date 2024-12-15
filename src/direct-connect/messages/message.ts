@@ -1,5 +1,5 @@
 import { DC_ERROR_INVALID_MESSAGE_LENGTH, DC_ERROR_INVALID_MESSAGE_TYPE } from "../consts";
-import { EmptyBody, TDCBody, TDCMessageHeader, TDCRequest, TDCResponse } from "../types";
+import { TDCBody, TDCMessageHeader, TDCRequest, TDCResponse } from "../types";
 import { IllegalMessageError } from "./error";
 
 export class Message<TReq extends TDCBody,TRes extends TDCBody > {

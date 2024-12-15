@@ -178,7 +178,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
                         subscribe.push(this.subscribe(characteristic.uuid, callback).catch(err=>null))
                 })
             })
-            const res2 = await Promise.all(subscribe)
+            await Promise.all(subscribe)
 
             return true
         }
@@ -205,7 +205,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
         
     }
     async write(characteristicUUID: string, data: Buffer, options?: BleWriteProps): Promise<Buffer> {
-        return new Promise( async resolve => {
+        return new Promise( resolve => {
 
             if ( !options?.withoutResponse ) {
 
@@ -224,15 +224,20 @@ export class DirectConnectPeripheral implements IBlePeripheral {
                 data:data.toString('hex'),    
                 raw:request.toString('hex') })
 
-            const response:Buffer = await this.send(seqNo, request)
+            this.send(seqNo, request).then ( (response:Buffer) =>{
+                const res = message.parseResponse(response)
+                this.logEvent({message:'WriteCharacteristic response', path:this.getPath(), characteristic:beautifyUUID(res.body.characteristicUUID),                
+                    raw:request.toString('hex') })
+    
+                if ( options?.withoutResponse ) {
+                    resolve (Buffer.from([]))
+                }    
+            })
+            .catch(err =>{
+                this.logEvent({message:'WriteCharacteristic error', path:this.getPath(), characteristic:beautifyUUID(characteristicUUID),error:err.message})
+            })
 
-            const res = message.parseResponse(response)
-            this.logEvent({message:'WriteCharacteristic response', path:this.getPath(), characteristic:beautifyUUID(res.body.characteristicUUID),                
-                raw:request.toString('hex') })
 
-            if ( options?.withoutResponse ) {
-                resolve (Buffer.from([]))
-            }
 
             
         })

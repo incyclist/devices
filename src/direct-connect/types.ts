@@ -1,5 +1,4 @@
-import { BleProtocol } from "../ble/types"
-import { DeviceSettings, IncyclistScanProps } from "../types"
+import { IncyclistScanProps } from "../types"
 
 export interface TDCMessageHeader {
     msgVersion: number
