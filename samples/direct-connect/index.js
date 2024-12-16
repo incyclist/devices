@@ -51,10 +51,9 @@ class MDNSBinding {
 EventLogger.registerAdapter(new ConsoleAdapter()) 
 
 const logger = new EventLogger('DirectConnectSampleApp')
-const isDebug = process.env.DEBUG
 
 logger.log('DC Sample')
-var args= process.argv.slice(2);
+const args= process.argv.slice(2);
 
 
 
@@ -63,42 +62,49 @@ function runDevice(device) {
     
     logger.logEvent( {message:'starting device',device:device.getDisplayName()})        
 
-    return new Promise ( async (resolve) => {
+    return new Promise ( (resolve) => {
 
-
-        device.onData( (data)=> { logger.logEvent( {message:'onData',device:device.getDisplayName(),data}) })
-        device.on('disconnected', ()=>{console.log('disconnected')})
-        device.on('device-info', (info)=>{console.log('device-info:',info)})
-
-        try {
-            await device.start();
-        }
-        catch(err) {
-            logger.logEvent( {message:'Device start failed', error:err.message})        
-            return resolve(true);
-        }
-
-        let iv;
-        if (device.hasCapability(IncyclistCapability.Control)) {
-            logger.logEvent( {message:'Device is controllable'})   
-            let slope =0
-            // setting power to 200W every 1s
-            iv = setInterval( async ()=>{
-                //logger.logEvent( {message:'setting Power',power:200,device:device.getName()})        
-                await device.sendUpdate( {slope});
-                slope+=0.1
+        const start = async () => {
+            device.onData( (data)=> { logger.logEvent( {message:'onData',device:device.getDisplayName(),data}) })
+            device.on('disconnected', ()=>{console.log('disconnected')})
+            device.on('device-info', (info)=>{console.log('device-info:',info)})
+    
+            try {
+                await device.start();
+            }
+            catch(err) {
+                logger.logEvent( {message:'Device start failed', error:err.message})        
+                resolve(true);
+                return
+            }
+    
+            let iv;
+            if (device.hasCapability(IncyclistCapability.Control)) {
+                logger.logEvent( {message:'Device is controllable'})   
+                let slope =0
+                // setting power to 200W every 1s
+                iv = setInterval( async ()=>{
+                    //logger.logEvent( {message:'setting Power',power:200,device:device.getName()})        
+                    await device.sendUpdate( {slope});
+                    slope+=0.1
+            
+                }, 1000)
         
-            }, 1000)
+            }
+
+            // stopping device after 30s
+            setTimeout( async ()=>{
+                logger.logEvent( {message:'stopping device',device:device.getName()})        
+                if (iv) clearInterval(iv)
+                await device.stop();   
+                resolve(true)
+            }, 30000)
+    
     
         }
+
+        start()
     
-        // stopping device after 30s
-        setTimeout( async ()=>{
-            logger.logEvent( {message:'stopping device',device:device.getName()})        
-            if (iv) clearInterval(iv)
-            await device.stop();   
-            resolve(true)
-        }, 30000)
     
     })
 

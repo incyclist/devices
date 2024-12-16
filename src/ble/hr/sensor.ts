@@ -1,37 +1,19 @@
 import { LegacyProfile } from '../../antv2/types';
-import { BleSensor } from '../base/sensor';
+import { TBleSensor } from '../base/sensor';
 import { HR_MEASUREMENT } from '../consts';
 import { BleProtocol } from '../types';
-import { beautifyUUID, matches, uuid } from '../utils';
+import { matches } from '../utils';
 import { HrmData } from './types';
 
-export default class BleHrmDevice extends BleSensor {
+export default class BleHrmDevice extends TBleSensor {
+    static readonly profile:LegacyProfile  ='Heartrate Monitor'
     static readonly protocol:BleProtocol = 'hr'
     static readonly services =  ['180d'];
     static readonly characteristics =  [HR_MEASUREMENT, '2a38', '2a39', '2a3c'];
     static readonly detectionPriority = 1;
     
-    heartrate: number;
-    rr: number;
-
-    getProfile(): LegacyProfile {
-        return 'Heartrate Monitor';
-    }
-
-    getProtocol(): BleProtocol {
-        return BleHrmDevice.protocol
-    }
-  
-
-    getServiceUUids(): string[] {
-        return BleHrmDevice.services;
-    }
-
-    isMatching(serviceUUIDs: string[]): boolean {             
-        const uuids = serviceUUIDs.map( uuid=>beautifyUUID(uuid))
-        return uuids.includes(beautifyUUID('180d'));
-    }
-
+    protected heartrate: number;
+    protected rr: number;
 
     parseHrm(_data: Uint8Array):HrmData { 
         const data = Buffer.from(_data);
@@ -60,12 +42,10 @@ export default class BleHrmDevice extends BleSensor {
         return {heartrate, rr,raw:data.toString('hex')}
     }
 
-    onData(characteristic:string,data: Buffer):boolean {
-        
+    onData(characteristic:string,data: Buffer):boolean {       
         const hasData = super.onData(characteristic,data);
         if (!hasData)
             return;
-
 
         if ( matches(characteristic.toLocaleLowerCase(),'2a37')) { //  name: 'Heart Rate Measurement',
             const res = this.parseHrm(data)
@@ -74,7 +54,6 @@ export default class BleHrmDevice extends BleSensor {
         }
 
         return true;
-  
     }
 
 }

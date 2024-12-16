@@ -130,16 +130,6 @@ export class InteruptableTask<T extends TaskState, P > {
 
     }
 
-    pause() {
-        this.getState().result = 'paused'
-        this.internalEvents.emit('stopped')
-
-    }
-
-    resume() {
-
-    }
-
     /**
      * Checks if the operation is currently running.
      * @returns {boolean} - Returns true if the operation is running, otherwise false.

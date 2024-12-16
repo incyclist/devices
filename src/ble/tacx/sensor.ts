@@ -1,53 +1,30 @@
 import { LegacyProfile } from "../../antv2/types";
-import { CSC_MEASUREMENT, CSP_MEASUREMENT, FTMS_CP, FTMS_STATUS, INDOOR_BIKE_DATA, TACX_FE_C_BLE, TACX_FE_C_RX, TACX_FE_C_TX } from "../consts";
+import { CSC_MEASUREMENT, CSP_MEASUREMENT, FTMS_STATUS, INDOOR_BIKE_DATA } from "../consts";
+import { TACX_FE_C_BLE, TACX_FE_C_RX, TACX_FE_C_TX , SYNC_BYTE, ANTMessages, DEFAULT_CHANNEL, ACKNOWLEDGED_DATA } from "./consts";
 import { CrankData } from "../cp";
 import { IndoorBikeData } from "../fm";
 import BleFitnessMachineDevice from "../fm/sensor";
 import { BleProtocol } from "../types";
-import { beautifyUUID, matches, uuid } from "../utils";
+import { matches } from "../utils";
 import { BleFeBikeData } from "./types";
 
-enum  ANTMessages {
-    calibrationCommand = 1,
-    calibrationStatus  = 2,
-    generalFE          = 16,
-    generalSettings    = 17,
-    trainerData        = 25,
-    basicResistance    = 48,
-    targetPower        = 49,
-    windResistance     = 50,
-    trackResistance    = 51,
-    feCapabilities     = 54,
-    userConfiguration  = 55,
-    requestData        = 70,
-    commandStatus      = 71,
-    manufactererData   = 80,
-    productInformation = 81
-}
-
-const PROFILE_ID = 'Tacx SmartTrainer'
-const SYNC_BYTE = 0xA4; //164
-const DEFAULT_CHANNEL = 5;
-const ACKNOWLEDGED_DATA = 0x4F; //79
-
-
 export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineDevice {
+    static readonly profile: LegacyProfile = 'Smart Trainer'
     static readonly protocol: BleProtocol = 'tacx'
     static readonly services =  [TACX_FE_C_BLE];
     static readonly characteristics =  [ '2acc', '2ad2', '2ad6', '2ad8', '2ad9', '2ada', TACX_FE_C_RX, TACX_FE_C_TX];
-    static readonly PROFILE = PROFILE_ID;
     static readonly detectionPriority = 10;
 
-    prevCrankData: CrankData = undefined
-    currentCrankData: CrankData = undefined
-    timeOffset: number = 0
-    tsPrevWrite = undefined;  
-    data: BleFeBikeData;
-    hasFECData: boolean
-    messageCnt: number
+    protected prevCrankData: CrankData = undefined
+    protected currentCrankData: CrankData = undefined
+    protected timeOffset: number = 0
+    protected tsPrevWrite = undefined;  
+    protected data: BleFeBikeData;
+    protected hasFECData: boolean
+    protected messageCnt: number
 
-    tacxRx: string;
-    tacxTx: string
+    protected tacxRx: string;
+    protected tacxTx: string
 
     constructor (peripheral, props?) {
         super(peripheral,props)
@@ -56,41 +33,81 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         this.messageCnt = 0;
         this.tacxRx = TACX_FE_C_RX;
         this.tacxTx = TACX_FE_C_TX
-
     }
 
-    isMatching(serviceUUIDs: string[]): boolean {             
-        const uuids = serviceUUIDs.map( uuid=>beautifyUUID(uuid))
-        return uuids.includes(beautifyUUID(TACX_FE_C_BLE));
+    reset() {
+        this.data = {}
+    
     }
 
-    setCharacteristicUUIDs(uuids: string[]): void {
-        uuids.forEach( c => {
-            if (matches(c,TACX_FE_C_RX))
-                this.tacxRx = c;
-            if (matches(c,TACX_FE_C_TX))
-                this.tacxTx = c;
-        })
+    onData(characteristic:string,data: Buffer):boolean {     
+
+        this.messageCnt++;
+        try {
+           
+
+            const uuid = characteristic.toLocaleLowerCase();          
+    
+            let res = undefined
+            if (uuid && matches(uuid,this.tacxRx)) {
+                res = this.parseFECMessage(data)
+            }
+            else {
+                switch(uuid) {
+                    case CSP_MEASUREMENT:                         
+                        res = this.parsePower(data,this.hasFECData )                        
+                        break;
+
+                    case INDOOR_BIKE_DATA:                        
+                        res = this.parseIndoorBikeData(data,this.hasFECData)
+                        break;
+                    case '2a37':     //  name: 'Heart Rate Measurement',
+                        res = this.parseHrm(data)
+                        break;
+                    case CSC_MEASUREMENT:                        
+                        res = this.parseCSC(data,this.hasFECData)
+                        break;
+                    case FTMS_STATUS:     //  name: 'Fitness Machine Status',
+                        if (!this.hasFECData)
+                            res = this.parseFitnessMachineStatus(data)
+                        break;
+                    default:    // ignore
+                        break;
+        
+                }
+        
+            }
+            
+            if (res)
+                this.emit('data', res)
+            return res;
+    
+        }  
+        catch (err) {
+            this.logEvent({message:'error',fn:'tacx.onData()',error:err.message||err, stack:err.stack})
+        }
+ 
+    }
+
+    async setTargetPower( power: number): Promise<boolean> {
+        // avoid repeating the same value
+        if (this.data.targetPower!==undefined && this.data.targetPower===power)
+            return true;
+        
+        return await this.sendTargetPower(power)
+    }
+
+    async setSlope(slope):Promise<boolean> {
+            return await this.sendTrackResistance(slope, this.crr)    
     }
 
 
-    getProfile(): LegacyProfile {
-        return 'Smart Trainer'
-    }
-
-    getProtocol(): BleProtocol {
-        return TacxAdvancedFitnessMachineDevice.protocol
-    }
-
-    getServiceUUids(): string[] {
-        return TacxAdvancedFitnessMachineDevice.services;
-    }
 
     async requestControl(): Promise<boolean> {
         return true;
     }
 
-    parseCrankData(crankData) {
+    protected parseCrankData(crankData) {
         if (!this.prevCrankData) {
             this.prevCrankData= {...crankData, cntUpdateMissing:-1}
             return {}
@@ -116,10 +133,8 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
             
             rpm = 1024*60*revs/time
         }
-        else {
-            if ( p.cntUpdateMissing<0 || p.cntUpdateMissing>2) {
-                rpm = 0;
-            }
+        else if ( p.cntUpdateMissing<0 || p.cntUpdateMissing>2) {
+                rpm = 0;            
         }
         const cntUpdateMissing = p.cntUpdateMissing;
         this.prevCrankData = this.currentCrankData
@@ -131,7 +146,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         return {rpm, time:this.timeOffset+c.time }
     }
 
-    parseCSC( _data:Buffer,logOnly:boolean=false):IndoorBikeData {
+    protected parseCSC( _data:Buffer,logOnly:boolean=false):IndoorBikeData {
         const data:Buffer = Buffer.from(_data);
         this.logEvent({message:'BLE CSC message',data:data.toString('hex')});
         if(logOnly)
@@ -151,15 +166,13 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
             const {rpm,time} = this.parseCrankData(crankData)                
             this.data.cadence = rpm;
             this.data.time = time;
-            offset+=4
-
         }
 
 
         return this.data;
     }
 
-    parsePower( _data:Buffer,logOnly:boolean=false):IndoorBikeData {
+    protected parsePower( _data:Buffer,logOnly:boolean=false):IndoorBikeData {
         const data:Buffer = Buffer.from(_data);
         this.logEvent({message:'BLE CSP message',data:data.toString('hex')});
         if (logOnly)
@@ -188,7 +201,6 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
                 const {rpm,time} = this.parseCrankData(crankData)                
                 this.data.cadence = rpm;
                 this.data.time = time;
-                offset+=4
             }
             
         }
@@ -200,7 +212,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 
     }
 
-    parseIndoorBikeData(_data: Buffer, logOnly?: boolean): IndoorBikeData {
+    protected parseIndoorBikeData(_data: Buffer, logOnly?: boolean): IndoorBikeData {
         this.logEvent({message:'BLE INDOOR_BIKE_DATA message',data:_data.toString('hex')});
         if (logOnly)
             return this.data;
@@ -209,7 +221,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         
     }
 
-    resetState() {
+    protected resetState() {
         const state = this.data;
 
         delete state.time;
@@ -227,7 +239,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         delete state.TargetStatus;
     }
 
-    parseFEState(capStateBF:number) {
+    protected parseFEState(capStateBF:number) {
         switch ((capStateBF & 0x70) >> 4) {
             case 1: this.data.State = 'OFF'; break;
             case 2: this.data.State = 'READY'; this.resetState(); break;
@@ -241,7 +253,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 
     }
 
-    parseGeneralFE(data:Buffer):BleFeBikeData {
+    protected parseGeneralFE(data:Buffer):BleFeBikeData {
         const equipmentTypeBF = data.readUInt8(1);
         let elapsedTime = data.readUInt8(2);
         let distance = data.readUInt8(3);
@@ -249,6 +261,19 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         const heartRate = data.readUInt8(6);
         const capStateBF = data.readUInt8(7);
 
+        this.parseFEEquipmentType(equipmentTypeBF);
+        this.parseFEHeartrate(heartRate, capStateBF);
+        this.parseFETime(elapsedTime);
+        this.parseFEDistance(capStateBF, distance);
+        this.data.speed = speed/1000;
+        this.parseFERealSpeed(capStateBF, speed);
+        this.parseFEState(capStateBF);
+
+        return this.data;
+
+    } 
+
+    private parseFEEquipmentType(equipmentTypeBF: number) {
         switch (equipmentTypeBF & 0x1F) {
             case 19: this.data.EquipmentType = 'Treadmill'; break;
             case 20: this.data.EquipmentType = 'Elliptical'; break;
@@ -259,7 +284,10 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
             case 25: this.data.EquipmentType = 'Trainer'; break;
             default: this.data.EquipmentType = 'General'; break;
         }
+    }
 
+
+    private parseFEHeartrate(heartRate: number, capStateBF: number) {
         if (heartRate !== 0xFF) {
             switch (capStateBF & 0x03) {
                 case 3: {
@@ -284,7 +312,9 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
                 }
             }
         }
+    }
 
+    private parseFETime(elapsedTime: number) {
         elapsedTime /= 4;
         const oldElapsedTime = (this.data.time || 0) % 64;
         if (elapsedTime !== oldElapsedTime) {
@@ -292,8 +322,10 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
                 elapsedTime += 64;
             }
         }
-        this.data.time = (this.data.time || 0) + elapsedTime - oldElapsedTime;
+        this.data.time = (this.data.time || 0) + elapsedTime - oldElapsedTime;        
+    }
 
+    private parseFEDistance(capStateBF: number, distance: number) {
         if (capStateBF & 0x04) {
             const oldDistance = (this.data.time || 0) % 256;
             if (distance !== oldDistance) {
@@ -305,7 +337,9 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         } else {
             delete this.data.totalDistance;
         }
-        this.data.speed = speed/1000;
+    }
+
+    private parseFERealSpeed(capStateBF: number, speed: number) {
         if (capStateBF & 0x08) {
             this.data.VirtualSpeed = speed / 1000;
             delete this.data.RealSpeed;
@@ -313,12 +347,10 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
             delete this.data.VirtualSpeed;
             this.data.RealSpeed = speed / 1000;
         }
-        this.parseFEState(capStateBF);
-        return this.data;
+    }
 
-    } 
 
-    parseTrainerData(data:Buffer):BleFeBikeData {
+    protected parseTrainerData(data:Buffer):BleFeBikeData {
         const oldEventCount = this.data.EventCount || 0;
 
         let eventCount = data.readUInt8(1);
@@ -371,7 +403,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 
     }
 
-    parseProductInformation(data:Buffer):BleFeBikeData {
+    protected parseProductInformation(data:Buffer):BleFeBikeData {
         const swRevSup = data.readUInt8(2);
         const swRevMain = data.readUInt8(3);
         const serial = data.readInt32LE(4);
@@ -389,7 +421,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
     }
 
 
-    parseFECMessage( _data:Buffer):BleFeBikeData {
+    protected parseFECMessage( _data:Buffer):BleFeBikeData {
         const data:Buffer = Buffer.from(_data);
 
         this.logEvent({message:'FE-C message',data:data.toString('hex')});
@@ -415,13 +447,13 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         try {
             switch (messageId) {
                 case ANTMessages.generalFE:
-                    res = this.parseGeneralFE(data.slice(4,len+3))
+                    res = this.parseGeneralFE(data.subarray(4,len+3))
                     break;
                 case ANTMessages.trainerData:
-                    res = this.parseTrainerData(data.slice(4,len+3))
+                    res = this.parseTrainerData(data.subarray(4,len+3))
                     break;
                 case ANTMessages.productInformation:
-                    res = this.parseProductInformation(data.slice(4,len+3))
+                    res = this.parseProductInformation(data.subarray(4,len+3))
                     break;
         
             }
@@ -435,65 +467,8 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         return res;
     }
 
-    checkForDuplicate(characteristic:string,data: Buffer):boolean {
-        // TODO
-        return false
-    }
-
-
-    onData(characteristic:string,data: Buffer):boolean {     
-
-        const isDuplicate = this.checkForDuplicate(characteristic,data)
-        if (isDuplicate)
-            return;
-        this.messageCnt++;
-        try {
-           
-
-            const uuid = characteristic.toLocaleLowerCase();          
     
-            let res = undefined
-            if (uuid && matches(uuid,this.tacxRx)) {
-                res = this.parseFECMessage(data)
-            }
-            else {
-                switch(uuid) {
-                    case CSP_MEASUREMENT:                         
-                        res = this.parsePower(data,this.hasFECData )                        
-                        break;
-
-                    case INDOOR_BIKE_DATA:                        
-                        res = this.parseIndoorBikeData(data,this.hasFECData)
-                        break;
-                    case '2a37':     //  name: 'Heart Rate Measurement',
-                        res = this.parseHrm(data)
-                        break;
-                    case CSC_MEASUREMENT:                        
-                        res = this.parseCSC(data,this.hasFECData)
-                        break;
-                    case FTMS_STATUS:     //  name: 'Fitness Machine Status',
-                        if (!this.hasFECData)
-                            res = this.parseFitnessMachineStatus(data)
-                        break;
-                    default:    // ignore
-                        break;
-        
-                }
-        
-            }
-            
-            if (res)
-                this.emit('data', res)
-            return res;
-    
-        }  
-        catch (err) {
-            this.logEvent({message:'error',fn:'tacx.onData()',error:err.message||err, stack:err.stack})
-        }
- 
-    }
-    
-    getChecksum(message: any[]): number {
+    protected getChecksum(message: any[]): number {
 		let checksum = 0;
 		message.forEach((byte) => {
 			checksum = (checksum ^ byte) % 0xFF;
@@ -501,7 +476,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 		return checksum;
 	}
 
-    buildMessage(payload: number[] = [], msgID = 0x00): Buffer {
+    protected buildMessage(payload: number[] = [], msgID = 0x00): Buffer {
 		const m: number[] = [];
 		m.push(SYNC_BYTE);
 		m.push(payload.length);
@@ -513,7 +488,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 		return Buffer.from(m);
 	}
 
-    async sendMessage(message:Buffer):Promise<boolean> {
+    protected async sendMessage(message:Buffer):Promise<boolean> {
         this.logEvent({message:'write',characteristic: this.tacxTx,data:message.toString('hex')})
 
         await this.write( this.tacxTx, message, {withoutResponse:true} )
@@ -525,11 +500,11 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         const logStr = `sendUserConfiguration(${userWeight},${bikeWeight},${wheelDiameter},${gearRatio})`
         this.logEvent( {message:logStr})
 
-        var m = userWeight===undefined ? 0xFFFF : userWeight;
-        var mb = bikeWeight===undefined ? 0xFFF: bikeWeight;
-        var d = wheelDiameter===undefined ? 0xFF : wheelDiameter;
-        var gr = gearRatio===undefined ? 0x00 : gearRatio;
-        var dOffset = 0xFF;
+        let m = userWeight===undefined ? 0xFFFF : userWeight;
+        let mb = bikeWeight===undefined ? 0xFFF: bikeWeight;
+        let d = wheelDiameter===undefined ? 0xFF : wheelDiameter;
+        let gr = gearRatio===undefined ? 0x00 : gearRatio;
+        let dOffset = 0xFF;
 
         if (m!==0xFFFF)
             m = Math.trunc(m*100);
@@ -544,7 +519,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
             gr= Math.trunc(gr/0.03);
         }
 
-        var payload = [];
+        const payload = [];
         payload.push ( DEFAULT_CHANNEL);
         payload.push (0x37);                        // data page 55: User Configuration
         payload.push (m&0xFF);                      // weight LSB
@@ -563,10 +538,10 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         const logStr = `sendBasicResistance(${resistance})`;
         this.logEvent( {message:logStr})
 
-        var res = resistance===undefined ?  0 : resistance;            
+        let res = resistance===undefined ?  0 : resistance;            
         res = res / 0.5;
 
-        var payload = [];
+        const payload = [];
         payload.push (DEFAULT_CHANNEL);
         payload.push (0x30);                        // data page 48: Basic Resistance
         payload.push (0xFF);                        // reserved
@@ -584,10 +559,10 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         const logStr = `sendTargetPower(${power})`;
         this.logEvent( {message:logStr})
 
-        var p = power===undefined ?  0x00 : power;
+        let p = power===undefined ?  0x00 : power;
         p = p * 4;
 
-        var payload = [];
+        const payload = [];
         payload.push (DEFAULT_CHANNEL);
         payload.push (0x31);                        // data page 49: Target Power
         payload.push (0xFF);                        // reserved
@@ -608,9 +583,9 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         const logStr = `sendWindResistance(${windCoeff},${windSpeed},${draftFactor})`;
         this.logEvent( {message:logStr})
 
-        var wc = windCoeff===undefined ? 0xFF : windCoeff;
-        var ws = windSpeed===undefined ? 0xFF : windSpeed;
-        var df = draftFactor===undefined ? 0xFF : draftFactor;
+        let wc = windCoeff===undefined ? 0xFF : windCoeff;
+        let ws = windSpeed===undefined ? 0xFF : windSpeed;
+        let df = draftFactor===undefined ? 0xFF : draftFactor;
 
         if (wc!==0xFF) {
             wc = Math.trunc(wc/0.01);
@@ -622,7 +597,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
             df = Math.trunc(df/0.01);
         }
 
-        var payload = [];
+        const payload = [];
         payload.push (DEFAULT_CHANNEL);
         payload.push (0x32);                        // data page 50: Wind Resistance
         payload.push (0xFF);                        // reserved
@@ -642,8 +617,8 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         const logStr = `sendTrackResistance(${slope},${rrCoeff})`;
         this.logEvent( {message:logStr})
 
-        var s  = slope===undefined ?  0xFFFF : slope;
-        var rr = rrCoeff===undefined ? 0xFF : rrCoeff;
+        let s  = slope===undefined ?  0xFFFF : slope;
+        let rr = rrCoeff===undefined ? 0xFF : rrCoeff;
 
         if (s!==0xFFFF) {
             s = Math.trunc((s+200)/0.01);
@@ -652,7 +627,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
             rr = Math.trunc(rr/0.00005);
         }
 
-        var payload = [];
+        const payload = [];
         payload.push (DEFAULT_CHANNEL);
         payload.push (0x33);                        // data page 51: Track Resistance 
         payload.push (0xFF);                        // reserved
@@ -668,22 +643,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 
     }
 
-    async setTargetPower( power: number): Promise<boolean> {
-        // avoid repeating the same value
-        if (this.data.targetPower!==undefined && this.data.targetPower===power)
-            return true;
-        
-        return await this.sendTargetPower(power)
-    }
-
-    async setSlope(slope):Promise<boolean> {
-            return await this.sendTrackResistance(slope, this.crr)    
-    }
 
 
-    reset() {
-        this.data = {}
-    
-    }
 
 }

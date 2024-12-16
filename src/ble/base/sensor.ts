@@ -1,35 +1,70 @@
+import { LegacyProfile } from "../../antv2/types";
 import { sleep } from "../../utils/utils";
-import { TBleSensor, BleWriteProps, IBlePeripheral, BleProtocol} from "../types";
+import { BleWriteProps, IBlePeripheral, BleProtocol, IBleSensor} from "../types";
 import { EventLogger } from "gd-eventlog";
+import { beautifyUUID } from "../utils";
+import EventEmitter from "events";
 
-export class BleSensor  extends TBleSensor {
+export class TBleSensor extends EventEmitter implements IBleSensor {
 
+    static readonly protocol: BleProtocol
     protected logger: EventLogger
     protected stopRequested: boolean
 
-    constructor(protected peripheral: IBlePeripheral,props?:{ logger?:EventLogger}) {        
-        super(peripheral,props)
-        
-        this.logger = props?.logger || new EventLogger('BleSensor')
-
-    }
 
     logEvent(event, ...args) {
         this.logger.logEvent(event, ...args)
     }
 
-
-    get services(): string[] {
-        return this.peripheral.services.map(s => s.uuid)
+    constructor(protected peripheral: IBlePeripheral,props?:{ logger?:EventLogger}) {        
+        super()
+        this.logger = props?.logger || this.getDefaultLogger()
+        this.reset()
     }
 
-    reset():void {
-        throw new Error("Method not implemented.");
+    get services(): string[] {
+        if (!this.peripheral)
+            return this.getServiceUUids()
+
+        return this.peripheral?.services.map(s => s.uuid)
+    }
+
+    getProfile(): LegacyProfile {
+        const C = this.constructor as typeof TBleSensor
+        return C['profile'] 
+    }
+
+
+    getProtocol(): BleProtocol {
+        const C = this.constructor as typeof TBleSensor
+        return C['protocol']
+    }
+
+    getServiceUUids(): string[] {
+        const C = this.constructor as typeof TBleSensor
+        return C['services'] 
+    }
+
+    isMatching(serviceUUIDs: string[]): boolean {             
+        const uuids = serviceUUIDs.map( uuid=>beautifyUUID(uuid))
+
+        const required = this.getServiceUUids()
+        if (!required)
+            return true
+
+        let missing = false;
+        required.forEach( uuid => {
+            if (!uuids.includes(beautifyUUID(uuid))) {
+                missing = true
+            }
+        })
+        return (missing===false)
     }
 
     hasPeripheral():boolean {
         return !!this.peripheral
     }
+
 
     async startSensor(reconnect?: boolean): Promise<boolean> {
 
@@ -51,6 +86,11 @@ export class BleSensor  extends TBleSensor {
         return await this.peripheral.subscribeAll(this.onData.bind(this))
     }
 
+    async stopSensor(): Promise<boolean> {
+        this.stopRequested = true
+        return await this.peripheral.disconnect()
+    }
+
     async reconnectSensor() {
         let success = false
         do {
@@ -62,21 +102,19 @@ export class BleSensor  extends TBleSensor {
         } while (!success || this.stopRequested)
     }
 
-    async stopSensor(): Promise<boolean> {
-        this.stopRequested = true
-        return await this.peripheral.disconnect()
-    }
 
+    reset(): void {
+        throw new Error("Method not implemented.");
+    }
     isConnected():boolean   {
-        return this.peripheral.isConnected()
+        return this.peripheral?.isConnected()
     }
-
     read(characteristicUUID: string): Promise<Buffer> { 
-        return this.peripheral.read(characteristicUUID)
+        return this.peripheral?.read(characteristicUUID)
     }
 
     write(characteristicUUID: string, data: Buffer, options?: BleWriteProps): Promise<Buffer> {
-        return this.peripheral.write(characteristicUUID, data, options)
+        return this.peripheral?.write(characteristicUUID, data, options)
     }
 
     onData(characteristic:string,data: Buffer): boolean {
@@ -85,4 +123,11 @@ export class BleSensor  extends TBleSensor {
         return true
     }
 
+    protected getDefaultLogger(): EventLogger {
+        return new EventLogger(this.constructor.name)
+    }
+
 }
+
+
+

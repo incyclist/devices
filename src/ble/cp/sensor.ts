@@ -1,16 +1,17 @@
 import { CrankData, PowerData } from './types';
 import {CSP, CSP_MEASUREMENT,CSP_FEATURE}  from '../consts'
-import { beautifyUUID, matches, uuid } from '../utils';
+import { matches } from '../utils';
 import { LegacyProfile } from '../../antv2/types';
 import { BleProtocol } from '../types';
-import { BleSensor } from '../base/sensor';
+import { TBleSensor } from '../base/sensor';
 
 
-export default class BleCyclingPowerDevice extends BleSensor {
-    static protocol:BleProtocol = 'cp'
-    static services =  [CSP];
-    static characteristics =  [ CSP_MEASUREMENT, CSP_FEATURE, '2a5d', '2a3c' ];
-    static detectionPriority = 1;
+export default class BleCyclingPowerDevice extends TBleSensor {
+    static readonly profile: LegacyProfile = 'Power Meter'
+    static readonly protocol:BleProtocol = 'cp'
+    static readonly services =  [CSP];
+    static readonly characteristics =  [ CSP_MEASUREMENT, CSP_FEATURE, '2a5d', '2a3c' ];
+    static readonly detectionPriority = 1;
     
     instantaneousPower: number = undefined;
     balance: number = undefined;
@@ -20,27 +21,7 @@ export default class BleCyclingPowerDevice extends BleSensor {
     time: number = undefined
     currentCrankData: CrankData = undefined
     prevCrankData: CrankData = undefined
-    
-
-    getProfile(): LegacyProfile {
-        return 'Power Meter';
-    }
-
-    getProtocol(): BleProtocol {
-        return BleCyclingPowerDevice.protocol
-    }
-
-    getServiceUUids(): string[] {
-        return BleCyclingPowerDevice.services;
-    }
-
-    isMatching(serviceUUIDs: string[]): boolean {             
-        const uuids = serviceUUIDs.map( uuid=>beautifyUUID(uuid))
-        return uuids.includes(beautifyUUID(CSP));
-    }
-
-
-
+   
     parseCrankData(crankData) {
         if (!this.prevCrankData) this.prevCrankData= {revolutions:0,time:0, cntUpdateMissing:-1}
 
@@ -64,10 +45,8 @@ export default class BleCyclingPowerDevice extends BleSensor {
             
             rpm = 1024*60*revs/time
         }
-        else {
-            if ( p.cntUpdateMissing<0 || p.cntUpdateMissing>2) {
-                rpm = 0;
-            }
+        else if ( p.cntUpdateMissing<0 || p.cntUpdateMissing>2) {
+                rpm = 0;            
         }
         const cntUpdateMissing = p.cntUpdateMissing;
         this.prevCrankData = this.currentCrankData
@@ -105,7 +84,6 @@ export default class BleCyclingPowerDevice extends BleSensor {
                 const {rpm,time} = this.parseCrankData(crankData)                
                 this.rpm = rpm;
                 this.time = time;
-                offset+=4
             }
             
         }
@@ -140,8 +118,7 @@ export default class BleCyclingPowerDevice extends BleSensor {
         this.timeOffset = 0
         this.time = undefined
         this.currentCrankData = undefined
-        this.prevCrankData = undefined
-    
+        this.prevCrankData = undefined    
     }
 
 }

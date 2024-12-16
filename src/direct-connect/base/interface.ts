@@ -3,10 +3,11 @@ import { DeviceSettings, InterfaceProps } from "../../types";
 import { EventLogger } from "gd-eventlog";
 import { DirectConnectBinding, MulticastDnsAnnouncement } from "../bindings";
 import { DirectConnectScanProps } from "../types";
-import { BleDeviceSettings, BleProtocol, IBleInterface, IBlePeripheral, TBleSensor } from '../../ble/types';
+import { BleDeviceSettings, BleProtocol, IBleInterface, IBlePeripheral } from '../../ble/types';
 import { InteruptableTask,  TaskState } from "../../utils/task";
 import { DirectConnectPeripheral } from "./peripheral";
 import { BleAdapterFactory } from "../../ble";
+import { TBleSensor } from "../../ble/base/sensor";
 
 const DC_TYPE = 'wahoo-fitness-tnp'
 const DC_EXPIRATION_TIMEOUT = 10*1000*60 // 10min
@@ -407,7 +408,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         })
 
         let DeviceClass: typeof TBleSensor
-        
+
         DeviceClass = this.getBestDeviceMatch( matching)
         const C = new DeviceClass(null)
         return C.getProtocol()
