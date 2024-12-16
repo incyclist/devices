@@ -8,6 +8,8 @@ import { InteruptableTask,  TaskState } from "../../utils/task";
 import { DirectConnectPeripheral } from "./peripheral";
 import { BleAdapterFactory } from "../../ble";
 import { TBleSensor } from "../../ble/base/sensor";
+import { ResponseTimeout } from "../../serial/daum/types";
+import { InterfaceFactory } from "../../ble/base/types";
 
 const DC_TYPE = 'wahoo-fitness-tnp'
 const DC_EXPIRATION_TIMEOUT = 10*1000*60 // 10min
@@ -399,7 +401,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
     }
 
     protected getProtocol(announcement:MulticastDnsAnnouncement):BleProtocol {    
-        const DeviceClasses = this.getAdapterFactory().getAllSupportedComms()??[]
+        const DeviceClasses = this.getAdapterFactory().getAllSupportedSensors()??[]
 
         const matching = DeviceClasses.filter(C=>  {
             const device = new C(null)
@@ -427,10 +429,17 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         return BleAdapterFactory.getInstance('wifi')
     }
 
+}
 
+export class DirectConnectInterfaceFactory extends InterfaceFactory {
 
-    
+    protected iface:DirectConnectInterface
+    constructor() {
+        super()
+        this.iface = DirectConnectInterface.getInstance()
+    }   
 
-
-
+    public getInterface() {
+        return this.iface
+    }
 }

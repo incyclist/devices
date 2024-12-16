@@ -1,17 +1,18 @@
-import BleAdapter from "./base/adapter";
-import { BleDeviceSettings, BleProtocol, TBleSensor } from "./types";
-import { DeviceProperties } from "../types";
-import { mapLegacyProfile } from "./utils";
-import { BleDeviceData } from "./base/types";
+import BleAdapter from "../base/adapter";
+import { BleDeviceSettings, BleProtocol} from "../types";
+import { DeviceProperties } from "../../types";
+import { fullUUID, mapLegacyProfile } from "../utils";
+import { BleDeviceData } from "../base/types";
+import { TBleSensor } from "../base/sensor";
 
 export interface BleAdapterInfo<T extends TBleSensor> {
     protocol: BleProtocol,
     Adapter: typeof BleAdapter<BleDeviceData,T>
-    Comm: typeof TBleSensor    
+    Sensor: typeof TBleSensor    
 }
 
 
-export default class BleAdapterFactory<T extends TBleSensor> {
+export class BleAdapterFactory<T extends TBleSensor> {
     static readonly _instances:Record<string, BleAdapterFactory<any>> = {};
 
     implementations: BleAdapterInfo<any>[]
@@ -63,13 +64,14 @@ export default class BleAdapterFactory<T extends TBleSensor> {
         }
 
         const info = this.getAdapterInfo(protocol)
-        console.log('~~~~ INFO:',info)
 
         if (!info?.Adapter)
             return
 
-        const adapter= new info.Adapter(adapterSettings,props)      
-        this.instances.push(adapter)  
+        const AdapterClass = info.Adapter  
+
+        const adapter= new AdapterClass(adapterSettings,props)  
+        this.instances.push(adapter )  
         return adapter
     }
 
@@ -91,8 +93,8 @@ export default class BleAdapterFactory<T extends TBleSensor> {
     }
 
 
-    register( protocol: BleProtocol, Adapter: typeof BleAdapter<BleDeviceData,T>,Comm: typeof TBleSensor)  {       
-        const info = Object.assign({},{protocol, Adapter,Comm})
+    register( protocol: BleProtocol, Adapter: typeof BleAdapter<BleDeviceData,T>,Sensor: typeof TBleSensor)  {       
+        const info = {protocol, Adapter,Sensor}
         const existing = this.implementations.findIndex( a => a.protocol===protocol) 
 
         if (existing!==-1)
@@ -106,32 +108,37 @@ export default class BleAdapterFactory<T extends TBleSensor> {
     }
 
 
-    getAllSupportedComms(): (typeof TBleSensor)[] {
+    getAllSupportedSensors(): (typeof TBleSensor)[] {
         const supported = this.getAll()
-        return supported.map( info => info.Comm)
+        return supported.map( info => info.Sensor)
     }
     getAllSupportedAdapters(): Array<(typeof BleAdapter<BleDeviceData,T>)> {
         const supported = this.getAll()
         return supported.map( info => info.Adapter)
     }
+
+    getServices(info:BleAdapterInfo<T>):string[] {
+        const Sensor = info.Sensor
+        if (!Sensor)
+            return []
+        const sensor = new Sensor(null,{})
+        return sensor.getServiceUUids().map(fullUUID)
+    }
     
     getAllSupportedServices():string[] {
         const supported = this.getAll()
-        const res = ['180d','1818','1826','6e40fec1'];
- 
-        /*
+        const res = []
+        
         if (supported && supported.length>0) {
             supported.forEach( info => {
-                if (info?.Comm?.services) {
-                    info.Comm.services.forEach( s => {
-                        if ( !res.includes(s))
-                            res.push(s)
-                    })
-                }
-    
+                const services = this.getServices(info)
+                services.forEach( s => {
+                    if ( !res.includes(s))
+                        res.push(s)
+                })
             })
         }
-        */
+        
     
         return res;
     }

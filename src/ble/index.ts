@@ -1,13 +1,13 @@
 /* istanbul ignore file */
 
-import BleAdapterFactory from './adapter-factory'
 import {BleHrmAdapter, BleHrmComms} from './hr'
 import {BlePwrAdapter, BlePwrComms} from './cp'
 import {BleFmAdapter,BleFmComms} from './fm'
 import {BleWahooAdapter,BleWahooComms} from './wahoo'
 import { BleTacxAdapter, BleTacxComms } from './tacx'
 import { BleDeviceSettings, BleInterfaceProps } from './types'
-import { BleInterface } from '../ble/base/interface'
+import { BleInterface, BleInterfaceFactory } from '../ble/base/interface'
+import { BleMultiTransportInterfaceFactory,BleAdapterFactory } from './factories'
 
 
 ['ble','wifi'].forEach(  i => { 
@@ -19,11 +19,13 @@ import { BleInterface } from '../ble/base/interface'
     af.register('tacx',BleTacxAdapter,BleTacxComms)
 })
 
+BleMultiTransportInterfaceFactory.register('ble',BleInterfaceFactory)
+
 export * from './utils'
 
 export {
     BleAdapterFactory,
-    BleInterface,BleInterfaceProps,
+    BleMultiTransportInterfaceFactory as BleInterfaceFactory,BleInterface,BleInterfaceProps,
     BleDeviceSettings,
 
     BleHrmAdapter,

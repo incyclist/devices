@@ -42,6 +42,11 @@ export default class BleHrmDevice extends TBleSensor {
         return {heartrate, rr,raw:data.toString('hex')}
     }
 
+    reset(){
+        delete this.heartrate;
+        delete this.rr
+    }
+
     onData(characteristic:string,data: Buffer):boolean {       
         const hasData = super.onData(characteristic,data);
         if (!hasData)

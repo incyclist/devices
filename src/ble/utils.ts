@@ -115,6 +115,22 @@ export const beautifyUUID = (str:string, withX:boolean = false ):string => {
 
 }
 
+export const fullUUID = (str:string):string => {   
+
+    const uuid = parseUUID(str)
+    
+    const parts = [
+        uuid.substring(0,8),
+        uuid.substring(8,12),    
+        uuid.substring(12,16),
+        uuid.substring(16,20),
+        uuid.substring(20),
+    ]  
+    return parts.join('-')
+
+}
+
+
 export const propertyVal = (properties:BleProperty[]):number => {
     let res = 0
 

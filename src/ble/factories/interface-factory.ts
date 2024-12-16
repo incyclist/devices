@@ -1,18 +1,20 @@
-import DirectConnectInterface from "../../direct-connect/base/interface";
-import { BleInterface } from "../base/interface";
+import { InterfaceFactory } from "../base/types";
 import { IBleInterface } from "../types";
 
-export class BleInterfaceFactory {
+export class BleMultiTransportInterfaceFactory {
 
-    static createInstane  ( transport:string):IBleInterface<any>  {
+    static readonly registered: Record<string, typeof InterfaceFactory> = {}
 
-        if (transport === 'ble') {
-        
-            return BleInterface.getInstance()
-        }
-        else if (transport === 'wifi') {
+    static register( transport:string, Class:typeof InterfaceFactory) {
+        this.registered[transport] = Class
+    }
 
-            return DirectConnectInterface.getInstance()
+    static createInstance  ( transport:string):IBleInterface<any>  {
+
+        if (this.registered[transport]) {
+            const Class = this.registered[transport]
+            const iface = new Class()?.getInterface()
+            return iface
         }
     
     }

@@ -66,9 +66,9 @@ export default class PwrAdapter extends BleAdapter<PowerData,BleCyclingPowerDevi
             time:undefined
         }
 
-        data.power = (deviceData.instantaneousPower!==undefined? deviceData.instantaneousPower :data.power);
-        data.pedalRpm = (deviceData.rpm!==undefined? deviceData.rpm :data.pedalRpm) ;
-        data.time = (deviceData.time!==undefined? deviceData.time :data.time);
+        data.power = deviceData?.instantaneousPower ??data.power;
+        data.pedalRpm = deviceData?.rpm ??data.pedalRpm ;
+        data.time = deviceData?.time ??data.time;
         data.isPedalling = data.pedalRpm>0 || (data.pedalRpm===undefined && data.power>0);
         return data;
     }
@@ -107,10 +107,10 @@ export default class PwrAdapter extends BleAdapter<PowerData,BleCyclingPowerDevi
             if (this.isPaused() || this.isStopped())
                 return;
 
-            return await this.getCyclingMode().sendBikeUpdate(request) 
+            return this.getCyclingMode().sendBikeUpdate(request) 
         }
         catch(err) {
-             this.logEvent({message:'Error',fn:'sendUpdate',error:err.message })
+             this.logEvent({message:'Error',fn:'BleCP:sendUpdate',error:err.message })
         }       
     }
 

@@ -6,6 +6,7 @@ import { IBleInterface } from '../../ble/types';
 import { InteruptableTask, TaskState } from "../../utils/task";
 import { BlePeripheral } from "./peripheral";
 import { parseUUID } from "../utils";
+import { InterfaceFactory } from "./types";
 
 const BLE_DEFAULT_SCAN_TIMEOUT = 30*1000; // 30s
 const BLE_EXPIRATION_TIMEOUT = 10*1000*60 // 10min
@@ -719,4 +720,19 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
 
 
+}
+
+
+
+export class BleInterfaceFactory extends InterfaceFactory{
+
+    protected iface:BleInterface
+    constructor() {
+        super()
+        this.iface = BleInterface.getInstance()
+    }   
+
+    public getInterface() {
+        return this.iface
+    }
 }

@@ -209,7 +209,6 @@ export interface IBlePeripheral {
 export interface IBleSensor extends EventEmitter  {
     startSensor(): Promise<boolean>;
     stopSensor(): Promise<boolean>;
-    get services(): string[]
 
     reset():void
     isConnected():boolean

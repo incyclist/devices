@@ -5,7 +5,8 @@ import { IAdapter,IncyclistBikeData,IncyclistAdapterData,DeviceProperties, Incyc
 import { BleDeviceData } from "./types";
 import { LegacyProfile } from "../../antv2/types";
 import ICyclingMode from "../../modes/types";
-import { BleInterfaceFactory } from "../factories/interface-factory";
+import { BleMultiTransportInterfaceFactory } from "../factories/interface-factory";
+import { InteruptableTask, TaskState } from "../../utils/task";
 
 
 export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice extends IBleSensor>  extends IncyclistDevice<BleDeviceProperties>  { 
@@ -16,7 +17,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     protected lastDataTS: number;
     protected device: TDevice
     protected onDeviceDataHandler = this.onDeviceData.bind(this)
-
+    protected startTask: InteruptableTask<TaskState,boolean>;
     constructor( settings:BleDeviceSettings, props?:DeviceProperties) {
         super(settings,props)
 
@@ -31,7 +32,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     getUniqueName(): string {
         const settings:BleDeviceSettings = this.settings as BleDeviceSettings
 
-        if (settings.name?.match(/[0-9]/g) || settings.address===undefined)      
+        if (settings.name?.match(/\d/g) || settings.address===undefined)      
             return this.getName()
         else {
             const addressHash = settings.address.substring(0,2) + settings.address.slice(-2)
@@ -40,18 +41,18 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     }
 
     async connect():Promise<boolean> { 
-        const iface = BleInterfaceFactory.createInstane( this.getInterface() )
+        const iface = BleMultiTransportInterfaceFactory.createInstance( this.getInterface() )
         return await iface.connect()
     }
 
     getPeripheral() {
-        const iface = BleInterfaceFactory.createInstane( this.getInterface() ) as unknown as IBleInterface<any>
-        const p =  iface.createPeripheralFromSettings(this.settings)
+        const iface = BleMultiTransportInterfaceFactory.createInstance( this.getInterface() ) as unknown as IBleInterface<any>
+        const p =  iface?.createPeripheralFromSettings(this.settings)
         return p
     }
 
     async waitForPeripheral() {
-        const iface = BleInterfaceFactory.createInstane( this.getInterface() ) as unknown as IBleInterface<any>
+        const iface = BleMultiTransportInterfaceFactory.createInstance( this.getInterface() ) as unknown as IBleInterface<any>
         const peripheral = await  iface.waitForPeripheral(this.settings)
         this.updateSensor(peripheral)
         
@@ -170,7 +171,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             this.dataMsgCount++;
             this.lastDataTS = Date.now();
     
-            this.deviceData = Object.assign( {},deviceData);        
+            this.deviceData = {...deviceData} ;        
         
             if (!this.canEmitData())
                 return;       
@@ -246,8 +247,28 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         return 'connected'
     }
 
+    async start( startProps?: BleStartProperties ): Promise<boolean> { 
 
-    async start( startProps?: BleStartProperties ): Promise<boolean> {
+        if (this.isStarting()) {
+            await this.stop()
+        }
+
+        this.startTask = new InteruptableTask( this.startAdapter(startProps), {
+            timeout: startProps?.timeout,
+            name:'start',
+            errorOnTimeout: false,
+            log: this.logEvent.bind(this)
+        })
+
+        return this.startTask.run()
+    }
+
+    protected isStarting():boolean {
+        return this.startTask?.isRunning()
+    }
+
+
+    protected async startAdapter( startProps?: BleStartProperties ): Promise<boolean> {
 
         const props = this.getStartProps(startProps)
 
@@ -255,8 +276,10 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         if (preCheckResult==='done')
             return this.started
 
-        if (preCheckResult==='connection-failed')
-            throw new Error(`could not start device, reason:could not connect`)
+        if (preCheckResult==='connection-failed') {            
+            this.logEvent({message: 'start result: error', error: 'could not start device, reason:could not connect', protocol:this.getProtocolName()})
+            return false
+        }
         
         this.logEvent( {message:'starting device', device:this.getName(), props, isStarted: this.started})
 
@@ -275,7 +298,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             return true;
         }
         catch(err) {
-            this.logger.logEvent({message: 'start result: error', error: err.message, protocol:this.getProtocolName()})
+            this.logEvent({message: 'start result: error', error: err.message, protocol:this.getProtocolName()})
             return false
         }
     }
@@ -284,14 +307,23 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         if (!this.getComms()) {
             await this.waitForPeripheral()
         }
+        if (!this.getComms()) {
+            return false
+        }
         const connected = await this.getComms().startSensor()
-        if(connected)
+        if(connected) {
             this.getComms().on('data',this.onDeviceDataHandler) 
+            this.getComms().on('disconnected', this.emit.bind(this))
+        }
         return connected
     }
 
     async stop(): Promise<boolean> { 
         this.logEvent( {message:'stopping device', device:this.getName()})
+
+        if (this.isStarting()) {
+            await this.startTask.stop()
+        }
         
         let reason:string = 'unknown';
         let stopped = false
@@ -320,14 +352,14 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     async pause(): Promise<boolean> {
         const res = await super.pause()
 
-        const iface = BleInterfaceFactory.createInstane( this.getInterface() )
+        const iface = BleMultiTransportInterfaceFactory.createInstance( this.getInterface() )
         iface.pauseLogging()
 
         return res;
     }
 
     async resume(): Promise<boolean> {
-        const iface = BleInterfaceFactory.createInstane( this.getInterface() )
+        const iface = BleMultiTransportInterfaceFactory.createInstance( this.getInterface() )
         iface.resumeLogging()
 
         const res = await super.resume()

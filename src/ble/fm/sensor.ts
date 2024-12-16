@@ -15,7 +15,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     static readonly detectionPriority:number = 100;
 
     protected data: IndoorBikeData
-    protected features: IndoorBikeFeatures = undefined
+    protected _features: IndoorBikeFeatures = undefined
     protected hasControl: boolean = false
     protected isCheckingControl: boolean = false;
     protected isCPSubscribed: boolean = false;
@@ -32,10 +32,9 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         
     }
 
-    get services(): string[] {
-        return BleFitnessMachineDevice.services;
+    public get features(): IndoorBikeFeatures {
+        return this._features
     }
-
     reset() {
         this.data = {}
     
@@ -281,8 +280,8 @@ export default class BleFitnessMachineDevice extends TBleSensor {
 
     
     protected async getFitnessMachineFeatures():Promise<IndoorBikeFeatures|undefined> {
-        if (this.features)
-            return this.features;
+        if (this._features)
+            return this._features;
         
         try {
             const data = await this.read('2acc')  // Fitness Machine Feature
@@ -300,10 +299,10 @@ export default class BleFitnessMachineDevice extends TBleSensor {
 
                 const setPower = (targetSettings & TargetSettingFeatureFlag.PowerTargetSettingSupported)!==0  
 
-                this.features = {fitnessMachine, targetSettings,power, heartrate, cadence, setPower, setSlope}
+                this._features = {fitnessMachine, targetSettings,power, heartrate, cadence, setPower, setSlope}
 
                 
-                this.logEvent( {message:'supported Features: ',fatures:this.features, power, heartrate, cadence})
+                this.logEvent( {message:'supported Features: ',fatures:this._features, power, heartrate, cadence})
             }
     
         }

@@ -5,7 +5,7 @@ import { CrankData } from "../cp";
 import { IndoorBikeData } from "../fm";
 import BleFitnessMachineDevice from "../fm/sensor";
 import { BleProtocol } from "../types";
-import { matches } from "../utils";
+import { beautifyUUID, matches } from "../utils";
 import { BleFeBikeData } from "./types";
 
 export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineDevice {
@@ -25,6 +25,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 
     protected tacxRx: string;
     protected tacxTx: string
+    protected prevMessages: Record<string, {ts:number, message:string}> = {}
 
     constructor (peripheral, props?) {
         super(peripheral,props)
@@ -41,6 +42,11 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
     }
 
     onData(characteristic:string,data: Buffer):boolean {     
+
+        const isDuplicate = this.isDuplicate(characteristic,data)
+        if (isDuplicate) {
+            return false;
+        }
 
         this.messageCnt++;
         try {
@@ -87,6 +93,19 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
             this.logEvent({message:'error',fn:'tacx.onData()',error:err.message||err, stack:err.stack})
         }
  
+    }
+
+    protected isDuplicate(characteristic: string, data: Buffer): boolean {
+        const uuid = beautifyUUID(characteristic);
+        const message = data.toString('hex')
+
+        const prev = this.prevMessages[uuid];
+        if (prev?.message===message && Date.now()-prev?.ts<1000) {
+            return true
+        }
+
+        this.prevMessages[uuid] = {ts:Date.now(), message}
+        return false;
     }
 
     async setTargetPower( power: number): Promise<boolean> {

@@ -22,13 +22,6 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
         this.reset()
     }
 
-    get services(): string[] {
-        if (!this.peripheral)
-            return this.getServiceUUids()
-
-        return this.peripheral?.services.map(s => s.uuid)
-    }
-
     getProfile(): LegacyProfile {
         const C = this.constructor as typeof TBleSensor
         return C['profile'] 
@@ -72,8 +65,8 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
             this.stopRequested = false
 
         if (!this.peripheral) {
-            // TODO: wait for a device to be announced
-            console.log('~~~ Device not found (yet) ~~~')
+            this.logEvent( {message:'no peripheral'})
+            return false
         }
 
         const connected = await this.peripheral.connect()

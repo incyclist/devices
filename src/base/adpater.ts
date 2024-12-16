@@ -263,7 +263,7 @@ export default class IncyclistDevice<P extends DeviceProperties>
         // in case the adapter is not abel to control the device, we are calling the Cycling Mode to adjust slope
         // Otherwise the method needs to be overwritten
         if (!this.hasCapability(IncyclistCapability.Control))
-            return await this.getCyclingMode().sendBikeUpdate(request) 
+            return this.getCyclingMode().sendBikeUpdate(request) 
         else 
             throw new Error('method not implemented')
     }
