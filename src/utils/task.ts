@@ -57,7 +57,8 @@ export class InteruptableTask<T extends TaskState, P > {
     }
 
     async run():Promise<P> {
-        await resolveNextTick()
+        if (!this.internalState.isRunning)
+            await resolveNextTick()
         return this.internalState.promise;
     }
 
@@ -99,6 +100,8 @@ export class InteruptableTask<T extends TaskState, P > {
             })
 
             this.promise?.then( (res:P) => {
+                this.clearTimeout()
+
                 this.internalState = { 
                     isRunning: false,
                 }

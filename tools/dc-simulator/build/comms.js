@@ -5,6 +5,7 @@ const incyclist_devices_1 = require("incyclist-devices");
 class DirectConnectComms {
     constructor(socket, services) {
         this.lastMessageId = 0;
+        this.subscibeHandlers = {};
         this.write = (respBuffer) => {
             const socket = this.socket;
             console.log(socket.remoteAddress + "< ", respBuffer.toString('hex'));
@@ -156,9 +157,16 @@ class DirectConnectComms {
                 if ((0, incyclist_devices_1.parseUUID)(char.uuid) === (0, incyclist_devices_1.parseUUID)(characteristicUUID)) {
                     found = true;
                     if (enable) {
-                        char.subscribe(characteristicData => {
+                        const callback = characteristicData => {
                             this.notify(characteristicUUID, characteristicData);
-                        });
+                        };
+                        this.subscibeHandlers[characteristicUUID] = callback;
+                        char.subscribe(callback);
+                    }
+                    else {
+                        const callback = this.subscibeHandlers[characteristicUUID];
+                        delete this.subscibeHandlers[characteristicUUID];
+                        char.unsubscribe(callback);
                     }
                 }
             });

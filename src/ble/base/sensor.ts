@@ -80,6 +80,10 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
     }
 
     async stopSensor(): Promise<boolean> {
+
+        if (!this.peripheral)
+            return true;
+        
         this.stopRequested = true
         return await this.peripheral.disconnect()
     }

@@ -19,6 +19,7 @@ export class DirectConnectComms {
     protected socket:Socket
     protected services:Service[]
     protected lastMessageId = 0
+    protected subscibeHandlers: Record<string, (data: Buffer) => void> = {}
 
 
     constructor(socket:Socket,services:Service[]) {
@@ -229,13 +230,19 @@ export class DirectConnectComms {
                 if (parseUUID(char.uuid) === parseUUID(characteristicUUID)) {
                     found = true                    
                     if (enable) {
-
-                        char.subscribe( characteristicData => {
+                        const callback = characteristicData => {
                             this.notify(characteristicUUID, characteristicData)
-                        })                                
+                        }
+                        this.subscibeHandlers[characteristicUUID] = callback
+                        char.subscribe( callback)                                
                         
                     }
-                    
+                    else {
+                        const callback = this.subscibeHandlers[characteristicUUID] 
+                        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+                        delete this.subscibeHandlers[characteristicUUID]
+                        char.unsubscribe( callback)
+                    }
                 }
 
             })

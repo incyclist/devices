@@ -7,9 +7,11 @@ import { LegacyProfile } from "../../antv2/types";
 import ICyclingMode from "../../modes/types";
 import { BleMultiTransportInterfaceFactory } from "../factories/interface-factory";
 import { InteruptableTask, TaskState } from "../../utils/task";
+import { TBleSensor } from "./sensor";
+import { resolveNextTick } from "../../utils/utils";
 
 
-export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice extends IBleSensor>  extends IncyclistDevice<BleDeviceProperties>  { 
+export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice extends TBleSensor>  extends IncyclistDevice<BleDeviceProperties>  { 
 
     protected deviceData: TDeviceData
     protected data: IncyclistAdapterData
@@ -249,6 +251,8 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
 
     async start( startProps?: BleStartProperties ): Promise<boolean> { 
 
+        console.log('~~~~ START ', startProps)
+
         if (this.isStarting()) {
             await this.stop()
         }
@@ -260,7 +264,10 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             log: this.logEvent.bind(this)
         })
 
-        return this.startTask.run()
+        const res = await this.startTask.run()
+        console.log('~~~~ START DONE', res)
+
+        return res;
     }
 
     protected isStarting():boolean {
@@ -273,11 +280,14 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         const props = this.getStartProps(startProps)
 
         const preCheckResult = await this.startPreChecks(props)
-        if (preCheckResult==='done')
+        if (preCheckResult==='done') {
+            await resolveNextTick()
             return this.started
+        }
 
         if (preCheckResult==='connection-failed') {            
             this.logEvent({message: 'start result: error', error: 'could not start device, reason:could not connect', protocol:this.getProtocolName()})
+            await resolveNextTick()
             return false
         }
         
@@ -304,7 +314,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     }
 
     async startSensor():Promise<boolean> {
-        if (!this.getComms()) {
+        if (!this.getComms()?.hasPeripheral()) {
             await this.waitForPeripheral()
         }
         if (!this.getComms()) {
@@ -319,6 +329,8 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     }
 
     async stop(): Promise<boolean> { 
+        console.log('~~~~ STOP ')
+
         this.logEvent( {message:'stopping device', device:this.getName()})
 
         if (this.isStarting()) {
@@ -345,11 +357,16 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         else {
             this.logEvent( {message:'stopping device failed', device:this.getName(), reason})    
         }
-
+        
+        this.started = false
+        this.stopped = true
         return stopped        
     }
 
     async pause(): Promise<boolean> {
+
+        console.log('~~~~ PAUSE ')
+
         const res = await super.pause()
 
         const iface = BleMultiTransportInterfaceFactory.createInstance( this.getInterface() )
@@ -359,6 +376,9 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     }
 
     async resume(): Promise<boolean> {
+
+        console.log('~~~~ RESUME')
+
         const iface = BleMultiTransportInterfaceFactory.createInstance( this.getInterface() )
         iface.resumeLogging()
 

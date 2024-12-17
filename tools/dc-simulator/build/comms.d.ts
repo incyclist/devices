@@ -6,6 +6,7 @@ export declare class DirectConnectComms {
     protected socket: Socket;
     protected services: Service[];
     protected lastMessageId: number;
+    protected subscibeHandlers: Record<string, (data: Buffer) => void>;
     constructor(socket: Socket, services: Service[]);
     write: (respBuffer: any) => void;
     onData(data: any): void;

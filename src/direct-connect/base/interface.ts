@@ -8,7 +8,6 @@ import { InteruptableTask,  TaskState } from "../../utils/task";
 import { DirectConnectPeripheral } from "./peripheral";
 import { BleAdapterFactory } from "../../ble";
 import { TBleSensor } from "../../ble/base/sensor";
-import { ResponseTimeout } from "../../serial/daum/types";
 import { InterfaceFactory } from "../../ble/base/types";
 
 const DC_TYPE = 'wahoo-fitness-tnp'
@@ -51,6 +50,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
     protected scanTask: InteruptableTask<TaskState,DeviceSettings[]>;
     protected matching?:Array<string> = []
     protected instance:number
+    protected connected: boolean = false;
 
     static getInstance(props:InterfaceProps={}): DirectConnectInterface {
         if (DirectConnectInterface._instance===undefined)
@@ -91,7 +91,8 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         this.internalEvents = new EventEmitter()
         this.instance = ++instanceId
 
-        this.autoConnect()
+        if (this.binding)
+            this.autoConnect()
     }
     createPeripheral(announcement: MulticastDnsAnnouncement): IBlePeripheral {
         return DirectConnectPeripheral.create(announcement) 
@@ -144,7 +145,13 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
      * @param {DirectConnectBinding} binding - The binding instance.
      */
     setBinding(binding: DirectConnectBinding): void {
+
+        const prev=this.binding
         this.binding = binding
+
+        if (!prev)
+            this.autoConnect()
+
     }
 
     /**
@@ -166,11 +173,17 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
      * @returns {Promise<boolean>} Whether the connection was successful.
      */
     async connect(reconnect?:boolean): Promise<boolean> {
+
+        if (this.connected) {
+            return true
+        }
+
         try {
             if (!this.getBinding()?.mdns) {
                 this.logEvent({message:'Direct Connect not available'})
                 return false;
             }
+            this.logEvent({message:'connecting to Direct Connect'})
             this.getBinding().mdns.connect()
 
             if (!reconnect)
@@ -184,7 +197,10 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         }
         catch (err) {
             this.logError(err, 'connect')
+            return false
         }
+
+        this.connected = true;
         return true;
 
     }
@@ -194,10 +210,14 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
      * @returns {Promise<boolean>} Whether the disconnection was successful.
      */
     async disconnect(): Promise<boolean> {
+        this.logEvent({message:'Disconnecting from Direct Connect'})
+
         await this.stopScan()
         this.getBinding()?.mdns?.disconnect()
         this.internalEvents.removeAllListeners()
-        return this.getBinding()?.mdns!==undefined && this.binding.mdns!==null
+        this.connected =  (this.getBinding()?.mdns!==undefined && this.binding.mdns!==null)
+        return (this.connected===false)
+
     }
 
     /**

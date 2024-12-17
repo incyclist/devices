@@ -29,7 +29,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
     protected partialBuffer = null
     protected remainingBuffer = null
     protected eventEmitter = new EventEmitter()
-
+    protected subscribed: Array<string> = [] 
     protected onDisconnectHandler: ()=>void;
 
     constructor( protected announcement:MulticastDnsAnnouncement) { 
@@ -58,6 +58,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
 
             await this.connectTask.stop()
             await this.stopConnection()
+            
             delete this.socket
         }
         catch(err) {
@@ -129,6 +130,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
         const confirmed =  res.body.characteristicUUID
 
         if ( parseUUID(confirmed) === parseUUID(characteristicUUID)) {
+            this.subscribed.push(characteristicUUID)
             this.eventEmitter.on(parseUUID(characteristicUUID), (data)=>{
                 callback(characteristicUUID,data)
             })
@@ -152,6 +154,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
         const confirmed =  res.body.characteristicUUID
 
         if ( parseUUID(confirmed) === parseUUID(characteristicUUID)) {
+            this.subscribed.splice(this.subscribed.indexOf(characteristicUUID),1)
             this.eventEmitter.removeAllListeners(parseUUID(characteristicUUID))
             return true
         }
@@ -186,6 +189,16 @@ export class DirectConnectPeripheral implements IBlePeripheral {
             this.logEvent({message:'could not subscribe',reason:err.message})
             return false
         }
+    }
+
+    async unsubscribeAll():Promise<boolean> {
+        const promises = []
+        this.subscribed.forEach(characteristicUUID => {
+            promises.push(this.unsubscribe(characteristicUUID))
+        })
+
+        await Promise.allSettled(promises)
+        return true
     }
 
     async read(characteristicUUID: string): Promise<Buffer> {
@@ -320,9 +333,33 @@ export class DirectConnectPeripheral implements IBlePeripheral {
         if (!this.isConnected())
             return true;
 
+    
+        await this.unsubscribeAll()
+        // remove all old listeners
         this.socket.removeAllListeners()
-        this.socket.destroy()
-        delete this.socket
+
+        return new Promise(done => {
+            const onClosed = ()=> {
+                this.socket.removeAllListeners()
+                delete this.socket
+                done(true)
+            }
+    
+            const onCloseError = (err)=> {
+                this.logEvent({message:'port error', path:this.getPath(), reason:err.message})
+                this.socket.removeAllListeners()
+                delete this.socket
+                done(false)
+    
+            }
+            this.socket.on('end',onClosed)
+            this.socket.on('error',onCloseError)
+            this.socket.on('close',onClosed)
+    
+            this.socket.destroy()
+                
+        })
+       
     }
 
     protected getNextSeqNo():number {
