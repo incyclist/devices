@@ -210,13 +210,15 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
      * @returns {Promise<boolean>} Whether the disconnection was successful.
      */
     async disconnect(): Promise<boolean> {
+        if (!this.isConnected())
+            return true
         this.logEvent({message:'Disconnecting from Direct Connect'})
 
         await this.stopScan()
         this.getBinding()?.mdns?.disconnect()
         this.internalEvents.removeAllListeners()
-        this.connected =  (this.getBinding()?.mdns!==undefined && this.binding.mdns!==null)
-        return (this.connected===false)
+        this.connected =  false
+        return !this.isConnected()
 
     }
 
@@ -225,7 +227,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
     * @returns {boolean} Whether the interface is connected.
     */
     isConnected(): boolean {
-        return this.getBinding()?.mdns!==undefined && this.binding.mdns!==null
+        return this.connected && this.getBinding()?.mdns!==undefined && this.binding.mdns!==null
     }
 
     /**

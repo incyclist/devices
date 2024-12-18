@@ -32,9 +32,12 @@ describe('DirectConnectInterface', () => {
     
 
         test('normal connection', async () => {
+            // avoid autoconnect
+            DirectConnectInterface.prototype.autoConnect = jest.fn()
             iface = new DirectConnectInterface({binding:mock})
             iface.on('log',logSpy)
             iface.on('device',deviceSpy)
+            
             mdns.find = jest.fn( ( filter,cb ) => {
                 const announcement:Partial<MulticastDnsAnnouncement> = { name: 'TEST', address: '89.207.132.170', port: 1234, serviceUUIDs: ['1818'] }
                 if (cb)
@@ -52,6 +55,8 @@ describe('DirectConnectInterface', () => {
             
         })
         test('no binding', async () => {
+            // avoid autoconnect
+            DirectConnectInterface.prototype.autoConnect = jest.fn()
             iface = new DirectConnectInterface({})
             iface.on('log',logSpy)
 
@@ -62,6 +67,8 @@ describe('DirectConnectInterface', () => {
 
         })
         test('reconnect', async () => {
+            // avoid autoconnect
+            DirectConnectInterface.prototype.autoConnect = jest.fn()
             iface = new DirectConnectInterface({binding:mock})
             iface.on('log',logSpy)
 
@@ -72,6 +79,8 @@ describe('DirectConnectInterface', () => {
 
         })
         test('logging disabled', async () => {
+            // avoid autoconnect
+            DirectConnectInterface.prototype.autoConnect = jest.fn()
             iface = new DirectConnectInterface({binding:mock})
             iface.on('log',logSpy)
             iface.pauseLogging()
@@ -92,13 +101,17 @@ describe('DirectConnectInterface', () => {
         })
     
         test('normal disconnection', async () => {
+            // avoid autoconnect
+            DirectConnectInterface.prototype.autoConnect = jest.fn()
             iface = new DirectConnectInterface({binding:mock})
             iface.on('log',logSpy)
-          
+            
+            await iface.connect()
+            
 
             const success = await iface.disconnect()    
             expect(success).toBe(true)  
-            expect(logSpy).not.toHaveBeenCalled()
+            expect(logSpy).toHaveBeenCalledWith( {message:'Disconnecting from Direct Connect'})
         })
 
         test('no binding ', async () => {
@@ -107,7 +120,7 @@ describe('DirectConnectInterface', () => {
           
 
             const success = await iface.disconnect()    
-            expect(success).toBe(false)  
+            expect(success).toBe(true)  
             expect(logSpy).not.toHaveBeenCalled()
         })
 
