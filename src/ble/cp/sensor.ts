@@ -94,6 +94,10 @@ export default class BleCyclingPowerDevice extends TBleSensor {
         return {instantaneousPower, balance,accTorque,rpm,time,raw:`2a63:${data.toString('hex')}`}
     }
 
+    protected getRequiredCharacteristics():Array<string> {
+        return [CSP_MEASUREMENT]
+    }
+
     onData(characteristic:string,data: Buffer): boolean {
         const hasData = super.onData(characteristic,data);
         if (!hasData) 

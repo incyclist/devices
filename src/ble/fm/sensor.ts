@@ -4,7 +4,7 @@ import { IndoorBikeData, IndoorBikeFeatures } from "./types";
 import { FTMS, FTMS_CP, FTMS_STATUS, INDOOR_BIKE_DATA } from "../consts";
 import { TBleSensor } from "../base/sensor";
 import { beautifyUUID } from "../utils";
-import { IndoorBikeDataFlag, FitnessMachineStatusOpCode, FitnessMachineFeatureFlag, TargetSettingFeatureFlag, OpCode, OpCodeResut } from "./consts";
+import { IndoorBikeDataFlag, FitnessMachineStatusOpCode, FitnessMachineFeatureFlag, TargetSettingFeatureFlag, OpCode, OpCodeResut as OpCodeResult } from "./consts";
 
 
 export default class BleFitnessMachineDevice extends TBleSensor {
@@ -40,48 +40,60 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     
     }
 
+    protected getRequiredCharacteristics():Array<string> {
+        return [INDOOR_BIKE_DATA,'2a37',FTMS_STATUS ]
+    }
+
     onData(characteristic:string,data: Buffer):boolean {       
-        const hasData = super.onData(characteristic,data);
-        if (!hasData)
-            return false;
+        try {
+            const hasData = super.onData(characteristic,data);
 
-        const uuid = characteristic.toLocaleLowerCase();
-
-
-
-
-        let res = undefined
-        switch( beautifyUUID( uuid).toLowerCase() ) {
-            case INDOOR_BIKE_DATA:    //  name: 'Indoor Bike Data',
-                res = this.parseIndoorBikeData(data)
-                break;
-            case '2a37':     //  name: 'Heart Rate Measurement',
-                res = this.parseHrm(data)
-                break;
-            case FTMS_STATUS:     //  name: 'Fitness Machine Status',
-                res = this.parseFitnessMachineStatus(data)
-                break;
-            case '2a63':
-            case '2a5b':
-            case '347b0011-7635-408b-8918-8ff3949ce592':
-                //this.logger.logEvent( {message:'onBleData',raw:`${uuid}:${data.toString('hex')}`})        
-                break;
-
-            default:    // ignore
-                break;
-
+            if (!hasData)
+                return false;
+    
+            const uuid = beautifyUUID( characteristic).toLowerCase();
+    
+    
+    
+    
+            let res = undefined
+            switch( uuid ) {
+                case INDOOR_BIKE_DATA:    //  name: 'Indoor Bike Data',
+                    res = this.parseIndoorBikeData(data)
+                    break;
+                case '2a37':     //  name: 'Heart Rate Measurement',
+                    res = this.parseHrm(data)
+                    break;
+                case FTMS_STATUS:     //  name: 'Fitness Machine Status',
+                    res = this.parseFitnessMachineStatus(data)
+                    break;
+                case '2a63':
+                case '2a5b':
+                case '347b0011-7635-408b-8918-8ff3949ce592':
+                    //this.logger.logEvent( {message:'onBleData',raw:`${uuid}:${data.toString('hex')}`})        
+                    break;
+    
+                default:    // ignore
+                    break;
+    
+            }
+            if (res) {
+                this.emit('data', res)
+                return false;
+            }
+    
+    
+            // we might also get: 
+            // '2a63' => Cycling Power Measurement
+            // '2a5b' => CSC Measurement
+            // '347b0011-7635-408b-8918-8ff3949ce592' => Elite 
+            return true;
+    
         }
-        if (res) {
-            this.emit('data', res)
-            return false;
+        catch(err) {
+            this.logEvent({message:'Error',fn:'onData',error:err.message, stack:err.stack})
+            return false
         }
-
-
-        // we might also get: 
-        // '2a63' => Cycling Power Measurement
-        // '2a5b' => CSC Measurement
-        // '347b0011-7635-408b-8918-8ff3949ce592' => Elite 
-        return true;
     }
 
 
@@ -95,10 +107,6 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     getWindSpeed():number { return this.windSpeed}
 
     async requestControl(): Promise<boolean> {
-        let to = undefined;
-        if (this.isCheckingControl) {
-            to = setTimeout( ()=>{}, 3500)
-        }
 
         if (this.hasControl)
             return true;
@@ -109,14 +117,13 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         data.writeUInt8(OpCode.RequestControl,0)
 
         const res = await this.writeFtmsMessage(OpCode.RequestControl, data , {timeout:5000})
-        if (res===OpCodeResut.Success) {
+        if (res===OpCodeResult.Success) {
             this.hasControl = true
         }
         else {
-            this.logEvent( {message:'requestControl failed'})
+            this.logEvent( {message:'requestControl failed', reason:res})
         }
         this.isCheckingControl = false;
-        if (to) clearTimeout(to)
 
         return this.hasControl;
     }
@@ -143,7 +150,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         data.writeInt16LE( Math.round(power), 1)
 
         const res = await this.writeFtmsMessage( OpCode.SetTargetPower, data )
-        return ( res===OpCodeResut.Success)    
+        return ( res===OpCodeResult.Success)    
     }
 
     async setSlope(slope) {
@@ -318,7 +325,6 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     protected async writeFtmsMessage(requestedOpCode, data, props?:BleWriteProps) {
         
         try {
-
             this.logEvent({message:'fmts:write', data:data.toString('hex')})
             const res = await this.write( FTMS_CP, data, props )
 
@@ -331,14 +337,13 @@ export default class BleFitnessMachineDevice extends TBleSensor {
             if (opCode !== OpCode.ResponseCode || request!==requestedOpCode)
                 throw new Error('Illegal response ')
 
-
             this.logEvent({message:'fmts:write result', res,result})
                 
             return result                        
         }
         catch(err) {
             this.logEvent({message:'fmts:write failed', opCode: requestedOpCode, reason: err.message})
-            return OpCodeResut.OperationFailed
+            return OpCodeResult.OperationFailed
         } 
     }
 
@@ -362,7 +367,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         data.writeInt16LE( Math.round(inclination*10), 1)
 
         const res = await this.writeFtmsMessage( OpCode.SetTargetInclination, data )
-        return ( res===OpCodeResut.Success)    
+        return ( res===OpCodeResult.Success)    
     }
 
 
@@ -383,7 +388,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         data.writeUInt8( Math.round(cw*100), 6)
 
         const res = await this.writeFtmsMessage( OpCode.SetIndoorBikeSimulation, data )
-        return ( res===OpCodeResut.Success)    
+        return ( res===OpCodeResult.Success)    
     }
 
 
@@ -398,7 +403,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         data.writeUInt8(OpCode.StartOrResume,0)
 
         const res = await this.writeFtmsMessage( OpCode.StartOrResume, data )
-        return ( res===OpCodeResut.Success)    
+        return ( res===OpCodeResult.Success)    
     }
 
     async stopRequest(): Promise<boolean> {
@@ -413,7 +418,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         data.writeUInt8(1,1)
 
         const res = await this.writeFtmsMessage( OpCode.StopOrPause, data )
-        return ( res===OpCodeResut.Success)    
+        return ( res===OpCodeResult.Success)    
     }
 
     async PauseRequest(): Promise<boolean> {
@@ -428,7 +433,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         data.writeUInt8(2,1)
 
         const res = await this.writeFtmsMessage( OpCode.StopOrPause, data )
-        return ( res===OpCodeResut.Success)    
+        return ( res===OpCodeResult.Success)    
     }
 
 }

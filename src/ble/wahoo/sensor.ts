@@ -51,6 +51,10 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
     
     }
 
+    protected getRequiredCharacteristics():Array<string> {
+        return [INDOOR_BIKE_DATA,FTMS_STATUS,CSP_MEASUREMENT,HR_MEASUREMENT]
+    }
+    
     onData(characteristic:string,data: Buffer):boolean {       
         const hasData = super.onData(characteristic,data);
         if (!hasData)

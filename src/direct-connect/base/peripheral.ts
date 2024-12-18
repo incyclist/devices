@@ -140,48 +140,65 @@ export class DirectConnectPeripheral implements IBlePeripheral {
 
     }
     async unsubscribe(characteristicUUID: string): Promise<boolean> {
-        const seqNo = this.getNextSeqNo()
-        const message = new EnableCharacteristicNotificationsMessage() 
-        const request = message.createRequest(seqNo,{characteristicUUID:parseUUID(characteristicUUID),enable:false})
+        try {
+            const seqNo = this.getNextSeqNo()
+            const message = new EnableCharacteristicNotificationsMessage() 
+            const request = message.createRequest(seqNo,{characteristicUUID:parseUUID(characteristicUUID),enable:false})
 
-        this.logEvent({message:'EnableCharacteristicNotifications request', path:this.getPath(), characteristic:beautifyUUID(characteristicUUID),enabled:false, raw:request.toString('hex') })
+            this.logEvent({message:'EnableCharacteristicNotifications request', path:this.getPath(), characteristic:beautifyUUID(characteristicUUID),enabled:false, raw:request.toString('hex') })
 
-        const response:Buffer = await this.send(seqNo, request)
+            const response:Buffer = await this.send(seqNo, request)
 
-        const res = message.parseResponse(response)
-        this.logEvent({message:'EnableCharacteristicNotifications response', path:this.getPath(), characteristic:beautifyUUID(res.body.characteristicUUID), raw:request.toString('hex') })
+            const res = message.parseResponse(response)
+            this.logEvent({message:'EnableCharacteristicNotifications response', path:this.getPath(), characteristic:beautifyUUID(res.body.characteristicUUID), raw:request.toString('hex') })
 
-        const confirmed =  res.body.characteristicUUID
+            const confirmed =  res.body.characteristicUUID
 
-        if ( parseUUID(confirmed) === parseUUID(characteristicUUID)) {
-            this.subscribed.splice(this.subscribed.indexOf(characteristicUUID),1)
-            this.eventEmitter.removeAllListeners(parseUUID(characteristicUUID))
-            return true
+            if ( parseUUID(confirmed) === parseUUID(characteristicUUID)) {
+                this.subscribed.splice(this.subscribed.indexOf(characteristicUUID),1)
+                this.eventEmitter.removeAllListeners(parseUUID(characteristicUUID))
+                return true
+            }
+            return false        
         }
-        return false        
+        catch(err) {
+            this.logEvent( {messsage:'EnableCharacteristicNotifications failed',reason:err.message})
+            return false
+        }
     }
 
     async subscribeAll(callback: (characteristicUuid: string, data: Buffer) => void): Promise<boolean> {
         try {
-            const services = await this.discoverServices()
+            let services = []
+            try {
+                services = await this.discoverServices()
+            }
+            catch(err) {
+                this.logEvent({message:'could not discover services',reason:err.message})
+            }            
 
-            const getServices:Promise<BleCharacteristic[]>[] =  []
-            
-            services.forEach (service=> 
-                getServices.push(this.discoverCharacteristics(service).catch(err=>null) )
-            )
-            const res = await Promise.all(getServices)
+            const res = []
+            for (let i=0; i<services.length; i++) {
+                const service = services[i]
+                let characteristics = []
+                try {
+                    characteristics = await this.discoverCharacteristics(service)
+                }
+                catch(err) { 
+                    this.logEvent({message:'could not discover characteristics', service,  reason:err.message})
+                    return false;
+                }
 
-            const subscribe:Promise<boolean>[] = []
-            res.forEach(characteristics => {
                 if (!characteristics?.length)
-                    return
-                characteristics.forEach(characteristic => {
+                    continue
+                for (let j=0;j<characteristics.length;j++) {         
+                    const characteristic = characteristics[j]
                     if ( characteristic.properties.includes('notify'))
-                        subscribe.push(this.subscribe(characteristic.uuid, callback).catch(err=>null))
-                })
-            })
-            await Promise.all(subscribe)
+                        await this.subscribe(characteristic.uuid, callback)
+                }
+
+
+            }
 
             return true
         }
@@ -190,6 +207,24 @@ export class DirectConnectPeripheral implements IBlePeripheral {
             return false
         }
     }
+
+    async subscribeSelected(characteristics:string[], callback: (characteristicUuid: string, data: Buffer) => void): Promise<boolean> {
+        const retry = []
+
+        for (let i=0;i<characteristics.length;i++) { 
+            const uuid = characteristics[i]           
+            const success = await this.subscribe(uuid, callback)
+            if (!success)
+                retry.push(uuid)
+        }
+
+        for (let i=0;i<retry.length;i++) {
+            const c = retry[i]
+            await this.subscribe(c.uuid, callback)
+        }
+        return true
+    }
+
 
     async unsubscribeAll():Promise<boolean> {
         const promises = []

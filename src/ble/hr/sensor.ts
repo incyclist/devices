@@ -47,12 +47,16 @@ export default class BleHrmDevice extends TBleSensor {
         delete this.rr
     }
 
+    protected getRequiredCharacteristics():Array<string> {
+        return [HR_MEASUREMENT]
+    }
+
     onData(characteristic:string,data: Buffer):boolean {       
         const hasData = super.onData(characteristic,data);
         if (!hasData)
             return;
 
-        if ( matches(characteristic.toLocaleLowerCase(),'2a37')) { //  name: 'Heart Rate Measurement',
+        if ( matches(characteristic,HR_MEASUREMENT)) { 
             const res = this.parseHrm(data)
             this.emit('data', res)
             return false;

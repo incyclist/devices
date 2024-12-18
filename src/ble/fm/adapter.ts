@@ -7,10 +7,10 @@ import BleAdapter  from '../base/adapter';
 import ICyclingMode, { CyclingMode } from '../../modes/types';
 import { IndoorBikeData } from './types';
 import { cRR, cwABike } from './consts';
-import { sleep } from '../../utils/utils';
 import { BleDeviceProperties, BleDeviceSettings, BleStartProperties, IBlePeripheral } from '../types';
 import { IAdapter,IncyclistCapability,IncyclistAdapterData,IncyclistBikeData } from '../../types';
 import { LegacyProfile } from '../../antv2/types';
+import { InteruptableTask } from '../../utils/task';
 
 export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMachineDevice> {
     protected static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Smart Trainer'
@@ -144,53 +144,9 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
     }
         
     
+    protected async initControl(_startProps?:BleStartProperties) {
+        this.setConstants();
 
-    async startAdapter( startProps: BleStartProperties={} ): Promise<boolean> {
-
-        const props = this.getStartProps(startProps)
-
-        const preCheckResult = await this.startPreChecks(props)
-        if (preCheckResult==='done')
-            return this.started
-
-        if (preCheckResult==='connection-failed') {            
-            this.logEvent({message: 'start result: error', error: 'could not start device, reason:could not connect', protocol:this.getProtocolName()})
-            return false
-        }
-    
-        
-        this.logEvent({message: 'starting device', ...this.getSettings(),  protocol:this.getProtocolName(),props,isStarted:this.started })           
-        try {
-            const connected = await this.startSensor();
-            if (!connected) {
-                this.logEvent({ message: 'peripheral connection failed', device:this.getName(), reason:'unknown', props });    
-                return false
-            }
-
-            this.logEvent({ message: 'peripheral connected', device:this.getName(),props });                                
-
-            if (!startProps?.scanOnly) {
-                this.setConstants();
-                this.initialize(startProps);
-            }
-            
-            this.checkForAdditionalCapabilities();
-
-            this.resetData();      
-            this.stopped = false;    
-            this.started = true;
-            this.resume()                
-            return true;
-
-        }
-        catch(err) {
-            this.logEvent({message: 'start result: error', error: err.message, profile:this.getProfile(), stack: err.stack})    
-            throw new Error(`could not start device, reason:${err.message}`)
-
-        }
-    }
-
-    protected async initialize(_startProps?:BleStartProperties) {
         await this.establishControl();
         this.setConstants();  
         await this.sendInitialRequest()
@@ -213,17 +169,48 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
     }
 
     protected async establishControl() {
+        if (!this.isStarting())
+            return false
+
+        let waitTask;
+        let iv;
         const sensor = this.getComms();
-        let hasControl = await sensor.requestControl();
-        if (!hasControl) {
 
-            while (!hasControl && this.isStarting()) {
-                await sleep(1000);
-                hasControl = await sensor.requestControl();
+        const wait = ():Promise<boolean> =>{
+            const res = new Promise<boolean>( (resolve) => {
+                iv = setInterval( async ()=> { 
+                    if ( !this.isStarting() || !waitTask?.isRunning) {
+                        resolve(false)
+                        clearInterval(iv)
+                        return;
+                    }
 
-            }
+                    const hasControl = await sensor.requestControl();
+
+                    if (hasControl) {                        
+                        clearInterval(iv)
+                        resolve(true)
+                    }
+                    else if ( !this.isStarting() || !waitTask?.isRunning) {
+                        resolve(false)
+                        clearInterval(iv)
+                    }
+                }, 1000)    
+
+            })
+            return res;
         }
-        if (!hasControl)
+
+        waitTask = new InteruptableTask( wait(), {
+            errorOnTimeout:false,
+            timeout:10000
+        })
+
+
+        const hasControl = await waitTask.run();       
+        clearInterval(iv)
+
+        if (!hasControl && this.isStarting())  
             throw new Error('could not establish control');
     }
 
@@ -233,7 +220,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
     }
 
-    protected checkForAdditionalCapabilities() {
+    protected checkCapabilities() {
         const before = this.capabilities.join(',')
         const sensor = this.getComms()
 

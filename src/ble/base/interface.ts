@@ -57,6 +57,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     protected discoverTask: InteruptableTask<TaskState,void>
     protected onDiscovered: (peripheral:BlePeripheralInfo)=>void   
     protected instanceId: number
+    protected connectedPeripherals: IBlePeripheral[] = []
 
     static getInstance(props:InterfaceProps={}): BleInterface {
         if (BleInterface._instance===undefined)
@@ -200,10 +201,22 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
             return false;
         }
 
-        if (!this.isConnecting()) return true;
+        if (!this.isConnected()) return true
         
         this.logEvent({message:'disconnect request'});
+
+        // stop dervice discovery
+        await this.stopPeripheralScan()
+
+        // disconnect all peripherals
+        const promises = this.connectedPeripherals.map( p=> p.disconnect())
+        await Promise.allSettled(promises)
+        this.connectedPeripherals = []
+
+        // stop interface
         await this.connectTask.stop()
+
+        this.getBinding().removeAllListeners()
 
         return true        
     }
@@ -214,6 +227,10 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     */
     isConnected(): boolean {
         return this.getBinding()?.state === 'poweredOn'
+    }
+
+    registerConnected(peripheral: IBlePeripheral) {
+        this.connectedPeripherals.push(peripheral)
     }
 
     protected isConnecting() {
@@ -290,7 +307,6 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         return new BlePeripheral(announcement)
     }
     createPeripheralFromSettings(settings: DeviceSettings): IBlePeripheral {
-
         const info = this.getAll().find(a=>a.service.name === settings.name)
 
         if (!info?.service)
@@ -308,6 +324,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
             const onDevice = (device:DeviceSettings)=>{
                 if (device.name===settings.name) {
                     const peripheral =  this.createPeripheralFromSettings(settings)
+
                     if (peripheral) {
                         this.off('device', onDevice)
                         done(peripheral)
@@ -346,7 +363,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
         this.discoverTask = new InteruptableTask( this.discoverPeripherals(), {
             errorOnTimeout: false,
-            timeout: 20000,
+            //timeout: 20000,
             name:'discover',
             log: this.logEvent.bind(this),
         })
@@ -430,6 +447,9 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     }
 
     protected onPeripheralFound(peripheral:BleRawPeripheral) {
+        if (!this.isConnected() || !this.isDiscovering())
+            return;
+
         const announcement = this.buildAnnouncement(peripheral)
 
         if (!announcement.name || this.isKnownUnsupported(announcement)) {
@@ -482,6 +502,8 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         }
     }
     protected async updateWithServices(announcement:BlePeripheralAnnouncement):Promise<BlePeripheralAnnouncement> {
+        if (!this.isConnected() || !this.isDiscovering())
+            return;
 
         
 
@@ -507,16 +529,21 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         let paused = false
         try {
 
-            await this.pauseDiscovery()           
-            paused = true
+            //await this.pauseDiscovery()           
+            //paused = true
+
+
 
             peripheral.on('error',(err:Error)=>{ 
                 peripheral.removeAllListeners()
-                throw err
+                
+                this.logEvent({message:'Device error',error:err.message})
             })
             peripheral.on('disconnect',()=>{ 
                 peripheral.removeAllListeners()
-                throw new Error('Device disconnected')
+                
+                this.logEvent({message:'Device disconnected'})
+                
             })
 
 
@@ -530,6 +557,8 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
                 const res = await peripheral.discoverSomeServicesAndCharacteristicsAsync([],[])                
                 announcement.serviceUUIDs = res.services.map(s=>s.uuid)
             }
+
+            peripheral.removeAllListeners()
 
             
             
@@ -572,7 +601,8 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     }
 
     protected emitDevice(service:BlePeripheralAnnouncement) {
-        this.emit('device',this.createDeviceSetting(service),service)
+        const settings = this.createDeviceSetting(service)
+        this.emit('device',settings,service)
     }
 
 
@@ -642,12 +672,9 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
                 delete device.peripheral
                 this.logEvent({message:'device announced', device})
 
-                if (this.isScanning()) {
-                    this.emitDevice(service)
-                    this.matching.push(service.name)
-                }                
+                this.matching.push(service.name)
                 this.services.push( {ts:Date.now(),service})
-
+                this.emitDevice(service)
             }
         }
         catch(err) {
@@ -712,6 +739,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
                     this.getBinding().removeAllListeners('stateChange')
                     this.getBinding().on('stateChange', this.onBleStateChange.bind(this))
+                    this.getBinding().on('error', console.log)
 
                     return done(true);
                 }  

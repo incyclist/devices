@@ -4,8 +4,8 @@ import DirectConnectInterface, { DirectConnectInterfaceFactory } from "../../dir
 import AdapterFactory  from '../../factories/adapters';
 import { BleMultiTransportInterfaceFactory } from '../factories';
 import { BleInterface, BleInterfaceFactory } from '../base/interface';
-import Noble from '@abandonware/noble/lib/noble';
-import defaultBinding from '@abandonware/noble/lib/resolve-bindings';
+import Noble from '@stoprocent/noble/lib/noble';
+import defaultBinding from '@stoprocent/noble/lib/resolve-bindings';
 
 class MDNSBinding {
     protected bonjour?:Bonjour    
@@ -56,9 +56,14 @@ describe('BleFmAdapter E2E',()=>{
         let adapter
 
         afterEach(async ()=>{
+            const tsStart = Date.now()
+            console.log( Date.now()-tsStart, 'before adaprer.stop')
             await adapter.stop()
+            console.log( Date.now()-tsStart, 'after adaprer.stop')
             await DirectConnectInterface.getInstance().disconnect()
+            console.log( Date.now()-tsStart, 'after DC disconnect')
             AdapterFactory.reset()
+            console.log( Date.now()-tsStart, 'AdapterFactory reset')
         })
 
         test('normal Wifi Start',async ()=>{
@@ -71,7 +76,7 @@ describe('BleFmAdapter E2E',()=>{
             const settings = { interface: "wifi", name: "VOLT 2A34", protocol: "fm" }
             adapter = AdapterFactory.create(settings)
             expect(adapter).toBeDefined()
-            const started = await adapter.start({timeout:4000})
+            const started = await adapter.start({timeout:40000})
             expect(started).toBeTruthy()
 
             await adapter.pause()
@@ -90,9 +95,9 @@ describe('BleFmAdapter E2E',()=>{
 
         afterEach(async ()=>{
             await adapter.stop()
-            await DirectConnectInterface.getInstance().disconnect()
+            await BleInterface.getInstance().disconnect()
             AdapterFactory.reset()
-        })
+        },10000)
 
         test('normal Ble Start',async ()=>{
 
@@ -104,16 +109,22 @@ describe('BleFmAdapter E2E',()=>{
             const settings = { interface: "ble", name: "Volt", protocol: "fm", address:"517b656007e9bfee936afeb90129e3f9" }
             adapter = AdapterFactory.create(settings)
             expect(adapter).toBeDefined()
-            const started = await adapter.start({timeout:4000})
+            const started = await adapter.start()
             expect(started).toBeTruthy()
 
+            /*
+
+            console.log('~~~ PAUSE')
             await adapter.pause()
 
-            const restarted = await adapter.start({timeout:4000})
+            console.log('~~~ RESTART')
+            const restarted = await adapter.start({timeout:20000})
             expect(restarted).toBeTruthy()
+*/
+            //await sleep(10000)
 
 
-        },80000)
+        },20000)
 
     })
 

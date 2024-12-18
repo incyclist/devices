@@ -10,6 +10,7 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
     static readonly protocol: BleProtocol
     protected logger: EventLogger
     protected stopRequested: boolean
+    protected onDataHandler
 
 
     logEvent(event, ...args) {
@@ -20,6 +21,7 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
         super()
         this.logger = props?.logger || this.getDefaultLogger()
         this.reset()
+        this.onDataHandler = this.onData.bind(this)
     }
 
     getProfile(): LegacyProfile {
@@ -76,11 +78,29 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
         if (!reconnect)
             this.peripheral.onDisconnect(this.reconnectSensor.bind(this))
 
-        return await this.peripheral.subscribeAll(this.onData.bind(this))
+        return await this.subscribe()
+    }
+
+    protected getRequiredCharacteristics():Array<string> {
+        return null
+    }
+
+    protected async subscribe():Promise<boolean> {
+        const selected = this.getRequiredCharacteristics()
+
+        if (selected===null)
+            return await this.peripheral.subscribeAll(this.onDataHandler)
+
+        if (selected.length===0)
+            return true;
+
+        return await this.peripheral.subscribeSelected(selected,this.onDataHandler)
+
     }
 
     async stopSensor(): Promise<boolean> {
 
+        this.removeAllListeners()
         if (!this.peripheral)
             return true;
         
@@ -115,8 +135,6 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
     }
 
     onData(characteristic:string,data: Buffer): boolean {
-
-        //console.log('onData',characteristic,data.toString('hex'))
         return true
     }
 

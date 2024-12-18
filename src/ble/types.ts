@@ -127,7 +127,7 @@ export interface BleCharacteristic  {
     _serviceUuid?: string
 }
 
-export interface BleRawCharacteristic extends BleCharacteristic {
+export interface BleRawCharacteristic extends BleCharacteristic, EventEmitter {
     subscribe( callback: (err:Error|undefined)=>void): void
     unsubscribe( callback: (err:Error|undefined)=>void): void
     read( callback: (err:Error|undefined, data:Buffer)=>void): void
@@ -198,9 +198,11 @@ export interface IBlePeripheral {
 
     discoverServices(): Promise<string[]>;
     discoverCharacteristics(serviceUUID: string): Promise<BleCharacteristic[]>;
+
     subscribe(characteristicUUID: string, callback: (characteristicUuid: string, data:Buffer) => void): Promise<boolean>;
     unsubscribe(characteristicUUID: string): Promise<boolean>;
     subscribeAll?(callback: (characteristicUuid: string, data: Buffer) => void): Promise<boolean>
+    subscribeSelected(characteristics:string[], callback: (characteristicUuid: string, data: Buffer) => void): Promise<boolean>
 
     read(characteristicUUID: string): Promise<Buffer>;
     write(characteristicUUID: string, data: Buffer, options?: BleWriteProps): Promise<Buffer>;

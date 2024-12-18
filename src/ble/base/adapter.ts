@@ -1,7 +1,7 @@
 
 import IncyclistDevice from "../../base/adpater";
 import { BleDeviceProperties, BleDeviceSettings, BleStartProperties, IBleInterface, IBlePeripheral, IBleSensor } from "../types";
-import { IAdapter,IncyclistBikeData,IncyclistAdapterData,DeviceProperties, IncyclistInterface} from "../../types";
+import { IAdapter,IncyclistBikeData,IncyclistAdapterData,DeviceProperties, IncyclistInterface, IncyclistCapability} from "../../types";
 import { BleDeviceData } from "./types";
 import { LegacyProfile } from "../../antv2/types";
 import ICyclingMode from "../../modes/types";
@@ -54,8 +54,10 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     }
 
     async waitForPeripheral() {
+        this.logEvent({message:'waiting for sensor ...'})
         const iface = BleMultiTransportInterfaceFactory.createInstance( this.getInterface() ) as unknown as IBleInterface<any>
         const peripheral = await  iface.waitForPeripheral(this.settings)
+
         this.updateSensor(peripheral)
         
     }
@@ -226,6 +228,10 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         return this.start( {scanOnly:true })    
     }
 
+    /* istanbul ignore next */
+    getDefaultStartupTimeout():number {
+        return 30000 // 30s
+    }
 
     async startPreChecks(props:BleStartProperties):Promise< 'done' | 'connected' | 'connection-failed' > {
         const wasPaused = this.paused 
@@ -251,8 +257,6 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
 
     async start( startProps?: BleStartProperties ): Promise<boolean> { 
 
-        console.log('~~~~ START ', startProps)
-
         if (this.isStarting()) {
             await this.stop()
         }
@@ -265,8 +269,6 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         })
 
         const res = await this.startTask.run()
-        console.log('~~~~ START DONE', res)
-
         return res;
     }
 
@@ -274,10 +276,60 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         return this.startTask?.isRunning()
     }
 
+    protected hasData() {
+        return this.dataMsgCount>0
+    }
+
+    protected async waitForInitialData(startupTimeout):Promise<void> {
+
+        let waitTask;
+        let iv;
+
+        const wait = ():Promise<boolean> =>{
+            const res = new Promise<boolean>( (resolve) => {
+    
+                iv = setInterval( ()=> { 
+                    if (this.hasData()) {
+                        //this.logEvent({message:'has Data',data:this.deviceData})
+                        clearInterval(iv)
+                        resolve(true)
+                    }
+                    else if ( !this.isStarting() || !waitTask?.isRunning) {
+                        resolve(false)
+                        clearInterval(iv)
+                    }
+                }, 10)    
+            })    
+
+            return res            
+        }
+
+        waitTask = new InteruptableTask( wait(), {
+            errorOnTimeout:false,
+            timeout:startupTimeout
+        })
+
+        this.logEvent({ message: 'wait for sensor data', device:this.getName() });
+        const hasData = await waitTask.run();       
+        clearInterval(iv)
+
+        if (hasData)
+            this.logEvent({ message: 'sensor data received', device:this.getName() });
+    }
+
+    protected checkCapabilities() {
+        // to be implemeted by controllable adapters
+    }
+
+    protected async initControl(_props?:BleStartProperties) {        
+        // to be implemeted by controllable adapters
+    }
 
     protected async startAdapter( startProps?: BleStartProperties ): Promise<boolean> {
 
         const props = this.getStartProps(startProps)
+        const {timeout=this.getDefaultStartupTimeout()} = startProps
+        const wasPaused = this.paused
 
         const preCheckResult = await this.startPreChecks(props)
         if (preCheckResult==='done') {
@@ -297,13 +349,26 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         try {
 
             const connected = await this.startSensor();
-
             if (connected) {
                 this.logEvent({ message: 'peripheral connected', device:this.getName(),props });                                
             }
             else {
                 this.logEvent({ message: 'peripheral connection failed', device:this.getName(), reason:'unknown', props });    
+                return false
             }
+
+            await this.waitForInitialData(timeout)
+            await this.checkCapabilities()        
+            if ( this.hasCapability( IncyclistCapability.Control ) )
+                await this.initControl(startProps)
+                   
+            this.resetData();      
+
+            this.stopped = false;    
+            this.started = true;
+
+            if (wasPaused)
+                this.resume()                
 
             return true;
         }
@@ -324,13 +389,12 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         if(connected) {
             this.getComms().on('data',this.onDeviceDataHandler) 
             this.getComms().on('disconnected', this.emit.bind(this))
+            this.getComms().on('error',console.log) 
         }
         return connected
     }
 
     async stop(): Promise<boolean> { 
-        console.log('~~~~ STOP ')
-
         this.logEvent( {message:'stopping device', device:this.getName()})
 
         if (this.isStarting()) {
@@ -345,7 +409,6 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         }
         this.getComms().reset();
         try {
-
             stopped = await this.getComms().stopSensor();
         }
         catch(err) {    
@@ -364,9 +427,6 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     }
 
     async pause(): Promise<boolean> {
-
-        console.log('~~~~ PAUSE ')
-
         const res = await super.pause()
 
         const iface = BleMultiTransportInterfaceFactory.createInstance( this.getInterface() )
@@ -376,8 +436,6 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     }
 
     async resume(): Promise<boolean> {
-
-        console.log('~~~~ RESUME')
 
         const iface = BleMultiTransportInterfaceFactory.createInstance( this.getInterface() )
         iface.resumeLogging()

@@ -12,7 +12,6 @@ const main = async ({configFile = './config/kickr-bike.json'}) => {
     const emulator= new Emulator({name:'VOLT 2A34',frequency:1000,disableCps:true})
 
     const config = await prepareConfig(configFile, emulator.name, emulator.getServices().map(s => s.uuid))
-    const {address} = config.referer
 
     const serverCallbacks = (socket) => {//#endregion
        
