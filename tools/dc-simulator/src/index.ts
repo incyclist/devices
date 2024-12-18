@@ -3,6 +3,7 @@ import {createServer} from 'net'
 import { Bonjour } from 'bonjour-service'
 import { DirectConnectComms } from './comms'
 import { Emulator } from "./emulator"
+import { getAddresses } from "./net"
 
 
 
@@ -48,7 +49,10 @@ const main = async ({configFile = './config/kickr-bike.json'}) => {
     }
 
     //start(address,port)
-    start(address,config.port)
+    getAddresses().forEach( n => {
+        start(n.address,config.port)
+    })
+    
 
     const instance = new Bonjour()
     instance.publish( config)

@@ -1,7 +1,7 @@
 import { Socket } from "net"
 import {Service} from './emulator/services'
 
-import {CharacteristicNotificationMessage, DC_MESSAGE_CHARACTERISTIC_NOTIFICATION, DC_MESSAGE_DISCOVER_CHARACTERISTICS, DC_MESSAGE_DISCOVER_SERVICES, DC_MESSAGE_ENABLE_CHARACTERISTIC_NOTIFICATIONS, DC_MESSAGE_READ_CHARACTERISTIC, DC_MESSAGE_WRITE_CHARACTERISTIC, 
+import {beautifyUUID, CharacteristicNotificationMessage, DC_MESSAGE_CHARACTERISTIC_NOTIFICATION, DC_MESSAGE_DISCOVER_CHARACTERISTICS, DC_MESSAGE_DISCOVER_SERVICES, DC_MESSAGE_ENABLE_CHARACTERISTIC_NOTIFICATIONS, DC_MESSAGE_READ_CHARACTERISTIC, DC_MESSAGE_WRITE_CHARACTERISTIC, 
        DC_RC_CHARACTERISTIC_NOT_FOUND, 
        DC_RC_REQUEST_COMPLETED_SUCCESSFULLY, DC_RC_SERVICE_NOT_FOUND, DCMessageFactory, 
        DiscoverCharacteristicsMessage, DiscoverServiceMessage, EnableCharacteristicNotificationsMessage, IllegalMessageError, parseUUID, ReadCharacteristicMessage, TDCDiscoverCharacteristicsRequest,
@@ -229,6 +229,7 @@ export class DirectConnectComms {
             s.characteristics.forEach(char=> {
                 if (parseUUID(char.uuid) === parseUUID(characteristicUUID)) {
                     found = true                    
+                    console.log('enableCharacteristicNotifications',beautifyUUID(characteristicUUID), enable)
                     if (enable) {
                         const callback = characteristicData => {
                             this.notify(characteristicUUID, characteristicData)
@@ -253,6 +254,7 @@ export class DirectConnectComms {
         const response = message.prepareResponse(request,respCode,body)
         const respBuffer = message.buildResponse(response)
         this.write(respBuffer)
+        console.log('enableCharacteristicNotifications response',beautifyUUID(characteristicUUID))
 
 
     }

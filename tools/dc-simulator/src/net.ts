@@ -20,3 +20,18 @@ export const getAddress  = ():NetworkInterfaceInfo => {
     return found [0]
     
 }
+
+export const getAddresses  = ():NetworkInterfaceInfo[] => {
+    const nets = networkInterfaces()
+    const keys = Object.keys(nets)
+    const found:NetworkInterfaceInfo[] = []
+    
+    keys.forEach( key => {
+        const ni = nets[key].filter( n => n.family === 'IPv4' && !n.internal)[0]
+        if (ni)
+            found.push(ni)
+    })
+    
+    return found
+    
+}
