@@ -1,8 +1,8 @@
 import { EventLogger } from 'gd-eventlog';
 import BleAdapter from '../base/adapter';
-import BleHrmDevice from './comm';
+import BleHrmDevice from './sensor';
 import { IncyclistAdapterData,IncyclistCapability,IAdapter,DeviceProperties } from '../../types';
-import { BleDeviceSettings } from '../types';
+import { BleDeviceSettings, IBlePeripheral } from '../types';
 import { HrmData } from './types';
 import { LegacyProfile } from '../../antv2/types';
 
@@ -17,11 +17,7 @@ export default class HrmAdapter extends BleAdapter<HrmData,BleHrmDevice>{
 
         this.logger = new EventLogger('Ble-HR')       
 
-        const {id,address,name} = settings
-        const logger = this.logger
-        const ble = this.ble
-
-        this.device = new BleHrmDevice( {id,address,name,ble,logger})
+        this.device = new BleHrmDevice( this.getPeripheral(), {logger: this.logger} )
         this.capabilities = [ 
             IncyclistCapability.HeartRate
         ]
@@ -34,14 +30,14 @@ export default class HrmAdapter extends BleAdapter<HrmData,BleHrmDevice>{
         return this.isEqual(device.settings as BleDeviceSettings)
     }
 
-  
-
-    getName() {
-        return `${this.device.name}`        
+    updateSensor(peripheral:IBlePeripheral) {
+        this.device = new BleHrmDevice( peripheral, {logger:this.logger})
     }
 
+
+
     getDisplayName() {
-        const {name} = this.device;
+        const name = this.getName()
         const {heartrate:hrm} = this.deviceData;
         const hrmStr = hrm ? ` (${hrm})` : '';
         return `${name}${hrmStr}`
