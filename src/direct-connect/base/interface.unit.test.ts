@@ -134,7 +134,7 @@ describe('DirectConnectInterface', () => {
 
             const success = await iface.disconnect()    
             expect(success).toBe(true)  
-            expect(logSpy).toHaveBeenCalledWith({message:'stopping scan ...'})
+            expect(logSpy).toHaveBeenCalledWith({message:'stopping scan ...',interface:'wifi'})
 
             expect(logSpy).toHaveBeenCalledWith({message:'scan stopped'})
         })
