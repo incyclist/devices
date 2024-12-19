@@ -12,4 +12,6 @@ describe('BLE Hr Adapter',()=>{
             expect(a.getUniqueName()).toBe('HRM-Mock 4461')   
         })
     })
+
+
 })

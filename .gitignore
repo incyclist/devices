@@ -38,3 +38,6 @@ typings
 .settings
 .vscode
 nohup.out
+
+build
+tools/dc-simulator/build

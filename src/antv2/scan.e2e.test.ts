@@ -1,8 +1,7 @@
 import { EventLogger,ConsoleAdapter } from "gd-eventlog"
-import { AdapterFactory, InterfaceFactory, SerialScannerProps } from "../index"
+import { AdapterFactory, AntInterface, InterfaceFactory, SerialScannerProps } from "../index"
 import { sleep } from "../utils/utils";
 import AntAdapter from "./base/adapter";
-import { AntInterface } from "incyclist-devices";
 
 const {AntDevice} = require('incyclist-ant-plus/lib/bindings');
 

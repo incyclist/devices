@@ -1,5 +1,5 @@
 /* istanbul ignore file */
-import BleFmComms from './comms';
+import BleFmComms from './sensor';
 import BleFmAdapter from './adapter';
 import { IndoorBikeData } from './types';
 import { cRR, cwABike } from './consts';

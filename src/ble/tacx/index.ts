@@ -1,5 +1,5 @@
 /* istanbul ignore file */
-import BleTacxComms from "./comms";
+import BleTacxComms from "./sensor";
 import BleTacxAdapter from "./adapter";
 import { BleFeBikeData } from "./types";
 

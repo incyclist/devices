@@ -1,43 +1,40 @@
 
 import IncyclistDevice from "../../base/adpater";
-import { BleComms } from "./comms";
-import BleInterface from "../ble-interface";
-import { BleDeviceProperties, BleDeviceSettings, BleStartProperties } from "../types";
-import { IAdapter,IncyclistBikeData,IncyclistAdapterData,DeviceProperties} from "../../types";
+import { BleDeviceProperties, BleDeviceSettings, BleStartProperties, IBleInterface, IBlePeripheral, IBleSensor } from "../types";
+import { IAdapter,IncyclistBikeData,IncyclistAdapterData,DeviceProperties, IncyclistInterface, IncyclistCapability} from "../../types";
 import { BleDeviceData } from "./types";
 import { LegacyProfile } from "../../antv2/types";
 import ICyclingMode from "../../modes/types";
+import { BleMultiTransportInterfaceFactory } from "../factories/interface-factory";
+import { InteruptableTask, TaskState } from "../../utils/task";
+import { TBleSensor } from "./sensor";
+import { resolveNextTick } from "../../utils/utils";
 
-const INTERFACE_NAME = 'ble'
 
-export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice extends BleComms>  extends IncyclistDevice<BleDeviceProperties>  { 
+export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice extends TBleSensor>  extends IncyclistDevice<BleDeviceProperties>  { 
 
-    protected ble: BleInterface
     protected deviceData: TDeviceData
     protected data: IncyclistAdapterData
     protected dataMsgCount: number
     protected lastDataTS: number;
     protected device: TDevice
     protected onDeviceDataHandler = this.onDeviceData.bind(this)
-
+    protected startTask: InteruptableTask<TaskState,boolean>;
     constructor( settings:BleDeviceSettings, props?:DeviceProperties) {
         super(settings,props)
 
-        if (this.settings.interface!==INTERFACE_NAME)
-            throw new Error ('Incorrect interface')
 
         this.deviceData = {} as TDeviceData
         this.data = {}
         this.dataMsgCount = 0;
         this.updateFrequency = 1000;
 
-        this.ble = BleInterface.getInstance()
     }
 
     getUniqueName(): string {
         const settings:BleDeviceSettings = this.settings as BleDeviceSettings
 
-        if (settings.name?.match(/[0-9]/g) || settings.address===undefined)      
+        if (settings.name?.match(/\d/g) || settings.address===undefined)      
             return this.getName()
         else {
             const addressHash = settings.address.substring(0,2) + settings.address.slice(-2)
@@ -46,35 +43,36 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     }
 
     async connect():Promise<boolean> { 
-        // istanbul ignore next
-        if (!this.device) {
-            // should never happen            
-            throw new Error('No Comms')
-        }
+        const iface = BleMultiTransportInterfaceFactory.createInstance( this.getInterface() )
+        return await iface.connect()
+    }
 
-        if (this.isConnected())
-            return true;
+    getPeripheral() {
+        const iface = BleMultiTransportInterfaceFactory.createInstance( this.getInterface() ) as unknown as IBleInterface<any>
+        const p =  iface?.createPeripheralFromSettings(this.settings)
+        return p
+    }
+
+    async waitForPeripheral() {
+        this.logEvent({message:'waiting for sensor ...'})
+        const iface = BleMultiTransportInterfaceFactory.createInstance( this.getInterface() ) as unknown as IBleInterface<any>
+        const peripheral = await  iface.waitForPeripheral(this.settings)
+
+        this.updateSensor(peripheral)
         
-        let connected = false;
-        try  {
-            connected = await this.device.connect()
-        }
-        catch(err) {
-            this.logEvent({message:'error',fn:'connect()',error:err.message, stack:err.stack})            
-        }
-        return connected
+    }
+
+    updateSensor(peripheral:IBlePeripheral) {
+        throw new Error('method not implemented')
     }
 
 
     async close():Promise<boolean> { 
-        
-        if (!this.device || !this.isConnected())
-            return true;
-
-        return await this.device.disconnect()       
+        return true
+    
     }
 
-    getComms():TDevice {
+    getComms():TDevice {        
         return this.device
     }
 
@@ -101,7 +99,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     }
 
     isConnected():boolean {
-        return this.device && this.device.isConnected()
+        return this.device?.isConnected()
     }
 
     resetData() {
@@ -112,7 +110,13 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     }
 
     getInterface(): string {
-        return INTERFACE_NAME
+        const iface = this.settings.interface
+        if (typeof iface === 'string')
+            return this.settings.interface as string
+        else {
+            const i = this.settings.interface as unknown as IncyclistInterface
+            return i.getName()
+        }
     }
 
     getProfile():LegacyProfile {
@@ -171,7 +175,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             this.dataMsgCount++;
             this.lastDataTS = Date.now();
     
-            this.deviceData = Object.assign( {},deviceData);        
+            this.deviceData = {...deviceData} ;        
         
             if (!this.canEmitData())
                 return;       
@@ -224,6 +228,10 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         return this.start( {scanOnly:true })    
     }
 
+    /* istanbul ignore next */
+    getDefaultStartupTimeout():number {
+        return 30000 // 30s
+    }
 
     async startPreChecks(props:BleStartProperties):Promise< 'done' | 'connected' | 'connection-failed' > {
         const wasPaused = this.paused 
@@ -247,66 +255,196 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         return 'connected'
     }
 
+    async start( startProps?: BleStartProperties ): Promise<boolean> { 
 
-    async start( startProps?: BleStartProperties ): Promise<boolean> {
+        if (this.isStarting()) {
+            await this.stop()
+        }
+
+        this.startTask = new InteruptableTask( this.startAdapter(startProps), {
+            timeout: startProps?.timeout,
+            name:'start',
+            errorOnTimeout: false,
+            log: this.logEvent.bind(this)
+        })
+
+        const res = await this.startTask.run()
+        return res;
+    }
+
+    protected isStarting():boolean {
+        return this.startTask?.isRunning()
+    }
+
+    protected hasData() {
+        return this.dataMsgCount>0
+    }
+
+    protected async waitForInitialData(startupTimeout):Promise<void> {
+
+        let waitTask;
+        let iv;
+
+        const wait = ():Promise<boolean> =>{
+            const res = new Promise<boolean>( (resolve) => {
+    
+                iv = setInterval( ()=> { 
+                    if (this.hasData()) {
+                        //this.logEvent({message:'has Data',data:this.deviceData})
+                        clearInterval(iv)
+                        resolve(true)
+                    }
+                    else if ( !this.isStarting() || !waitTask?.isRunning) {
+                        resolve(false)
+                        clearInterval(iv)
+                    }
+                }, 10)    
+            })    
+
+            return res            
+        }
+
+        waitTask = new InteruptableTask( wait(), {
+            errorOnTimeout:false,
+            timeout:startupTimeout
+        })
+
+        this.logEvent({ message: 'wait for sensor data', device:this.getName() });
+        const hasData = await waitTask.run();       
+        clearInterval(iv)
+
+        if (hasData)
+            this.logEvent({ message: 'sensor data received', device:this.getName() });
+    }
+
+    protected checkCapabilities() {
+        // to be implemeted by controllable adapters
+    }
+
+    protected async initControl(_props?:BleStartProperties) {        
+        // to be implemeted by controllable adapters
+    }
+
+    protected async startAdapter( startProps?: BleStartProperties ): Promise<boolean> {
 
         const props = this.getStartProps(startProps)
+        const {timeout=this.getDefaultStartupTimeout()} = startProps
+        const wasPaused = this.paused
 
         const preCheckResult = await this.startPreChecks(props)
-        if (preCheckResult==='done')
+        if (preCheckResult==='done') {
+            await resolveNextTick()
             return this.started
+        }
 
-        if (preCheckResult==='connection-failed')
-            throw new Error(`could not start device, reason:could not connect`)
+        if (preCheckResult==='connection-failed') {            
+            this.logEvent({message: 'start result: error', error: 'could not start device, reason:could not connect', protocol:this.getProtocolName()})
+            await resolveNextTick()
+            return false
+        }
         
-            this.logEvent( {message:'starting device', device:this.getName(), props, isStarted: this.started})
-            try {
-            const comms = this.device;
-            
-            if (comms) {
-                
-                comms.on('data', this.onDeviceDataHandler)
-                this.resetData();      
-                this.stopped = false;    
-                this.started = true;
-                this.paused = false;
+        this.logEvent( {message:'starting device', device:this.getName(), props, isStarted: this.started})
 
-                return true;
-            }    
+
+        try {
+
+            const connected = await this.startSensor();
+            if (connected) {
+                this.logEvent({ message: 'peripheral connected', device:this.getName(),props });                                
+            }
+            else {
+                this.logEvent({ message: 'peripheral connection failed', device:this.getName(), reason:'unknown', props });    
+                return false
+            }
+
+            await this.waitForInitialData(timeout)
+            await this.checkCapabilities()        
+            if ( this.hasCapability( IncyclistCapability.Control ) )
+                await this.initControl(startProps)
+                   
+            this.resetData();      
+
+            this.stopped = false;    
+            this.started = true;
+
+            if (wasPaused)
+                this.resume()                
+
+            return true;
         }
         catch(err) {
-            this.logger.logEvent({message: 'start result: error', error: err.message, protocol:this.getProtocolName()})
-            this.getComms()?.pause()
-            throw new Error(`could not start device, reason:${err.message}`)
-
+            this.logEvent({message: 'start result: error', error: err.message, protocol:this.getProtocolName()})
+            return false
         }
+    }
+
+    async startSensor():Promise<boolean> {
+        if (!this.getComms()?.hasPeripheral()) {
+            await this.waitForPeripheral()
+        }
+        if (!this.getComms()) {
+            return false
+        }
+        const connected = await this.getComms().startSensor()
+        if(connected) {
+            this.getComms().on('data',this.onDeviceDataHandler) 
+            this.getComms().on('disconnected', this.emit.bind(this))
+            this.getComms().on('error',console.log) 
+        }
+        return connected
     }
 
     async stop(): Promise<boolean> { 
-        this.logger.logEvent( {message:'stopping device', device:this.getName()})
-        this.device.reset();
-        this.device.off('data',this.onDeviceDataHandler)
-        const stopped =this.device.disconnect();        
-        if (stopped) {
-            this.stopped = true;
-            this.started = false;
-            this.paused = false;
-            return true
+        this.logEvent( {message:'stopping device', device:this.getName()})
+
+        if (this.isStarting()) {
+            await this.startTask.stop()
         }
-        return false;
+        
+        let reason:string = 'unknown';
+        let stopped = false
+        if (!this.getComms()) {
+            this.logEvent( {message:'device stopped - not started yet', device:this.getName()})    
+            return true;
+        }
+        this.getComms().reset();
+        try {
+            stopped = await this.getComms().stopSensor();
+        }
+        catch(err) {    
+            reason = err.message;
+        }
+        if (stopped) {
+            this.logEvent( {message:'device stopped', device:this.getName()})    
+        }
+        else {
+            this.logEvent( {message:'stopping device failed', device:this.getName(), reason})    
+        }
+        
+        this.started = false
+        this.stopped = true
+        return stopped        
     }
 
     async pause(): Promise<boolean> {
-        const res = await super.pause()    
-        this.getComms()?.pause()
+        const res = await super.pause()
+
+        const iface = BleMultiTransportInterfaceFactory.createInstance( this.getInterface() )
+        iface.pauseLogging()
+
         return res;
     }
 
     async resume(): Promise<boolean> {
-        const res = await super.resume()    
-        this.getComms()?.resume()
+
+        const iface = BleMultiTransportInterfaceFactory.createInstance( this.getInterface() )
+        iface.resumeLogging()
+
+        const res = await super.resume()
         return res;
     }
+
+
 
     update(): void {
         // not required for BLE

@@ -1,4 +1,5 @@
-import { AntAdapterFactory, AntDeviceSettings } from "../antv2";
+import { AntDeviceSettings } from "../antv2/types";
+import AntAdapterFactory from "../antv2/factories/adapter-factory";
 import { IncyclistDeviceAdapter } from "../base/adpater";
 import { BleAdapterFactory } from "../ble";
 import { BleDeviceSettings } from "../ble/types";
@@ -17,7 +18,8 @@ export default class AdapterFactory {
         AdapterFactory.adapters = []
         //SerialAdapterFactory.getInstance().adapters =[]
         //AntAdapterFactory.getInstance().adapters =[]        
-        BleAdapterFactory.getInstance().instances =[]
+        BleAdapterFactory.getInstance('ble').instances =[]
+        BleAdapterFactory.getInstance('wifi').instances =[]
     }
 
     static create( settings:DeviceSettings, props?:DeviceProperties) {
@@ -49,7 +51,13 @@ export default class AdapterFactory {
                 adapter = AntAdapterFactory.getInstance().createInstance(settings as AntDeviceSettings,props)
                 break;
             case INTERFACE.BLE:
-                adapter = BleAdapterFactory.getInstance().createInstance(settings as BleDeviceSettings,props)
+                adapter = BleAdapterFactory.getInstance('ble').createInstance(settings as BleDeviceSettings,props)
+                break;
+            case INTERFACE.DC:
+                {
+                    const factory = BleAdapterFactory.getInstance('wifi')
+                    adapter = BleAdapterFactory.getInstance('wifi').createInstance(settings as BleDeviceSettings,props)
+                }
                 break;
             case INTERFACE.SIMULATOR:
                 adapter = new Simulator(settings,props)
