@@ -24,6 +24,12 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
         this.onDataHandler = this.onData.bind(this)
     }
 
+    getDetectionPriority():number {
+        const C = this.constructor as typeof TBleSensor
+        return C['detectionPriority']??0 
+       
+    }
+
     getProfile(): LegacyProfile {
         const C = this.constructor as typeof TBleSensor
         return C['profile'] 

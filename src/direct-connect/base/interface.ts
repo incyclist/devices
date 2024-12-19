@@ -190,10 +190,16 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
                 this.logEvent({message:'starting multicast DNS scan ..'})
 
             
+            this.getBinding().mdns.find( null,( service:MulticastDnsAnnouncement )=>{
+                this.addService( service )  
+
+            } )
             this.getBinding().mdns.find( {type:DC_TYPE},( service:MulticastDnsAnnouncement )=>{
                 this.addService( service )  
 
             } )
+
+
         }
         catch (err) {
             this.logError(err, 'connect')
@@ -265,12 +271,13 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
 
     }
     async stopScan(): Promise<boolean> {
-        if (!this.isScanning()) return Promise.resolve(true);
+        if (!this.isScanning()) 
+                return true
 
-        this.logEvent({message:'stopping scan ...'})
+        this.logEvent({message:'stopping scan ...', interface:'wifi'})
         const res = await this.scanTask.stop()
         delete this.scanTask
-        return res
+        return (res===true)
     }
 
     onScanDone():DeviceSettings[] { 
@@ -367,8 +374,9 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
             }
             else {
                 this.logEvent({message:'device announced',device:service.name, announcement:service})
-                
                 this.services.push( {ts:Date.now(),service})
+                if (service.type!==DC_TYPE && service.serviceUUIDs?.length===0)
+                    return;
                
                 this.emitDevice(service)                    
                 this.matching?.push(service.name)

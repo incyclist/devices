@@ -1,15 +1,15 @@
 import EventEmitter from "events";
 import { DeviceSettings, InterfaceProps } from "../../types";
 import { EventLogger } from "gd-eventlog";
-import { BleBinding,  BleInterfaceState,  BlePeripheralAnnouncement, BlePeripheralInfo, BleRawPeripheral, BleScanProps,  IBlePeripheral  } from "../types";
+import { BleBinding,  BleDeviceSettings,  BleInterfaceState,  BlePeripheralAnnouncement, BlePeripheralInfo, BleProtocol, BleRawPeripheral, BleScanProps,  IBlePeripheral  } from "../types";
 import { IBleInterface } from '../../ble/types';
 import { InteruptableTask, TaskState } from "../../utils/task";
 import { BlePeripheral } from "./peripheral";
-import { beautifyUUID, parseUUID } from "../utils";
+import { getPeripheralInfo, parseUUID } from "../utils";
 import { InterfaceFactory } from "./types";
 import { BleAdapterFactory } from "../factories";
+import { TBleSensor } from "./sensor";
 
-const BLE_DEFAULT_SCAN_TIMEOUT = 30*1000; // 30s
 const BLE_EXPIRATION_TIMEOUT = 10*1000*60 // 10min
 const BLE_DEFAULT_CONNECT_TIMEOUT = 30*1000; // 30s
 
@@ -136,7 +136,13 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
      * @param {BleBinding} binding - The binding instance.
      */
     setBinding(binding: BleBinding): void {
+
         this.binding = binding
+
+        if (!this.isConnected()) {
+            this.autoConnect()            
+        }
+
     }
 
     /**
@@ -278,11 +284,12 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
         
     }
-    stopScan(): Promise<boolean> {
-        if (!this.isScanning()) return Promise.resolve(true);
+    async stopScan(): Promise<boolean> {
+        if (!this.isScanning()) return true;
 
-        this.logEvent({message:'stopping scan ...'})
-        this.scanTask.stop()
+        this.logEvent({message:'stopping scan ...', interface:'ble'})
+        const res = await this.scanTask.stop()
+        return (res===true)
     }
 
     onScanDone():DeviceSettings[] {
@@ -339,12 +346,18 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     }
 
 
-    createDeviceSetting(service:BlePeripheralAnnouncement):DeviceSettings {
-        const name = service.name
+    createDeviceSetting(service:BlePeripheralAnnouncement):BleDeviceSettings {
+        const {peripheral} = service
 
-        return {interface:BleInterface.INTERFACE_NAME, name}
+        // I found some scans (on Mac) where address was not set
+        if (peripheral.address===undefined || peripheral.address==='')
+            peripheral.address = peripheral.id || peripheral.name;
+        
+        const protocol = this.getAdapterFactory().getProtocol(service.serviceUUIDs)
+        const {id,name,address} = getPeripheralInfo(peripheral)
+        
+        return {interface:BleInterface.INTERFACE_NAME, protocol, id,name,address}
     }
-
 
 
     protected async reconnect() {
@@ -602,13 +615,17 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
     protected emitDevice(service:BlePeripheralAnnouncement) {
         const settings = this.createDeviceSetting(service)
+        this.logEvent({message:'device found',settings})
         this.emit('device',settings,service)
     }
 
 
     protected buildDeviceSettings(matching:string[]=[]) {
 
-        return matching.map( (name)=> ({interface:BleInterface.INTERFACE_NAME, name}) )
+        return matching.map( (name)=> {
+            const announcement = this.services.find(s=>s.service.name===name)
+            return this.createDeviceSetting(announcement.service)
+        })
     }
 
 
@@ -754,6 +771,10 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
     protected onBleStateChange(state:BleInterfaceState) {
         // TODO
+    }
+
+    protected getAdapterFactory():BleAdapterFactory<TBleSensor> {
+        return BleAdapterFactory.getInstance('ble')
     }
 
 

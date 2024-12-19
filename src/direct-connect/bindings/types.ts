@@ -20,7 +20,7 @@ export interface DirectConnectBinding {
 type KeyValue = { [key: string]: any }
 
 export interface BrowserConfig {
-    type        : string
+    type?        : string
     name?       : string
     protocol?   : 'tcp' | 'udp'
     subtypes?   : string[]
@@ -28,6 +28,7 @@ export interface BrowserConfig {
 }
 
 export interface MulticastDnsAnnouncement extends PeripheralAnnouncement{
+    type        : string  
     address     : string
     protocol?   : 'tcp' | 'udp'
     port        : number

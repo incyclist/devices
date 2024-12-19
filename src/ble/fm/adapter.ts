@@ -236,6 +236,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         const after = this.capabilities.join(',')
 
         if (before !== after) {
+            this.logEvent({message:'device capabilities updated', name:this.getSettings().name, interface:this.getSettings().interface,capabilities: this.capabilities})    
             this.emit('device-info', this.getSettings(), {capabilities:this.capabilities})
         }
     }

@@ -41,7 +41,6 @@ export default class AdapterFactory {
 
         const ifaceName = typeof settings.interface ==='string' ? settings.interface : (settings.interface as IncyclistInterface).getName()
 
-        console.log(`creating adapter for ${ifaceName}`)
         let adapter;
         switch (ifaceName) {
             case INTERFACE.SERIAL:
@@ -57,7 +56,6 @@ export default class AdapterFactory {
             case INTERFACE.DC:
                 {
                     const factory = BleAdapterFactory.getInstance('wifi')
-                    console.log('creating wifi adapter for direct connect',factory)
                     adapter = BleAdapterFactory.getInstance('wifi').createInstance(settings as BleDeviceSettings,props)
                 }
                 break;

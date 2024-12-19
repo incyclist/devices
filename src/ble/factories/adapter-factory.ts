@@ -4,15 +4,9 @@ import { DeviceProperties } from "../../types";
 import { fullUUID, mapLegacyProfile } from "../utils";
 import { BleDeviceData } from "../base/types";
 import { TBleSensor } from "../base/sensor";
+import { BleAdapterInfo, TBleAdapterFactory } from "./types";
 
-export interface BleAdapterInfo<T extends TBleSensor> {
-    protocol: BleProtocol,
-    Adapter: typeof BleAdapter<BleDeviceData,T>
-    Sensor: typeof TBleSensor    
-}
-
-
-export class BleAdapterFactory<T extends TBleSensor> {
+export class BleAdapterFactory<T extends TBleSensor> implements TBleAdapterFactory<T> {
     static readonly _instances:Record<string, BleAdapterFactory<any>> = {};
 
     implementations: BleAdapterInfo<any>[]
@@ -143,7 +137,52 @@ export class BleAdapterFactory<T extends TBleSensor> {
         return res;
     }
 
+    getProtocol(services:string[]):BleProtocol {
+        const matching = this.getMatchingSensors(services)
+        if (!matching?.length) {
+            return;
+        }
 
+        if (matching.length===1) {
+            return matching[0].getProtocol()
+        }
+        matching.sort( (a,b) => b.getDetectionPriority()-a.getDetectionPriority())
+        return matching[0].getProtocol()
+    }
+
+    protected getMatchingSensors (services:string[], props:{ protocol?: BleProtocol, services?: string[] } = {}): TBleSensor[] {
+        let sensors;
+        const {protocol}  = props;
+    
+    
+        // find matching Classes in the set of all registered Device Classes
+        const classes = this.getAllSupportedSensors()
+        sensors = this.getSensorsFromServices( classes, services) 
+
+        if (protocol && sensors?.length>0) {
+            return sensors.filter( sensor  => {                
+                
+                if (sensor.getProtocol()!==protocol) 
+                    return false;
+                return true;
+            })
+           
+        }
+        return sensors
+    }
+
+    getSensorsFromServices(sensorTypes : (typeof TBleSensor)[],services :string | string[]) :TBleSensor[] {
+        if (!sensorTypes || !Array.isArray(sensorTypes) || sensorTypes.length === 0) {
+            return []
+        }
+
+        let serviceUUIDs = Array.isArray(services) ? services : [services]; 
+   
+        const types =  sensorTypes.map(SensorType=>new SensorType(null)).filter( sensor  => sensor.isMatching(serviceUUIDs))    
+        return types;
+    
+    }
+    
     
     
 
