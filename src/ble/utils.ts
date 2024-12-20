@@ -1,3 +1,4 @@
+import { EventLogger } from "gd-eventlog";
 import { LegacyProfile } from "../antv2/types";
 import { BleCharacteristic,  BleProperty,  BleProtocol, BleRawPeripheral } from "./types";
 
@@ -90,7 +91,16 @@ export const parseUUID = (str:string):string => {
 
 export const beautifyUUID = (str:string, withX:boolean = false ):string => {   
 
-    const uuid = parseUUID(str)
+    let uuid
+
+    try {
+        uuid = parseUUID(str)
+    }
+    catch (err) {
+        const logger = new EventLogger('Incyclist')
+        logger.logEvent({message:'beautifyUUID error',uuid:str, error:err.message})
+        return str
+    }
     
     const parts = [
         uuid.substring(0,8),

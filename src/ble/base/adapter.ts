@@ -54,7 +54,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     }
 
     async waitForPeripheral() {
-        this.logEvent({message:'waiting for sensor ...'})
+        this.logEvent({message:'waiting for sensor ...',device:this.getName(),interface:this.getInterface()})
         const iface = BleMultiTransportInterfaceFactory.createInstance( this.getInterface() ) as unknown as IBleInterface<any>
         const peripheral = await  iface.waitForPeripheral(this.settings)
 
@@ -145,7 +145,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             return;   
 
         try {
-            this.logEvent( {message:'refreshDeviceData',data:this.deviceData, isControllable:this.isControllable()})        
+            this.logEvent( {message:'refreshDeviceData',device:this.getName(),interface:this.getInterface(), data:this.deviceData, isControllable:this.isControllable()})        
         
             if (this.isControllable()) {
                 
@@ -164,7 +164,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             this.emitData(this.data)
         }
         catch(err) {
-            this.logEvent({message:'error', fn:'refreshDeviceData', error:err.message, stack:err.stack})
+            this.logEvent({message:'error', fn:'refreshDeviceData',device:this.getName(),interface:this.getInterface(), error:err.message, stack:err.stack})
         }
 
 
@@ -180,7 +180,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             if (!this.canEmitData())
                 return;       
     
-            this.logEvent( {message:'onDeviceData',data:deviceData, isControllable:this.isControllable()})        
+            this.logEvent( {message:'onDeviceData',device:this.getName(),interface:this.getInterface(),data:deviceData, isControllable:this.isControllable()})        
     
             if (this.isControllable()) {
                 
@@ -200,7 +200,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     
         }
         catch(err) {
-            this.logEvent({message:'Error',fn:'onDeviceData', error:err.message,stack:err.stack})
+            this.logEvent({message:'Error',fn:'onDeviceData', device:this.getName(),interface:this.getInterface(),error:err.message,stack:err.stack})
         }
    
     }
@@ -309,12 +309,12 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             timeout:startupTimeout
         })
 
-        this.logEvent({ message: 'wait for sensor data', device:this.getName() });
+        this.logEvent({ message: 'wait for sensor data', device:this.getName(),interface:this.getInterface()});
         const hasData = await waitTask.run();       
         clearInterval(iv)
 
         if (hasData)
-            this.logEvent({ message: 'sensor data received', device:this.getName() });
+            this.logEvent({ message: 'sensor data received', device:this.getName(),interface:this.getInterface() });
     }
 
     protected checkCapabilities() {
@@ -338,27 +338,27 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         }
 
         if (preCheckResult==='connection-failed') {            
-            this.logEvent({message: 'start result: error', error: 'could not start device, reason:could not connect', protocol:this.getProtocolName()})
+            this.logEvent({message: 'start result: error', error: 'could not start device, reason:could not connect',device:this.getName(),interface:this.getInterface(), protocol:this.getProtocolName()})
             await resolveNextTick()
             return false
         }
         
-        this.logEvent( {message:'starting device', device:this.getName(), props, isStarted: this.started})
+        this.logEvent( {message:'starting device', device:this.getName(), interface:this.getInterface(), props, isStarted: this.started})
 
 
         try {
 
             const connected = await this.startSensor();
             if (connected) {
-                this.logEvent({ message: 'peripheral connected', device:this.getName(),props });                                
+                this.logEvent({ message: 'peripheral connected', device:this.getName(), interface:this.getInterface(),props });                                
             }
             else {
-                this.logEvent({ message: 'peripheral connection failed', device:this.getName(), reason:'unknown', props });    
+                this.logEvent({ message: 'peripheral connection failed', device:this.getName(), interface:this.getInterface(), reason:'unknown', props });    
                 return false
             }
 
             await this.waitForInitialData(timeout)
-            await this.checkCapabilities()        
+            this.checkCapabilities()        
             if ( this.hasCapability( IncyclistCapability.Control ) )
                 await this.initControl(startProps)
                    
@@ -373,7 +373,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             return true;
         }
         catch(err) {
-            this.logEvent({message: 'start result: error', error: err.message, protocol:this.getProtocolName()})
+            this.logEvent({message: 'start result: error', error: err.message,device:this.getName(),interface:this.getInterface(), protocol:this.getProtocolName()})
             return false
         }
     }
@@ -395,7 +395,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     }
 
     async stop(): Promise<boolean> { 
-        this.logEvent( {message:'stopping device', device:this.getName()})
+        this.logEvent( {message:'stopping device', device:this.getName(),interface:this.getInterface()})
 
         if (this.isStarting()) {
             await this.startTask.stop()
@@ -404,7 +404,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         let reason:string = 'unknown';
         let stopped = false
         if (!this.getComms()) {
-            this.logEvent( {message:'device stopped - not started yet', device:this.getName()})    
+            this.logEvent( {message:'device stopped - not started yet', device:this.getName(),interface:this.getInterface()})    
             return true;
         }
         this.getComms().reset();
@@ -415,10 +415,10 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             reason = err.message;
         }
         if (stopped) {
-            this.logEvent( {message:'device stopped', device:this.getName()})    
+            this.logEvent( {message:'device stopped', device:this.getName(),interface:this.getInterface()})    
         }
         else {
-            this.logEvent( {message:'stopping device failed', device:this.getName(), reason})    
+            this.logEvent( {message:'stopping device failed', device:this.getName(),interface:this.getInterface(), reason})    
         }
         
         this.started = false

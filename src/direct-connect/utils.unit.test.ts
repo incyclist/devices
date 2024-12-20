@@ -49,7 +49,9 @@ describe ('utils', () => {
             expect(res).toBe('0000ABCD-0000-2000-8000-00805F9B34FB')
         })
         test('error', () => {
-            expect( ()=>{beautifyUUID('00002AD900001000800000805F9B34')}).toThrow()
+            
+            const res = beautifyUUID('00002AD900001000800000805F9B34')
+            expect(res).toBe('00002AD900001000800000805F9B34')
             
         })
         

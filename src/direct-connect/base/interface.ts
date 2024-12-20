@@ -191,11 +191,11 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
 
             
             this.getBinding().mdns.find( null,( service:MulticastDnsAnnouncement )=>{
-                this.addService( service )  
+                this.addService( service,'unfiltered' )  
 
             } )
             this.getBinding().mdns.find( {type:DC_TYPE},( service:MulticastDnsAnnouncement )=>{
-                this.addService( service )  
+                this.addService( service, DC_TYPE )  
 
             } )
 
@@ -363,7 +363,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
 
 
 
-    protected addService(service:MulticastDnsAnnouncement):void {
+    protected addService(service:MulticastDnsAnnouncement, source?:string):void {
         try {
             service.transport = this.getName();
             
@@ -373,7 +373,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
                 this.services[idx]= {ts:Date.now(),service}
             }
             else {
-                this.logEvent({message:'device announced',device:service.name, announcement:service})
+                this.logEvent({message:'device announced',device:service.name, announcement:service, source})
                 this.services.push( {ts:Date.now(),service})
                 if (service.type!==DC_TYPE && service.serviceUUIDs?.length===0)
                     return;

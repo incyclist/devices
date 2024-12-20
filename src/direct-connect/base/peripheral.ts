@@ -78,88 +78,113 @@ export class DirectConnectPeripheral implements IBlePeripheral {
     }
 
     async discoverServices(): Promise<string[]> {
-
         const seqNo = this.getNextSeqNo()
         const message = new DiscoverServiceMessage()
         const request = message.createRequest(seqNo,{})
+        let response:Buffer
 
         this.logEvent({message:'DiscoverServices request', path:this.getPath(), raw:request.toString('hex') })
 
-        const response:Buffer = await this.send(seqNo, request)
+        try {
+            response = await this.send(seqNo, request)
 
-        const res = message.parseResponse(response)
+            const res = message.parseResponse(response)
 
-        const uuids = res.body.serviceDefinitions.map(s => beautifyUUID(s.serviceUUID))
-        this.logEvent({message:'DiscoverServices response',path:this.getPath(), uuids , raw:request.toString('hex') })
+            const uuids = res.body.serviceDefinitions.map(s => beautifyUUID(s.serviceUUID))
+            this.logEvent({message:'DiscoverServices response',path:this.getPath(), uuids , raw:request.toString('hex') })
 
-        return res.body.serviceDefinitions.map(s => s.serviceUUID)        
+            return res.body.serviceDefinitions.map(s => s.serviceUUID)        
+        }
+        catch(err) {
+            this.logEvent({message:'DiscoverServices failed', path:this.getPath(), raw:response?.toString('hex'), reason:err.message })
+            return []
+        }
     }
     async discoverCharacteristics(serviceUUID: string): Promise<BleCharacteristic[]> {
         const seqNo = this.getNextSeqNo()
         const message = new DiscoverCharacteristicsMessage() 
         const request = message.createRequest(seqNo,{serviceUUID:parseUUID(serviceUUID)})
+        let response:Buffer
 
         this.logEvent({message:'DiscoverCharacteritics request', path:this.getPath(), service:beautifyUUID(serviceUUID), raw:request.toString('hex') })
 
-        const response:Buffer = await this.send(seqNo, request)
+        try {
+            response = await this.send(seqNo, request)
 
-        const res = message.parseResponse(response)
+            const res = message.parseResponse(response)
 
-        const service = beautifyUUID(res.body.serviceUUID)
-        const characteristics = res.body.characteristicDefinitions.map(cd => `${beautifyUUID(cd.characteristicUUID)}:${cd.properties.join('/')}`)
+            const service = beautifyUUID(res.body.serviceUUID)
+            const characteristics = res.body.characteristicDefinitions.map(cd => `${beautifyUUID(cd.characteristicUUID)}:${cd.properties.join('/')}`)
 
-        this.logEvent({message:'DiscoverCharacteritics response',path:this.getPath(), service,characteristics , raw:request.toString('hex') })
+            this.logEvent({message:'DiscoverCharacteritics response',path:this.getPath(), service,characteristics , raw:request.toString('hex') })
 
-        return res.body.characteristicDefinitions.map(c => ({uuid:c.characteristicUUID, properties:c.properties}))
+            return res.body.characteristicDefinitions.map(c => ({uuid:c.characteristicUUID, properties:c.properties}))
+        }
+        catch(err) {
+            this.logEvent({message:'DiscoverCharacteritics failed', path:this.getPath(), raw:response?.toString('hex'), reason:err.message })
+            return []
+        }
     }
     async subscribe(characteristicUUID: string, callback: (characteristicUuid: string, data: Buffer) => void): Promise<boolean> {
         const seqNo = this.getNextSeqNo()
                
         const message = new EnableCharacteristicNotificationsMessage() 
         const request = message.createRequest(seqNo,{characteristicUUID:parseUUID(characteristicUUID),enable:true})
-
+        let response:Buffer
 
         this.logEvent({message:'EnableCharacteristicNotifications request', path:this.getPath(), characteristic:beautifyUUID(characteristicUUID),enabled:true, raw:request.toString('hex') })
 
-        const response:Buffer = await this.send(seqNo, request)
+        try {
+            response = await this.send(seqNo, request)
 
-        const res = message.parseResponse(response)
+            const res = message.parseResponse(response)
 
-        this.logEvent({message:'EnableCharacteristicNotifications response', path:this.getPath(), characteristic:beautifyUUID(res.body.characteristicUUID), raw:request.toString('hex') })
+            this.logEvent({message:'EnableCharacteristicNotifications response', path:this.getPath(), characteristic:beautifyUUID(res.body.characteristicUUID), raw:request.toString('hex') })
 
-        const confirmed =  res.body.characteristicUUID
+            const confirmed =  res.body.characteristicUUID
 
-        if ( parseUUID(confirmed) === parseUUID(characteristicUUID)) {
-            this.subscribed.push(characteristicUUID)
-            this.eventEmitter.on(parseUUID(characteristicUUID), (data)=>{
-                callback(characteristicUUID,data)
-            })
-            return true
+            if ( parseUUID(confirmed) === parseUUID(characteristicUUID)) {
+                this.subscribed.push(characteristicUUID)
+                this.eventEmitter.on(parseUUID(characteristicUUID), (data)=>{
+                    callback(characteristicUUID,data)
+                })
+                return true
+            }
+            return false
         }
-        return false
-
+        catch(err) {
+            this.logEvent({message:'EnableCharacteristicNotifications failed', path:this.getPath(), raw:response?.toString('hex'), reason:err.message })
+            return false
+        }
     }
     async unsubscribe(characteristicUUID: string): Promise<boolean> {
         try {
             const seqNo = this.getNextSeqNo()
             const message = new EnableCharacteristicNotificationsMessage() 
             const request = message.createRequest(seqNo,{characteristicUUID:parseUUID(characteristicUUID),enable:false})
+            let response:Buffer
 
-            this.logEvent({message:'EnableCharacteristicNotifications request', path:this.getPath(), characteristic:beautifyUUID(characteristicUUID),enabled:false, raw:request.toString('hex') })
+            try {
+                this.logEvent({message:'EnableCharacteristicNotifications request', path:this.getPath(), characteristic:beautifyUUID(characteristicUUID),enabled:false, raw:request.toString('hex') })
 
-            const response:Buffer = await this.send(seqNo, request)
+                response = await this.send(seqNo, request)
 
-            const res = message.parseResponse(response)
-            this.logEvent({message:'EnableCharacteristicNotifications response', path:this.getPath(), characteristic:beautifyUUID(res.body.characteristicUUID), raw:request.toString('hex') })
+                const res = message.parseResponse(response)
+                this.logEvent({message:'EnableCharacteristicNotifications response', path:this.getPath(), characteristic:beautifyUUID(res.body.characteristicUUID), raw:request.toString('hex') })
 
-            const confirmed =  res.body.characteristicUUID
+                const confirmed =  res.body.characteristicUUID
 
-            if ( parseUUID(confirmed) === parseUUID(characteristicUUID)) {
-                this.subscribed.splice(this.subscribed.indexOf(characteristicUUID),1)
-                this.eventEmitter.removeAllListeners(parseUUID(characteristicUUID))
-                return true
+                if ( parseUUID(confirmed) === parseUUID(characteristicUUID)) {
+                    this.subscribed.splice(this.subscribed.indexOf(characteristicUUID),1)
+                    this.eventEmitter.removeAllListeners(parseUUID(characteristicUUID))
+                    return true
+                }
+                return false        
             }
-            return false        
+            catch(err) {
+                this.logEvent({message:'EnableCharacteristicNotifications failed', path:this.getPath(), raw:response?.toString('hex'), reason:err.message })
+                return false
+            }
         }
         catch(err) {
             this.logEvent( {messsage:'EnableCharacteristicNotifications failed',reason:err.message})
@@ -177,9 +202,8 @@ export class DirectConnectPeripheral implements IBlePeripheral {
                 this.logEvent({message:'could not discover services',reason:err.message})
             }            
 
-            const res = []
-            for (let i=0; i<services.length; i++) {
-                const service = services[i]
+            for (const element of services) {
+                const service = element
                 let characteristics = []
                 try {
                     characteristics = await this.discoverCharacteristics(service)
@@ -191,13 +215,11 @@ export class DirectConnectPeripheral implements IBlePeripheral {
 
                 if (!characteristics?.length)
                     continue
-                for (let j=0;j<characteristics.length;j++) {         
-                    const characteristic = characteristics[j]
+                for (const element of characteristics) {         
+                    const characteristic = element
                     if ( characteristic.properties.includes('notify'))
                         await this.subscribe(characteristic.uuid, callback)
                 }
-
-
             }
 
             return true
@@ -211,15 +233,15 @@ export class DirectConnectPeripheral implements IBlePeripheral {
     async subscribeSelected(characteristics:string[], callback: (characteristicUuid: string, data: Buffer) => void): Promise<boolean> {
         const retry = []
 
-        for (let i=0;i<characteristics.length;i++) { 
-            const uuid = characteristics[i]           
+        for (const element of characteristics) { 
+            const uuid = element           
             const success = await this.subscribe(uuid, callback)
             if (!success)
                 retry.push(uuid)
         }
 
-        for (let i=0;i<retry.length;i++) {
-            const c = retry[i]
+        for (const element of retry) {
+            const c = element
             await this.subscribe(c.uuid, callback)
         }
         return true
@@ -240,17 +262,23 @@ export class DirectConnectPeripheral implements IBlePeripheral {
         const seqNo = this.getNextSeqNo()
         const message = new ReadCharacteristicMessage() 
         const request = message.createRequest(seqNo,{characteristicUUID:parseUUID(characteristicUUID)})
+        let response:Buffer
 
-        this.logEvent({message:'ReadCharacteristic request', path:this.getPath(), characteristic:beautifyUUID(characteristicUUID), raw:request.toString('hex') })
+        try {
+            this.logEvent({message:'ReadCharacteristic request', path:this.getPath(), characteristic:beautifyUUID(characteristicUUID), raw:request.toString('hex') })
 
-        const response:Buffer = await this.send(seqNo, request)
-        const res = message.parseResponse(response)
-        this.logEvent({message:'ReadCharacteristic response', path:this.getPath(), characteristic:beautifyUUID(res.body.characteristicUUID),
-                data:Buffer.from(res.body.characteristicData).toString('hex'),    
-                raw:request.toString('hex') })
+            response = await this.send(seqNo, request)
+            const res = message.parseResponse(response)
+            this.logEvent({message:'ReadCharacteristic response', path:this.getPath(), characteristic:beautifyUUID(res.body.characteristicUUID),
+                    data:Buffer.from(res.body.characteristicData).toString('hex'),    
+                    raw:request.toString('hex') })
 
-        return Buffer.from(res.body.characteristicData)
-        
+            return Buffer.from(res.body.characteristicData)
+        }
+        catch(err) {
+            this.logEvent({message:'ReadCharacteristic failed', path:this.getPath(), raw:response?.toString('hex'), reason:err.message })
+            return Buffer.from([])
+        }
     }
     async write(characteristicUUID: string, data: Buffer, options?: BleWriteProps): Promise<Buffer> {
         return new Promise( resolve => {
@@ -267,14 +295,19 @@ export class DirectConnectPeripheral implements IBlePeripheral {
             const seqNo = this.getNextSeqNo()
             const message = new WriteCharacteristicMessage()
             const request = message.createRequest(seqNo,{characteristicUUID:parseUUID(characteristicUUID), characteristicData:data})
+            let response:Buffer
+            let characteristic = characteristicUUID
+           
 
             this.logEvent({message:'WriteCharacteristic request', path:this.getPath(), characteristic:beautifyUUID(characteristicUUID), 
                 data:data.toString('hex'),    
                 raw:request.toString('hex') })
 
-            this.send(seqNo, request).then ( (response:Buffer) =>{
+            this.send(seqNo, request).then ( (data:Buffer) =>{
+                response = data
                 const res = message.parseResponse(response)
-                this.logEvent({message:'WriteCharacteristic response', path:this.getPath(), characteristic:beautifyUUID(res.body.characteristicUUID),                
+                characteristic = beautifyUUID(res.body.characteristicUUID)
+                this.logEvent({message:'WriteCharacteristic response', path:this.getPath(), characteristic,                
                     raw:request.toString('hex') })
     
                 if ( options?.withoutResponse ) {
@@ -282,7 +315,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
                 }    
             })
             .catch(err =>{
-                this.logEvent({message:'WriteCharacteristic error', path:this.getPath(), characteristic:beautifyUUID(characteristicUUID),error:err.message})
+                this.logEvent({message:'WriteCharacteristic failed', path:this.getPath(), characteristic,raw:response?.toString('hex'), reason:err.message})
             })
 
 
