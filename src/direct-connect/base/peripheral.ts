@@ -576,11 +576,12 @@ export class DirectConnectPeripheral implements IBlePeripheral {
                     const uuid =parseUUID(notification.body.characteristicUUID)
 
                 this.logEvent({message:'Characteristic notification', path:this.getPath(), characteristic:beautifyUUID(notification.body.characteristicUUID),
-                    data:Buffer.from(notification.body.characteristicData).toString('hex')})
+                    data:Buffer.from(notification.body.characteristicData).toString('hex'), raw:incoming.toString('hex') })
 
                 this.eventEmitter.emit(uuid, notification.body.characteristicData)    
             }
             else {
+                this.logEvent({message:'incoming message', path:this.getPath(), raw:incoming.toString('hex'), header})
                 this.eventEmitter.emit(`response-${header.seqNum}`, incoming)
             }
         }
