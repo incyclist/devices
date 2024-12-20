@@ -1,4 +1,4 @@
-import { DC_ERROR_INVALID_MESSAGE_LENGTH, DC_ERROR_INVALID_MESSAGE_TYPE } from "../consts";
+import { DC_ERROR_INVALID_MESSAGE_LENGTH, DC_ERROR_INVALID_MESSAGE_TYPE, DC_RC_CHARACTERISTIC_NOT_FOUND, DC_RC_CHARACTERISTIC_OPERATION_NOT_SUPPORTED, DC_RC_CHARACTERISTIC_WRITE_FAILED_INVALID_SIZE, DC_RC_REQUEST_COMPLETED_SUCCESSFULLY, DC_RC_SERVICE_NOT_FOUND, DC_RC_UNEXPECTED_ERROR, DC_RC_UNKNOWN_MESSAGE_TYPE, DC_RC_UNKNOWN_PROTOCOL_VERSION } from "../consts";
 import { TDCBody, TDCMessageHeader, TDCRequest, TDCResponse } from "../types";
 import { IllegalMessageError } from "./error";
 
@@ -127,3 +127,18 @@ export const  parseHeader  = (buffer:Buffer):TDCMessageHeader => {
     return { msgVersion, msgId, seqNum, respCode, length }
 }
 
+export const RC  = (code):string => {
+    switch (code) {
+        case DC_RC_REQUEST_COMPLETED_SUCCESSFULLY: return 'success';
+        case DC_RC_UNKNOWN_MESSAGE_TYPE: return 'Unknown Message Type'
+        case DC_RC_UNEXPECTED_ERROR: return 'Unexpected Error'
+        case DC_RC_SERVICE_NOT_FOUND: return 'Service Not Found'
+        case DC_RC_CHARACTERISTIC_NOT_FOUND: return 'Characteristic Not Found'
+        case DC_RC_CHARACTERISTIC_OPERATION_NOT_SUPPORTED: return 'Characteristic Operation Not Supported'
+        case DC_RC_CHARACTERISTIC_WRITE_FAILED_INVALID_SIZE: return 'Characteristic Write Failed'
+        case DC_RC_UNKNOWN_PROTOCOL_VERSION: return 'Unknown Protocol Version'
+        default: 
+            return `Unknown (${code})`
+    }
+    
+}

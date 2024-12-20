@@ -2,9 +2,9 @@ import { BleCharacteristic, BleService, BleWriteProps, IBlePeripheral, } from ".
 import { DirectConnectBinding, MulticastDnsAnnouncement, Socket } from "../bindings";
 import { InteruptableTask, TaskState } from "../../utils/task";
 import DirectConnectInterface from "./interface";
-import { CharacteristicNotificationMessage, DiscoverCharacteristicsMessage, DiscoverServiceMessage, EnableCharacteristicNotificationsMessage, parseHeader, ReadCharacteristicMessage, WriteCharacteristicMessage } from "../messages";
+import { CharacteristicNotificationMessage, DiscoverCharacteristicsMessage, DiscoverServiceMessage, EnableCharacteristicNotificationsMessage, parseHeader, RC, ReadCharacteristicMessage, WriteCharacteristicMessage } from "../messages";
 import EventEmitter from "events";
-import { DC_MESSAGE_CHARACTERISTIC_NOTIFICATION } from "../consts";
+import { DC_MESSAGE_CHARACTERISTIC_NOTIFICATION, DC_RC_REQUEST_COMPLETED_SUCCESSFULLY } from "../consts";
 import {  beautifyUUID, parseUUID } from "../../ble/utils";
 
 export class DirectConnectPeripheral implements IBlePeripheral {
@@ -91,7 +91,13 @@ export class DirectConnectPeripheral implements IBlePeripheral {
             const res = message.parseResponse(response)
 
             const uuids = res.body.serviceDefinitions.map(s => beautifyUUID(s.serviceUUID))
-            this.logEvent({message:'DiscoverServices response',path:this.getPath(), uuids , raw:response.toString('hex') })
+            const rc = RC(res?.header?.respCode)
+            if (res?.header?.respCode!==DC_RC_REQUEST_COMPLETED_SUCCESSFULLY) {
+                this.logEvent({message:'DiscoverServices failed', path:this.getPath(), raw:response?.toString('hex'), reason:rc })                
+                return []
+            }
+
+            this.logEvent({message:'DiscoverServices response',path:this.getPath(), rc,  uuids , raw:response.toString('hex') })
 
             return res.body.serviceDefinitions.map(s => s.serviceUUID)        
         }
@@ -113,10 +119,16 @@ export class DirectConnectPeripheral implements IBlePeripheral {
 
             const res = message.parseResponse(response)
 
+            const rc = RC(res?.header?.respCode)
+            if (res?.header?.respCode!==DC_RC_REQUEST_COMPLETED_SUCCESSFULLY) {
+                this.logEvent({message:'DiscoverCharacteritics failed', path:this.getPath(), raw:response?.toString('hex'), reason:rc })                
+                return []
+            }
+
             const service = beautifyUUID(res.body.serviceUUID)
             const characteristics = res.body.characteristicDefinitions.map(cd => `${beautifyUUID(cd.characteristicUUID)}:${cd.properties.join('/')}`)
 
-            this.logEvent({message:'DiscoverCharacteritics response',path:this.getPath(), service,characteristics , raw:response.toString('hex') })
+            this.logEvent({message:'DiscoverCharacteritics response',path:this.getPath(), rc,service,characteristics , raw:response.toString('hex') })
 
             return res.body.characteristicDefinitions.map(c => ({uuid:c.characteristicUUID, properties:c.properties}))
         }
@@ -138,8 +150,14 @@ export class DirectConnectPeripheral implements IBlePeripheral {
             response = await this.send(seqNo, request)
 
             const res = message.parseResponse(response)
+            const rc = RC(res?.header?.respCode)
+            if (res?.header?.respCode!==DC_RC_REQUEST_COMPLETED_SUCCESSFULLY) {
+                this.logEvent({message:'EnableCharacteristicNotifications failed', path:this.getPath(), raw:response?.toString('hex'), reason:rc })                
+                return false
+            }
 
-            this.logEvent({message:'EnableCharacteristicNotifications response', path:this.getPath(), characteristic:beautifyUUID(res.body.characteristicUUID), raw:response.toString('hex') })
+
+            this.logEvent({message:'EnableCharacteristicNotifications response', path:this.getPath(), rc, characteristic:beautifyUUID(res.body.characteristicUUID), raw:response.toString('hex') })
 
             const confirmed =  res.body.characteristicUUID
 
@@ -170,7 +188,14 @@ export class DirectConnectPeripheral implements IBlePeripheral {
                 response = await this.send(seqNo, request)
 
                 const res = message.parseResponse(response)
-                this.logEvent({message:'EnableCharacteristicNotifications response', path:this.getPath(), characteristic:beautifyUUID(res.body.characteristicUUID), raw:response.toString('hex') })
+                const rc = RC(res?.header?.respCode)
+                if (res?.header?.respCode!==DC_RC_REQUEST_COMPLETED_SUCCESSFULLY) {
+                    this.logEvent({message:'EnableCharacteristicNotifications failed', path:this.getPath(), raw:response?.toString('hex'), reason:rc })                
+                    return false
+                }
+    
+
+                this.logEvent({message:'EnableCharacteristicNotifications response', path:this.getPath(), rc,characteristic:beautifyUUID(res.body.characteristicUUID), raw:response.toString('hex') })
 
                 const confirmed =  res.body.characteristicUUID
 
@@ -256,13 +281,20 @@ export class DirectConnectPeripheral implements IBlePeripheral {
         }
 
         const retry = []
-        this.logEvent({message:'characteristics supported', requested:characteristics.map(c=>beautifyUUID(c)), supported:supported.map(c=>beautifyUUID(c))})
-        
+        this.logEvent({message:'characteristics supported', requested:characteristics.map(c=>beautifyUUID(c)), supported:supported.map(c=>beautifyUUID(c.uuid))})
+
         for (const element of characteristics) { 
             const uuid = element           
-            const success = await this.subscribe(uuid, callback)
-            if (!success)
-                retry.push(uuid)
+
+            const found = supported.find(c => beautifyUUID(c.uuid) === beautifyUUID(uuid))
+            if (!found) {
+                this.logEvent({message:'characteristic not supported', requested:beautifyUUID(uuid)})
+            }
+            else {
+                const success = await this.subscribe(uuid, callback)
+                if (!success)
+                    retry.push(uuid)    
+            }
         }
 
         for (const element of retry) {
@@ -294,7 +326,14 @@ export class DirectConnectPeripheral implements IBlePeripheral {
 
             response = await this.send(seqNo, request)
             const res = message.parseResponse(response)
-            this.logEvent({message:'ReadCharacteristic response', path:this.getPath(), characteristic:beautifyUUID(res.body.characteristicUUID),
+            const rc = RC(res?.header?.respCode)
+            if (res?.header?.respCode!==DC_RC_REQUEST_COMPLETED_SUCCESSFULLY) {
+                this.logEvent({message:'ReadCharacteristic failed', path:this.getPath(), raw:response?.toString('hex'), reason:rc })                
+                return Buffer.from([])
+            }
+
+
+            this.logEvent({message:'ReadCharacteristic response', path:this.getPath(), rc,characteristic:beautifyUUID(res.body.characteristicUUID),
                     data:Buffer.from(res.body.characteristicData).toString('hex'),    
                     raw:response.toString('hex') })
 
@@ -331,8 +370,15 @@ export class DirectConnectPeripheral implements IBlePeripheral {
             this.send(seqNo, request).then ( (data:Buffer) =>{
                 response = data
                 const res = message.parseResponse(response)
+                const rc = RC(res?.header?.respCode)
+                if (res?.header?.respCode!==DC_RC_REQUEST_COMPLETED_SUCCESSFULLY) {
+                    this.logEvent({message:'WriteCharacteristic failed', path:this.getPath(), raw:response?.toString('hex'), reason:rc })                
+                    resolve(Buffer.from([]))
+                    return 
+                }
+    
                 characteristic = beautifyUUID(res.body.characteristicUUID)
-                this.logEvent({message:'WriteCharacteristic response', path:this.getPath(), characteristic,                
+                this.logEvent({message:'WriteCharacteristic response', path:this.getPath(),rc, characteristic,                
                     raw:response.toString('hex') })
     
                 if ( options?.withoutResponse ) {
@@ -341,6 +387,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
             })
             .catch(err =>{
                 this.logEvent({message:'WriteCharacteristic failed', path:this.getPath(), characteristic,raw:response?.toString('hex'), reason:err.message})
+                resolve(Buffer.from([]))
             })
 
 
