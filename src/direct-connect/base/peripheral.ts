@@ -91,7 +91,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
             const res = message.parseResponse(response)
 
             const uuids = res.body.serviceDefinitions.map(s => beautifyUUID(s.serviceUUID))
-            this.logEvent({message:'DiscoverServices response',path:this.getPath(), uuids , raw:request.toString('hex') })
+            this.logEvent({message:'DiscoverServices response',path:this.getPath(), uuids , raw:response.toString('hex') })
 
             return res.body.serviceDefinitions.map(s => s.serviceUUID)        
         }
@@ -116,7 +116,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
             const service = beautifyUUID(res.body.serviceUUID)
             const characteristics = res.body.characteristicDefinitions.map(cd => `${beautifyUUID(cd.characteristicUUID)}:${cd.properties.join('/')}`)
 
-            this.logEvent({message:'DiscoverCharacteritics response',path:this.getPath(), service,characteristics , raw:request.toString('hex') })
+            this.logEvent({message:'DiscoverCharacteritics response',path:this.getPath(), service,characteristics , raw:response.toString('hex') })
 
             return res.body.characteristicDefinitions.map(c => ({uuid:c.characteristicUUID, properties:c.properties}))
         }
@@ -139,7 +139,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
 
             const res = message.parseResponse(response)
 
-            this.logEvent({message:'EnableCharacteristicNotifications response', path:this.getPath(), characteristic:beautifyUUID(res.body.characteristicUUID), raw:request.toString('hex') })
+            this.logEvent({message:'EnableCharacteristicNotifications response', path:this.getPath(), characteristic:beautifyUUID(res.body.characteristicUUID), raw:response.toString('hex') })
 
             const confirmed =  res.body.characteristicUUID
 
@@ -170,7 +170,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
                 response = await this.send(seqNo, request)
 
                 const res = message.parseResponse(response)
-                this.logEvent({message:'EnableCharacteristicNotifications response', path:this.getPath(), characteristic:beautifyUUID(res.body.characteristicUUID), raw:request.toString('hex') })
+                this.logEvent({message:'EnableCharacteristicNotifications response', path:this.getPath(), characteristic:beautifyUUID(res.body.characteristicUUID), raw:response.toString('hex') })
 
                 const confirmed =  res.body.characteristicUUID
 
@@ -231,8 +231,33 @@ export class DirectConnectPeripheral implements IBlePeripheral {
     }
 
     async subscribeSelected(characteristics:string[], callback: (characteristicUuid: string, data: Buffer) => void): Promise<boolean> {
-        const retry = []
 
+
+        let services = []
+        let supported  = []
+        try {
+            services = await this.discoverServices()
+        }
+        catch(err) {
+            this.logEvent({message:'could not discover services',reason:err.message})
+        }            
+
+        for (const element of services) {
+            const service = element
+            
+            try {
+                const c = await this.discoverCharacteristics(service)
+                supported = supported.concat(c)
+            }
+            catch(err) { 
+                this.logEvent({message:'could not discover characteristics', service,  reason:err.message})
+                return false;
+            }
+        }
+
+        const retry = []
+        this.logEvent({message:'characteristics supported', requested:characteristics.map(c=>beautifyUUID(c)), supported:supported.map(c=>beautifyUUID(c))})
+        
         for (const element of characteristics) { 
             const uuid = element           
             const success = await this.subscribe(uuid, callback)
@@ -271,7 +296,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
             const res = message.parseResponse(response)
             this.logEvent({message:'ReadCharacteristic response', path:this.getPath(), characteristic:beautifyUUID(res.body.characteristicUUID),
                     data:Buffer.from(res.body.characteristicData).toString('hex'),    
-                    raw:request.toString('hex') })
+                    raw:response.toString('hex') })
 
             return Buffer.from(res.body.characteristicData)
         }
@@ -308,7 +333,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
                 const res = message.parseResponse(response)
                 characteristic = beautifyUUID(res.body.characteristicUUID)
                 this.logEvent({message:'WriteCharacteristic response', path:this.getPath(), characteristic,                
-                    raw:request.toString('hex') })
+                    raw:response.toString('hex') })
     
                 if ( options?.withoutResponse ) {
                     resolve (Buffer.from([]))
@@ -534,5 +559,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
     protected getBinding(): DirectConnectBinding {
         return this.getInterface().getBinding()
     }
+    
+    
 
 }
