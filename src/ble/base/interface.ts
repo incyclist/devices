@@ -478,7 +478,10 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
             return
         }
 
-        if (announcement.serviceUUIDs.length === 0){            
+        if (announcement.serviceUUIDs.length === 0){   
+            // TODO: check if we can re-enable
+            return 
+
             if (this.isCompleting(announcement)) {
                 return  
             }
