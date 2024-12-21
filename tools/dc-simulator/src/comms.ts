@@ -41,7 +41,7 @@ export class DirectConnectComms {
 
     write = (respBuffer) => {
         const socket = this.socket
-        console.log( socket.remoteAddress+ "< ",respBuffer.toString('hex'))
+        console.log( socket.remoteAddress+ ":OUT< ",respBuffer.toString('hex'))
         socket.write(respBuffer)
     }
 
@@ -50,7 +50,7 @@ export class DirectConnectComms {
         const socket = this.socket
 
         const buffer = Buffer.from(data )
-        console.log( socket.remoteAddress+ "> ",buffer.toString('hex'))
+        console.log( socket.remoteAddress+ ": IN> ",buffer.toString('hex'))
         
         try {
             const message = DCMessageFactory.createMessage(buffer)
@@ -198,8 +198,13 @@ export class DirectConnectComms {
                         const respBuffer = message.buildResponse(resp)
                         this.write(respBuffer)    
 
+
                         if (response) {
-                            this.notify(characteristicUUID, response)
+                            const uuid = parseUUID(characteristicUUID)
+                            const callback = this.subscibeHandlers[uuid] 
+                            if (callback) {
+                                this.notify(characteristicUUID, response)  
+                            }
                         }
                 
                     })
@@ -234,14 +239,17 @@ export class DirectConnectComms {
                         const callback = characteristicData => {
                             this.notify(characteristicUUID, characteristicData)
                         }
-                        this.subscibeHandlers[characteristicUUID] = callback
+                        const uuid = parseUUID(characteristicUUID)
+                        this.subscibeHandlers[uuid] = callback
                         char.subscribe( callback)                                
                         
                     }
                     else {
-                        const callback = this.subscibeHandlers[characteristicUUID] 
+                        const uuid = parseUUID(characteristicUUID)
+                        const callback = this.subscibeHandlers[uuid] 
+                        
                         // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-                        delete this.subscibeHandlers[characteristicUUID]
+                        delete this.subscibeHandlers[uuid]
                         char.unsubscribe( callback)
                     }
                 }

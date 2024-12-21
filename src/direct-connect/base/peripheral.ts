@@ -137,7 +137,14 @@ export class DirectConnectPeripheral implements IBlePeripheral {
             return []
         }
     }
-    async subscribe(characteristicUUID: string, callback: (characteristicUuid: string, data: Buffer) => void): Promise<boolean> {
+    async subscribe(characteristicUUID: string, callback?: (characteristicUuid: string, data: Buffer) => void): Promise<boolean> {
+
+        // already subscribed? No need to re-send the request
+        const uuid = parseUUID(characteristicUUID)
+        if (this.subscribed.includes(uuid)) {
+            return true
+        }
+
         const seqNo = this.getNextSeqNo()
                
         const message = new EnableCharacteristicNotificationsMessage() 
@@ -162,10 +169,12 @@ export class DirectConnectPeripheral implements IBlePeripheral {
             const confirmed =  res.body.characteristicUUID
 
             if ( parseUUID(confirmed) === parseUUID(characteristicUUID)) {
-                this.subscribed.push(characteristicUUID)
-                this.eventEmitter.on(parseUUID(characteristicUUID), (data)=>{
-                    callback(characteristicUUID,data)
-                })
+                this.subscribed.push(parseUUID(characteristicUUID))
+                if (callback) {
+                    this.eventEmitter.on(parseUUID(characteristicUUID), (data)=>{
+                        callback(characteristicUUID,data)
+                    })
+                }
                 return true
             }
             return false
@@ -200,7 +209,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
                 const confirmed =  res.body.characteristicUUID
 
                 if ( parseUUID(confirmed) === parseUUID(characteristicUUID)) {
-                    this.subscribed.splice(this.subscribed.indexOf(characteristicUUID),1)
+                    this.subscribed.splice(this.subscribed.indexOf(parseUUID(characteristicUUID)),1)
                     this.eventEmitter.removeAllListeners(parseUUID(characteristicUUID))
                     return true
                 }
@@ -308,7 +317,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
     async unsubscribeAll():Promise<boolean> {
         const promises = []
         this.subscribed.forEach(characteristicUUID => {
-            promises.push(this.unsubscribe(characteristicUUID))
+            promises.push(this.unsubscribe(parseUUID(characteristicUUID)))
         })
 
         await Promise.allSettled(promises)
@@ -347,21 +356,20 @@ export class DirectConnectPeripheral implements IBlePeripheral {
     async write(characteristicUUID: string, data: Buffer, options?: BleWriteProps): Promise<Buffer> {
         return new Promise( resolve => {
 
-            if ( !options?.withoutResponse ) {
-
-                const uuid = parseUUID(characteristicUUID)
-                this.eventEmitter.once(uuid, (data)=>{
-                    resolve(data)
-                })
-    
-            }
-
             const seqNo = this.getNextSeqNo()
             const message = new WriteCharacteristicMessage()
             const request = message.createRequest(seqNo,{characteristicUUID:parseUUID(characteristicUUID), characteristicData:data})
             let response:Buffer
             let characteristic = characteristicUUID
-           
+
+
+            if ( !options?.withoutResponse ) {                
+                this.subscribe(characteristicUUID)
+                const uuid = parseUUID(characteristicUUID)
+                this.eventEmitter.once(uuid, (data)=>{
+                    resolve(data)
+                })
+            }    
 
             this.logEvent({message:'WriteCharacteristic request', path:this.getPath(), characteristic:beautifyUUID(characteristicUUID), 
                 data:data.toString('hex'),    

@@ -43,20 +43,20 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     }
 
     async connect():Promise<boolean> { 
-        const iface = BleMultiTransportInterfaceFactory.createInstance( this.getInterface() )
-        return await iface.connect()
+        const ble = this.getBle()
+        return await ble.connect()
     }
 
     getPeripheral() {
-        const iface = BleMultiTransportInterfaceFactory.createInstance( this.getInterface() ) as unknown as IBleInterface<any>
-        const p =  iface?.createPeripheralFromSettings(this.settings)
+        const ble = this.getBle() 
+        const p =  ble?.createPeripheralFromSettings(this.settings)
         return p
     }
 
     async waitForPeripheral() {
         this.logEvent({message:'waiting for sensor ...',device:this.getName(),interface:this.getInterface()})
-        const iface = BleMultiTransportInterfaceFactory.createInstance( this.getInterface() ) as unknown as IBleInterface<any>
-        const peripheral = await  iface.waitForPeripheral(this.settings)
+        const ble = this.getBle()
+        const peripheral = await  ble.waitForPeripheral(this.settings)
 
         this.updateSensor(peripheral)
         
@@ -328,7 +328,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     protected async startAdapter( startProps?: BleStartProperties ): Promise<boolean> {
 
         const props = this.getStartProps(startProps)
-        const {timeout=this.getDefaultStartupTimeout()} = startProps
+        const {timeout=this.getDefaultStartupTimeout()} = startProps??{}
         const wasPaused = this.paused
 
         const preCheckResult = await this.startPreChecks(props)
@@ -429,20 +429,26 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     async pause(): Promise<boolean> {
         const res = await super.pause()
 
-        const iface = BleMultiTransportInterfaceFactory.createInstance( this.getInterface() )
-        iface.pauseLogging()
+        const ble = this.getBle()
+        ble.pauseLogging()
 
         return res;
     }
 
     async resume(): Promise<boolean> {
 
-        const iface = BleMultiTransportInterfaceFactory.createInstance( this.getInterface() )
-        iface.resumeLogging()
+        const ble = this.getBle()
+        ble.resumeLogging()
 
         const res = await super.resume()
         return res;
     }
+
+
+    protected getBle():IBleInterface<any> {
+        return BleMultiTransportInterfaceFactory.createInstance( this.getInterface() )
+
+    } 
 
 
 
