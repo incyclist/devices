@@ -38,6 +38,7 @@ export class InteruptableTask<T extends TaskState, P > {
     protected props?:TaskProps<T,P>
     protected internalEvents = new EventEmitter()
     protected promise?:Promise<P>
+    protected onStopNotifiers: Array<()=>void> = []
 
     constructor(promise:Promise<any>, props?:TaskProps<T,P>   ) { 
         this.state = (props?.state??{}) as T;
@@ -62,6 +63,9 @@ export class InteruptableTask<T extends TaskState, P > {
         return this.internalState.promise;
     }
 
+    notifyOnStop(cb:()=>void) {
+        this.onStopNotifiers.push(cb)        
+    }
 
     start():void {
 
@@ -90,8 +94,12 @@ export class InteruptableTask<T extends TaskState, P > {
     
                 this.internalEvents.removeAllListeners();
 
+                this.sendStopNotification()
+
                 if (this.getState().result==='completed' || this.getState().result==='error') 
                     return;
+
+
 
                 if (this.props.onDone)
                     resolve(this.props.onDone(this.getState()))
@@ -173,6 +181,13 @@ export class InteruptableTask<T extends TaskState, P > {
         else 
             resolve(null)
 
+    }
+
+    protected sendStopNotification() {
+        this.onStopNotifiers.forEach( (cb) => {
+            if (typeof cb === 'function')
+                cb()
+        })
     }
 
     protected logEvent(event:any) {

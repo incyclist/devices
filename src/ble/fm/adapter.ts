@@ -10,13 +10,14 @@ import { cRR, cwABike } from './consts';
 import { BleDeviceProperties, BleDeviceSettings, BleStartProperties, IBlePeripheral } from '../types';
 import { IAdapter,IncyclistCapability,IncyclistAdapterData,IncyclistBikeData } from '../../types';
 import { LegacyProfile } from '../../antv2/types';
-import { InteruptableTask } from '../../utils/task';
+import { sleep } from '../../utils/utils';
 
 export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMachineDevice> {
     protected static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Smart Trainer'
 
-    distanceInternal: number = 0;
-    connectPromise: Promise<boolean>
+    protected distanceInternal: number = 0;
+    protected connectPromise: Promise<boolean>
+    protected requestControlRetryDelay = 1000
 
     constructor( settings:BleDeviceSettings, props?:BleDeviceProperties) {
         super(settings,props);
@@ -145,6 +146,9 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         
     
     protected async initControl(_startProps?:BleStartProperties) {
+        if (!this.isStarting())
+            return;
+
         this.setConstants();
 
         await this.establishControl();
@@ -172,46 +176,37 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         if (!this.isStarting())
             return false
 
-        let waitTask;
-        let iv;
+        let hasControl = false
+        let tryCnt = 0;
+        
         const sensor = this.getComms();
 
-        const wait = ():Promise<boolean> =>{
-            const res = new Promise<boolean>( (resolve) => {
-                iv = setInterval( async ()=> { 
-                    if ( !this.isStarting() || !waitTask?.isRunning) {
-                        resolve(false)
-                        clearInterval(iv)
-                        return;
-                    }
+        return new Promise<boolean>( (resolve) =>{
 
-                    const hasControl = await sensor.requestControl();
 
-                    if (hasControl) {                        
-                        clearInterval(iv)
-                        resolve(true)
-                    }
-                    else if ( !this.isStarting() || !waitTask?.isRunning) {
-                        resolve(false)
-                        clearInterval(iv)
-                    }
-                }, 1000)    
-
+            this.startTask.notifyOnStop(() => {
+                resolve(false)
             })
-            return res;
-        }
 
-        waitTask = new InteruptableTask( wait(), {
-            errorOnTimeout:false,
-            timeout:10000
+            const waitUntilControl = async ()=>{
+                while (!hasControl && this.isStarting()) {
+                    if (tryCnt++ === 0) {
+                        this.logEvent( {message:'requesting control', device:this.getName(), interface:this.getInterface()})
+                    }
+                    hasControl = await sensor.requestControl();    
+                    if (hasControl) {                        
+                        this.logEvent( {message:'control granted', device:this.getName(), interface:this.getInterface()})
+                        resolve( this.isStarting() )
+                    }
+                    else {
+                        await sleep(this.requestControlRetryDelay)
+                    }
+                }
+    
+            }
+            waitUntilControl()                
         })
 
-
-        const hasControl = await waitTask.run();       
-        clearInterval(iv)
-
-        if (!hasControl && this.isStarting())  
-            throw new Error('could not establish control');
     }
 
     protected async sendInitialRequest() {
@@ -252,7 +247,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
             const update = this.getCyclingMode().sendBikeUpdate(request)
             this.logEvent({message: 'send bike update requested',profile:this.getProfile(), update, request})
 
-            const device = this.device
+            const device = this.getComms()
 
             if (update.slope!==undefined) {
                 await device.setSlope(update.slope)

@@ -20,7 +20,7 @@ export class DirectConnectComms {
     protected services:Service[]
     protected lastMessageId = 0
     protected subscibeHandlers: Record<string, (data: Buffer) => void> = {}
-
+    
 
     constructor(socket:Socket,services:Service[]) {
 
@@ -34,12 +34,21 @@ export class DirectConnectComms {
             
         })
         socket.on('connect',()=>{console.log('connected: ',socket.remoteAddress)})
-        socket.on('close',()=>{console.log('closed',socket.remoteAddress)})
+        socket.on('close',()=>{
+            console.log('closed',socket.remoteAddress)
+            socket.removeAllListeners()
+            socket.destroy()
+            this.subscibeHandlers = {}
+            delete this.socket
+        })
         socket.on('ready',()=>{console.log('ready')})
         socket.on('connectionAttempt',()=>{console.log('connectionAttempt')})    
     }
 
     write = (respBuffer) => {
+        if (!this.socket)
+            return;
+
         const socket = this.socket
         console.log( socket.remoteAddress+ ":OUT< ",respBuffer.toString('hex'))
         socket.write(respBuffer)

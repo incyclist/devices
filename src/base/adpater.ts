@@ -133,6 +133,10 @@ export default class IncyclistDevice<P extends DeviceProperties>
     connect():Promise<boolean> { throw new Error('not implemented') }
     close():Promise<boolean> { throw new Error('not implemented') }
 
+    resetData():void {
+        delete this.lastUpdate
+    }
+
 
     // --------------------------------------------------------
     // Sensor interface

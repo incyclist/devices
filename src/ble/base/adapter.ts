@@ -103,6 +103,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     }
 
     resetData() {
+        super.resetData()
         this.dataMsgCount = 0;        
         this.deviceData = {} as TDeviceData
         this.data= {}
@@ -234,17 +235,15 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     }
 
     async startPreChecks(props:BleStartProperties):Promise< 'done' | 'connected' | 'connection-failed' > {
+
         const wasPaused = this.paused 
         const wasStopped = this.stopped;
-       
+
         this.stopped = false;
         if (wasPaused)
             this.resume()
 
-        if (this.started && !wasPaused && !wasStopped) {
-            return 'done';
-        }
-        if (this.started && wasPaused ) { 
+        if (this.started && !wasStopped) {
             return 'done';
         }
        
@@ -334,6 +333,8 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         const preCheckResult = await this.startPreChecks(props)
         if (preCheckResult==='done') {
             await resolveNextTick()
+
+            this.logEvent({message: `start result: ${this.started? 'success':'failed'}`, preCheckResult ,device:this.getName(),interface:this.getInterface(), protocol:this.getProtocolName()}) 
             return this.started
         }
 
@@ -347,6 +348,8 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
 
 
         try {
+            this.resetData(); 
+            this.stopped = false;     
 
             const connected = await this.startSensor();
             if (connected) {
@@ -354,15 +357,15 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             }
             else {
                 this.logEvent({ message: 'peripheral connection failed', device:this.getName(), interface:this.getInterface(), reason:'unknown', props });    
+                this.stopped = true;
                 return false
             }
 
             await this.waitForInitialData(timeout)
             this.checkCapabilities()        
-            if ( this.hasCapability( IncyclistCapability.Control ) )
+            if ( this.hasCapability( IncyclistCapability.Control) )
                 await this.initControl(startProps)
                    
-            this.resetData();      
 
             this.stopped = false;    
             this.started = true;
@@ -370,10 +373,19 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             if (wasPaused)
                 this.resume()                
 
+            if (!this.isStarting()) {
+                this.started = false;
+                this.stopped = true;
+                return false
+            }
+
+            this.logEvent({message: 'start result: success', device:this.getName(),interface:this.getInterface(), protocol:this.getProtocolName()})            
             return true;
         }
         catch(err) {
             this.logEvent({message: 'start result: error', error: err.message,device:this.getName(),interface:this.getInterface(), protocol:this.getProtocolName()})
+            this.started = false;
+            this.stopped = true;        
             return false
         }
     }
@@ -400,6 +412,10 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         if (this.isStarting()) {
             await this.startTask.stop()
         }
+
+        // make sure that we restart upon next start() call, even if the stop fails
+        this.started = false;
+        this.resetData()
         
         let reason:string = 'unknown';
         let stopped = false
@@ -420,10 +436,11 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         else {
             this.logEvent( {message:'stopping device failed', device:this.getName(),interface:this.getInterface(), reason})    
         }
-        
-        this.started = false
+
+        this.resetData()        
         this.stopped = true
-        return stopped        
+        this.started = false
+        return stopped
     }
 
     async pause(): Promise<boolean> {

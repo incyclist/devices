@@ -60,6 +60,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
             await this.stopConnection()
             
             delete this.socket
+
         }
         catch(err) {
             return false
@@ -409,11 +410,10 @@ export class DirectConnectPeripheral implements IBlePeripheral {
         
         const {address,port}  = this.announcement
         
-
         try {
             const net = this.getBinding().net
+
             this.socket = net.createSocket()
-            
             return new Promise((resolve, reject) => {
                 //socket.setTimeout(options.timeout||DEFAULT_TIMEOUT)
 
@@ -475,13 +475,11 @@ export class DirectConnectPeripheral implements IBlePeripheral {
 
 
     protected async stopConnection():Promise<boolean> {
-
         this.eventEmitter.removeAllListeners()
 
         if (!this.isConnected())
             return true;
 
-    
         await this.unsubscribeAll()
         // remove all old listeners
         this.socket.removeAllListeners()
