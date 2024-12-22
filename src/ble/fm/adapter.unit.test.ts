@@ -1,3 +1,4 @@
+import { sleep } from '../../utils/utils'
 import { IBleInterface } from '../types'
 import BleFmAdapter from './adapter'
 import BleFitnessMachineDevice from './sensor'
@@ -112,6 +113,22 @@ describe('BleFmAdapter',()=>{
 
             await adapter.start({timeout:200})
             expect(adapter.started).toBeFalsy()
+        })
+
+        test('stop during start',async ()=>{
+            sensor.requestControl= jest.fn()
+            setupMocks(adapter)
+
+            const establishControl = jest.spyOn(adapter as any,'establishControl')
+            const waitForData = jest.spyOn(adapter as any,'waitForInitialData')
+            adapter.start()
+            await sleep(100)
+            await adapter.stop()
+
+            expect(adapter.started).toBeFalsy()
+            expect(waitForData).toHaveBeenCalled()
+            expect(establishControl).not.toHaveBeenCalled()
+            
         })
 
 

@@ -549,7 +549,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
         if (incoming.length>header.length+6) {
             this.remainingBuffer = Buffer.from(incoming.subarray(header.length+6))
 
-            incoming = incoming.subarray(0, header.length+6)
+            incoming = Buffer.from(incoming.subarray(0, header.length+6))
         }
 
         return incoming
@@ -587,7 +587,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
                 this.eventEmitter.emit(uuid, notification.body.characteristicData)    
             }
             else {
-                this.logEvent({message:'incoming message', path:this.getPath(), raw:incoming.toString('hex'), header})
+                //this.logEvent({message:'incoming message', path:this.getPath(), raw:incoming.toString('hex'), header})
                 this.eventEmitter.emit(`response-${header.seqNum}`, incoming)
             }
         }
