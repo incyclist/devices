@@ -10,10 +10,10 @@ import { HeartRateService } from './services/hrs.js';
 
 const DEFAULT_FREQUENCY = 250;  // 250ms = 4Hz
 
-interface Options {
+export interface EmulatorOptions {
   name?: string;
   frequency?: number;
-  disableCps?: boolean;
+  uuids?: string[]
 }
 
 interface DataUpdate  {
@@ -37,22 +37,26 @@ export class Emulator extends EventEmitter {
   heartrate = 0;
   frequency = DEFAULT_FREQUENCY;
 
-  constructor(options: Options={}) {
+  constructor(options: EmulatorOptions={}) {
     super();
 
+    const {frequency=DEFAULT_FREQUENCY, uuids=[]} = options??{}
     
-    this.frequency = options.frequency || DEFAULT_FREQUENCY;
+    this.frequency = frequency
     this.name = options.name ?? "Emulator";
 
 
-    this.hrs = new HeartRateService();
-    this.csp = options.disableCps ? null : new CyclingPowerService();
-    this.ftms = new FitnessMachineService();
+    this.hrs = uuids.includes('180D') ? new HeartRateService() : null;
+    this.csp = uuids.includes('1818') ? new CyclingPowerService() : null;
+    this.ftms = uuids.includes('1826') ? new FitnessMachineService() : null;
 
     this.last_timestamp = 0;
     this.rev_count = 0;
   }
 
+  setName(name:string) {
+    this.name = name
+  }
   getServices():Service[] {
     return [this.ftms, this.csp, this.hrs].filter(s => s !== null);
   }
@@ -72,13 +76,13 @@ export class Emulator extends EventEmitter {
             rev_count: this.rev_count
         })
 
-        this.ftms.indoorBikeData.update({
+        this.ftms?.indoorBikeData.update({
             watts: this.power,
             cadence: this.cadence,
             heart_rate: this.heartrate
         })
 
-        this.hrs.heartRateMeasurement.update({
+        this.hrs?.heartRateMeasurement.update({
             heart_rate: this.heartrate
         })
 

@@ -1,11 +1,11 @@
 {
-    "addresses":["192.168.8.106"],
+    "addresses":["192.168.1.1"],
     "subtypes":[],
-    "name":"KICKR BIKE SHIFT A8E6",
-    "fqdn":"KICKR BIKE SHIFT A8E6._wahoo-fitness-tnp._tcp.local",
-    "host":"KICKR-BIKE-SHIFT-A8E6.local",
+    "name":"DCSIM PWR",
+    "fqdn":"DCSIM PWR._wahoo-fitness-tnp._tcp.local",
+    "host":"DCSIM PWR.local",
     "referer":{
-      "address":"192.168.8.106",
+      "address":"192.168.1.1",
       "family":"IPv4",
       "port":5353,
       "size":433},
@@ -20,7 +20,7 @@
       {"type":"Buffer","data":[115,101,114,105,97,108,45,110,117,109,98,101,114,61,50,51,52,51,48,48,50,51,56]}
     ],
     "txt":{
-      "ble-service-uuids":"0x1818,0x1826,0x180D",
+      "ble-service-uuids":"0x1818",
       "mac-address":"EC-DA-3B-1C-F9-EC",
       "serial-number":"234300238"
     } 
