@@ -100,6 +100,7 @@ export class InteruptableTask<T extends TaskState, P > {
                     return;
 
 
+                this.getState().result = 'stopped'
 
                 if (this.props.onDone)
                     resolve(this.props.onDone(this.getState()))

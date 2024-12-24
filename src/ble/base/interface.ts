@@ -5,7 +5,7 @@ import { BleBinding,  BleDeviceSettings,  BleInterfaceState,  BlePeripheralAnnou
 import { IBleInterface } from '../../ble/types';
 import { InteruptableTask, TaskState } from "../../utils/task";
 import { BlePeripheral } from "./peripheral";
-import { getPeripheralInfo, parseUUID } from "../utils";
+import { beautifyUUID, getPeripheralInfo, parseUUID } from "../utils";
 import { InterfaceFactory } from "./types";
 import { BleAdapterFactory } from "../factories";
 import { TBleSensor } from "./sensor";
@@ -58,6 +58,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     protected onDiscovered: (peripheral:BlePeripheralInfo)=>void   
     protected instanceId: number
     protected connectedPeripherals: IBlePeripheral[] = []
+    protected connectAttemptCnt:number = 0;
 
     static getInstance(props:InterfaceProps={}): BleInterface {
         if (BleInterface._instance===undefined)
@@ -164,38 +165,35 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
      * @returns {Promise<boolean>} Whether the connection was successful.
      */
     async connect(reconnect?:boolean): Promise<boolean> {
-
         if (!this.getBinding()) {
             this.logEvent({message:'BLE not available'})
             return false;
         }
 
         if (this.isConnecting()) {
-            this.logEvent({message:'connect - already connecting'})
+            this.logEvent({message:'BLE connect - already connecting'})
             return this.connectTask.getPromise()
         }
 
         if (this.isConnected())
             return true
 
-        this.logEvent({message:'Ble connect request'});
+        this.logEvent({message:'BLE connect request'});
 
         this.connectTask = new InteruptableTask( this.connectBle(), {
-            timeout:BLE_DEFAULT_CONNECT_TIMEOUT,
-            name:'connect',
+            timeout:this.getConnectTimeout(),
+            name:'BLE connect',
             errorOnTimeout:false,
             log: this.logEvent.bind(this),
         })
 
-        const success = await  this.connectTask.run()
-        if (success) {
+        const success = await  this.connectTask.run().catch(()=>false)
+        if (success) {            
             this.startPeripheralScan()
         }
 
-        this.expectedServices = BleAdapterFactory.getInstance('ble').getAllSupportedServices()
         return success;
     }
-
 
 
     /**
@@ -211,7 +209,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         
         this.logEvent({message:'disconnect request'});
 
-        // stop dervice discovery
+        // stop peripheral discovery
         await this.stopPeripheralScan()
 
         // disconnect all peripherals
@@ -220,9 +218,11 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         this.connectedPeripherals = []
 
         // stop interface
-        await this.connectTask.stop()
+        if (this.isConnecting())
+            await this.connectTask?.stop()
 
         this.getBinding().removeAllListeners()
+        this.connectAttemptCnt = 0
 
         return true        
     }
@@ -232,7 +232,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     * @returns {boolean} Whether the interface is connected.
     */
     isConnected(): boolean {
-        return this.getBinding()?.state === 'poweredOn'
+        return this.connectAttemptCnt>0 && this.getBinding()?.state === 'poweredOn'
     }
 
     registerConnected(peripheral: IBlePeripheral) {
@@ -366,7 +366,8 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     }
 
     protected async startPeripheralScan(retry:boolean=false):Promise<void> {
-
+        this.expectedServices = this.getExpectedServices()
+        
         if (!retry)
             this.logEvent({message:'starting peripheral discovery ...'})
         
@@ -400,12 +401,15 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
             return;
 
         this.logEvent({message:'stopping peripheral discovery ...'})
-        this.discoverTask.stop()
 
-        this.getBinding().off('discover',this.onDiscovered )
+        this.discoverTask.stop()
+        
+
+        const ble = this.getBinding()
+        ble.off('discover',this.onDiscovered )
 
         return new Promise( done =>{            
-            this.getBinding().stopScanning( ()=>{
+            ble.stopScanning( ()=>{
                 done()
             })       
         })
@@ -460,6 +464,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     }
 
     protected onPeripheralFound(peripheral:BleRawPeripheral) {
+        
         if (!this.isConnected() || !this.isDiscovering())
             return;
 
@@ -469,8 +474,6 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
             return;            
         }
 
-        // some devices (especially Tacx) don't advertise their supported services
-        // we need to request them explicitely from the device
         const device = {...announcement}
         delete device.peripheral
 
@@ -478,34 +481,51 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
             return
         }
 
-        if (announcement.serviceUUIDs.length === 0){   
-            // TODO: check if we can re-enable
+        // some devices (especially Tacx) don't advertise their supported services
+        // we need to request them explicitely from the device
+        // this is currently deactivated, assuming that upon re-advertisement at some point the services would be announced
+        if (announcement.serviceUUIDs.length === 0){               
             return 
+        }
 
-            if (this.isCompleting(announcement)) {
-                return  
-            }
-       
-            this.addCompleting(announcement)
-            setTimeout( ()=>{
-                if (this.find(announcement)) {
-                    this.removeCompleting(announcement)
-                    return;
-                }
-
-                this.updateWithServices(announcement)
-                .then( ()=>{
-                    if (this.isSupportedPeripheral(announcement))
-                        this.addService(announcement)
-
-                })
-
-            }, 1000)
-
+        // wahoo has a special enhancement, which is not advertised
+        // we need to explcitly check if this peripheral has this enhancement
+        // to do so, we need to stop the scan, request the services and restart scan
+        const isWahoo = this.checkForWahooEnhancement(announcement)
+        if (isWahoo) {
+            this.processWahooAnnouncement(announcement)
+            return
         }
 
         this.addService(announcement)
-   }
+    }
+
+    protected checkForWahooEnhancement(announcement:BlePeripheralAnnouncement):boolean {
+
+        if (announcement.name.includes('KICKR')) {
+            const supported = announcement.serviceUUIDs.map( s=> beautifyUUID(s))
+            if (supported.length===1 && supported[0]==='1818')
+                return true
+            
+        }
+        return false
+    }
+
+    protected processWahooAnnouncement(announcement:BlePeripheralAnnouncement) {
+
+        if (this.isCompleting(announcement)) {
+            return  
+        }
+    
+        this.updateWithServices(announcement)
+        .then( ()=>{
+            if (this.isSupportedPeripheral(announcement))
+                this.addService(announcement)
+
+        })
+
+        
+    }
 
 
     protected buildAnnouncement(peripheral:BleRawPeripheral):BlePeripheralAnnouncement {
@@ -574,7 +594,6 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
                 announcement.serviceUUIDs = res.services.map(s=>s.uuid)
             }
 
-            peripheral.removeAllListeners()
 
             
             
@@ -582,6 +601,9 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         catch(err) {
             this.logEvent({message:'discover services failed',reason:err.message,device})       
         } 
+
+
+        peripheral?.removeAllListeners()
 
         if (paused) {
             await this.resumeDiscovery()
@@ -736,8 +758,11 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
 
     protected async connectBle():Promise<boolean> {
+        this.connectAttemptCnt++;
+
         const state = this.getBinding().state
         if(state === 'poweredOn' ) {
+            this.logEvent({message:'BLE connected'})
             return true;
         }
         const res = await this.waitForBleConnected()
@@ -755,7 +780,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
             this.getBinding().on('stateChange', (state:BleInterfaceState) => {
                 if(state === 'poweredOn'){
-                    this.logEvent({message:'Ble connect result: success'});
+                    this.logEvent({message:'BLE connected'});
 
                     this.getBinding().removeAllListeners('stateChange')
                     this.getBinding().on('stateChange', this.onBleStateChange.bind(this))
@@ -780,6 +805,13 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         return BleAdapterFactory.getInstance('ble')
     }
 
+    protected getConnectTimeout():number {
+        return BLE_DEFAULT_CONNECT_TIMEOUT
+    }
+
+    protected getExpectedServices(): string[] {
+        return this.getAdapterFactory().getAllSupportedServices();
+    }
 
 
 

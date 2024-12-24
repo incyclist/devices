@@ -27,7 +27,6 @@ describe('DirectConnect Peripheral',()=>{
             
             const p = new DirectConnectPeripheral(announcement)
             sendMock = jest.fn ( async (c,b)=>{
-                console.log( b.toString('hex'))
                 return M('01050200001100002a3700001000800000805f9b34fb01')
             })
             setupMocks(p)
