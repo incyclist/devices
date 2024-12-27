@@ -18,6 +18,7 @@ export default class IncyclistDevice<P extends DeviceProperties>
     started: boolean
     stopped: boolean
     paused: boolean;
+    scanning: boolean
 
     protected props: P
     protected cyclingMode: ICyclingMode;
@@ -41,6 +42,7 @@ export default class IncyclistDevice<P extends DeviceProperties>
         this.started = false;
         this.stopped = false;
         this.paused = false
+        this.scanning = false
         this.user = {}
         this.data = {}
         this.cyclingMode = this.getDefaultCyclingMode()
@@ -299,13 +301,18 @@ export default class IncyclistDevice<P extends DeviceProperties>
         if (updateFrequency===-1 || updateFrequency===undefined)
             return true
 
-        return (!this.lastUpdate || (Date.now()-this.lastUpdate)>updateFrequency)        
+        const ok =  (!this.lastUpdate || (Date.now()-this.lastUpdate)>updateFrequency)        
+        return ok
 
     }
 
     canEmitData() {
-        if (this.paused || this.stopped)
+        if (this.scanning)
+            return this.isUpdateWithinFrequency();
+
+        if (this.paused || this.stopped) {
             return false
+        }
 
         return this.isUpdateWithinFrequency()
     }
@@ -349,6 +356,15 @@ export default class IncyclistDevice<P extends DeviceProperties>
     //@deprecate  ( use on('data) instead)
     onData( callback: OnDeviceDataCallback ) {
         this.onDataFn = callback;
+    }
+
+    onScanStart() {
+        this.scanning = true
+    }
+
+    onScanStop() {
+        this.scanning = false
+
     }
 }
 

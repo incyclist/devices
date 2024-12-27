@@ -1,5 +1,5 @@
 import { BleCharacteristic, BlePeripheralAnnouncement, BleRawCharacteristic, BleRawPeripheral, BleService, BleWriteProps, IBlePeripheral } from "../types";
-import { beautifyUUID } from "../utils";
+import { beautifyUUID, fullUUID, parseUUID } from "../utils";
 import { BleInterface } from "./interface";
 
 export class BlePeripheral implements IBlePeripheral {
@@ -24,10 +24,13 @@ export class BlePeripheral implements IBlePeripheral {
     }
 
     async connect(): Promise<boolean> {
+        if (this.isConnected())
+            return true;
+
         await this.getPeripheral().connectAsync()
         this.ble.registerConnected(this)
         this.connected = true;
-        return true
+        return this.connected
     }
     async disconnect(): Promise<boolean> {
         this.disconnecting = true
@@ -52,7 +55,7 @@ export class BlePeripheral implements IBlePeripheral {
         
         this.connected = false;
         this.disconnecting = false
-        return true
+        return !this.connected
     }
 
     isConnected(): boolean {
@@ -67,11 +70,14 @@ export class BlePeripheral implements IBlePeripheral {
     }
 
     async discoverServices(): Promise<string[]> {
+        
         if (this.getPeripheral().discoverServicesAsync) {
+            this.logEvent({message:'discover services'})
             const services = await this.getPeripheral().discoverServicesAsync([])
             return services.map(s=>s.uuid)    
         }
         else {
+            this.logEvent({message:'discover services and characteristics'})
             const res = await this.getPeripheral().discoverSomeServicesAndCharacteristicsAsync([],[])                
             return res.services.map(s=>s.uuid)
         }
@@ -93,8 +99,19 @@ export class BlePeripheral implements IBlePeripheral {
             if (this.disconnecting || !this.connected)
                 return false
 
+            const onData=(data:Buffer):void => {                        
+                try {
+                    //this.logEvent({message:'notify', characteristic:beautifyUUID(uuid),data:Buffer.from(data).toString('hex') })
+                    callback(characteristicUUID,data)                        
+                }
+                catch {}
+            }
+
             const subscription = this.subscribed.find( s => s.uuid ===characteristicUUID)
             if (subscription) {
+                const c = this.getRawCharacteristic(characteristicUUID)
+                if (c)
+                    c.on('data',onData)
                 return true
             }
 
@@ -120,13 +137,6 @@ export class BlePeripheral implements IBlePeripheral {
                     }
                     else {
                         if (callback) {
-                            const onData=(data:Buffer):void => {                        
-                                try {
-                                    //this.logEvent({message:'notify', characteristic:beautifyUUID(uuid),data:Buffer.from(data).toString('hex') })
-                                    callback(characteristicUUID,data)                        
-                                }
-                                catch {}
-                            }
                             this.subscribed.push( {uuid:characteristicUUID,callback:onData})
                             c.on('data',onData)
                         }
@@ -184,6 +194,7 @@ export class BlePeripheral implements IBlePeripheral {
     }
 
     async subscribeSelected(characteristics:string[], callback: (characteristicUuid: string, data: Buffer) => void): Promise<boolean> {
+
         try {
             if (Object.keys(this.characteristics).length===0) {
                 await this.discoverAllCharacteristics();
@@ -215,6 +226,24 @@ export class BlePeripheral implements IBlePeripheral {
     async discoverAllCharacteristics():Promise<string[]> {   
         try {     
             const res = await this.getPeripheral().discoverSomeServicesAndCharacteristicsAsync([],[])                
+
+            const found = []
+            res.characteristics.forEach(c => {
+                this.characteristics[beautifyUUID(c.uuid)] = c
+                found.push(c.uuid)
+            });
+            return found        
+        }
+        catch(err) {
+            this.logEvent( {message:'Error', fn:'discoverAllCharacteristics', error:err.message, stack:err.stack})
+            return []
+        }
+    }
+
+    async discoverSomeCharacteristics(characteristics:string[]):Promise<string[]> {   
+        try {     
+            const target = characteristics.map(c=> fullUUID(c))
+            const res = await this.getPeripheral().discoverSomeServicesAndCharacteristicsAsync([],target)                
 
             const found = []
             res.characteristics.forEach(c => {

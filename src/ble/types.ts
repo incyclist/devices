@@ -20,6 +20,18 @@ export interface BleBinding extends EventEmitter {
 }
 
 
+/** 
+ * Advertisement as provided by the binding (Noble library)
+ **/
+
+export interface BleRawAdvertisement  {
+    address?: string
+    localName?:string
+    serviceUuids?:string[]
+    rssi?: number,
+}
+
+
 
 /** 
  * Peripheral as provided by the binding (Noble library)
@@ -29,8 +41,7 @@ export interface BleRawPeripheral extends EventEmitter{
     id?: string;
     address?: string;
     name?: string;
-
-    services: [];
+    services: any[];
     advertisement: any;
     state: string
 
@@ -40,8 +51,6 @@ export interface BleRawPeripheral extends EventEmitter{
     disconnect( cb:(err?:Error)=>void ): Promise<void>;
     discoverSomeServicesAndCharacteristicsAsync(serviceUUIDs: string[], characteristicUUIDs: string[]): Promise<DiscoverResult>;
     discoverServicesAsync?(serviceUUIDs: string[]): Promise<BleService[]>;
-    
-
 }
 
 

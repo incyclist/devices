@@ -61,6 +61,9 @@ export interface IAdapter extends EventEmitter, IBike, ISensor{
     close():Promise<boolean>
     resetData():void
 
+    onScanStart():void
+    onScanStop():void
+
 
     //@deprecate  ( use on('data) instead)
     onData( callback: OnDeviceDataCallback ) 

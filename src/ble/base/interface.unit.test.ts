@@ -1,32 +1,43 @@
 import { EventLogger } from "gd-eventlog"
 import { BleInterface } from "./interface"
-import { BleBinding,  BleInterfaceState, BlePeripheralAnnouncement, BlePeripheralInfo } from "../types"
+import { BleBinding,  BleInterfaceState, BlePeripheralAnnouncement, BlePeripheralInfo, BleRawPeripheral } from "../types"
 
 import { resolveNextTick } from "../../utils/utils"
 import EventEmitter from "events"
+import { beautifyUUID } from "../utils"
 
+const logger:Partial<EventLogger>= {logEvent:jest.fn(),getName:()=>'Ble'} 
 
-const FTMSPeripheral: BlePeripheralInfo = {
+const FTMSPeripheral: Partial<BleRawPeripheral> = {
     id: "c08248a35c70",
-    uuid: "",
     address: "cb:ae:55:05:bc:99",
-    addressType: "",
     advertisement: {localName: "Volt", serviceUuids: ['00001826-0000-1000-8000-00805f9b34fb','00001816-0000-1000-8000-00805f9b34fb','00001818-0000-1000-8000-00805f9b34fb','0000180a-0000-1000-8000-00805f9b34fb']},
-    rssi: -67,
-    serviceUUIDs: ['00001826-0000-1000-8000-00805f9b34fb','00001816-0000-1000-8000-00805f9b34fb','00001818-0000-1000-8000-00805f9b34fb','0000180a-0000-1000-8000-00805f9b34fb'],
-    stats: ""
 }
 
-const WahooPeripheral: BlePeripheralInfo = {
-    id: "c08248a35c70",
-    uuid: "",
-    address: "cb:ae:55:05:bc:99",
-    addressType: "",
+const WahooPeripheral: Partial<BleRawPeripheral> = { ...FTMSPeripheral,
     advertisement: {localName: "KICKR SNAP 8616", serviceUuids: ['00001818-0000-1000-8000-00805f9b34fb']},
-    rssi: -67,
-    serviceUUIDs: ['00001818-0000-1000-8000-00805f9b34fb'],
-    stats: ""
 }
+
+const CPPeripheral: Partial<BleRawPeripheral> = { ...FTMSPeripheral,
+    advertisement: {localName: "Favero", serviceUuids: ['00001818-0000-1000-8000-00805f9b34fb']},
+}
+
+const HRPeripheral: Partial<BleRawPeripheral>  = { ...FTMSPeripheral,
+    advertisement: {localName: "HR", serviceUuids: ['0000180D-0000-1000-8000-00805f9b34fb']},
+}
+const TacxPeripheral: Partial<BleRawPeripheral>  = { ...FTMSPeripheral,
+    advertisement: {localName: "Tacx", serviceUuids: ['00001818-0000-1000-8000-00805f9b34fb','6E40FEC1-B5A3-F393-E0A9-E50E24DCCA9E']},
+}
+const NoNamePeripheral: Partial<BleRawPeripheral>  = { ...FTMSPeripheral,
+    advertisement: { serviceUuids: ['00001818-0000-1000-8000-00805f9b34fb']},
+}
+const NoServicesPeripheral: Partial<BleRawPeripheral>  = { ...FTMSPeripheral,
+    advertisement: { localName:'Test', serviceUuids: []},
+}
+const UnsupportedPeripheral: Partial<BleRawPeripheral>  = { ...FTMSPeripheral,
+    advertisement: { localName:'Test', serviceUuids: ['1234']},
+}
+
 
 class MockBinding extends EventEmitter implements BleBinding {
     public state
@@ -63,7 +74,7 @@ describe('BleInterface', () => {
         }
 
         let i:BleInterface
-        const logger:Partial<EventLogger>= {logEvent:jest.fn()} 
+        const logger:Partial<EventLogger>= {logEvent:jest.fn(), getName:()=>'Ble'} 
         let mocks:Mocks        
 
         const setupMocks  = ( iface, props:{ binding?:boolean, connectState?:BleInterfaceState|(()=>BleInterfaceState), expected?:string[]} ) =>{
@@ -195,15 +206,17 @@ describe('BleInterface', () => {
         interface Mocks {
             binding?:Partial<BleBinding>
             discoverServices?
+            processWahooAnnouncement?
+            addService?
         }
 
         let i:BleInterface
-        const logger:Partial<EventLogger>= {logEvent:jest.fn()} 
         let mocks:Mocks      
         let iv  
+        
 
-        const setupMocks  = ( iface, props:{ connected?:boolean, expected?:string[], peripheral?:BlePeripheralInfo,protocol?:string}={},  ) =>{
-            const {connected=true, expected=['0x1818','0x1826'],peripheral,protocol='fm'} = props??{}
+        const setupMocks  = ( iface, props:{ connected?:boolean, expected?:string[], peripheral?:Partial<BleRawPeripheral> ,protocol?:string}={},  ) =>{
+            const {connected=true, expected=['0x1818','0x1826','0x180D','6E40FEC1-B5A3-F393-E0A9-E50E24DCCA9E'],peripheral,protocol='fm'} = props??{}
             mocks = {}
            
             
@@ -226,7 +239,8 @@ describe('BleInterface', () => {
             mocks.binding.pauseLogging = jest.fn()
             mocks.binding.resumeLogging = jest.fn()
             mocks.binding.state = connected ? 'poweredOn' : 'poweredOff'
-
+            mocks.processWahooAnnouncement = jest.spyOn(iface,'processWahooAnnouncement')
+            mocks.addService = jest.spyOn(iface,'addService')
                             
             iface.getBinding = jest.fn().mockReturnValue(mocks.binding)
             iface.getConnectTimeout = jest.fn().mockReturnValue(100)
@@ -243,15 +257,39 @@ describe('BleInterface', () => {
                 const b:BleBinding = mocks.binding as BleBinding
                 b.removeAllListeners()
             }
+            jest.resetAllMocks()
+        }
+
+        const waitForDevice = (timeout?:number,cnt?:number)=>{
+            let cntFound = 0;
+            return new Promise( resolve => {  
+                if ((cnt??1)>1) {
+                    i.on('device',(service)=>{
+                        cntFound++
+                        if (cntFound>=(cnt??1))
+                            resolve(service)
+                            
+                    })
+                }
+                else {
+                    i.on('device',resolve)
+                }
+                
+                i.connect()
+
+                setTimeout(()=>{ 
+                    resolve(undefined)
+                },timeout??1000)
+            })            
         }
 
         beforeEach(() => {
             BleInterface.prototype['autoConnect'] = jest.fn()
             i = BleInterface.getInstance({logger: logger as EventLogger})
         })
-        afterEach(() => {
+        afterEach(async () => {
 
-            i.disconnect(); 
+            await i.disconnect(); 
 
             // cleanup instance
             (BleInterface as any)._instance = undefined
@@ -263,66 +301,175 @@ describe('BleInterface', () => {
         test('no device announced', async () => {
             setupMocks(i)
 
-            const device = await new Promise( resolve => {                
-                i.on('device',resolve)
-                i.connect()
-                //jest.clearAllMocks()
-
-                setTimeout(()=>{ 
-                    i.disconnect(); 
-                    resolve(undefined)
-                },10)
-            })
+            const device = await waitForDevice(10)
 
             expect(device).toBeUndefined()
             expect(logger.logEvent).toHaveBeenCalledWith({message:'starting peripheral discovery ...'})
-            expect(logger.logEvent).toHaveBeenCalledWith({message:'stopping peripheral discovery ...'})
-            expect(logger.logEvent).toHaveBeenCalledWith({message:'disconnect request'})
         })
 
         test('FTMS announced', async () => {
             setupMocks(i,{peripheral:FTMSPeripheral})
-
-            const device = await new Promise( resolve => {                
-                i.on('device',resolve)
-                i.connect()
-                //jest.clearAllMocks()
-
-                setTimeout(()=>{ 
-                    resolve(undefined)
-                },1000)
-            })
+            const device = await waitForDevice()
 
             expect(device).toMatchObject({interface:'ble',protocol:'fm',id:'c08248a35c70',name:'Volt',address:'cb:ae:55:05:bc:99' })
             expect(logger.logEvent).toHaveBeenCalledWith({message:'starting peripheral discovery ...'})
+            expect(mocks.addService).toHaveBeenCalledTimes(1)
         })
+
+        test('Device only announced once', async () => {
+            setupMocks(i,{peripheral:FTMSPeripheral})
+
+            await waitForDevice(50,3)
+            expect(mocks.addService).toHaveBeenCalledTimes(1)
+            
+        })
+
         test('Wahoo device announced', async () => {
             setupMocks(i,{peripheral:WahooPeripheral, protocol:'wahoo'})
             mocks.discoverServices.mockResolvedValue(['0x1818','a026ee0b-0a7d-4ab3-97fa-f1500f9feb8b'])
 
-            const device = await new Promise( resolve => {                
-                i.on('device',resolve)
-                i.connect()
-                //jest.clearAllMocks()
-
-                setTimeout(()=>{ 
-                    resolve(undefined)
-                },1000)
-            })
+            const device = await waitForDevice()
 
             expect(device).toMatchObject({interface:'ble',protocol:'wahoo',id:'c08248a35c70',name:'KICKR SNAP 8616',address:'cb:ae:55:05:bc:99' })
             expect(mocks.discoverServices).toHaveBeenCalled()
+            expect(mocks.processWahooAnnouncement).toHaveBeenCalled()
             expect(logger.logEvent).toHaveBeenCalledWith({message:'starting peripheral discovery ...'})
         })
         
-        
+        test('CP device announced', async () => {
+            setupMocks(i,{peripheral:CPPeripheral, protocol:'cp'})
+
+            const device = await waitForDevice()
+
+            expect(device).toMatchObject({interface:'ble',protocol:'cp',id:'c08248a35c70',name:'Favero',address:'cb:ae:55:05:bc:99' })
+            expect(mocks.discoverServices).not.toHaveBeenCalled()
+            expect(mocks.processWahooAnnouncement).not.toHaveBeenCalled()
+            expect(logger.logEvent).toHaveBeenCalledWith({message:'starting peripheral discovery ...'})
+        })
+
+        test('TACX device announced', async () => {
+            setupMocks(i,{peripheral:TacxPeripheral, protocol:'tacx'})
+
+            const device = await waitForDevice()
+
+            expect(device).toMatchObject({interface:'ble',protocol:'tacx',id:'c08248a35c70',name:'Tacx',address:'cb:ae:55:05:bc:99' })
+            expect(mocks.discoverServices).not.toHaveBeenCalled()
+            expect(mocks.processWahooAnnouncement).not.toHaveBeenCalled()
+            expect(logger.logEvent).toHaveBeenCalledWith({message:'starting peripheral discovery ...'})
+        })
+
+        test('HR device announced', async () => {
+            setupMocks(i,{peripheral:HRPeripheral, protocol:'hr'})
+
+            const device = await waitForDevice()
+
+            expect(device).toMatchObject({interface:'ble',protocol:'hr',id:'c08248a35c70',name:'HR',address:'cb:ae:55:05:bc:99' })
+            expect(mocks.discoverServices).not.toHaveBeenCalled()
+            expect(mocks.processWahooAnnouncement).not.toHaveBeenCalled()
+            expect(logger.logEvent).toHaveBeenCalledWith({message:'starting peripheral discovery ...'})
+        })
+        test('announced with no name', async () => {
+            setupMocks(i,{peripheral:NoNamePeripheral})
+
+            const device = await waitForDevice(50)
+            expect(device).toBeUndefined()
+
+            expect(logger.logEvent).toHaveBeenCalledWith({message:'starting peripheral discovery ...'})
+        })
+        test('announced with no services', async () => {
+            setupMocks(i,{peripheral:NoServicesPeripheral})
+
+            const device = await waitForDevice(50)
+            expect(device).toBeUndefined()
+
+            expect(logger.logEvent).toHaveBeenCalledWith({message:'starting peripheral discovery ...'})
+        })
+        test('Unsupported', async () => {
+            setupMocks(i,{peripheral:UnsupportedPeripheral})
+
+            const device = await waitForDevice(50)
+            expect(device).toBeUndefined()
+
+            expect(logger.logEvent).toHaveBeenCalledWith({message:'starting peripheral discovery ...'})
+        })
+
 
     })
 
     // check also isConnected, getName, setBinding
 
 
-    describe('scan', () => {})
+    describe('scan', () => {
+        interface Mocks {
+            
+        }
+
+        let i: BleInterface
+
+        const P = (info:BlePeripheralInfo):Partial<BlePeripheralAnnouncement>=> {
+            const p: Partial<BleRawPeripheral> = {
+                address: info.advertisement.address,
+                advertisement: info.advertisement,
+                name:info.advertisement.localName 
+            }
+
+            const a:Partial<BlePeripheralAnnouncement> = {}
+            a.advertisement = info.advertisement
+            a.name = info.advertisement.localName
+            a.serviceUUIDs = info.serviceUUIDs
+            a.peripheral = p as BleRawPeripheral
+            return a
+        }
+        const setupMocks =(iface,props:{discovered?:Partial<BleRawPeripheral>[]}) => {
+            const {discovered=[]} = props
+
+            discovered.forEach(peripheral=> {
+                iface.matching.push(peripheral.name)
+                iface.services.push({ts:Date.now(), service:{peripheral, advertisement:peripheral.advertisement}})
+            })            
+            
+            iface.getAdapterFactory = jest.fn().mockReturnValue(
+                { 
+                    getProtocol:jest.fn( (services)=>{
+                        const announced = services.map(s=>beautifyUUID(s))
+                        if (announced.includes('1826') ) return ('fm')
+                            // TODO mock other service->sensor mappings
+                    })
+
+                })
+
+        }
+
+        const cleanupMocks = ( ) =>{
+            jest.resetAllMocks()
+        }
+
+        beforeEach(() => {
+            BleInterface.prototype['autoConnect'] = jest.fn()
+            i = BleInterface.getInstance({logger: logger as EventLogger})
+        })
+        afterEach(async () => {
+
+            await i.disconnect(); 
+
+            // cleanup instance
+            (BleInterface as any)._instance = undefined
+
+            cleanupMocks()
+        })
+
+        test('FM device',async ()=>{
+            const discovered = [ FTMSPeripheral]
+            setupMocks(i,{discovered})
+
+            const devices = await i.scan({timeout:10})
+            expect(devices).toEqual([{interface:'ble', name:'Volt', id:'c08248a35c70', address:'cb:ae:55:05:bc:99', protocol:'fm'}])
+        })
+
+
+    })
+
+
     describe('stopScan', () => {})
 
     describe('createPeripheral', () => {})

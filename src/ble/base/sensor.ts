@@ -84,14 +84,14 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
         if (!reconnect)
             this.peripheral.onDisconnect(this.reconnectSensor.bind(this))
 
-        return await this.subscribe()
+        return true;
     }
 
     protected getRequiredCharacteristics():Array<string> {
         return null
     }
 
-    protected async subscribe():Promise<boolean> {
+    async subscribe():Promise<boolean> {
         const selected = this.getRequiredCharacteristics()
 
         if (selected===null)

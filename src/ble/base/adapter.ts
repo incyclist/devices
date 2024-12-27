@@ -178,8 +178,9 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     
             this.deviceData = {...deviceData} ;        
         
-            if (!this.canEmitData())
+            if (!this.canEmitData()) {
                 return;       
+            }
     
             this.logEvent( {message:'onDeviceData',device:this.getName(),interface:this.getInterface(),data:deviceData, isControllable:this.isControllable()})        
     
@@ -259,6 +260,9 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         if (this.isStarting()) {
             await this.stop()
         }
+
+        const ble = this.getBle()
+        ble.once('disconnect-done',this.onDisconnectDone.bind(this))
 
         this.startTask = new InteruptableTask( this.startAdapter(startProps), {
             timeout: startProps?.timeout,
@@ -391,19 +395,48 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     }
 
     async startSensor():Promise<boolean> {
+        
         if (!this.getComms()?.hasPeripheral()) {
             await this.waitForPeripheral()
         }
         if (!this.getComms()) {
             return false
         }
-        const connected = await this.getComms().startSensor()
+
+        const sensor = this.getComms();
+        const connected = await sensor.startSensor()
+
+        await sensor.subscribe()
+
         if(connected) {
-            this.getComms().on('data',this.onDeviceDataHandler) 
-            this.getComms().on('disconnected', this.emit.bind(this))
-            this.getComms().on('error',console.log) 
+            sensor.on('data',this.onDeviceDataHandler) 
+            sensor.on('disconnected', this.emit.bind(this))
+            sensor.on('error',console.log) 
         }
+        
         return connected
+    }
+
+    protected async onDisconnectDone() {
+        this.logEvent( {message:'disconnecting device', device:this.getName(),interface:this.getInterface()})
+        if (this.isStarting()) {
+            await this.startTask.stop()
+        }
+
+        let reason:string = 'unknown';
+        let stopped = false
+        const sensor = this.getComms();
+
+        try {
+            stopped = await sensor.stopSensor();
+        }
+        catch(err) {    
+            reason = err.message;
+        }
+        if (!stopped) {
+            this.logEvent( {message:'disconnecting device failed', device:this.getName(),interface:this.getInterface(), reason})    
+        }
+
     }
 
     async stop(): Promise<boolean> { 
@@ -417,30 +450,19 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         this.started = false;
         this.resetData()
         
-        let reason:string = 'unknown';
-        let stopped = false
         if (!this.getComms()) {
             this.logEvent( {message:'device stopped - not started yet', device:this.getName(),interface:this.getInterface()})    
             return true;
         }
-        this.getComms().reset();
-        try {
-            stopped = await this.getComms().stopSensor();
-        }
-        catch(err) {    
-            reason = err.message;
-        }
-        if (stopped) {
-            this.logEvent( {message:'device stopped', device:this.getName(),interface:this.getInterface()})    
-        }
-        else {
-            this.logEvent( {message:'stopping device failed', device:this.getName(),interface:this.getInterface(), reason})    
-        }
+        const sensor = this.getComms();
 
+        sensor.reset();
         this.resetData()        
         this.stopped = true
         this.started = false
-        return stopped
+
+        this.logEvent( {message:'device stopped', device:this.getName(),interface:this.getInterface()})    
+        return this.stopped
     }
 
     async pause(): Promise<boolean> {
@@ -479,6 +501,12 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         // recalculate speed based on latest data
         this.refreshDeviceData()
     }
+
+    onScanStart(): void {
+        if (!this.isStarted())
+            this.start()
+    }
+
 
 
 
