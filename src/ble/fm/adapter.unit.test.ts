@@ -26,6 +26,7 @@ describe('BleFmAdapter',()=>{
 
         let sensor  = new BleFitnessMachineDevice(null)
         let ble: Partial<IBleInterface<any>> = {
+            once:jest.fn(),
             pauseLogging: jest.fn(),
             resumeLogging: jest.fn(),
             connect: jest.fn().mockResolvedValue(true),
@@ -34,6 +35,7 @@ describe('BleFmAdapter',()=>{
         }
        
         sensor.requestControl= jest.fn().mockResolvedValue(true)
+        sensor.subscribe= jest.fn().mockResolvedValue(true)
         sensor.setCrr= jest.fn()
         sensor.setCw= jest.fn()
         sensor['_features']= {fitnessMachine:0, targetSettings:0}
