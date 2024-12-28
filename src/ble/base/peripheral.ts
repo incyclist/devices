@@ -1,5 +1,5 @@
 import { BleCharacteristic, BlePeripheralAnnouncement, BleRawCharacteristic, BleRawPeripheral, BleService, BleWriteProps, IBlePeripheral } from "../types";
-import { beautifyUUID, fullUUID, parseUUID } from "../utils";
+import { beautifyUUID, fullUUID } from "../utils";
 import { BleInterface } from "./interface";
 
 export class BlePeripheral implements IBlePeripheral {
@@ -11,6 +11,8 @@ export class BlePeripheral implements IBlePeripheral {
     protected subscribed: Array<{uuid:string,callback:(data:Buffer)=>void}> = [] 
     protected disconnecting: boolean = false
 
+    protected onErrorHandler = this.onPeripheralError.bind(this)
+
     constructor(protected announcement:BlePeripheralAnnouncement) { 
         this.ble = BleInterface.getInstance()
         
@@ -19,7 +21,7 @@ export class BlePeripheral implements IBlePeripheral {
         return this.announcement.peripheral.services
     }
 
-    protected getPeripheral():BleRawPeripheral {
+    getPeripheral():BleRawPeripheral {
         return this.announcement.peripheral
     }
 
@@ -27,32 +29,44 @@ export class BlePeripheral implements IBlePeripheral {
         if (this.isConnected())
             return true;
 
-        await this.getPeripheral().connectAsync()
+        const peripheral = this.getPeripheral()
+        await peripheral.connectAsync()
+       
         this.ble.registerConnected(this)
+        peripheral.once('disconnect',()=>{ this.onPeripheralDisconnect() })
+        peripheral.on('error',this.onErrorHandler)
+
         this.connected = true;
         return this.connected
     }
-    async disconnect(): Promise<boolean> {
+    async disconnect(connectionLost:boolean=false): Promise<boolean> {
         this.disconnecting = true
         if (!this.isConnected())
             return true;
 
-        await this.unsubscribeAll()
+        await this.unsubscribeAll(connectionLost)
         Object.keys(this.characteristics).forEach( uuid=> { 
             const c = this.characteristics[uuid] 
             c.removeAllListeners()
         })
 
-        // old versions of the app did not support disconnectAsync
-        // so we need to "promisify" the disconnect
-        if (!this.getPeripheral().disconnectAsync) {
-            this.getPeripheral().disconnectAsync = ():Promise<void>=> {
-                return new Promise ( (done) => { this.getPeripheral().disconnect(()=> {done()} )})
+        const peripheral = this.getPeripheral()
+        if (peripheral) {
+            if (!connectionLost) {
+                // old versions of the app did not support disconnectAsync
+                // so we need to "promisify" the disconnect
+                if (!peripheral.disconnectAsync) {
+                    peripheral.disconnectAsync = ():Promise<void>=> {
+                        return new Promise ( (done) => { this.getPeripheral().disconnect(()=> {done()} )})
+                    }
+                }
+    
+                await this.getPeripheral().disconnectAsync()
             }
+    
+            peripheral.removeAllListeners()            
         }
 
-        await this.getPeripheral().disconnectAsync()
-        
         this.connected = false;
         this.disconnecting = false
         return !this.connected
@@ -67,6 +81,21 @@ export class BlePeripheral implements IBlePeripheral {
 
     onDisconnect(callback: () => void): void {
         this.onDisconnectHandler = callback
+    }
+
+    protected async onPeripheralDisconnect() {
+        this.logEvent({message:'disconnect' })
+        try {
+            await this.disconnect(true)
+        }
+        catch {}
+
+        if (this.onDisconnectHandler)
+            this.onDisconnectHandler()
+    }
+
+    protected onPeripheralError(err:Error) {
+        this.logEvent({message:'peripheral error', error:err.message })
     }
 
     async discoverServices(): Promise<string[]> {
@@ -201,8 +230,8 @@ export class BlePeripheral implements IBlePeripheral {
             }
             const retry = []
     
-            for (let i=0;i<characteristics.length;i++) {            
-                const c = this.getRawCharacteristic(characteristics[i])
+            for (const element of characteristics) {            
+                const c = this.getRawCharacteristic(element)
                 if (c?.properties.includes('notify')) {
                     const success = await this.subscribe(c.uuid, callback)
                     if (!success)
@@ -210,8 +239,8 @@ export class BlePeripheral implements IBlePeripheral {
                 }
             }
     
-            for (let i=0;i<retry.length;i++) {
-                const c = retry[i]
+            for (const element of retry) {
+                const c = element
                 await this.subscribe(c.uuid, callback)
             }
             return true
@@ -264,14 +293,18 @@ export class BlePeripheral implements IBlePeripheral {
         return success
     }
 
-    async unsubscribeAll():Promise<boolean> {
+    async unsubscribeAll(connectionLost:boolean=false):Promise<void> {
+        if (connectionLost) {
+            this.subscribed = []
+            return
+        }
+
         const promises = []
         this.subscribed.forEach(d => {
             promises.push(this.unsubscribe(d.uuid))
         })
 
         await Promise.allSettled(promises)
-        return true
     }
 
     read(characteristicUUID: string): Promise<Buffer> {
@@ -339,6 +372,7 @@ export class BlePeripheral implements IBlePeripheral {
     }
 
     logEvent( event) {
+        event.peripheral = this.announcement?.name
         this.ble.logEvent(event)
     }
 

@@ -200,14 +200,14 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
      * Disconnects from the interface and cleans up resources
      * @returns {Promise<boolean>} Whether the disconnection was successful.
      */
-    async disconnect(cleanup?:boolean): Promise<boolean> {
+    async disconnect(connectionLost?:boolean): Promise<boolean> {
         if (!this.getBinding()) {
             return false;
         }
 
-        if (!this.isConnected() && !cleanup) return true
+        if (!this.isConnected() && !connectionLost) return true
         
-        if (!cleanup)
+        if (!connectionLost)
             this.logEvent({message:'disconnect request'});
 
         this.emit('disconnect-request')
@@ -215,9 +215,12 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         await this.stopPeripheralScan()
 
         // disconnect all peripherals
-        const promises = this.connectedPeripherals.map( p=> p.disconnect())
-        await Promise.allSettled(promises)
-        this.connectedPeripherals = []
+        if (connectionLost) {
+            this.emitDisconnectAllPeripherals()
+        }
+        else {
+            await this.disconnectAllPeripherals()
+        }
 
         // stop interface
         if (this.isConnecting())
@@ -427,6 +430,20 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         })
     }
 
+    protected emitDisconnectAllPeripherals() {
+        this.connectedPeripherals.forEach( p=> {
+            const peripheral = (p as BlePeripheral).getPeripheral()
+            peripheral.emit('disconnect')
+        })       
+        this.connectedPeripherals = []    
+    }
+
+    protected async disconnectAllPeripherals():Promise<void> {
+        const promises = this.connectedPeripherals.map( p=> p.disconnect())
+        await Promise.allSettled(promises)
+        this.connectedPeripherals = []    
+    }
+
 
     protected isDiscovering() {
         return this.discoverTask?.isRunning()===true
@@ -581,12 +598,12 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
             peripheral.on('error',(err:Error)=>{ 
                 peripheral.removeAllListeners()
                 
-                this.logEvent({message:'Device error',error:err.message})
+                this.logEvent({message:'peripheral error',error:err.message})
             })
             peripheral.on('disconnect',()=>{ 
                 peripheral.removeAllListeners()
                 
-                this.logEvent({message:'Device disconnected'})
+                this.logEvent({message:'peripheral disconnected'})
                 
             })
 
