@@ -260,19 +260,21 @@ describe('BleInterface', () => {
             jest.resetAllMocks()
         }
 
-        const waitForDevice = (timeout?:number,cnt?:number)=>{
+        const waitForDevice = (timeout?:number,cnt?:number):Promise<{device:BleRawPeripheral,service:BlePeripheralAnnouncement}|undefined>=>{
             let cntFound = 0;
             return new Promise( resolve => {  
                 if ((cnt??1)>1) {
-                    i.on('device',(service)=>{
+                    i.on('device',(device,service)=>{
                         cntFound++
                         if (cntFound>=(cnt??1))
-                            resolve(service)
+                            resolve({device,service})
                             
                     })
                 }
                 else {
-                    i.on('device',resolve)
+                    i.on('device',(device,service)=>{
+                        resolve({device,service})
+                    })
                 }
                 
                 i.connect()
@@ -301,15 +303,15 @@ describe('BleInterface', () => {
         test('no device announced', async () => {
             setupMocks(i)
 
-            const device = await waitForDevice(10)
+            const res = await waitForDevice(10)
 
-            expect(device).toBeUndefined()
+            expect(res).toBeUndefined()
             expect(logger.logEvent).toHaveBeenCalledWith({message:'starting peripheral discovery ...',interface:'ble'})
         })
 
         test('FTMS announced', async () => {
             setupMocks(i,{peripheral:FTMSPeripheral})
-            const device = await waitForDevice()
+            const {device} = await waitForDevice()??{}
 
             expect(device).toMatchObject({interface:'ble',protocol:'fm',id:'c08248a35c70',name:'Volt',address:'cb:ae:55:05:bc:99' })
             expect(logger.logEvent).toHaveBeenCalledWith({message:'starting peripheral discovery ...',interface:'ble'})
@@ -328,7 +330,9 @@ describe('BleInterface', () => {
             setupMocks(i,{peripheral:WahooPeripheral, protocol:'wahoo'})
             mocks.discoverServices.mockResolvedValue(['0x1818','a026ee0b-0a7d-4ab3-97fa-f1500f9feb8b'])
 
-            const device = await waitForDevice()
+            const {device,service} = await waitForDevice()??{}
+
+            expect(service?.serviceUUIDs.map( s => beautifyUUID(s) )).toEqual(['1818','A026EE0B-0A7D-4AB3-97FA-F1500F9FEB8B'])
 
             expect(device).toMatchObject({interface:'ble',protocol:'wahoo',id:'c08248a35c70',name:'KICKR SNAP 8616',address:'cb:ae:55:05:bc:99' })
             expect(mocks.discoverServices).toHaveBeenCalled()
@@ -339,7 +343,7 @@ describe('BleInterface', () => {
         test('CP device announced', async () => {
             setupMocks(i,{peripheral:CPPeripheral, protocol:'cp'})
 
-            const device = await waitForDevice()
+            const {device} = await waitForDevice()??{}
 
             expect(device).toMatchObject({interface:'ble',protocol:'cp',id:'c08248a35c70',name:'Favero',address:'cb:ae:55:05:bc:99' })
             expect(mocks.discoverServices).not.toHaveBeenCalled()
@@ -350,7 +354,7 @@ describe('BleInterface', () => {
         test('TACX device announced', async () => {
             setupMocks(i,{peripheral:TacxPeripheral, protocol:'tacx'})
 
-            const device = await waitForDevice()
+            const {device} = await waitForDevice()??{}
 
             expect(device).toMatchObject({interface:'ble',protocol:'tacx',id:'c08248a35c70',name:'Tacx',address:'cb:ae:55:05:bc:99' })
             expect(mocks.discoverServices).not.toHaveBeenCalled()
@@ -361,7 +365,7 @@ describe('BleInterface', () => {
         test('HR device announced', async () => {
             setupMocks(i,{peripheral:HRPeripheral, protocol:'hr'})
 
-            const device = await waitForDevice()
+            const {device} = await waitForDevice()??{}
 
             expect(device).toMatchObject({interface:'ble',protocol:'hr',id:'c08248a35c70',name:'HR',address:'cb:ae:55:05:bc:99' })
             expect(mocks.discoverServices).not.toHaveBeenCalled()
@@ -371,7 +375,7 @@ describe('BleInterface', () => {
         test('announced with no name', async () => {
             setupMocks(i,{peripheral:NoNamePeripheral})
 
-            const device = await waitForDevice(50)
+            const {device} = await waitForDevice(50)??{}
             expect(device).toBeUndefined()
 
             expect(logger.logEvent).toHaveBeenCalledWith({message:'starting peripheral discovery ...',interface:'ble'})
@@ -379,7 +383,7 @@ describe('BleInterface', () => {
         test('announced with no services', async () => {
             setupMocks(i,{peripheral:NoServicesPeripheral})
 
-            const device = await waitForDevice(50)
+            const {device} = await waitForDevice(50)??{}
             expect(device).toBeUndefined()
 
             expect(logger.logEvent).toHaveBeenCalledWith({message:'starting peripheral discovery ...',interface:'ble'})
@@ -387,7 +391,7 @@ describe('BleInterface', () => {
         test('Unsupported', async () => {
             setupMocks(i,{peripheral:UnsupportedPeripheral})
 
-            const device = await waitForDevice(50)
+            const {device} = await waitForDevice(50)??{}
             expect(device).toBeUndefined()
 
             expect(logger.logEvent).toHaveBeenCalledWith({message:'starting peripheral discovery ...',interface:'ble'})

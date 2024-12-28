@@ -574,12 +574,12 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         if (!this.isConnected() || !this.isDiscovering())
             return;
 
+        this.addCompleting(announcement)
         this.logEvent({message:'updateWithServices',peripheral:announcement.name})
-        
 
         try {
-            await this.discoverServices(announcement)
-            return announcement
+            announcement.serviceUUIDs = await this.discoverServices(announcement)
+            
         }
         catch(err) {
             this.logError(err,'updateWithServices')
@@ -633,7 +633,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
         peripheral?.removeAllListeners()
 
-        return device.serviceUUIDs
+        return announcement.serviceUUIDs
     }
 
 
