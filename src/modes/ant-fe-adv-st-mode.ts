@@ -11,11 +11,14 @@ export default class AntAdvSimCyclingMode extends SmartTrainerCyclingMode {
         this.initLogger('AdvmartTrainerMode')
     }
 
-    getName(): string {
-        return 'Advanced Smart Trainer';
-    }
     getDescription(): string {
         return 'Sends Slope to device. Respects Limits (from workout or settings). Calculates speed based on power and slope. '
+    }
+
+    getConfig() {
+        const config = super.getConfig()
+        config.name = 'Advanced Smart Trainer'
+        return config;
     }
 
     checkForResetOrEmpty(request: UpdateRequest):UpdateRequest|undefined {

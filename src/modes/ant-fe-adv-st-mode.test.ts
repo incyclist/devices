@@ -19,6 +19,9 @@ describe('Adv SmartTrainer',()=>{
         expect(m.getDescription()).toMatchSnapshot()
         expect(m.getProperties()).toMatchSnapshot()
         expect(AdvSmartTrainerCyclingMode.supportsERGMode()).toBe(false)
+        expect(m.isSIM()).toBe(true)
+        expect(m.isERG()).toBeFalsy()
+        expect(m.getConfig().name).toBe('Advanced Smart Trainer')
 
     })
 
