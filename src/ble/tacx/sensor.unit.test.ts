@@ -88,13 +88,26 @@ describe('Tacx Sensor',()=>{
         test('slope 0.0, rr not set',async ()=>{
             const expected = Buffer.from( 'A4094F0533FFFFFFFF204E42F8','hex')
             const peripheral = {
-                write: jest.fn().mockResolvedValue(expected)
+                write: jest.fn().mockResolvedValue(expected),
+                isConnected: jest.fn().mockReturnValue(true)
             }
             const tacx = new TacxAdvancedFitnessMachineDevice(peripheral, {id:'4711',logger:MockLogger});
             
             const res = await tacx.setSlope(0.0)
             expect(res).toBe(true)
             expect(peripheral.write).toHaveBeenCalledWith(TACX_FE_C_TX, expected,{withoutResponse:true})
+        })
+        test('not connected',async ()=>{
+            const expected = Buffer.from( 'A4094F0533FFFFFFFF204E42F8','hex')
+            const peripheral = {
+                write: jest.fn().mockResolvedValue(expected),
+                isConnected: jest.fn().mockReturnValue(false)
+            }
+            const tacx = new TacxAdvancedFitnessMachineDevice(peripheral, {id:'4711',logger:MockLogger});
+            
+            const res = await tacx.setSlope(0.0)
+            expect(res).toBe(false)
+            expect(peripheral.write).not.toHaveBeenCalled()
         })
     
     

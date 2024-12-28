@@ -513,8 +513,15 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
     protected async sendMessage(message:Buffer):Promise<boolean> {
         this.logEvent({message:'write',characteristic: this.tacxTx,data:message.toString('hex')})
 
-        await this.write( this.tacxTx, message, {withoutResponse:true} )
-        return true;
+        try {
+            await this.write( this.tacxTx, message, {withoutResponse:true} )
+            return true
+        }
+        catch(err) {
+            this.logEvent({message:'write failed',characteristic: this.tacxTx, reason:err.message})
+            return false;
+        }
+        
     }
 
     async sendUserConfiguration (userWeight, bikeWeight, wheelDiameter, gearRatio):Promise<boolean> {

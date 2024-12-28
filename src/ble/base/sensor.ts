@@ -144,12 +144,16 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
         return this.peripheral?.isConnected()
     }
     read(characteristicUUID: string): Promise<Buffer> { 
+        if (!this.isConnected()) {
+            return Promise.reject(new Error('not connected'))
+        }
+
         return this.peripheral?.read(characteristicUUID)
     }
 
     write(characteristicUUID: string, data: Buffer, options?: BleWriteProps): Promise<Buffer> {
         if (!this.isConnected()) {
-            return Promise.resolve( Buffer.from([]) )
+            return Promise.reject(new Error('not connected'))
         }
         return this.peripheral?.write(characteristicUUID, data, options)
     }
