@@ -218,8 +218,14 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         const before = this.capabilities.join(',')
         const sensor = this.getSensor()
 
-        if (!sensor.features)
-            await sensor.getFitnessMachineFeatures()
+        if (!sensor.features) {
+            try {
+                await sensor.getFitnessMachineFeatures()
+            }
+            catch(err) {
+                this.logEvent( {message:'error getting fitness machine features', device:this.getName(), interface:this.getInterface(), error:err})    
+            }
+        }
 
 
         if (sensor.features?.heartrate && !this.hasCapability(IncyclistCapability.HeartRate)) {

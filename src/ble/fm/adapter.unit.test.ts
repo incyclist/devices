@@ -50,7 +50,7 @@ describe('BleFmAdapter',()=>{
         let iv
 
         const setupMocks= (a)=>{
-            a.getComms = jest.fn( ()=> { return sensor})            
+            a.getSensor = jest.fn( ()=> { return sensor})            
             a.getBle = jest.fn().mockReturnValue(ble)
             a.requestControlRetryDelay = 10;
             if (process.env.DEBUG) {
