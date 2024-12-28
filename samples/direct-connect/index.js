@@ -1,6 +1,5 @@
-const {AdapterFactory, IncyclistCapability} = require('incyclist-devices')
+const {AdapterFactory, IncyclistCapability, BleInterfaceFactory} = require('incyclist-devices')
 const {EventLogger,ConsoleAdapter} = require( 'gd-eventlog');
-const { BleInterfaceFactory } = require('../../lib/ble/factories/interface-factory');
 
 const { Bonjour } = require('bonjour-service')
 const net = require('net');
@@ -112,7 +111,7 @@ function runDevice(device) {
 
 async function main(props={}) {
     const binding = createBinding()
-    const dc = BleInterfaceFactory.createInstane('wifi')
+    const dc = BleInterfaceFactory.createInstance('wifi')
     dc.setBinding( binding )
     
     

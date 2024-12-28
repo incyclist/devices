@@ -115,14 +115,25 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
     }
 
     async reconnectSensor() {
+        let connected = false;
+        let subscribed = false;
+
         let success = false
         do {
-            success = await this.startSensor(true)
-        
+            if (!connected) {
+                connected = await this.startSensor(true)
+            }
+
+            if (connected && !subscribed) {
+                subscribed = await this.subscribe()
+            }
+
+            success = connected && subscribed        
             if (!success) {
-                await sleep(5000)
+                await sleep(1000)
             }
         } while (!success || this.stopRequested)
+
     }
 
 
@@ -137,6 +148,9 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
     }
 
     write(characteristicUUID: string, data: Buffer, options?: BleWriteProps): Promise<Buffer> {
+        if (!this.isConnected()) {
+            return Promise.resolve( Buffer.from([]) )
+        }
         return this.peripheral?.write(characteristicUUID, data, options)
     }
 

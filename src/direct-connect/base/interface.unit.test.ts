@@ -145,8 +145,11 @@ describe('DirectConnectInterface', () => {
 
     describe('scan', () => {
 
-
     })  
     describe('stopScan', () => {})  
+
+    describe('waitForPeripheral', () => {})
+
+    
 
 })

@@ -53,11 +53,11 @@ export class DirectConnectPeripheral implements IBlePeripheral {
         return await this.connectTask.run()
     }
 
-    async disconnect(): Promise<boolean> {
+    async disconnect(connectionLost:boolean=false): Promise<boolean> {
         try {
 
             await this.connectTask.stop()
-            await this.stopConnection()
+            await this.stopConnection(connectionLost)
             
             delete this.socket
 
@@ -315,14 +315,18 @@ export class DirectConnectPeripheral implements IBlePeripheral {
     }
 
 
-    async unsubscribeAll():Promise<boolean> {
+    async unsubscribeAll(connectionLost:boolean=false):Promise<void> {
+
+        if (connectionLost) {
+            this.subscribed = []
+            return
+        }
         const promises = []
         this.subscribed.forEach(characteristicUUID => {
             promises.push(this.unsubscribe(parseUUID(characteristicUUID)))
         })
 
         await Promise.allSettled(promises)
-        return true
     }
 
     async read(characteristicUUID: string): Promise<Buffer> {
@@ -452,19 +456,16 @@ export class DirectConnectPeripheral implements IBlePeripheral {
 
     protected async onPortClose() {       
         this.socket.removeAllListeners();
+        this.socket.on('error',()=>{}) // ignore port errors
         this.logEvent({message:'port closed', path:this.getPath()}) 
         
         try {
-            await this.disconnect()
+            await this.disconnect(true)
         }
         catch {}
 
         if (this.onDisconnectHandler)
             this.onDisconnectHandler()
-        
-
-
-
     }
 
     protected getPath():string {
@@ -474,13 +475,14 @@ export class DirectConnectPeripheral implements IBlePeripheral {
     }
 
 
-    protected async stopConnection():Promise<boolean> {
+    protected async stopConnection(connectionLost:boolean=false):Promise<boolean> {
         this.eventEmitter.removeAllListeners()
 
         if (!this.isConnected())
             return true;
 
-        await this.unsubscribeAll()
+        
+        await this.unsubscribeAll(connectionLost)
         // remove all old listeners
         this.socket.removeAllListeners()
 

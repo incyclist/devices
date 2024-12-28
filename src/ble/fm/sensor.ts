@@ -135,9 +135,6 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         if (this.data.targetPower!==undefined && this.data.targetPower===power)
             return true;
 
-        if (!this.hasControl)
-            return;
-
         const hasControl = await this.requestControl(); 
         if (!hasControl) {
             this.logEvent({message: 'setTargetPower failed',reason:'control is disabled'})
@@ -150,15 +147,14 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         data.writeInt16LE( Math.round(power), 1)
 
         const res = await this.writeFtmsMessage( OpCode.SetTargetPower, data )
+        if (res === OpCodeResult.ControlNotPermitted) {
+            this.hasControl = false            
+        }
         return ( res===OpCodeResult.Success)    
     }
 
     async setSlope(slope) {
         this.logEvent( {message:'setSlope', slope})
-
-        const hasControl = await this.requestControl(); 
-        if (!hasControl)
-            return;
 
         const {windSpeed,crr, cw} = this;
         return await this.setIndoorBikeSimulation( windSpeed, slope, crr, cw)
@@ -388,6 +384,10 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         data.writeUInt8( Math.round(cw*100), 6)
 
         const res = await this.writeFtmsMessage( OpCode.SetIndoorBikeSimulation, data )
+        if (res === OpCodeResult.ControlNotPermitted) {
+            this.hasControl = false            
+        }
+
         return ( res===OpCodeResult.Success)    
     }
 
