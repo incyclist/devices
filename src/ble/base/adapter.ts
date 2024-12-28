@@ -72,7 +72,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     
     }
 
-    getComms():TDevice {        
+    getSensor():TDevice {        
         return this.device
     }
 
@@ -320,11 +320,11 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             this.logEvent({ message: 'sensor data received', device:this.getName(),interface:this.getInterface() });
     }
 
-    protected checkCapabilities() {
+    protected async checkCapabilities():Promise<void> {
         // to be implemeted by controllable adapters
     }
 
-    protected async initControl(_props?:BleStartProperties) {        
+    protected async initControl(_props?:BleStartProperties):Promise<void> {        
         // to be implemeted by controllable adapters
     }
 
@@ -366,7 +366,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             }
 
             await this.waitForInitialData(timeout)
-            this.checkCapabilities()        
+            await this.checkCapabilities()        
             if ( this.hasCapability( IncyclistCapability.Control) )
                 await this.initControl(startProps)
                    
@@ -396,14 +396,14 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
 
     async startSensor():Promise<boolean> {
         
-        if (!this.getComms()?.hasPeripheral()) {
+        if (!this.getSensor()?.hasPeripheral()) {
             await this.waitForPeripheral()
         }
-        if (!this.getComms()) {
+        if (!this.getSensor()) {
             return false
         }
 
-        const sensor = this.getComms();
+        const sensor = this.getSensor();
         const connected = await sensor.startSensor()
 
         await sensor.subscribe()
@@ -425,7 +425,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
 
         let reason:string = 'unknown';
         let stopped = false
-        const sensor = this.getComms();
+        const sensor = this.getSensor();
 
         try {
             stopped = await sensor.stopSensor();
@@ -450,11 +450,11 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         this.started = false;
         this.resetData()
         
-        if (!this.getComms()) {
+        if (!this.getSensor()) {
             this.logEvent( {message:'device stopped - not started yet', device:this.getName(),interface:this.getInterface()})    
             return true;
         }
-        const sensor = this.getComms();
+        const sensor = this.getSensor();
 
         sensor.reset();
         this.resetData()        

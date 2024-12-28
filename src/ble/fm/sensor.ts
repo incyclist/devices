@@ -282,7 +282,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     }
 
     
-    protected async getFitnessMachineFeatures():Promise<IndoorBikeFeatures|undefined> {
+    async getFitnessMachineFeatures():Promise<IndoorBikeFeatures|undefined> {
         if (this._features)
             return this._features;
         
@@ -304,7 +304,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
 
                 this._features = {fitnessMachine, targetSettings,power, heartrate, cadence, setPower, setSlope}
 
-                
+
                 this.logEvent( {message:'supported Features: ',fatures:this._features, power, heartrate, cadence})
             }
     

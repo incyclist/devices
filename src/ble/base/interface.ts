@@ -267,7 +267,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
                 .then( ()=>{ return this.onScanDone()} )
                 .catch( ()=>[])
         }
-        this.logEvent({message:'starting scan ..'})
+        this.logEvent({message:'starting scan ..', interface:'ble'})
 
         this.scanTask = new InteruptableTask( this.startScan(), {
             timeout:props.timeout,
@@ -305,12 +305,14 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     }
 
     pauseLogging() {
+        this.logEvent({message:'pausing logging'})
         this.logDisabled = true
     }
 
 
     resumeLogging() {
         this.logDisabled = false
+        this.logEvent({message:'resuming logging'})
     }
     isLoggingPaused(): boolean {
         return this.logDisabled
@@ -572,6 +574,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         if (!this.isConnected() || !this.isDiscovering())
             return;
 
+        this.logEvent({message:'updateWithServices',peripheral:announcement.name})
         
 
         try {
@@ -861,7 +864,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         if (this.logDisabled && event.message!=='Error')    
             return;
 
-        this.getLogger().logEvent(event)
+        this.getLogger().logEvent({...event, interface:'ble'})
         const emitPayload = {...event}
         delete emitPayload.ts
 
@@ -872,7 +875,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         const w = global.window as any
     
         if (this.debug || w?.SERVICE_DEBUG || process.env.DEBUG) 
-            console.log(`~~~ ${this.logger.getName().toUpperCase()}-SVC`, event)
+            console.log(`~~~ ${this.logger.getName().toUpperCase()}-SVC`, {...event, interface:'ble'})
     }
 
 

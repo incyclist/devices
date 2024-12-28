@@ -52,7 +52,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
         const modes:Array<typeof CyclingMode> =[PowerMeterCyclingMode]
 
-        const features = this.getComms()?.features
+        const features = this.getSensor()?.features
         if (!features)
             return [PowerMeterCyclingMode, FtmsCyclingMode,BleERGCyclingMode] 
 
@@ -68,7 +68,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
  
     getDefaultCyclingMode(): ICyclingMode {
 
-        const features = this.getComms()?.features
+        const features = this.getSensor()?.features
         if (!features)
             return new FtmsCyclingMode(this);
 
@@ -127,7 +127,6 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
         return data;
     }
-
     
     
     protected checkResume() {
@@ -158,7 +157,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
     protected setConstants() {
         const mode = this.getCyclingMode();
-        const sensor = this.getComms();
+        const sensor = this.getSensor();
 
         if (mode?.getSetting('bikeType')) {
             const bikeType = mode.getSetting('bikeType').toLowerCase();
@@ -179,7 +178,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         let hasControl = false
         let tryCnt = 0;
         
-        const sensor = this.getComms();
+        const sensor = this.getSensor();
 
         return new Promise<boolean>( (resolve) =>{
 
@@ -215,9 +214,13 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
     }
 
-    protected checkCapabilities() {
+    protected async checkCapabilities() {
         const before = this.capabilities.join(',')
-        const sensor = this.getComms()
+        const sensor = this.getSensor()
+
+        if (!sensor.features)
+            await sensor.getFitnessMachineFeatures()
+
 
         if (sensor.features?.heartrate && !this.hasCapability(IncyclistCapability.HeartRate)) {
             this.capabilities.push(IncyclistCapability.HeartRate)
@@ -247,7 +250,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
             const update = this.getCyclingMode().sendBikeUpdate(request)
             this.logEvent({message: 'send bike update requested',profile:this.getProfile(), update, request})
 
-            const device = this.getComms()
+            const device = this.getSensor()
 
             if (update.slope!==undefined) {
                 await device.setSlope(update.slope)

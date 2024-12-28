@@ -42,7 +42,7 @@ export default class BleTacxAdapter extends BleFmAdapter {
 
 
     protected async initControl(props?:BleStartProperties) {
-        const sensor = this.getComms() as TacxAdvancedFitnessMachineDevice
+        const sensor = this.getSensor() as TacxAdvancedFitnessMachineDevice
 
         const {user, wheelDiameter, gearRatio,bikeWeight=DEFAULT_BIKE_WEIGHT} = props || {}
         const userWeight = (user?.weight ?? DEFAULT_USER_WEIGHT);
@@ -56,9 +56,9 @@ export default class BleTacxAdapter extends BleFmAdapter {
 
     }
 
-    protected checkCapabilities() {
+    protected async checkCapabilities():Promise<void> {
         const before = this.capabilities.join(',')
-        const sensor = this.getComms()
+        const sensor = this.getSensor()
 
         if (sensor.features && sensor.features.heartrate && !this.hasCapability(IncyclistCapability.HeartRate)) {
             this.capabilities.push(IncyclistCapability.HeartRate)
