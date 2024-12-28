@@ -1,5 +1,6 @@
 import AdvSmartTrainerCyclingMode from "./ant-fe-adv-st-mode"
 import MockAdapter from '../../test/mock-adapter';
+import SmartTrainerCyclingMode from "./antble-smarttrainer";
 
 let adapter = new MockAdapter()
 
@@ -13,7 +14,13 @@ describe('Adv SmartTrainer',()=>{
     })
 
     test('statics',()=>{
+
+        const stMode = new SmartTrainerCyclingMode(adapter);
+        expect(stMode.getName()).toBe('Smart Trainer')
+        expect(stMode.getConfig().name).toBe('Smart Trainer')
+
         const m = new AdvSmartTrainerCyclingMode(adapter)
+
 
         expect(m.getName()).toBe('Advanced Smart Trainer')
         expect(m.getDescription()).toMatchSnapshot()
@@ -23,12 +30,16 @@ describe('Adv SmartTrainer',()=>{
         expect(m.isERG()).toBeFalsy()
         expect(m.getConfig().name).toBe('Advanced Smart Trainer')
 
+        expect(stMode.getName()).toBe('Smart Trainer')
+        expect(stMode.getConfig().name).toBe('Smart Trainer')
+
     })
 
     describe ( 'getBikeInitRequest()',()=>{
 
         test('default',()=>{
             const cyclingMode = new AdvSmartTrainerCyclingMode(adapter); 
+
             const request = cyclingMode.getBikeInitRequest();
             expect( request ).toEqual( { slope: 0})
         })

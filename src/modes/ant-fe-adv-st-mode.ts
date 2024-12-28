@@ -17,8 +17,8 @@ export default class AntAdvSimCyclingMode extends SmartTrainerCyclingMode {
 
     getConfig() {
         const config = super.getConfig()
-        config.name = 'Advanced Smart Trainer'
-        return config;
+        
+        return {...config,name:'Advanced Smart Trainer'}
     }
 
     checkForResetOrEmpty(request: UpdateRequest):UpdateRequest|undefined {
