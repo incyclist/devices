@@ -373,11 +373,11 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
                 this.services[idx]= {ts:Date.now(),service}
             }
             else {
-                this.logEvent({message:'device announced',device:service.name, announcement:service, source})
                 this.services.push( {ts:Date.now(),service})
-                if ( /*service.type!==DC_TYPE || */!service.serviceUUIDs?.length)
+                if ( !service.serviceUUIDs?.length)
                     return;
-               
+
+                this.logEvent({message:'device announced',device:service.name, announcement:service, source})               
                 this.emitDevice(service)                    
                 this.matching?.push(service.name)
                 

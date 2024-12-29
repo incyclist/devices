@@ -759,7 +759,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         const supported = found.filter( uuid => expected.includes(uuid) )??[]
 
         if (!supported.length) {
-            this.logEvent({message:'service not supported', name:service.name, uuids:service.serviceUUIDs})
+            this.logEvent({message:'peripheral not supported', name:service.name, uuids:service.serviceUUIDs})
             this.addUnsupported(service)
         }
 
