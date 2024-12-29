@@ -7,6 +7,7 @@ export type InterfaceProps = {
     binding?: any, 
     logger?:EventLogger,
     log?:boolean
+    enabled?:boolean
 }
 
 

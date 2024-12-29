@@ -57,6 +57,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
             DirectConnectInterface._instance = new DirectConnectInterface(props)
 
         else {  
+            DirectConnectInterface._instance.setProps(props)
             if ( props.binding) {
                 DirectConnectInterface._instance.setBinding(props.binding)
             }
@@ -91,8 +92,13 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         this.internalEvents = new EventEmitter()
         this.instance = ++instanceId
 
-        if (this.binding)
+        const {enabled} = props
+        if (this.binding && (enabled??false))
             this.autoConnect()
+    }
+
+    setProps(props:InterfaceProps) {
+        this.props = props
     }
     createPeripheral(announcement: MulticastDnsAnnouncement): IBlePeripheral {
         return DirectConnectPeripheral.create(announcement) 
@@ -149,7 +155,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         const prev=this.binding
         this.binding = binding
 
-        if (!prev)
+        if (!prev && this.props.enabled)
             this.autoConnect()
 
     }

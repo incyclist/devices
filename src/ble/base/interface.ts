@@ -64,6 +64,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         if (BleInterface._instance===undefined)
             BleInterface._instance = new BleInterface(props)
         else {  
+            BleInterface._instance.setProps(props)
             if ( props.binding) {
                 BleInterface._instance.setBinding(props.binding)
             }
@@ -100,9 +101,14 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         this.internalEvents = new EventEmitter()
         this.onDiscovered = this.onPeripheralFound.bind(this)
 
-        if (this.binding)
+        const {enabled=true} = props
+        if (this.binding && enabled)
             this.autoConnect()
     }
+
+    setProps(props:InterfaceProps) {
+        this.props = props
+    }   
 
     /**
      * Gets the logger instance.
@@ -138,9 +144,10 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
      */
     setBinding(binding: BleBinding): void {
 
+        const prev=this.binding
         this.binding = binding
 
-        if (!this.isConnected()) {
+        if (!prev && !this.isConnected() && this.props.enabled) {        
             this.autoConnect()            
         }
 
