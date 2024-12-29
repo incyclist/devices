@@ -74,7 +74,7 @@ describe('Tacx Sensor',()=>{
             sensor.emit = jest.fn()
     
             sensor.onData('2a5b',Buffer.from([3,119,1,0,0,195,176,48,0,0,32]));
-            sensor.onData('2a5b',Buffer.from([3,119,1,0,0,195,176,48,0,0,32]));
+            sensor.onData('0x2a5b',Buffer.from([3,119,1,0,0,195,176,48,0,0,32]));
             sensor.onData('2a5b',Buffer.from([3,119,1,0,0,195,176,48,0,0,32]));
             sensor.onData('2a5b',Buffer.from([3,119,1,0,0,195,176,48,0,0,32]));
             expect(sensor.emit).toHaveBeenCalledTimes(1)

@@ -55,7 +55,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         try {
            
 
-            const uuid = characteristic.toLocaleLowerCase();          
+            const uuid = beautifyUUID( characteristic).toLowerCase();
     
             let res = undefined
             if (uuid && matches(uuid,this.tacxRx)) {
