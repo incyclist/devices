@@ -429,7 +429,7 @@ describe('BleInterface', () => {
 
             discovered.forEach(peripheral=> {
                 iface.matching.push(peripheral.name)
-                iface.services.push({ts:Date.now(), service:{peripheral, advertisement:peripheral.advertisement}})
+                iface.services.push({ts:Date.now(), service:{peripheral, advertisement:peripheral.advertisement, serviceUUIDs:peripheral.advertisement.serviceUuids}})
             })            
             
             iface.getAdapterFactory = jest.fn().mockReturnValue(
@@ -441,7 +441,11 @@ describe('BleInterface', () => {
                     })
 
                 })
-
+            iface.getBinding = jest.fn().mockReturnValue( {
+                    resumeLogging:jest.fn(),
+                    pauseLogging:jest.fn()
+                })
+    
         }
 
         const cleanupMocks = ( ) =>{
