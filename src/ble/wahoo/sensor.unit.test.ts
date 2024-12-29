@@ -70,4 +70,19 @@ describe ( 'WahooAdvancedFmAdapter',()=>{
         })
 
     })
+
+    describe( 'onData',()=> {
+
+        test('CSP DATA',async ()=>{
+
+            const dataSpy = jest.fn();
+            const c = new WahooSensor({logger:MockLogger});
+            c.on('data',dataSpy)
+            const data = Buffer.from( '14000000000000000000d503','hex') 
+            c.onData('0x2a63',data)
+
+            expect(dataSpy).toHaveBeenCalledWith({instantaneousPower:0,raw:'14000000000000000000d503'})            
+
+        })
+    })
 })

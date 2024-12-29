@@ -150,8 +150,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
         this.setConstants();
 
-        await this.establishControl();
-        this.setConstants();  
+        await this.establishControl();        
         await this.sendInitialRequest()
     }
 

@@ -38,6 +38,10 @@ export default class BleWahooAdapter extends BleFmAdapter {
         this.device = new BleWahooDevice( peripheral, {logger:this.logger})
     }
 
+    protected async checkCapabilities() { 
+        this.logEvent({message:'device capabilities updated', name:this.getSettings().name, interface:this.getSettings().interface,capabilities: this.capabilities})    
+    }
+
 
 
 }

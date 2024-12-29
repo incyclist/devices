@@ -56,13 +56,12 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
     }
     
     onData(characteristic:string,data: Buffer):boolean {       
-        const hasData = super.onData(characteristic,data);
-        if (!hasData)
-            return false;
+        
+        
+        const uuid = beautifyUUID( characteristic).toLowerCase();
+        let res;
 
-        const uuid = characteristic.toLowerCase();
-
-        let res = undefined
+        
         switch(uuid) {
             case CSP_MEASUREMENT: 
                 res = this.parsePower(data)
@@ -77,7 +76,7 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
                 res = this.parseFitnessMachineStatus(data)
                 break;
             default:    // ignore
-                this.logEvent({message:'data',uuid,data:data.toString('hex')})
+                this.logEvent({message:'data',uuid,data:Buffer.from(data).toString('hex')})
                 break;
 
         }
