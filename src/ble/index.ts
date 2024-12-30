@@ -8,6 +8,8 @@ import { BleTacxAdapter, BleTacxComms } from './tacx'
 import { BleDeviceSettings, BleInterfaceProps } from './types'
 import { BleInterface, BleInterfaceFactory } from '../ble/base/interface'
 import { BleMultiTransportInterfaceFactory,BleAdapterFactory } from './factories'
+import { BleCSCAdapter, BleCyclingSpeedCadenceDevice } from './csc'
+
 
 
 ['ble','wifi'].forEach(  i => { 
@@ -17,6 +19,7 @@ import { BleMultiTransportInterfaceFactory,BleAdapterFactory } from './factories
     af.register('fm',BleFmAdapter, BleFmComms)
     af.register('wahoo',BleWahooAdapter,BleWahooComms)
     af.register('tacx',BleTacxAdapter,BleTacxComms)
+    af.register('csc',BleCSCAdapter,BleCyclingSpeedCadenceDevice)
 })
 
 BleMultiTransportInterfaceFactory.register('ble',BleInterfaceFactory)

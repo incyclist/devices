@@ -15,5 +15,6 @@ export const HR_MEASUREMENT    = '2a37';
 
 export const CSC               = '1816'
 export const CSC_MEASUREMENT   = '2a5b';
+export const CSC_FEATURE       = '2a5c';
 
 export const ELITE_TRAINER_SVC = '347b0001'

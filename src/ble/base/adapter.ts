@@ -1,6 +1,6 @@
 
 import IncyclistDevice from "../../base/adpater";
-import { BleDeviceProperties, BleDeviceSettings, BleStartProperties, IBleInterface, IBlePeripheral, IBleSensor } from "../types";
+import { BleDeviceProperties, BleDeviceSettings, BleStartProperties, IBleInterface, IBlePeripheral } from "../types";
 import { IAdapter,IncyclistBikeData,IncyclistAdapterData,DeviceProperties, IncyclistInterface, IncyclistCapability} from "../../types";
 import { BleDeviceData } from "./types";
 import { LegacyProfile } from "../../antv2/types";
@@ -319,6 +319,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         if (hasData)
             this.logEvent({ message: 'sensor data received', device:this.getName(),interface:this.getInterface() });
     }
+
 
     protected async checkCapabilities():Promise<void> {
         // to be implemeted by controllable adapters

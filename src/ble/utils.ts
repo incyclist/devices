@@ -161,3 +161,8 @@ export const propertyFromVal = (val:number):BleProperty[] => {
 
     return res
 }
+
+export const bit = (nr) => {
+    return (1 << nr);
+  }
+  
