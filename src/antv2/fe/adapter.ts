@@ -139,10 +139,10 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
             speed: 0,
         }
 
-        data.speed = (deviceData.VirtualSpeed!==undefined ? deviceData.VirtualSpeed : (deviceData.RealSpeed||0))*3.6;
-        data.slope = (deviceData.Incline!==undefined? deviceData.Incline :data.slope);
-        data.power = (deviceData.InstantaneousPower!==undefined? deviceData.InstantaneousPower :data.power);        
-        data.pedalRpm = (deviceData.Cadence!==undefined? deviceData.Cadence :data.pedalRpm) ;
+        data.speed = (deviceData?.VirtualSpeed ?? (deviceData.RealSpeed||0))*3.6;
+        data.slope = deviceData?.Incline ?? data.slope;
+        data.power = deviceData?.InstantaneousPower ?? data.power;        
+        data.pedalRpm = deviceData.Cadence ??data.pedalRpm ;
         data.isPedalling = data.pedalRpm>0 || data.power>0;
 
         if (deviceData.HeartRate!==undefined)

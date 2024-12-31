@@ -2,36 +2,39 @@ import {EventLogger} from 'gd-eventlog';
 import PowerMeterCyclingMode from '../../modes/power-meter';
 import FtmsCyclingMode from '../../modes/antble-smarttrainer';
 import BleERGCyclingMode from '../../modes/antble-erg';
-import BleFitnessMachineDevice from './comms';
+import BleFitnessMachineDevice from './sensor';
 import BleAdapter  from '../base/adapter';
 import ICyclingMode, { CyclingMode } from '../../modes/types';
 import { IndoorBikeData } from './types';
 import { cRR, cwABike } from './consts';
-import { sleep } from '../../utils/utils';
-import { BleDeviceProperties, BleDeviceSettings, BleStartProperties } from '../types';
+import { BleDeviceProperties, BleDeviceSettings, BleStartProperties, IBlePeripheral } from '../types';
 import { IAdapter,IncyclistCapability,IncyclistAdapterData,IncyclistBikeData } from '../../types';
 import { LegacyProfile } from '../../antv2/types';
+import { sleep } from '../../utils/utils';
 
 export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMachineDevice> {
     protected static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Smart Trainer'
 
-    distanceInternal: number = 0;
-    connectPromise: Promise<boolean>
+    protected distanceInternal: number = 0;
+    protected connectPromise: Promise<boolean>
+    protected requestControlRetryDelay = 1000
 
     constructor( settings:BleDeviceSettings, props?:BleDeviceProperties) {
         super(settings,props);
 
         this.logger = new EventLogger('BLE-FM')
-        const {id,address,name} = settings
-        const logger = this.logger
-        const ble = this.ble
 
-        this.device = new BleFitnessMachineDevice( {id,address,name,ble,logger})
+        this.device = new BleFitnessMachineDevice( this.getPeripheral(), {logger:this.logger})
         this.capabilities = [ 
             IncyclistCapability.Power, IncyclistCapability.Speed, IncyclistCapability.Cadence, 
             IncyclistCapability.Control
         ]
 
+    }
+
+
+    updateSensor(peripheral:IBlePeripheral) {
+        this.device = new BleFitnessMachineDevice( peripheral, {logger:this.logger})
     }
 
     isSame(device:IAdapter):boolean {
@@ -40,10 +43,6 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         return this.isEqual(device.settings as BleDeviceSettings)
     }
 
-  
-    getName() {
-        return `${this.device.name}`        
-    }
 
     isControllable(): boolean {
         return true;
@@ -53,7 +52,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
         const modes:Array<typeof CyclingMode> =[PowerMeterCyclingMode]
 
-        const features = this.getComms()?.features
+        const features = this.getSensor()?.features
         if (!features)
             return [PowerMeterCyclingMode, FtmsCyclingMode,BleERGCyclingMode] 
 
@@ -69,7 +68,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
  
     getDefaultCyclingMode(): ICyclingMode {
 
-        const features = this.getComms()?.features
+        const features = this.getSensor()?.features
         if (!features)
             return new FtmsCyclingMode(this);
 
@@ -95,9 +94,9 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
             time:undefined
         }
 
-        data.power = (deviceData.instantaneousPower!==undefined? deviceData.instantaneousPower :data.power);
-        data.pedalRpm = (deviceData.cadence!==undefined? deviceData.cadence :data.pedalRpm) ;
-        data.time = (deviceData.time!==undefined? deviceData.time :data.time);
+        data.power = deviceData?.instantaneousPower ?? data.power;
+        data.pedalRpm = deviceData?.cadence ?? data.pedalRpm ;
+        data.time = deviceData?.time ?? data.time;
         data.isPedalling = data.pedalRpm>0 || (data.pedalRpm===undefined && data.power>0);
         data.heartrate = deviceData.heartrate || data.heartrate
         return data;
@@ -128,132 +127,120 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
         return data;
     }
-
-
-    async start( props: BleStartProperties={} ): Promise<any> {
+    
+    
+    protected checkResume() {
         const wasPaused = this.paused
         const wasStopped = this.stopped
 
         if (wasPaused)
             this.resume()
-        if (wasStopped)
-            this.stopped = false
+        this.stopped = false
 
         if (this.started && !wasPaused && !wasStopped)
-            return true;
+            return [wasPaused, true];
 
+        return [wasPaused, false];
+    }
         
-        this.logEvent({message: 'starting device', ...this.getSettings(),  protocol:this.getProtocolName(),props,isStarted:this.started, isConnected:this.getComms().isConnected() })
+    
+    protected async initControl(_startProps?:BleStartProperties) {
+        if (!this.isStarting())
+            return;
 
-        const {restart=wasPaused} = props;
+        this.setConstants();
 
-        if ( !restart && this.ble.isScanning() && !this.getComms().isConnected()) {
-            //await this.ble.stopScan();
-        }
+        await this.establishControl();        
+        await this.sendInitialRequest()
+    }
 
-        let scanOnly = props.scanOnly
-        if (this.ble.isScanning() && this.getComms().isConnected()) {
-            scanOnly = true;
-        }
-        else {
+    protected setConstants() {
+        const mode = this.getCyclingMode();
+        const sensor = this.getSensor();
 
-            const {timeout=20000} = props||{}            
+        if (mode?.getSetting('bikeType')) {
+            const bikeType = mode.getSetting('bikeType').toLowerCase();
+            sensor.setCrr(cRR);
 
-            if (!this.connectPromise)
-                this.connectPromise = this.connect()
-                
-            const res = await Promise.race( [ 
-                this.connectPromise.then((connected)=> {
-                    return {connected, reason:connected?null:'could not connect' }
-                }) ,
-                sleep(timeout).then(()=> ({connected: false, reason:'timeout'})) 
-            ])
-            this.connectPromise = undefined;
-            const connected = res.connected
-            if (!connected) {                
-                throw new Error(`could not start device, reason:${res.reason}`)   
+            switch (bikeType) {
+                case 'race': sensor.setCw(cwABike.race); break;
+                case 'triathlon': sensor.setCw(cwABike.triathlon); break;
+                case 'mountain': sensor.setCw(cwABike.mountain); break;
             }
-            
-            
         }
-            
-            
-        try {
-            
-            const comms = this.device
-            if (comms) {                
+    }
 
-                if (!scanOnly) {
+    protected async establishControl() {
+        if (!this.isStarting())
+            return false
 
-                    const mode = this.getCyclingMode()
-                    if (mode && mode.getSetting('bikeType')) {
-                        const bikeType = mode.getSetting('bikeType').toLowerCase();
-                        comms.setCrr(cRR);
-                        
-                        switch (bikeType)  {
-                            case 'race': comms.setCw(cwABike.race); break;
-                            case 'triathlon': comms.setCw(cwABike.triathlon); break;
-                            case 'mountain': comms.setCw(cwABike.mountain); break;
-                        }        
+        let hasControl = false
+        let tryCnt = 0;
+        
+        const sensor = this.getSensor();
+
+        return new Promise<boolean>( (resolve) =>{
+
+
+            this.startTask.notifyOnStop(() => {
+                resolve(false)
+            })
+
+            const waitUntilControl = async ()=>{
+                while (!hasControl && this.isStarting()) {
+                    if (tryCnt++ === 0) {
+                        this.logEvent( {message:'requesting control', device:this.getName(), interface:this.getInterface()})
                     }
-
-                    let hasControl = await comms.requestControl();
-                    if ( !hasControl) {
-                        let retry = 1;
-                        while(!hasControl && retry<3) {
-                            await sleep(1000);
-                            hasControl = await comms.requestControl();
-                            retry++;
-                        }
+                    hasControl = await sensor.requestControl();    
+                    if (hasControl) {                        
+                        this.logEvent( {message:'control granted', device:this.getName(), interface:this.getInterface()})
+                        resolve( this.isStarting() )
                     }
-                    if (!hasControl)
-                        throw new Error( 'could not establish control')
-
-                
-                    const startRequest = this.getCyclingMode().getBikeInitRequest()
-                    await this.sendUpdate(startRequest,true);
+                    else {
+                        await sleep(this.requestControlRetryDelay)
+                    }
                 }
+    
+            }
+            waitUntilControl()                
+        })
 
-                if (!this.started && !wasPaused) {
-                    comms.on('data', (data)=> {
-                        this.onDeviceData(data)
-                        
-                    })
-                    comms.on('disconnected', this.emit)
-                }
+    }
 
-                const before = this.capabilities.join(',')
+    protected async sendInitialRequest() {
+        const startRequest = this.getCyclingMode().getBikeInitRequest()
+        await this.sendUpdate(startRequest,true);
 
-                if (comms.features.heartrate && !this.hasCapability(IncyclistCapability.HeartRate)) {
-                    this.capabilities.push(IncyclistCapability.HeartRate)
-                }
-                if (comms.features.cadence && !this.hasCapability(IncyclistCapability.Cadence)) {
-                    this.capabilities.push(IncyclistCapability.Cadence)
-                }
-                if (comms.features.power && !this.hasCapability(IncyclistCapability.Power)) {
-                    this.capabilities.push(IncyclistCapability.Power)
-                }
-                const after = this.capabilities.join(',')
+    }
 
-                if (before !== after) {
-                    this.emit('device-info', this.getSettings(), {capabilities:this.capabilities})
-                }
+    protected async checkCapabilities() {
+        const before = this.capabilities.join(',')
+        const sensor = this.getSensor()
 
-                
-
-                
-                this.resetData();      
-                this.stopped = false;    
-                this.started = true;
-                this.resume()
-                
-                return true;
-            }    
+        if (!sensor.features) {
+            try {
+                await sensor.getFitnessMachineFeatures()
+            }
+            catch(err) {
+                this.logEvent( {message:'error getting fitness machine features', device:this.getName(), interface:this.getInterface(), error:err})    
+            }
         }
-        catch(err) {
-            this.logEvent({message: 'start result: error', error: err.message, profile:this.getProfile()})
-            throw new Error(`could not start device, reason:${err.message}`)
 
+
+        if (sensor.features?.heartrate && !this.hasCapability(IncyclistCapability.HeartRate)) {
+            this.capabilities.push(IncyclistCapability.HeartRate)
+        }
+        if (sensor.features?.cadence && !this.hasCapability(IncyclistCapability.Cadence)) {
+            this.capabilities.push(IncyclistCapability.Cadence)
+        }
+        if (sensor.features?.power && !this.hasCapability(IncyclistCapability.Power)) {
+            this.capabilities.push(IncyclistCapability.Power)
+        }
+        const after = this.capabilities.join(',')
+
+        if (before !== after) {
+            this.logEvent({message:'device capabilities updated', name:this.getSettings().name, interface:this.getSettings().interface,capabilities: this.capabilities})    
+            this.emit('device-info', this.getSettings(), {capabilities:this.capabilities})
         }
     }
 
@@ -268,7 +255,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
             const update = this.getCyclingMode().sendBikeUpdate(request)
             this.logEvent({message: 'send bike update requested',profile:this.getProfile(), update, request})
 
-            const device = this.device as BleFitnessMachineDevice
+            const device = this.getSensor()
 
             if (update.slope!==undefined) {
                 await device.setSlope(update.slope)
@@ -285,8 +272,6 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
             }
             this.logEvent({message:'error', fn:'sendUpdate()', request, error:err.message, stack:err.stack})
         }
-
-        //this.logger.logEvent({message:'sendUpdate',request});    
         
     } 
 

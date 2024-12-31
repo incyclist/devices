@@ -1,6 +1,6 @@
 import EventEmitter from 'events';
 import { sleep } from '../../utils/utils';
-import { BleBinding, BlePeripheral, BleInterfaceState } from '../types';
+import { BleBinding,  BleInterfaceState, BleRawPeripheral, BleService } from '../types';
 import { MockCharacteristic, PrimaryService } from './types';
 
 export type BleMockPeripheral = {
@@ -90,7 +90,7 @@ class Binding extends EventEmitter implements BleBinding {
 
 }
 
-class MockPeripheral  extends EventEmitter implements BlePeripheral {
+class MockPeripheral  extends EventEmitter implements BleRawPeripheral {
     id?: string | undefined;
     address?: string | undefined;
     name?: string | undefined;
@@ -108,6 +108,12 @@ class MockPeripheral  extends EventEmitter implements BlePeripheral {
             serviceUuids: p.services.map(s=>s.uuid)
         }
         this.services = p.services
+    }
+    disconnectAsync(): Promise<void> {
+        throw new Error('Method not implemented.');
+    }
+    discoverServicesAsync(serviceUUIDs: string[]):Promise<BleService[]> {
+        throw new Error('Method not implemented.');
     }
 
     async connectAsync(): Promise<void> {

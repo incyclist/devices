@@ -59,6 +59,10 @@ export interface IAdapter extends EventEmitter, IBike, ISensor{
     resume(): Promise<boolean> 
     connect():Promise<boolean>
     close():Promise<boolean>
+    resetData():void
+
+    onScanStart():void
+    onScanStop():void
 
 
     //@deprecate  ( use on('data) instead)

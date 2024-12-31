@@ -19,6 +19,11 @@ __BLE__
 - Wahoo Smart Trainers (Wahoo specific service)
 - Tacx FE-C over BLE
 
+__Direct Connect (Wifi)__
+- Smart Trainers (FTMS)
+- Power Meters (CP)
+- Heartrate Monitors (HR)
+
 __Serial__
 - Daum Classic Ergo Bikes
 - Daum Premium Ergo Bikes  (also over TCP/IP)
@@ -41,6 +46,7 @@ As this library supports various OS( Linux, Windows, Mac) and Incyclist is based
 - Ant: specified by the [incyclist-ant-plus](https://github.com/incyclist/ant-plus) library
 - Serial: specified by the [serialport](https://serialport.io/) library
 - BLE: specified by the [noble](https://github.com/noble/noble) library
+- Wifi: a combination of Multicast DNS as provided by the [Bonjour](https://github.com/onlxltd/bonjour-service) library and createSocket() wich creates a Socket class from NodeJS net module
 
 __Ant Example__
 
@@ -75,6 +81,55 @@ const noble = new Noble(new WinrtBindings())
 const logger = new EventLogger('BLESample')
 const ble = InterfaceFactory.create('ble',{logger, log:true, binding:noble})
 ```
+
+__Direct Connect Example__
+```
+const { Bonjour } = require('bonjour-service')
+const net = require('net');
+
+const createBinding = ()=>{
+    return {
+        mdns: new MDNSBinding(),
+        net: {
+            createSocket: ()=>new net.Socket()
+        } 
+    }
+}
+
+class MDNSBinding {
+    
+    connect() {
+        this.bonjour = new Bonjour()
+        
+    }
+
+    disconnect() {
+        if (this.bonjour) {
+            this.bonjour.destroy()
+            this.bonjour = null
+        }
+    }
+
+    find(opts , onUp) {
+        this.bonjour.find(opts, (s)=>{ 
+            this.handleAnnouncement(s,onUp) 
+        })
+    }       
+
+    handleAnnouncement(service,callback) {
+        const {name,txt,port,referer,protocol} = service
+        const announcement = {
+            name,address:referer?.address,protocol,port,
+            serialNo:txt?.['serial-number'], 
+            serviceUUIDs:txt?.['ble-service-uuids']?.split(',')
+        }
+        if (callback)
+            callback(announcement)
+    }
+        
+}
+```
+
 
 ### Check availability of interface
 

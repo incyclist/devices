@@ -6,7 +6,7 @@ import { IncyclistInterface } from "../../types";
 import AntDeviceBinding from "./binding";
 import SensorFactory from "../factories/sensor-factory";
 import { isTrue, runWithTimeout, sleep, waitWithTimeout } from "../../utils/utils";
-import { AdapterFactory } from "incyclist-devices";
+import AntAdapterFactory from "../factories/adapter-factory";
 
 type ChannelUsage = 'scan'|'sensor'
 interface ChannelInfo  {
@@ -388,7 +388,9 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         let promises = []
 
         detected.forEach( (settings)=>{
-            const adapter = AdapterFactory.create(settings)
+
+            const adapter = AntAdapterFactory.getInstance().createInstance(settings)
+            //const adapter = AdapterFactory.create(settings)
             promises.push(adapter.stop().catch(err => {
                 this.logger.logEvent({message:'could not stop device', error:err.message,deviceID:settings.deviceID, stack:err.stack})
             }))

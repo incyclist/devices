@@ -9,8 +9,10 @@ export interface TCPOpenOptions extends OpenOptions {
     timeout? : number
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export declare interface TCPBindingInterface<T extends BindingPortInterface = BindingPortInterface, R extends OpenOptions = OpenOptions, P extends PortInfo = PortInfo> extends BindingInterface<TCPPortBinding,TCPOpenOptions> {
     list(port?:number, excludeList?:string[]): Promise<P[]>;
+    open(options: TCPOpenOptions): Promise<TCPPortBinding>
 }
 
 //export type TCPBindingInterface = BindingInterface<TCPPortBinding,TCPOpenOptions>
@@ -56,12 +58,11 @@ export function scanPort( host:string,port:number): Promise<boolean> {
     })
 }
 
-//async function scanPort1(host,port) { console.log('checking',host, port); return true}
 
 export function scanSubNet( sn:string,port:number,excludeHosts?:string[]  ):Promise<string[]> {
     const range = [];
     for (let i=1;i<255;i++) 
-        if (!excludeHosts || !excludeHosts.includes(`${sn}.${i}`)) range.push(i)
+        if (!excludeHosts?.includes(`${sn}.${i}`)) range.push(i)
 
     return Promise.all( range.map( j => scanPort(`${sn}.${j}`,port).then( success => success ? `${sn}.${j}`: null).catch() ))        
         .then( hosts => hosts.filter( h => h!==null)) 
@@ -69,20 +70,6 @@ export function scanSubNet( sn:string,port:number,excludeHosts?:string[]  ):Prom
 }
 
 export function getSubnets() {
-    const nets = networkInterfaces();
-    const results = []
-
-    const names = Object.keys(nets);
-    names.forEach( name => {
-        for (const net of nets[name]) {
-            // Skip over non-IPv4 and internal (i.e. 127.0.0.1) addresses
-            if (net.family === 'IPv4' && !net.internal) {
-                results.push(net.address);
-            }
-        }
-    })
-
-   
     const address = Object.keys(networkInterfaces())
     // flatten interfaces to an array
     .reduce((a, key) => [
@@ -124,7 +111,7 @@ export const TCPBinding: TCPBindingInterface = {
         const subnets = getSubnets()     
         let hosts:string[] = [];
 
-        const excludeHosts = excludeList.map( e=>  e && e.includes(':') ? e.split(':')[0] : e)
+        const excludeHosts = excludeList.map( e=>  e?.includes(':') ? e.split(':')[0] : e)
 
         await Promise.all( 
             subnets.map( sn=> scanSubNet(sn,port, excludeHosts).then( found=> { hosts.push(...found) }))             
@@ -212,10 +199,10 @@ export class TCPPortBinding implements BindingPortInterface  {
     writeOperation: null | Promise<any>;
     data: Buffer;
     private pendingRead: null | ((err: null | Error) => void)
-    private onDataHandler = this.onData.bind(this)
-    private onErrorHandler = this.onError.bind(this)
-    private onTimeoutHandler = this.onTimeout.bind(this)
-    private onCloseHandler = this.onClose.bind(this)
+    private readonly onDataHandler = this.onData.bind(this)
+    private readonly onErrorHandler = this.onError.bind(this)
+    private readonly onTimeoutHandler = this.onTimeout.bind(this)
+    private readonly onCloseHandler = this.onClose.bind(this)
 
     constructor(socket:net.Socket, options: Required<OpenOptions>) {
 
@@ -283,7 +270,6 @@ export class TCPPortBinding implements BindingPortInterface  {
             return new Promise( done => {
                 const socket = this.socket;
 
-                //socket.removeAllListeners();
                 socket.on('error',()=>{ done(false) })            
                 socket.on('close',()=>{ socket.removeAllListeners(); done(true) })            
 
@@ -366,17 +352,23 @@ export class TCPPortBinding implements BindingPortInterface  {
             throw new Error('Port is not open')
         }
 
-        this.writeOperation = new Promise<void> ( async (resolve,reject)=>{
-            await resolveNextTick()
+        this.writeOperation = new Promise<void> ( (resolve)=>{
 
-            try {
-                this.socket.write(buffer,()=>{
-                    resolve()
-                })    
+            const run = async ()=>{
+                await resolveNextTick()
+
+                try {
+                    this.socket.write(buffer,()=>{
+                        resolve()
+                    })    
+                }
+                catch(err) {
+                    this.onError(err)
+                }
+    
             }
-            catch(err) {
-                this.onError(err)
-            }
+
+            run() 
             
         })
 

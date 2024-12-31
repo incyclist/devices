@@ -364,12 +364,12 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
     }
 
     /* istanbul ignore next */
-    async checkCapabilities():Promise<void> {
+    protected  async checkCapabilities():Promise<void> {
         return;
     }
 
     /* istanbul ignore next */
-    async initControl():Promise<void> {
+    protected  async initControl():Promise<void> {
         return;
     }
 

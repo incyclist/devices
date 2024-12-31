@@ -1,6 +1,6 @@
 import { EventLogger } from "gd-eventlog"
 import AntDeviceBinding from "./binding"
-import AntInterface from "./interface"
+import {AntInterface} from "../index"   // import needs to come from main file, so that Factory is initialized
 import { sleep } from "../../utils/utils"
 import EventEmitter from "events"
 import { Channel, FitnessEquipmentSensor } from "incyclist-ant-plus"
