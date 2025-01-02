@@ -59,6 +59,8 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     protected instanceId: number
     protected connectedPeripherals: IBlePeripheral[] = []
     protected connectAttemptCnt:number = 0;
+    protected emitted: BlePeripheralAnnouncement[] = []
+    
 
     static getInstance(props:InterfaceProps={}): BleInterface {
         if (BleInterface._instance===undefined)
@@ -653,6 +655,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     protected startScan() {
 
         this.logEvent({message:'scan started',scanning:this.isScanning()})   
+        this.emitted = []
         this.emitCachedDevices();
 
         return  new Promise( ()=>{
@@ -671,9 +674,19 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     }
 
     protected emitDevice(service:BlePeripheralAnnouncement) {
+
+        if (this.alreadyEmitted(service)) {
+            return;   
+        }
+
         const settings = this.createDeviceSetting(service)
         this.logEvent({message:'device found',settings})
         this.emit('device',settings,service)
+        this.emitted.push(service)
+    }
+
+    protected alreadyEmitted(service:BlePeripheralAnnouncement):boolean {
+        return this.emitted.find(s => s.name === service.name || s.peripheral.address===service.peripheral.address ) !== undefined
     }
 
 

@@ -84,7 +84,7 @@ export class BlePeripheral implements IBlePeripheral {
     }
 
     protected async onPeripheralDisconnect() {
-        this.logEvent({message:'disconnect' })
+        this.logEvent({message:'peripheral disconnected' })
         try {
             await this.disconnect(true)
         }
