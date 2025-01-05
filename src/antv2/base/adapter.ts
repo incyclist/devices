@@ -84,9 +84,8 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
     }
 
     getProfileName():Profile  {
-        const C = this.constructor as typeof AntAdapter<TDeviceData>     
-            
-        return this.sensor?.getProfile() || C['ANT_PROFILE_NAME']
+        const C = this.constructor as typeof AntAdapter<TDeviceData>                 
+        return C['ANT_PROFILE_NAME']
     }
 
     getLegacyProfileName():LegacyProfile {
