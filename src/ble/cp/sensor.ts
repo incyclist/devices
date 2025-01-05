@@ -98,7 +98,8 @@ export default class BleCyclingPowerDevice extends TBleSensor {
         return [CSP_MEASUREMENT]
     }
 
-    onData(characteristic:string,data: Buffer): boolean {
+    onData(characteristic:string,characteristicData: Buffer):boolean {       
+        const data = Buffer.from(characteristicData);
         const hasData = super.onData(characteristic,data);
         if (!hasData) 
             return false;

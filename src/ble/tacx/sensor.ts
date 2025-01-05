@@ -44,7 +44,10 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         return [INDOOR_BIKE_DATA,'2a37',FTMS_STATUS,CSP_MEASUREMENT,CSC_MEASUREMENT,this.tacxRx ]
     }
 
-    onData(characteristic:string,data: Buffer):boolean {     
+    onData(characteristic:string,characteristicData: Buffer):boolean {     
+
+        // ensure it's a Buffer
+        const data = Buffer.from(characteristicData)
 
         const isDuplicate = this.isDuplicate(characteristic,data)
         if (isDuplicate) {
@@ -93,7 +96,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
     
         }  
         catch (err) {
-            this.logEvent({message:'error',fn:'tacx.onData()',error:err.message||err, stack:err.stack})
+            this.logEvent({message:'error',fn:'tacx.onData()',error:err.message||err, stack:err.stack, dataType: typeof(characteristicData)})
         }
  
     }
@@ -373,6 +376,8 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
 
 
     protected parseTrainerData(data:Buffer):BleFeBikeData {
+
+        //const data = Buffer.from(buffer)
         const oldEventCount = this.data.EventCount || 0;
 
         let eventCount = data.readUInt8(1);
@@ -484,7 +489,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
     
         }
         catch (err) {
-            this.logEvent( {message:'error',fn:'parseFECMessage()',error:err.message||err, stack:err.stack})
+            this.logEvent( {message:'error',fn:'parseFECMessage()',error:err.message||err, stack:err.stack,dataType:typeof(data)})
         }
         return res;
     }

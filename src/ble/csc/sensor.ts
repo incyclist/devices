@@ -44,7 +44,8 @@ export class BleCyclingSpeedCadenceDevice extends TBleSensor {
         }
     }
 
-    onData(characteristic:string,data: Buffer): boolean {
+    onData(characteristic:string,characteristicData: Buffer):boolean {       
+        const data = Buffer.from(characteristicData);
         const hasData = super.onData(characteristic,data);
         if (!hasData) 
             return false;

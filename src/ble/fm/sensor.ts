@@ -44,7 +44,8 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         return [INDOOR_BIKE_DATA,'2a37',FTMS_STATUS ]
     }
 
-    onData(characteristic:string,data: Buffer):boolean {       
+    onData(characteristic:string,characteristicData: Buffer):boolean {       
+        const data = Buffer.from(characteristicData);
         try {
             const hasData = super.onData(characteristic,data);
 
