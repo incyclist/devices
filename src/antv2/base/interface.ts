@@ -456,6 +456,8 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
                 this.logEvent( {message:'could not start sensor' })
                 channel.off('data',onData)
             }
+
+            this.logEvent( {message:'sensor started', channel:sensor.getChannel()?.getChannelNo(), profile:sensor.getProfile(), deviceID:sensor.getDeviceID()})
             return started
 
         } 
@@ -488,7 +490,7 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         }
 
         const channel = sensor.getChannel() as Channel
-        if (channel!==undefined) {
+        if (channel!==undefined && channel!==null ) {
             try {
 
                 // old versions of ant-plus library did not have a flush functionn
