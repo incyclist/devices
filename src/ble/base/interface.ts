@@ -389,6 +389,15 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
 
     protected async reconnect() {
+        let error
+        try {
+            throw new Error('')
+        }
+        catch(err) {
+            error = err
+        }
+        
+        this.logEvent({message:'reconnecting interface', stack:error.stack})    
         await this.disconnect()
         await this.connect(true)
     }

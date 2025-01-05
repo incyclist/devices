@@ -249,6 +249,9 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         if( !enforced && ( this.paused  || !this.device))
             return;
     
+        // don't send any commands if the device is stopped and not starting
+        if( !enforced && ( this.stopped && !this.isStarting()))
+            return
         
         try {
 

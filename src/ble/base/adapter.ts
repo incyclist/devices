@@ -379,6 +379,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
                 this.resume()                
 
             if (!this.isStarting()) {
+                this.logEvent({message: 'start result: interrupted', device:this.getName(),interface:this.getInterface(), protocol:this.getProtocolName()})            
                 this.started = false;
                 this.stopped = true;
                 return false
