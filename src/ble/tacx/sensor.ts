@@ -96,7 +96,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
     
         }  
         catch (err) {
-            this.logEvent({message:'error',fn:'tacx.onData()',error:err.message||err, stack:err.stack, dataType: typeof(characteristicData)})
+            this.logEvent({message:'error',fn:'tacx.onData()',error:err.message||err, stack:err.stack, dataType: typeof(characteristicData),characteristicData})
         }
  
     }
@@ -448,8 +448,8 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
     }
 
 
-    protected parseFECMessage( _data:Buffer):BleFeBikeData {
-        const data:Buffer = Buffer.from(_data);
+    protected parseFECMessage( data:Buffer):BleFeBikeData {
+        
 
         this.logEvent({message:'FE-C message',data:data.toString('hex')});
 
@@ -474,13 +474,13 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         try {
             switch (messageId) {
                 case ANTMessages.generalFE:
-                    res = this.parseGeneralFE(data.subarray(4,len+3))
+                    res = this.parseGeneralFE( Buffer.from(data.subarray(4,len+3)) )
                     break;
                 case ANTMessages.trainerData:
-                    res = this.parseTrainerData(data.subarray(4,len+3))
+                    res = this.parseTrainerData( Buffer.from(data.subarray(4,len+3)) )
                     break;
                 case ANTMessages.productInformation:
-                    res = this.parseProductInformation(data.subarray(4,len+3))
+                    res = this.parseProductInformation( Buffer.from(data.subarray(4,len+3)))
                     break;
         
             }

@@ -206,7 +206,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
             }
 
             const logData = this.getLogData(deviceData, ['PairedDevices','RawData','_RawData']);
-            this.logEvent( {message:'onDeviceData', data:logData, paused:this.paused,started:this.started, canEmit:this.canEmitData()})
+            this.logEvent( {message:'onDeviceData', device:this.getName(),interface:this.getInterface(),data:logData, paused:this.paused,started:this.started, canEmit:this.canEmitData()})
 
             if ( this.isStopped() || !this.canEmitData())
                 return;   
@@ -248,7 +248,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
                     clearInterval(iv)
                     resolve(true)
                 }
-                if (!this.promiseWaitForData) {
+                if (!this.promiseWaitForData || this.stopped) {
                     resolve(false)
                     clearInterval(iv)
                 }
