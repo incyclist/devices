@@ -621,12 +621,12 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
             peripheral.on('error',(err:Error)=>{ 
                 peripheral.removeAllListeners()
                 
-                this.logEvent({message:'peripheral error',error:err.message})
+                this.logEvent({message:'discover services: peripheral error',error:err.message})
             })
             peripheral.on('disconnect',()=>{ 
                 peripheral.removeAllListeners()
                 
-                this.logEvent({message:'peripheral disconnected'})
+                this.logEvent({message:'discover services: peripheral disconnected'})
                 
             })
 
