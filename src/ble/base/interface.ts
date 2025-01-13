@@ -57,7 +57,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     protected discoverTask: InteruptableTask<TaskState,void>
     protected onDiscovered: (peripheral:BleRawPeripheral)=>void   
     protected instanceId: number
-    protected connectedPeripherals: IBlePeripheral[] = []
+    protected connectedPeripherals: {id:string, peripheral:IBlePeripheral}[] = []
     protected connectAttemptCnt:number = 0;
     protected emitted: BlePeripheralAnnouncement[] = []
     
@@ -250,9 +250,22 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         return this.connectAttemptCnt>0 && this.getBinding()?.state === 'poweredOn'
     }
 
-    registerConnected(peripheral: IBlePeripheral) {
-        this.connectedPeripherals.push(peripheral)
+    registerConnected(peripheral: IBlePeripheral,id:string) {
+        const p = this.connectedPeripherals.find( p=> p.id===id)
+        if (p) {
+            p.peripheral = peripheral
+        }
+        else 
+            this.connectedPeripherals.push({peripheral,id})
     }
+
+    unregisterConnected(id:string) {
+        const p = this.connectedPeripherals.find( p=> p.id===id)
+        if (p) {
+            this.connectedPeripherals.splice(this.connectedPeripherals.indexOf(p),1)
+        }
+    }
+
 
     protected isConnecting() {
         return this.connectTask?.isRunning()===true
@@ -454,14 +467,14 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
     protected emitDisconnectAllPeripherals() {
         this.connectedPeripherals.forEach( p=> {
-            const peripheral = (p as BlePeripheral).getPeripheral()
+            const peripheral = (p.peripheral as BlePeripheral).getPeripheral()
             peripheral.emit('disconnect')
         })       
         this.connectedPeripherals = []    
     }
 
     protected async disconnectAllPeripherals():Promise<void> {
-        const promises = this.connectedPeripherals.map( p=> p.disconnect())
+        const promises = this.connectedPeripherals.map( p=> p.peripheral.disconnect())
         await Promise.allSettled(promises)
         this.connectedPeripherals = []    
     }
