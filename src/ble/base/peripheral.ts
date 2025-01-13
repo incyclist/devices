@@ -35,15 +35,24 @@ export class BlePeripheral implements IBlePeripheral {
             return this.connectPromise.then( ()=>this.connected)
         }
 
-        const peripheral = this.getPeripheral()
-        this.connectPromise = peripheral.connectAsync()
-        await this.connectPromise
-       
-        this.ble.registerConnected(this,peripheral.id)
-        peripheral.once('disconnect',()=>{ this.onPeripheralDisconnect() })
-        peripheral.on('error',this.onErrorHandler)
+        this.connectPromise = new Promise<void> ( (done) => {
 
-        this.connected = true;
+            const peripheral = this.getPeripheral()
+            this.logEvent({message:'connect peripheral',address:peripheral.address})
+            peripheral.connectAsync().then( ()=>{
+                this.ble.registerConnected(this,peripheral.id)
+                peripheral.once('disconnect',()=>{ this.onPeripheralDisconnect() })
+                peripheral.on('error',this.onErrorHandler)
+        
+                this.connected = true;
+                done()
+    
+            })
+        })
+
+        await this.connectPromise
+        delete this.connectPromise
+
         return this.connected
     }
     async disconnect(connectionLost:boolean=false): Promise<boolean> {
@@ -70,6 +79,8 @@ export class BlePeripheral implements IBlePeripheral {
             if (!connectionLost) {
                 // old versions of the app did not support disconnectAsync
                 // so we need to "promisify" the disconnect
+                this.logEvent({message:'disconnect peripheral',address:peripheral.address})
+
                 if (!peripheral.disconnectAsync) {
                     peripheral.disconnectAsync = ():Promise<void>=> {
                         return new Promise ( (done) => { this.getPeripheral().disconnect(()=> {done()} )})
@@ -107,7 +118,7 @@ export class BlePeripheral implements IBlePeripheral {
             return
 
         this.disconnectedSignalled = true
-        this.logEvent({message:'peripheral disconnected' })
+        this.logEvent({message:'peripheral disconnected', address:this.getPeripheral()?.address })
         try {
             await this.disconnect(true)
             this.disconnectedSignalled = false
@@ -119,24 +130,30 @@ export class BlePeripheral implements IBlePeripheral {
     }
 
     protected onPeripheralError(err:Error) {
-        this.logEvent({message:'peripheral error', error:err.message })
+        this.logEvent({message:'peripheral error', address:this.getPeripheral()?.address,error:err.message })
     }
 
     async discoverServices(): Promise<string[]> {
+        if (!this.getPeripheral())
+            return []
         
         if (this.getPeripheral().discoverServicesAsync) {
-            this.logEvent({message:'discover services'})
+            this.logEvent({message:'discover services', address:this.getPeripheral().address})
             const services = await this.getPeripheral().discoverServicesAsync([])
             return services.map(s=>s.uuid)    
         }
         else {
-            this.logEvent({message:'discover services and characteristics'})
+            this.logEvent({message:'discover services and characteristics', address:this.getPeripheral().address})
             const res = await this.getPeripheral().discoverSomeServicesAndCharacteristicsAsync([],[])                
             return res.services.map(s=>s.uuid)
         }
     }
 
     async discoverCharacteristics(serviceUUID: string): Promise<BleCharacteristic[]> {
+        if (!this.getPeripheral())
+            return []
+
+        this.logEvent({message:'discover services and characteristics',service:serviceUUID, address:this.getPeripheral().address})
         const res = await this.getPeripheral().discoverSomeServicesAndCharacteristicsAsync([serviceUUID],[])                
         res.characteristics.forEach( c => this.characteristics[beautifyUUID(c.uuid)] = c)
 
@@ -185,10 +202,10 @@ export class BlePeripheral implements IBlePeripheral {
                     return Promise.resolve(true)
                 }
 
-                this.logEvent({message:'subscribe request', characteristic:uuid, success:true})
+                this.logEvent({message:'subscribe request',address:this.getPeripheral().address, characteristic:uuid, success:true})
                 c.subscribe( (err:Error|undefined) => {
                     if (err) {
-                        this.logEvent({message:'subscribe result', characteristic:uuid, success:false, reason:err.message})                    
+                        this.logEvent({message:'subscribe result',address:this.getPeripheral().address, characteristic:uuid, success:false, reason:err.message})                    
                         resolve(false)
                     }
                     else {
@@ -200,7 +217,7 @@ export class BlePeripheral implements IBlePeripheral {
                         else  {
                             this.subscribed.push( {uuid,callback:null})
                         }
-                        this.logEvent({message:'subscribe result', characteristic:uuid, success:true})
+                        this.logEvent({message:'subscribe result',address:this.getPeripheral().address, characteristic:uuid, success:true})
                         resolve(true)
                     }
                 })
