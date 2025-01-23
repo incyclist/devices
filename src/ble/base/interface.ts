@@ -200,9 +200,6 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         })
 
         const success = await  this.connectTask.run().catch(()=>false)
-        if (success) {            
-            this.startPeripheralScan()
-        }
 
         return success;
     }
@@ -846,9 +843,9 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
     protected async connectBle():Promise<boolean> {
 
-        this.confirmedBleState = this.getBinding().state
-        if(this.confirmedBleState === 'poweredOn' ) {
-            this.logEvent({message:'BLE connected'})
+        this.currentBleState = this.getBinding().state
+        if(this.currentBleState === 'poweredOn' ) {
+            this.onConnected()
             return true;
         }
 
@@ -886,7 +883,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     }
 
     protected async onConnected() {
-        if (this.isConnected())
+        if (this.isConnected() )
             return;
 
         this.confirmedBleState = 'poweredOn'
