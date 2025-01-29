@@ -35,6 +35,12 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
         super(peripheral,props)
         this.data = {}
         this.wahooCP = WAHOO_ADVANCED_TRAINER_CP;
+        this._features = {
+            fitnessMachine:0, targetSettings:0,
+            power: true,cadence: true,heartrate: this.supportsHeartRate(),
+            setPower: true,
+            setSlope: true
+        }
     }
 
     isMatching(serviceUUIDs: string[]): boolean {    
@@ -238,6 +244,20 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
         const {instantaneousPower, cadence,time} = this.data
         return {instantaneousPower, cadence,time,raw:data.toString('hex')}
 
+    }
+
+    protected supportsHeartRate(): boolean { 
+        try {
+            if (!this.peripheral)
+                return false;
+    
+            return this.peripheral.services?.find( s=> beautifyUUID(s.uuid)===beautifyUUID('180d'))!==undefined
+    
+        }
+        catch(err) {    
+            this.logEvent({message:'error', fn:'supportsHeartRate', error:err.message, stack:err.stack})
+            return false;
+        }
     }
 
     protected async writeWahooFtmsMessage(requestedOpCode:number, data:Buffer,props?:BleWriteProps) {

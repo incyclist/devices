@@ -112,6 +112,11 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         if (this.hasControl)
             return true;
 
+        // If we know from features flag that setPower and setSlope are not supported, just ignore
+        if (this.features?.setPower===false && this.features?.setSlope===false)
+            return true;
+
+
         this.logEvent( {message:'requestControl'})
         this.isCheckingControl = true;
         const data = Buffer.alloc(1)
@@ -350,8 +355,9 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         if (this.data.targetInclination!==undefined && this.data.targetInclination===inclination)
             return true;
 
-        if (!this.hasControl)
-        return;
+        // If we know from features flag that setSlope is not supported, just ignore
+        if (this.features?.setSlope===false)
+            return true;
 
         const hasControl = await this.requestControl();
         if (!hasControl) {
@@ -369,6 +375,11 @@ export default class BleFitnessMachineDevice extends TBleSensor {
 
 
     async setIndoorBikeSimulation( windSpeed:number, gradient:number, crr:number, cw:number): Promise<boolean> {
+
+
+        // If we know from features flag that setPower is not supported, just ignore
+        if (this.features?.setPower===false)
+            return true;
 
         const hasControl = await this.requestControl(); 
         if (!hasControl) {
