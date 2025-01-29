@@ -190,11 +190,12 @@ export default class BleFitnessMachineDevice extends TBleSensor {
 
     protected parseIndoorBikeData(_data: Uint8Array):IndoorBikeData { 
         const data:Buffer = Buffer.from(_data);
+        let offset = 2 ;      
+
         try {
             const flags = data.readUInt16LE(0)
-            let offset = 2 ;      
     
-            if ((flags & IndoorBikeDataFlag.MoreData)===0) {
+            if ((flags & IndoorBikeDataFlag.MoreData)===0 ) {
                 this.data.speed = data.readUInt16LE(offset)/100; offset+=2;
             }
             if (flags & IndoorBikeDataFlag.AverageSpeedPresent) {
@@ -231,7 +232,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
                 this.data.heartrate = data.readUInt8(offset); offset+=1;
             }
             if (flags & IndoorBikeDataFlag.MetabolicEquivalentPresent) {
-                this.data.metabolicEquivalent = data.readUInt8(offset)/10; offset+=2;
+                this.data.metabolicEquivalent = data.readUInt8(offset)/10; offset+=1;
             }
             if (flags & IndoorBikeDataFlag.ElapsedTimePresent) {
                 this.data.time = data.readUInt16LE(offset); offset+=2;
@@ -242,7 +243,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     
         }
         catch(err) {
-            this.logEvent({message:'error',fn:'parseIndoorBikeData()',error:err.message|err, stack:err.stack})
+            this.logEvent({message:'error',fn:'parseIndoorBikeData()',data:data.toString('hex'),offset, error:err.message|err, stack:err.stack})
         }
         return { ...this.data, raw:`2ad2:${data.toString('hex')}`};
 
