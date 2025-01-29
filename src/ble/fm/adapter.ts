@@ -274,10 +274,6 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         // don't send any commands if we are pausing, unless mode change was triggered
         if( !enforced && ( this.paused  || !this.device))
             return;
-
-        // don't send any commands if the Control capability is not supported
-        if (!this.hasCapability(IncyclistCapability.Control))
-            return
                 
     
         // don't send any commands if the device is stopped and not starting
@@ -291,13 +287,16 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
             const device = this.getSensor()
 
-            if (update.slope!==undefined) {
-                await device.setSlope(update.slope)
-            } 
+            // don't send any commands if the Control capability is not supported
+            if (this.hasCapability(IncyclistCapability.Control)) {
+                if (update.slope!==undefined) {
+                    await device.setSlope(update.slope)
+                } 
 
-            if (update.targetPower!==undefined) {
-                await device.setTargetPower(update.targetPower)
-            } 
+                if (update.targetPower!==undefined) {
+                    await device.setTargetPower(update.targetPower)
+                } 
+            }
 
         }
         catch(err) {
