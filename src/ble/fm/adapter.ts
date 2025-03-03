@@ -5,7 +5,7 @@ import BleERGCyclingMode from '../../modes/antble-erg';
 import BleFitnessMachineDevice from './sensor';
 import BleAdapter  from '../base/adapter';
 import ICyclingMode, { CyclingMode } from '../../modes/types';
-import { IndoorBikeData } from './types';
+import { IndoorBikeData, IndoorBikeFeatures } from './types';
 import { cRR, cwABike } from './consts';
 import { BleDeviceProperties, BleDeviceSettings, BleStartProperties, IBlePeripheral } from '../types';
 import { IAdapter,IncyclistCapability,IncyclistAdapterData,IncyclistBikeData } from '../../types';
@@ -150,8 +150,13 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
         this.setConstants();
 
+        // In some cases, the device does not support fitness machine features, which might have been detected in checkCapabilities()
+        // therefore we need to check if we still have control capabilties
+        if (!this.hasCapability(IncyclistCapability.Control)) 
+            return;
+
         await this.establishControl();        
-        await this.sendInitialRequest()
+        await this.sendInitialRequest()        
     }
 
     protected setConstants() {
@@ -226,16 +231,11 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
             }
         }
 
+        if (sensor.features) {
+            this.updateCapabilitiesFromFeatures(sensor.features);           
+        }
 
-        if (sensor.features?.heartrate && !this.hasCapability(IncyclistCapability.HeartRate)) {
-            this.capabilities.push(IncyclistCapability.HeartRate)
-        }
-        if (sensor.features?.cadence && !this.hasCapability(IncyclistCapability.Cadence)) {
-            this.capabilities.push(IncyclistCapability.Cadence)
-        }
-        if (sensor.features?.power && !this.hasCapability(IncyclistCapability.Power)) {
-            this.capabilities.push(IncyclistCapability.Power)
-        }
+
         const after = this.capabilities.join(',')
 
         if (before !== after) {
@@ -244,10 +244,37 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         }
     }
 
+    protected updateCapabilitiesFromFeatures(features: IndoorBikeFeatures) {
+        
+        if (features.heartrate && !this.hasCapability(IncyclistCapability.HeartRate)) {
+            this.capabilities.push(IncyclistCapability.HeartRate);
+        }
+
+        if (features.cadence && !this.hasCapability(IncyclistCapability.Cadence)) {
+            this.capabilities.push(IncyclistCapability.Cadence);
+        }
+        if (features.cadence===false && this.hasCapability(IncyclistCapability.Cadence)) {
+            this.capabilities = this.capabilities.filter(cap => cap !== IncyclistCapability.Cadence);
+        }
+
+        if (features.power && !this.hasCapability(IncyclistCapability.Power)) {
+            this.capabilities.push(IncyclistCapability.Power);
+        }
+        if (features.power===false && this.hasCapability(IncyclistCapability.Power)) {
+            this.capabilities = this.capabilities.filter(cap => cap !== IncyclistCapability.Power);
+            
+        }
+        if (features.setPower === false && features.setSlope === false) {
+            this.logEvent({message:'downgrade to Power Meter', name:this.getSettings().name, interface:this.getSettings().interface})
+            this.capabilities = this.capabilities.filter(cap => cap !== IncyclistCapability.Control);
+        }
+    }
+ 
     async sendUpdate(request, enforced=false) {
         // don't send any commands if we are pausing, unless mode change was triggered
         if( !enforced && ( this.paused  || !this.device))
             return;
+                
     
         // don't send any commands if the device is stopped and not starting
         if( !enforced && ( this.stopped && !this.isStarting()))
@@ -260,13 +287,16 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
             const device = this.getSensor()
 
-            if (update.slope!==undefined) {
-                await device.setSlope(update.slope)
-            } 
+            // don't send any commands if the Control capability is not supported
+            if (this.hasCapability(IncyclistCapability.Control)) {
+                if (update.slope!==undefined) {
+                    await device.setSlope(update.slope)
+                } 
 
-            if (update.targetPower!==undefined) {
-                await device.setTargetPower(update.targetPower)
-            } 
+                if (update.targetPower!==undefined) {
+                    await device.setTargetPower(update.targetPower)
+                } 
+            }
 
         }
         catch(err) {

@@ -124,7 +124,14 @@ describe('BleFitnessMachineDevice',()=>{
             const res = ftms.parseIndoorBikeData( data("6402c108000014001c0000"));
             expect(res).toMatchObject( { speed:22.41,instantaneousPower:28,cadence:0,heartrate:0,resistanceLevel:20 })
         })
-        
+
+        test('real response from  Rave',()=>{
+            ftms.logEvent = jest.fn()
+            const res = ftms.parseIndoorBikeData( data("fe1f00000000000000000000000100000000000000000000000000000000"));
+            expect(res).toMatchObject( { speed:0,instantaneousPower:0,resistanceLevel:1 })
+            expect(ftms.logEvent).not.toHaveBeenCalled()
+        })
+
     })
 
     describe('parseFitnessMachineStatus',()=>{})
