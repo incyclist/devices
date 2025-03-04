@@ -70,7 +70,7 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
     }
 
     protected checkForTempPowerAdjustments(request: UpdateRequest) {
-        if (request.targetPowerDelta && this.prevRequest && this.prevRequest.targetPower) {
+        if (request.targetPowerDelta && this.prevRequest?.targetPower) {
             request.targetPower = this.prevRequest.targetPower + request.targetPowerDelta;
             if (request.targetPower < 10)
                 request.targetPower = this.prevRequest.targetPower;
@@ -120,8 +120,8 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
     }
 
     protected checkMinPower(request: UpdateRequest, newRequest: UpdateRequest) {
-        if (request.minPower !== undefined) {
-            const target = newRequest.targetPower !== undefined ? newRequest.targetPower : this.prevRequest.targetPower;
+        if (request?.minPower !== undefined) {
+            const target = newRequest?.targetPower ?? this.prevRequest?.targetPower;
             if (target && target < request.minPower) {
                 newRequest.targetPower = request.minPower;
             }
@@ -133,8 +133,8 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
     }
 
     protected checkMaxPower(request: UpdateRequest, newRequest: UpdateRequest) {
-        if (request.maxPower !== undefined) {
-            const target = newRequest.targetPower !== undefined ? newRequest.targetPower : this.prevRequest.targetPower;
+        if (request?.maxPower !== undefined) {
+            const target = newRequest?.targetPower ?? this.prevRequest?.targetPower ;
             if (target && target > request.maxPower) {
                 newRequest.targetPower = request.maxPower;
             }
