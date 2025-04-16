@@ -1,15 +1,28 @@
-import { parseConfig as parseConfig } from "./config"
+import { parseConfig } from "./config"
 import {createServer} from 'net'
 import { Bonjour } from 'bonjour-service'
 import { DirectConnectComms } from './comms'
 import { getAddresses } from "./net"
+import readline from "readline/promises"
 
 
+const listenKeyPresses = (onKeyPress) => {
+
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+  
+    process.stdin.on("keypress", onKeyPress);
+    return rl;
+  };
 
 const main = async ({configFile = './config/smarttrainer.json'}) => {
 
     console.log('configFile',configFile)
 
+    let paused = false
+    let currentCadence = 90
 
     const {config, emulator} = await parseConfig(configFile)
 
@@ -36,7 +49,10 @@ const main = async ({configFile = './config/smarttrainer.json'}) => {
 
     const simulate = () => {   
         setInterval(() => {
-            emulator.update({power:Math.round(Math.random()*100+50), heartrate:Math.round(Math.random()*40+80), cadence:Math.round(Math.random()*20+80)})
+            if (paused)
+                emulator.pause()
+            else 
+                emulator.update({power:Math.round(Math.random()*100+50), heartrate:Math.round(Math.random()*40+80), cadence:currentCadence})
         }, 1000)        
     }
 
@@ -47,6 +63,29 @@ const main = async ({configFile = './config/smarttrainer.json'}) => {
 
     const instance = new Bonjour()
     instance.publish( config)
+
+    listenKeyPresses( (key,event)=>{
+        if (key === 'p')  {
+            console.log('### pausing')
+            paused = true
+        }
+        else if (key === 'r')  {
+            console.log('### resuming')
+            paused = false
+            emulator.resume()
+        }
+        else if (event.name==='left') 
+            currentCadence  = event.shift ? Math.max(0,currentCadence-20) : Math.max(0,currentCadence-5)
+        else if (event.name==='right') 
+            currentCadence  = event.shift ? Math.max(0,currentCadence+20) : Math.max(0,currentCadence+5)
+        else 
+            console.log('######## KEY PRESS',{key,event})
+        
+    })
+
+
+
+
 }
 
 const parseArgs = ()=> {

@@ -30,12 +30,15 @@ export class Emulator extends EventEmitter {
   hrs: HeartRateService;
   last_timestamp: number;
   rev_count: number;
+  paused: boolean;
 
-  power = 0;
-  speed = 0;
-  cadence = 0;
-  heartrate = 0;
+  public power = 0;
+  public speed = 0;
+  public cadence = 0;
+  public heartrate = 0;
   frequency = DEFAULT_FREQUENCY;
+
+  mode: 'ERG' | 'SIM'
 
   constructor(options: EmulatorOptions={}) {
     super();
@@ -52,50 +55,63 @@ export class Emulator extends EventEmitter {
 
     this.last_timestamp = 0;
     this.rev_count = 0;
+    this.mode = 'SIM'
   }
 
   setName(name:string) {
     this.name = name
   }
+
+
   getServices():Service[] {
     return [this.ftms, this.csp, this.hrs].filter(s => s !== null);
   }
 
   start() {
     this.last_timestamp = Date.now();
-    this.getServices().forEach(s => s.start(this.frequency));
+    this.getServices().forEach(s =>  {
+      s.setEmulator(this)
+      s.start(this.frequency) 
+    });
+  }
+
+  setMode(mode: 'ERG' | 'SIM', power?) {
+    
+    this.mode = mode
+    if (power && mode === 'ERG' && !this.paused) 
+        this.power = power    
+  }
+
+  pause() {
+    this.cadence = 0
+    this.power = 0
+    this.speed = 0
+    this.paused = true
+
+    console.log('# current values: (PAUSED)', {power:this.power, speed:this.speed, cadence:this.cadence, heartrate:this.heartrate})
+
+    this.updateServices()
+
+  }
+
+  resume() {
+    this.paused = false
+    this.cadence = 90
+    this.power = 100
+    this.speed = 20
+    this.updateServices()
   }
 
   update(DataUpdate: DataUpdate) {
     const t = Date.now()-this.last_timestamp;
 
-    const updateServices = () => {
-        this.csp?.cyclingPowerMeasurement.update({
-            watts: this.power,
-            heartrate:this.heartrate,
-            rev_count: this.rev_count
-        })
-
-        this.ftms?.indoorBikeData.update({
-            watts: this.power,
-            cadence: this.cadence,
-            heart_rate: this.heartrate
-        })
-
-        this.hrs?.heartRateMeasurement.update({
-            heart_rate: this.heartrate
-        })
-
-        
-        
-    }
 
     if ('cadence' in DataUpdate) this.cadence = DataUpdate.cadence;
 
     if (this.cadence>0)
         this.rev_count += Math.round(this.cadence/60*t/1000)
 
-    if ('power' in DataUpdate) {
+    if ('power' in DataUpdate && this.mode!=='ERG') {
         this.power = DataUpdate.power;
     }
     if ('speed' in DataUpdate) 
@@ -105,9 +121,34 @@ export class Emulator extends EventEmitter {
         this.heartrate = DataUpdate.heartrate;        
     }
 
-    updateServices()
+    console.log('# current values: (ACTIVE)', {power:this.power, speed:this.speed, cadence:this.cadence, heartrate:this.heartrate})
+
+    this.updateServices()
 
   }
+
+  updateServices()  {
+    this.csp?.cyclingPowerMeasurement.update({
+        watts: this.power,
+        heartrate:this.heartrate,
+        rev_count: this.rev_count
+    })
+
+    this.ftms?.indoorBikeData.update({
+        watts: this.power,
+        cadence: this.cadence,
+        heart_rate: this.heartrate
+    })
+
+    this.hrs?.heartRateMeasurement.update({
+        heart_rate: this.heartrate
+    })
+
+
+    
+    
+}
+
 
 }
 

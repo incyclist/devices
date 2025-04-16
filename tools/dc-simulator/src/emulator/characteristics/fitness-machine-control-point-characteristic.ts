@@ -65,6 +65,10 @@ export class FitnessMachineControlPointCharacteristic extends  Characteristic<TV
         if (this.hasControl) {
             this.targetPower = data.readInt16LE(1);
             console.log(this.description, 'Set target power', this.targetPower);
+
+            if (this.emulator) {
+                this.emulator.setMode('ERG', this.targetPower)
+            }
             return Success
         }
         else {
@@ -120,6 +124,9 @@ export class FitnessMachineControlPointCharacteristic extends  Characteristic<TV
             const cw = data.readUInt8(6) * 0.01;
 
             console.log(this.description, 'SetIndoorBikeSimulation', {windSpeed, grade, crr, cw});
+            if (this.emulator) {
+                this.emulator.setMode('SIM')
+            }
 
 
             // Notify all connected clients about the new values

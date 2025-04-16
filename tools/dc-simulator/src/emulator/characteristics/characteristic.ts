@@ -1,6 +1,6 @@
 import { EventEmitter } from "stream";
 import { BleProperty } from "../../../../../lib/ble/types";
-import { Descriptor, ICharacteristic, ICharacteristicDefinition } from "../types";
+import { Descriptor, ICharacteristic, ICharacteristicDefinition, IEmulator } from "../types";
 
 export class Characteristic<T> implements ICharacteristic<T>{
 
@@ -12,7 +12,7 @@ export class Characteristic<T> implements ICharacteristic<T>{
     protected data: T
     protected description: string
     protected emitter = new EventEmitter()
-
+    protected emulator: IEmulator
 
 
     constructor( props:ICharacteristicDefinition) {
@@ -21,6 +21,11 @@ export class Characteristic<T> implements ICharacteristic<T>{
         this.value = props.value
         this.descriptors = props.descriptors
     }
+
+    setEmulator(emulator: IEmulator) {
+        this.emulator = emulator
+    }
+
 
     subscribe(callback: (buffer: Buffer) => void): void {
         

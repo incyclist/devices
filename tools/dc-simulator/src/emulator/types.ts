@@ -27,6 +27,7 @@ export interface ICharacteristic<T extends TValue>  extends ICharacteristicDefin
     update(value:T): void
     notify(): void
     write(data: Buffer, offset: number, withoutResponse: boolean, callback: (success: boolean, response?: Buffer) => void): void 
+    setEmulator(emulator: IEmulator)
 }
 
 export interface IServiceDefinition  {
@@ -36,4 +37,9 @@ export interface IServiceDefinition  {
 
 export interface IService  {
     notify(): void
+    setEmulator(emulator: IEmulator)
+}
+
+export interface IEmulator {
+    setMode(mode: 'ERG' | 'SIM', power?: number): void
 }
