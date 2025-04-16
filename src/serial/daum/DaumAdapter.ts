@@ -284,10 +284,9 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
 
         this.logEvent({message:'start update pull', port:this.getPort()})
         const ivSync = setInterval( ()=>{
-            try {
-                this.bikeSync();                
-            }
-            catch{}
+            
+            this.bikeSync().catch() 
+            
         } ,this.pullFrequency)
 
         const ivUpdate = setInterval( ()=>{
@@ -626,12 +625,17 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
             this.deviceData.slope = request.slope;
         }
         
-        return new Promise ( async (resolve) => {
-            let bikeRequest = this.getCyclingMode().sendBikeUpdate(request)
-            this.logEvent({message:'add request',request:bikeRequest})
-            this.requests.push(bikeRequest);
-            resolve(bikeRequest);
-        })
+        return new Promise ( (resolve) => {
+
+            const fn = async () => { 
+                let bikeRequest = this.getCyclingMode().sendBikeUpdate(request)
+                this.logEvent({message:'add request',request:bikeRequest})
+                this.requests.push(bikeRequest);
+                resolve(bikeRequest);    
+            }
+
+            fn();
+        });
     }
 
      /* istanbul ignore next */
