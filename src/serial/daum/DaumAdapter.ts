@@ -160,12 +160,12 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         const resumed = await super.resume()
         this.comms?.resume()
         if (startUpdatePull)
-            await this.startUpdatePull()
+            this.startUpdatePull()
         return resumed
     }
 
     async waitForPrevCheckFinished():Promise<void> {
-        if (this.checkPromise) {
+        if (this.checkPromise !== undefined && this.checkPromise !== null) {
             this.logEvent( {message:"waiting for previous check device",port:this.getPort()});
             try {
                 await this.checkPromise
@@ -202,7 +202,7 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
     }
 
     async waitForPrevStartFinished() {
-        if (this.startPromise) {
+        if (this.startPromise!==undefined && this.startPromise!==null) {
             this.logEvent( {message:"waiting for previous device launch",port:this.getPort()});
             try {
                 await this.startPromise
@@ -327,7 +327,7 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
     }
 
     async stopUpdatePull():Promise<void> { 
-        if (!this.iv || !this.iv.emitter)
+        if (!this.iv?.emitter)
             return;
 
         return new Promise( done => {
@@ -444,7 +444,7 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         return await this.processClientRequest(request);        
     } 
 
-    async update():Promise<void> {
+    update() {
 
         // now get the latest data from the bike
         if (!this.canEmitData() || this.updateBusy) 
@@ -452,31 +452,27 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
 
         this.updateBusy = true;
 
-        try {
-            const bikeData = await this.getCurrentBikeData()
+        this.getCurrentBikeData()
+            .then(bikeData => {
+                // update Data based on information received from bike
+                const incyclistData = this.updateData(bikeData);
 
-            // update Data based on information received from bike
-            const incyclistData = this.updateData(bikeData)
+                // transform  (rounding / remove ignored values)
+                const data = this.transformData(incyclistData);
 
-            // transform  ( rounding / remove ignored values)
-            const data = this.transformData(incyclistData);
+                this.updateBusy = false;
+                this.emitData(data);
+            })
+            .catch(err => {
+                try {
+                    this.logEvent({message:'bike update error', port:this.getPort(),error:err.message,stack:err.stack });
+                    // use previous values
+                    const incyclistData = this.updateData(this.deviceData);
+                    this.transformData(incyclistData, false);
+                } catch {}
 
-            this.updateBusy = false;
-            this.emitData(data)
-
-        }
-        catch(err) {
-            try{
-                this.logEvent({message:'bike update error', port:this.getPort(),error:err.message,stack:err.stack })
-                // use previous values
-                const incyclistData =this.updateData( this.deviceData)
-                this.transformData(incyclistData, false);
-            }
-            catch{}
-
-            this.updateBusy = false;
-        }
-
+                this.updateBusy = false;
+            });
     }
 
     async sendRequests() {
@@ -519,7 +515,7 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         if (!this.iv?.stopRequested)
             await this.sendRequests();
         if (!this.iv?.stopRequested)
-            await this.update()
+            this.update()
         
         if (this.iv?.stopRequested) {
             this.iv.emitter.emit('stop-done', 'bikeSync')
