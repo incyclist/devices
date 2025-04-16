@@ -588,9 +588,9 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
         if (announcement.name.includes('KICKR')) {
             const supported = announcement.serviceUUIDs.map( s=> beautifyUUID(s))
-            if (supported.length===1 && supported[0]==='1818')
-                return true
-            
+            if (supported.length===1 && (supported[0]==='1818' || supported[0]==='FC82')) {
+                return true            
+            }
         }
         return false
     }
