@@ -3,7 +3,7 @@ import DaumAdapter from './DaumAdapter';
 import ICyclingMode from '../../modes/types';
 import { MockLogger } from '../../../test/logger';
 import { DeviceProperties, IncyclistBikeData } from '../../types';
-import { sleep } from '../../utils/utils';
+import { resolveNextTick, sleep } from '../../utils/utils';
 import { DaumSerialComms} from './types';
 import DaumClassicCyclingMode from '../../modes/daum-classic-standard';
 import { SerialDeviceSettings } from '../types';
@@ -810,20 +810,25 @@ describe( 'DaumAdapter', ()=>{
             a.emitData = jest.fn()
             a.getCurrentBikeData = jest.fn()
             a.canSendUpdate = jest.fn().mockReturnValue(true)
+            jest.useRealTimers()
+
         })
 
         test('normal',async ()=>{            
             a.getCurrentBikeData.mockResolvedValue({power:100, speed:10, pedalRpm:90})
             a.getCyclingMode().updateData = jest.fn( (data) => data)
 
-            await a.update()
+            a.update()
+            await resolveNextTick()
             expect(a.emitData).toHaveBeenCalledWith( expect.objectContaining({power:100,speed:10, cadence:90}))  
             expect(a.updateBusy).toBe(false)
         })
 
         test('cannot emit update',async ()=>{
             a.canEmitData = jest.fn().mockReturnValue(false)
-            await a.update()
+            a.update()
+            await resolveNextTick()
+
             expect(a.emitData).not.toHaveBeenCalled()
             expect(a.getCurrentBikeData).not.toHaveBeenCalled()
             expect(a.updateBusy).toBe(false)
@@ -831,7 +836,8 @@ describe( 'DaumAdapter', ()=>{
 
         test('update busy',async ()=>{
             a.updateBusy = true
-            await a.update()
+            a.update()
+            await resolveNextTick()
             expect(a.emitData).not.toHaveBeenCalled()
             expect(a.getCurrentBikeData).not.toHaveBeenCalled()            
         })
@@ -843,7 +849,10 @@ describe( 'DaumAdapter', ()=>{
             a.updateData = jest.fn()
             a.transformData = jest.fn()
 
-            await a.update()
+            jest.useRealTimers()
+            a.update()
+            await resolveNextTick()
+
             expect(a.updateData).toHaveBeenCalledWith(a.deviceData)  
             expect(a.emitData).not.toHaveBeenCalled()  
             expect(a.updateBusy).toBe(false)
