@@ -2,6 +2,7 @@ import EventEmitter from 'events';
 import BleFitnessMachineDevice from './sensor';
 import { BleCharacteristic, BleProperty } from '../types';
 
+const OC = expect.objectContaining
 
 const data = (input) => {
     const view = new Uint8Array(input.length / 2)
@@ -134,7 +135,38 @@ describe('BleFitnessMachineDevice',()=>{
 
     })
 
-    describe('parseFitnessMachineStatus',()=>{})
+    describe('parseFitnessMachineStatus',()=>{
+
+        let ftms;
+
+        beforeAll( ()=>{
+            ftms = new BleFitnessMachineDevice({id:'test'})
+
+        })
+
+        //
+        test('status 0x12 - will be ignored',()=>{
+            ftms.logEvent = jest.fn()
+            const res = ftms.parseFitnessMachineStatus( data("12000000002423"));
+            expect(res).toEqual( {raw:'2ada:12000000002423'})
+            expect(ftms.logEvent).not.toHaveBeenCalled( )
+        })
+
+        test('status 0x8 - valid notification',()=>{
+            ftms.logEvent = jest.fn()
+            const res = ftms.parseFitnessMachineStatus( data("086000"));
+            expect(res).toEqual( {targetPower:96, raw:'2ada:086000'})
+            expect(ftms.logEvent).not.toHaveBeenCalled( )
+        })
+
+        test('status 0x8 - real invalid notification received from Think XX01',()=>{
+            ftms.logEvent = jest.fn()
+            const res = ftms.parseFitnessMachineStatus( data("08"));
+            expect(res).toMatchObject( {raw:'2ada:08'})
+            expect(ftms.logEvent).toHaveBeenCalledWith( OC({message:'warning', warning:'invalid message - message too short' }) )
+        })
+
+    })
     describe('getFitnessMachineFeatures',()=>{})
 
 

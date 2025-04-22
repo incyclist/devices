@@ -255,10 +255,16 @@ export default class BleFitnessMachineDevice extends TBleSensor {
             const OpCode = data.readUInt8(0);
             switch(OpCode) {
                 case FitnessMachineStatusOpCode.TargetPowerChanged:
-                    this.data.targetPower = data.readInt16LE(1);
+                    if (data.length>=3)
+                        this.data.targetPower = data.readInt16LE(1);
+                    else 
+                        this.logEvent({message:'warning',fn:'parseFitnessMachineStatus()', warning:'invalid message - message too short',data:data.toString('hex')})                        
                     break;
                 case FitnessMachineStatusOpCode.TargetInclineChanged:
-                    this.data.targetInclination = data.readInt16LE(1)/10;
+                    if (data.length>=3)
+                        this.data.targetInclination = data.readInt16LE(1)/10;
+                    else 
+                        this.logEvent({message:'warning',fn:'parseFitnessMachineStatus()', warning:'invalid message - message too short',data:data.toString('hex')})                        
                     break;
                 case FitnessMachineStatusOpCode.FitnessMachineStartedOrResumed:
                     this.data.status = "STARTED"
@@ -268,6 +274,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
                     this.data.status = "STOPPED"
                     break;
                 case FitnessMachineStatusOpCode.SpinDownStatus:
+                    if (data.length>=2)
                     {
                         const spinDownStatus = data.readUInt8(1);
                         switch (spinDownStatus) {
@@ -278,11 +285,15 @@ export default class BleFitnessMachineDevice extends TBleSensor {
                             default: break;
                         }
                     }
+                    else  {
+                        this.logEvent({message:'warning',fn:'parseFitnessMachineStatus()', warning:'invalid message - message too short',data:data.toString('hex')})                        
+                    }
+                    break;
                 }
     
         }
         catch(err) {
-            this.logEvent({message:'error',fn:'parseFitnessMachineStatus()',error:err.message|err, stack:err.stack})
+            this.logEvent({message:'error',fn:'parseFitnessMachineStatus()', error:err.message,data:data.toString('hex'), stack:err.stack})
         }
 
         return { ...this.data, raw:`2ada:${data.toString('hex')}`};
