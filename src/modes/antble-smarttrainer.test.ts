@@ -151,11 +151,15 @@ describe('BLE-SmartTrainer',()=>{
             let res;
 
             cm.setSetting('slopeAdj',50)
+            cm.setSetting('slopeAdjDown',10)
             
             res = cm.sendBikeUpdate({ slope:10})
             expect(res).toEqual({slope:5})
             expect(cm.data.slope).toBe(10)
 
+            res = cm.sendBikeUpdate({ slope:-10})
+            expect(res).toEqual({slope:-1})
+            expect(cm.data.slope).toBe(-10)
 
         })
 

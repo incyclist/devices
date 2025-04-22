@@ -11,7 +11,8 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         description: "Calculates speed based on power and slope. Slope is set to the device",
         properties: [
             {key:'bikeType',name: 'Bike Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Race','Mountain','Triathlon'], default: 'Race'},
-            {key:'slopeAdj', name:'Slope Adjustment', description:'Percentage of slope that should be sent to the SmartTrainer. Should be used in case the slopes are feeling too hard', type: CyclingModeProperyType.Integer,default:100,min:0, max:200}
+            {key:'slopeAdj', name:'Bike Reality Factor', description:'Percentage of slope that should be sent to the SmartTrainer. Should be used in case the slopes are feeling too hard', type: CyclingModeProperyType.Integer,default:100,min:0, max:200},
+            {key:'slopeAdjDown', name:'Bike Reality Factor downhill', description:'Percentage of slope that should be sent during downhill sections. Should be used to avoid spinning out', type: CyclingModeProperyType.Integer,default:50,min:0, max:100}
         ]
     }
 
@@ -40,11 +41,11 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
 
     protected checkSlope(request: UpdateRequest, newRequest: UpdateRequest={}) { 
         if (request.slope!==undefined) {
-            newRequest.slope = parseFloat(request.slope.toFixed(1));
+            const targetSlope = newRequest.slope = parseFloat(request.slope.toFixed(1));
             this.data.slope = newRequest.slope;
 
             try {
-                const slopeAdj = this.getSetting('slopeAdj')
+                const slopeAdj = targetSlope>=0 ? this.getSetting('slopeAdj') : this.getSetting('slopeAdjDown')
                 if (slopeAdj!==undefined)
                     newRequest.slope = newRequest.slope * slopeAdj/100
             }
@@ -70,7 +71,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         this.logger.logEvent( {message:"processing update request",request:incoming,prev:this.prevRequest,data:this.getData()} );        
 
         let newRequest:UpdateRequest = {}
-        const request = Object.assign({},incoming)
+        const request = {...incoming}
 
         try {
 
@@ -90,6 +91,8 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
             // I'm not expecting any error here, but just in case, if we catch anything we'll log
             this.logger.logEvent( {message:"error",fn:'sendBikeUpdate()',error:err.message,stack:err.stack} );
         }
+
+        console.log('#sendBikeUpdate', newRequest)
             
         return newRequest
         

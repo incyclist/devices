@@ -7,10 +7,9 @@ import { SerialAdapterFactory } from "../serial";
 import { SerialDeviceSettings } from "../serial/types";
 import { Simulator } from "../simulator/Simulator";
 import { DeviceProperties, DeviceSettings, INTERFACE } from "../types/device";
-import { IncyclistInterface } from "../types/interface";
 
 export default class AdapterFactory {
-    static adapters: IncyclistDeviceAdapter[] = []
+    protected static adapters: IncyclistDeviceAdapter[] = []
 
     // @internal only required for testing
     
@@ -39,7 +38,7 @@ export default class AdapterFactory {
         if (existing)
             return existing
 
-        const ifaceName = typeof settings.interface ==='string' ? settings.interface : (settings.interface as IncyclistInterface).getName()
+        const ifaceName = typeof settings.interface ==='string' ? settings.interface : settings.interface.getName()
 
         let adapter;
         switch (ifaceName) {
@@ -54,10 +53,7 @@ export default class AdapterFactory {
                 adapter = BleAdapterFactory.getInstance('ble').createInstance(settings as BleDeviceSettings,props)
                 break;
             case INTERFACE.DC:
-                {
-                    const factory = BleAdapterFactory.getInstance('wifi')
-                    adapter = BleAdapterFactory.getInstance('wifi').createInstance(settings as BleDeviceSettings,props)
-                }
+                adapter = BleAdapterFactory.getInstance('wifi').createInstance(settings as BleDeviceSettings,props)
                 break;
             case INTERFACE.SIMULATOR:
                 adapter = new Simulator(settings,props)

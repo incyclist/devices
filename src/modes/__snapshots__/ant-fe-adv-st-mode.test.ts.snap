@@ -22,7 +22,16 @@ exports[`Adv SmartTrainer statics 2`] = `
     "key": "slopeAdj",
     "max": 200,
     "min": 0,
-    "name": "Slope Adjustment",
+    "name": "Bike Reality Factor",
+    "type": "Integer",
+  },
+  {
+    "default": 50,
+    "description": "Percentage of slope that should be sent during downhill sections. Should be used to avoid spinning out",
+    "key": "slopeAdjDown",
+    "max": 100,
+    "min": 0,
+    "name": "Bike Reality Factor downhill",
     "type": "Integer",
   },
 ]
