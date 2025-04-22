@@ -91,8 +91,6 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
             // I'm not expecting any error here, but just in case, if we catch anything we'll log
             this.logger.logEvent( {message:"error",fn:'sendBikeUpdate()',error:err.message,stack:err.stack} );
         }
-
-        console.log('#sendBikeUpdate', newRequest)
             
         return newRequest
         
