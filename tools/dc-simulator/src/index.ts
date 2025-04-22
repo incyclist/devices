@@ -66,11 +66,9 @@ const main = async ({configFile = './config/smarttrainer.json'}) => {
 
     listenKeyPresses( (key,event)=>{
         if (key === 'p')  {
-            console.log('### pausing')
             paused = true
         }
         else if (key === 'r')  {
-            console.log('### resuming')
             paused = false
             emulator.resume()
         }
@@ -78,8 +76,6 @@ const main = async ({configFile = './config/smarttrainer.json'}) => {
             currentCadence  = event.shift ? Math.max(0,currentCadence-20) : Math.max(0,currentCadence-5)
         else if (event.name==='right') 
             currentCadence  = event.shift ? Math.max(0,currentCadence+20) : Math.max(0,currentCadence+5)
-        else 
-            console.log('######## KEY PRESS',{key,event})
         
     })
 

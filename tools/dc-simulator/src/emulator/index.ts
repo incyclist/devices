@@ -88,8 +88,6 @@ export class Emulator extends EventEmitter {
     this.speed = 0
     this.paused = true
 
-    console.log('# current values: (PAUSED)', {power:this.power, speed:this.speed, cadence:this.cadence, heartrate:this.heartrate})
-
     this.updateServices()
 
   }
@@ -120,8 +118,6 @@ export class Emulator extends EventEmitter {
     if ('heartrate' in DataUpdate) {
         this.heartrate = DataUpdate.heartrate;        
     }
-
-    console.log('# current values: (ACTIVE)', {power:this.power, speed:this.speed, cadence:this.cadence, heartrate:this.heartrate})
 
     this.updateServices()
 
