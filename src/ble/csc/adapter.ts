@@ -65,7 +65,7 @@ export class BleCSCAdapter extends BleAdapter<CSCData,BleCyclingSpeedCadenceDevi
 
     mapData(deviceData:CSCData): IncyclistAdapterData{
         const {cadence, speed}  = deviceData
-        return {cadence,speed};
+        return {cadence,speed:speed*3.6} // m/s to km/h;
     }
 
 

@@ -15,7 +15,21 @@ describe('BleCscMeasurement',()=>{
         const res2 = {...parser.parse( M('03dc000000911403004e9f'))}
         expect(res2.speed).toBeCloseTo(3.4,1)
         expect(res2.cadence).toBeCloseTo(66,0)
+
+        
+    })
+
+    test('defect',()=>{
+        const parser = new CscMeasurement() 
+
+        parser.parse( M('02f70050c1'))
+        const res3 = {...parser.parse( M('02f8006bc3'))}
+        expect(res3.speed).toBeUndefined()
+        expect(res3.cadence).toBeCloseTo(114,0)
+
+        
                                         
         
     })
+
 })

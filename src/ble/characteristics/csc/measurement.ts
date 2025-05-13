@@ -2,8 +2,8 @@ import { CrankData } from "../../cp";
 import { CharacteristicParser, Feature } from "../types";
 
 export type CyclingCadenceAndSpeed = {
-    cadence?: number
-    speed?:number    
+    cadence?: number    // rpm
+    speed?:number       // m/s
 }
 
 export class CscMeasurement implements CharacteristicParser<CyclingCadenceAndSpeed> {
@@ -73,8 +73,9 @@ export class CscMeasurement implements CharacteristicParser<CyclingCadenceAndSpe
             }
 
             if (c.revolutions<p.revolutions) revs+=0x10000;
+            const seconds = time/1024
             
-            rpm = 1024*60*revs/time
+            rpm = 60*revs/seconds
         }
         else if ( p.cntUpdateMissing<0 || p.cntUpdateMissing>2) {
                 rpm = 0;            
@@ -110,9 +111,10 @@ export class CscMeasurement implements CharacteristicParser<CyclingCadenceAndSpe
                  
             }
 
+            const seconds = time/1024
             
-            const rps = 1024*revs/time
-            speed = rps * this.cw
+            const rps = revs/seconds
+            speed = rps * this.cw   // m/s
 
         }
         else if ( p.cntUpdateMissing<0 || p.cntUpdateMissing>2) {

@@ -142,24 +142,24 @@ describe( 'ANT SPD adapter', ()=>{
         })
 
         test('receiving a speed, multiple times',()=>{
-            adapter.mapToAdapterData({ManId:89,DeviceID:2606,CalculatedSpeed:21})
+            adapter.mapToAdapterData({ManId:89,DeviceID:2606,CalculatedSpeed:21/3.6})
             expect(adapter.data).toEqual({speed:21,timestamp:expect.anything()})
 
-            adapter.mapToAdapterData({ManId:89,DeviceID:2606,CalculatedSpeed:22,SerialNumber:10})
+            adapter.mapToAdapterData({ManId:89,DeviceID:2606,CalculatedSpeed:22/3.6,SerialNumber:10})
             expect(adapter.data).toEqual({speed:22,timestamp:expect.anything()})
         })
 
         test('receiving a distance, multiple times',()=>{
-            adapter.mapToAdapterData({ManId:89,DeviceID:2606,CalculatedSpeed:21, CalculatedDistance:1})
+            adapter.mapToAdapterData({ManId:89,DeviceID:2606,CalculatedSpeed:21/3.6, CalculatedDistance:1})
             expect(adapter.data).toEqual({speed:21,deviceDistanceCounter:1,timestamp:expect.anything()})
 
-            adapter.mapToAdapterData({ManId:89,DeviceID:2606,CalculatedSpeed:22,SerialNumber:10, CalculatedDistance:0})
+            adapter.mapToAdapterData({ManId:89,DeviceID:2606,CalculatedSpeed:22/3.6,SerialNumber:10, CalculatedDistance:0})
             expect(adapter.data).toEqual({speed:22,deviceDistanceCounter:0,timestamp:expect.anything()})
         })
 
 
         test('receiving speed data, then a record without speed data',async ()=>{
-            adapter.mapToAdapterData({ManId:89,DeviceID:2606,CalculatedSpeed:22})
+            adapter.mapToAdapterData({ManId:89,DeviceID:2606,CalculatedSpeed:22/3.6})
             expect(adapter.data).toEqual({speed:22,timestamp:expect.anything()})
             const ts = adapter.data.timestamp
 

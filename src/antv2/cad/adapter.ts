@@ -3,7 +3,7 @@ import AntAdapter from "../base/adapter";
 import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "../types";
 import { IncyclistCapability } from "../../types";
 
-export default class AntHrAdapter extends AntAdapter<CadenceSensorState>{   
+export default class AntCadAdapter extends AntAdapter<CadenceSensorState>{   
     protected static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Cadence Sensor'
     protected static ANT_PROFILE_NAME:Profile = 'CAD'
 

@@ -36,7 +36,9 @@ export class BleCyclingSpeedCadenceDevice extends TBleSensor {
     async getFeatures():Promise<BleCSCFeatures> {
         try {
             const data = await this.read(CSC_FEATURE)
-            return this.featureParser.parse(data)
+            const features = this.featureParser.parse(data)
+            this.logEvent({message:'supported features',features, raw:data?.toString('hex')})
+            return features
 
         }
         catch( err) {

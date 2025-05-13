@@ -10,7 +10,7 @@ export default class AntSpdAdapter extends AntAdapter<SpeedSensorState>{
    
     mapToAdapterData(deviceData:SpeedSensorState) {
         if (deviceData.CalculatedSpeed!==undefined) {
-            this.data.speed = deviceData.CalculatedSpeed;        
+            this.data.speed = deviceData.CalculatedSpeed*3.6;        
             this.data.timestamp = Date.now()
         }
 
