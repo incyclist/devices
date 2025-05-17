@@ -6,7 +6,7 @@ import { IndoorBikeData } from "../fm";
 import BleFitnessMachineDevice from "../fm/sensor";
 import { BleProtocol } from "../types";
 import { beautifyUUID, matches } from "../utils";
-import { BleFeBikeData } from "./types";
+import { BleFeBikeData, FECState } from "./types";
 
 export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineDevice {
     static readonly profile: LegacyProfile = 'Smart Trainer'
@@ -22,6 +22,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
     protected data: BleFeBikeData;
     protected hasFECData: boolean
     protected messageCnt: number
+    protected currentState:FECState
 
     protected tacxRx: string;
     protected tacxTx: string
@@ -267,7 +268,11 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
     protected parseFEState(capStateBF:number) {
         switch ((capStateBF & 0x70) >> 4) {
             case 1: this.data.State = 'OFF'; break;
-            case 2: this.data.State = 'READY'; this.resetState(); break;
+            case 2: 
+                this.data.State = 'READY'; 
+                if (this.currentState!=='READY')
+                    this.resetState(); 
+                break;
             case 3: this.data.State = 'IN_USE'; break;
             case 4: this.data.State = 'FINISHED'; break;
             default: delete this.data.State; break;
@@ -275,6 +280,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         if (capStateBF & 0x80) {
             // lap
         }
+        this.currentState = this.data.State
 
     }
 

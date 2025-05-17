@@ -1,11 +1,12 @@
 import { IndoorBikeData } from "../fm";
 
+export type FECState = 'OFF' | 'READY' | 'IN_USE' | 'FINISHED'
 export interface BleFeBikeData extends IndoorBikeData  {
 	EquipmentType?: 'Treadmill' | 'Elliptical' | 'StationaryBike' | 'Rower' | 'Climber' | 'NordicSkier' | 'Trainer' | 'General';
 	RealSpeed?: number;
 	VirtualSpeed?: number;
 	HeartRateSource?: 'HandContact' | 'EM' | 'ANT+';
-	State?: 'OFF' | 'READY' | 'IN_USE' | 'FINISHED';
+	State?: FECState;
 
 	EventCount?: number;
 	AccumulatedPower?: number;

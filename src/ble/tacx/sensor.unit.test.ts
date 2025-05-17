@@ -61,6 +61,12 @@ describe('Tacx Sensor',()=>{
         })
 
 
+        test('repeated messages in state READY',()=>{
+
+            send('a4094e011945ff2acf6d0020e9')
+            expect(send('a4094e01194cff25d26b0020f4')).toMatchObject({instantaneousPower:107})
+        })
+
         test('power',()=>{
            
             sensor.onData(CSP_MEASUREMENT,Buffer.from([3,119,1,0,0,195,176,48,0,0,32]));
