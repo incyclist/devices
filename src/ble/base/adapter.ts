@@ -329,9 +329,17 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         // to be implemeted by controllable adapters
     }
 
+    protected getStartLogProps(props:BleStartProperties):BleStartProperties {
+
+        const {user,userWeight,bikeWeight,timeout, wheelDiameter,  restart, scanOnly} = props??{}
+        return {user,userWeight,bikeWeight,wheelDiameter,timeout, restart, scanOnly}
+        
+    }
+
     protected async startAdapter( startProps?: BleStartProperties ): Promise<boolean> {
 
         const props = this.getStartProps(startProps)
+        const logProps = this.getStartLogProps(props)
         const {timeout=this.getDefaultStartupTimeout()} = startProps??{}
         const wasPaused = this.paused
 
@@ -349,7 +357,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             return false
         }
         
-        this.logEvent( {message:'starting device', device:this.getName(), interface:this.getInterface(), props, isStarted: this.started})
+        this.logEvent( {message:'starting device', device:this.getName(), interface:this.getInterface(), props:logProps, isStarted: this.started})
 
 
         try {
@@ -358,10 +366,10 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
 
             const connected = await this.startSensor();
             if (connected) {
-                this.logEvent({ message: 'peripheral connected', device:this.getName(), interface:this.getInterface(),props });                                
+                this.logEvent({ message: 'peripheral connected', device:this.getName(), interface:this.getInterface() });                                
             }
             else {
-                this.logEvent({ message: 'peripheral connection failed', device:this.getName(), interface:this.getInterface(), reason:'unknown', props });    
+                this.logEvent({ message: 'peripheral connection failed', device:this.getName(), interface:this.getInterface(), reason:'unknown'});    
                 this.stopped = true;
                 return false
             }

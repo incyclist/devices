@@ -243,7 +243,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     
         }
         catch(err) {
-            this.logEvent({message:'error',fn:'parseIndoorBikeData()',data:data.toString('hex'),offset, error:err.message|err, stack:err.stack})
+            this.logEvent({message:'error',fn:'parseIndoorBikeData()',data:data.toString('hex'),offset, error:err.message, stack:err.stack})
         }
         return { ...this.data, raw:`2ad2:${data.toString('hex')}`};
 
