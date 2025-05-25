@@ -14,6 +14,7 @@ export interface EmulatorOptions {
   name?: string;
   frequency?: number;
   uuids?: string[]
+  power?: number
 }
 
 interface DataUpdate  {
@@ -32,6 +33,8 @@ export class Emulator extends EventEmitter {
   rev_count: number;
   paused: boolean;
 
+  targetPower: number
+
   public power = 0;
   public speed = 0;
   public cadence = 0;
@@ -43,9 +46,10 @@ export class Emulator extends EventEmitter {
   constructor(options: EmulatorOptions={}) {
     super();
 
-    const {frequency=DEFAULT_FREQUENCY, uuids=[]} = options??{}
+    const {frequency=DEFAULT_FREQUENCY, uuids=[],power} = options??{}
     
     this.frequency = frequency
+    this.targetPower = power
     this.name = options.name ?? "Emulator";
 
 
@@ -110,7 +114,7 @@ export class Emulator extends EventEmitter {
         this.rev_count += Math.round(this.cadence/60*t/1000)
 
     if ('power' in DataUpdate && this.mode!=='ERG') {
-        this.power = DataUpdate.power;
+        this.power = this.targetPower??DataUpdate.power;
     }
     if ('speed' in DataUpdate) 
         this.speed = DataUpdate.speed;

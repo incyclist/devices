@@ -85,6 +85,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
             this.checkEmptyRequest(newRequest); 
 
             this.prevRequest = JSON.parse(JSON.stringify(newRequest));
+            this.prevRequest.slope = this.data.slope // don't use adjusted slope here as prevRequest will be used to update slope data in the future
         }
                 
         catch ( err)  /* istanbul ignore next */ {

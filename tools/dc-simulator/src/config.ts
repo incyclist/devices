@@ -47,6 +47,11 @@ export const parseConfig = async (file:string) => {
         props.frequency = target.frequency
         delete target.frequency
     }
+
+    if (target.power) {
+        props.power = target.power
+        delete target.power
+    }
     
     
     const emulator= new Emulator({...props,name,uuids})
