@@ -3,7 +3,7 @@ import { BleProtocol, BleWriteProps  } from "../types";
 import { IndoorBikeData, IndoorBikeFeatures } from "./types";
 import { FTMS, FTMS_CP, FTMS_STATUS, INDOOR_BIKE_DATA } from "../consts";
 import { TBleSensor } from "../base/sensor";
-import { beautifyUUID } from "../utils";
+import { beautifyUUID, matches } from "../utils";
 import { IndoorBikeDataFlag, FitnessMachineStatusOpCode, FitnessMachineFeatureFlag, TargetSettingFeatureFlag, OpCode, OpCodeResut as OpCodeResult } from "./consts";
 
 
@@ -307,12 +307,17 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         try {
             const data = await this.read('2acc')  // Fitness Machine Feature
             const buffer = data ? Buffer.from(data) : undefined
-            
+
+
+            const services = this.peripheral?.services || []
+            let power = services.some( s => matches(s.uuid,'1818'))  // Cycling Power
+            let heartrate = services.some( s => matches(s.uuid,'180d'))  // Heart Rate
+
             if (buffer) {
                 const fitnessMachine = buffer.readUInt32LE(0)
                 const targetSettings = buffer.readUInt32LE(4)
-                const power = (fitnessMachine & FitnessMachineFeatureFlag.PowerMeasurementSupported) !== 0
-                const heartrate = (fitnessMachine & FitnessMachineFeatureFlag.HeartRateMeasurementSupported) !==0
+                power = power || (fitnessMachine & FitnessMachineFeatureFlag.PowerMeasurementSupported) !== 0
+                heartrate = heartrate || (fitnessMachine & FitnessMachineFeatureFlag.HeartRateMeasurementSupported) !==0
                 const cadence = (fitnessMachine & FitnessMachineFeatureFlag.CadenceSupported)!==0
 
                 const setSlope = (targetSettings & TargetSettingFeatureFlag.IndoorBikeSimulationParametersSupported)!==0  
