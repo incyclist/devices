@@ -50,7 +50,7 @@ export class DirectConnectComms {
             return;
 
         const socket = this.socket
-        console.log( socket.remoteAddress+ ":OUT< ",respBuffer.toString('hex'))
+        //console.log( socket.remoteAddress+ ":OUT< ",respBuffer.toString('hex'))
         socket.write(respBuffer)
     }
 
