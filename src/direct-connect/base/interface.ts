@@ -105,10 +105,15 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
     }
 
     createDeviceSetting(service:MulticastDnsAnnouncement):BleDeviceSettings {
-        const name = service.name
-        const protocol = this.getProtocol(service)
+        try {
+            const name = service.name
+            const protocol = this.getProtocol(service)
 
-        return {interface:DirectConnectInterface.INTERFACE_NAME, name, protocol}
+            return {interface:DirectConnectInterface.INTERFACE_NAME, name, protocol}
+        }
+        catch {
+            return null
+        }
     }
     createPeripheralFromSettings(settings: DeviceSettings): IBlePeripheral {
         const info = this.getAll().find(a=>a.service.name === settings.name)
@@ -358,7 +363,10 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
     }
 
     protected emitDevice(service:MulticastDnsAnnouncement) {
-        this.emit('device',this.createDeviceSetting(service),service)
+        const device = this.createDeviceSetting(service);
+        if (!device) return;
+
+        this.emit('device',device,service)
     }
 
 
