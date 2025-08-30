@@ -1,6 +1,7 @@
 import { EventLogger } from "gd-eventlog"
 import { IncyclistInterface } from "./interface"
 import { User } from "./user"
+import { IncyclistCapability } from "./capabilities"
 
 export enum INTERFACE  {
     SERIAL= 'serial',
@@ -18,7 +19,8 @@ export type DeviceType = 'race' | 'mountain' | 'triathlon'
 export type DeviceProperties = {
     user?:User
     userWeight?: number;
-    bikeWeight?: number
+    bikeWeight?: number;
+    capabilities?: IncyclistCapability[];
 }
 
 export interface DeviceStartProperties extends DeviceProperties {

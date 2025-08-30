@@ -51,6 +51,8 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
     getSupportedCyclingModes() : Array<typeof CyclingMode> {
 
         const modes:Array<typeof CyclingMode> =[PowerMeterCyclingMode]
+        if (this.props.capabilities  && this.props.capabilities.indexOf(IncyclistCapability.Control)===-1)
+            return modes
 
         const features = this.getSensor()?.features
         if (!features)
@@ -68,7 +70,10 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
  
     getDefaultCyclingMode(): ICyclingMode {
 
-        const features = this.getSensor()?.features
+        if (this.props.capabilities  && this.props.capabilities.indexOf(IncyclistCapability.Control)===-1)
+            return new PowerMeterCyclingMode(this);
+
+        const features = this.getSensor()?.features        
         if (!features)
             return new FtmsCyclingMode(this);
 

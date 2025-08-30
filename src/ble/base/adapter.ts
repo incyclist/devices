@@ -331,8 +331,10 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
 
     protected getStartLogProps(props:BleStartProperties):BleStartProperties {
 
+        const capabilities  = this.props?.capabilities 
+
         const {user,userWeight,bikeWeight,timeout, wheelDiameter,  restart, scanOnly} = props??{}
-        return {user,userWeight,bikeWeight,wheelDiameter,timeout, restart, scanOnly}
+        return {user,userWeight,bikeWeight,wheelDiameter,timeout, restart, scanOnly, capabilities}
         
     }
 
@@ -376,7 +378,8 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
 
             await this.waitForInitialData(timeout)
             await this.checkCapabilities()        
-            if ( this.hasCapability( IncyclistCapability.Control) )
+            const skipControl = this.props.capabilities && !this.props.capabilities.includes(IncyclistCapability.Control);
+            if ( this.hasCapability( IncyclistCapability.Control)  && !skipControl)
                 await this.initControl(startProps)
                    
 
