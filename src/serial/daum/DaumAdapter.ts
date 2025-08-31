@@ -10,7 +10,7 @@ import SerialInterface from '../base/serial-interface';
 import SmartTrainerCyclingMode from '../../modes/daum-smarttrainer';
 import DaumPowerMeterCyclingMode from '../../modes/daum-power';
 import EventEmitter from 'events';
-import { UpdateRequest } from '../../modes/types';
+import ICyclingMode, { UpdateRequest } from '../../modes/types';
 
 export default class DaumAdapter<S extends SerialDeviceSettings, P extends DeviceProperties, C extends DaumSerialComms> extends SerialIncyclistDevice<P>  {
 
@@ -71,6 +71,13 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         return this.comms?.serial
     }
 
+    getDefaultCyclingMode(): ICyclingMode {
+
+        if (this.props.capabilities  && this.props.capabilities.indexOf(IncyclistCapability.Control)===-1)
+            return new DaumPowerMeterCyclingMode(this);
+
+        return super.getDefaultCyclingMode();
+    }
 
     
     async sendInitCommands():Promise<boolean> {

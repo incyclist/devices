@@ -1,13 +1,14 @@
 import { FitnessEquipmentSensor, FitnessEquipmentSensorState, Profile } from "incyclist-ant-plus";
 
 import  AntAdapter from "../base/adapter";
-import {  UpdateRequest } from '../../modes/types';
+import ICyclingMode, {  UpdateRequest } from '../../modes/types';
 import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "../types";
 import { IncyclistAdapterData, IncyclistBikeData,IncyclistCapability,ControllerConfig } from "../../types";
 import AntAdvSimCyclingMode from "../../modes/ant-fe-adv-st-mode";
 import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/consts";
 import ERGCyclingMode from "../../modes/antble-erg";
 import SmartTrainerCyclingMode from "../../modes/antble-smarttrainer";
+import PowerMeterCyclingMode from "../../modes/power-meter";
 
 const DEFAULT_BIKE_WEIGHT_MOUNTAIN = 14.5;
 
@@ -53,6 +54,15 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
     isReconnecting():boolean {
         return this.promiseReconnect!==null && this.promiseReconnect!==undefined
     }
+
+    getDefaultCyclingMode(): ICyclingMode {
+
+        if (this.props.capabilities  && this.props.capabilities.indexOf(IncyclistCapability.Control)===-1)
+            return new PowerMeterCyclingMode(this);
+
+        return super.getDefaultCyclingMode();
+    }
+
 
     
     async sendUpdate(request:UpdateRequest):Promise<UpdateRequest|void> {
