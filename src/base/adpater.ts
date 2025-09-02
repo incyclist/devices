@@ -343,9 +343,13 @@ export default class IncyclistDevice<P extends DeviceProperties>
     }
 
     getStartProps(startProps?:P):P {
-        if (startProps)
-            this.props = startProps
-        return startProps||{} as P
+
+        if (startProps) {
+            const current = this.props||{} as P
+            this.props = {  ...current,...startProps}
+        }
+
+        return startProps??{} as P
     }
 
     //@deprecate  ( use on('data) instead)
