@@ -80,8 +80,9 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
     protected checkRefresh(request: UpdateRequest, newRequest: UpdateRequest) {
         if (request.refresh && request.targetPower === undefined) {
             delete request.refresh;
-            if (this.prevRequest)
-                newRequest.targetPower = this.prevRequest.targetPower;
+            if (this.prevRequest) {
+                newRequest.targetPower = this.prevRequest.targetPower ?? this.data.power;
+            }
             
         }
     }
@@ -96,6 +97,10 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
             target = request.minPower
         }
 
+        // if (request.targetPower === undefined && request.minPower===undefined && request.maxPower===undefined && this.prevRequest.targetPower) {
+        //     target = this.prevRequest.targetPower
+        // }
+
         if (target !== undefined) {
             delete request.refresh;
             newRequest.targetPower = Number(target);
@@ -103,9 +108,20 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
     }
 
     protected checkSlope(request: UpdateRequest) {
-        if (request.slope !== undefined) {
+        if (request.slope !== undefined ) {
             this.data.slope = request.slope;
             delete request.slope;
+
+            if ( request.targetPower===undefined && request.minPower===undefined && request.maxPower===undefined) { 
+                if (this.prevRequest) {
+                    this.prevRequest.targetPower = this.prevRequest.targetPower ?? (this.data.power||undefined)
+                }
+                else {
+                    this.prevRequest = {targetPower: this.data.power||undefined}
+                }
+                request.refresh = this.prevRequest.targetPower!==undefined;
+            }
+
         }
     }
 
@@ -275,8 +291,10 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
         try {
 
             const req = this.checkForResetOrEmpty(request)
-            if (req)
+            if (req) {
+                delete req.refresh
                 return req
+            }
 
             // checks that might modify original request
             this.checkSlope(request);

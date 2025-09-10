@@ -66,6 +66,11 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
         return !!this.peripheral
     }
 
+    async pair(): Promise<boolean> {
+        // normally there is no pairing required, i.e. default should immediately return TRUE
+        return true
+    }
+
 
     async startSensor(reconnect?: boolean): Promise<boolean> {
 
@@ -94,14 +99,17 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
     async subscribe():Promise<boolean> {
         const selected = this.getRequiredCharacteristics()
 
-        if (selected===null)
-            return await this.peripheral.subscribeAll(this.onDataHandler)
+        if (selected===null) {
+            const res =  await this.peripheral.subscribeAll(this.onDataHandler)
+            return res;
+        }
 
-        if (selected.length===0)
+        if (selected.length===0) {
             return true;
+        }
 
-        return await this.peripheral.subscribeSelected(selected,this.onDataHandler)
-
+        const res =  await this.peripheral.subscribeSelected(selected,this.onDataHandler)
+        return res
     }
 
     async stopSensor(): Promise<boolean> {
@@ -160,6 +168,10 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
 
     onData(characteristic:string,data: Buffer): boolean {
         return true
+    }
+
+    getAnnouncement() {
+        return this.peripheral
     }
 
     protected getDefaultLogger(): EventLogger {

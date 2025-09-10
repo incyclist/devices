@@ -369,12 +369,18 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     pauseLogging() {
         this.logEvent({message:'pausing logging'})
         this.logDisabled = true
-        this.getBinding().pauseLogging()
+        try {
+            this.getBinding().pauseLogging()
+        }
+        catch {}
     }
 
 
     resumeLogging() {
-        this.getBinding().resumeLogging()
+        try {
+            this.getBinding().resumeLogging()
+        }
+        catch {}
         this.logDisabled = false
         this.logEvent({message:'resuming logging'})
     }
@@ -616,6 +622,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         return {
             advertisement:peripheral.advertisement,
             name:peripheral.advertisement.localName,
+            manufacturerData:peripheral.advertisement?.manufacturerData ? Buffer.from(peripheral.advertisement.manufacturerData) : undefined,
             serviceUUIDs:peripheral.advertisement.serviceUuids??[],
             peripheral,
             transport: this.getName()

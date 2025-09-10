@@ -189,25 +189,39 @@ export default class IncyclistDevice<P extends DeviceProperties>
         if (!this.isControllable())
             return;
 
-        let selectedMode :ICyclingMode;
-
-        if ( typeof mode === 'string') {
-            const supported = this.getSupportedCyclingModes();
-            const CyclingModeClass = supported.find( M => { const m = new M(this); return m.getName() === mode })
-            if (CyclingModeClass) {
-                this.cyclingMode = new CyclingModeClass(this,settings);    
-                return;
-            }
-            selectedMode = this.getDefaultCyclingMode();
-        }
-        else {
-            selectedMode = mode;
-        }
-        
+        const selectedMode :ICyclingMode = this.createOrGetMode(mode)
         this.cyclingMode = selectedMode;        
         this.cyclingMode.setSettings(settings);
     
     }
+
+    protected createOrGetMode(mode: string | ICyclingMode) {
+        if ( typeof mode === 'string') {
+
+            if (mode===this.getCyclingMode()?.getName()) {
+                return  this.cyclingMode
+            }
+
+            const supported = this.getSupportedCyclingModes();
+            const CyclingModeClass = supported.find( M => { const m = new M(this); return m.getName() === mode })
+            if (CyclingModeClass) {
+                return new CyclingModeClass(this);    
+            }
+            else {
+                return this.getDefaultCyclingMode();
+            }
+        }
+        
+
+        if (mode.getName()===this.cyclingMode?.getName()) {
+            return this.cyclingMode
+        }
+
+        return mode;
+    }
+
+
+
 
     getSupportedCyclingModes() : Array<typeof CyclingMode>  {
         if (!this.isControllable())

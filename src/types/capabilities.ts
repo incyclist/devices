@@ -3,6 +3,7 @@ export enum IncyclistCapability {
     Speed = 'speed',
     Cadence = 'cadence',
     HeartRate = 'heartrate',
-    Control = 'control'
+    Control = 'control',
+    AppControl = 'app_control'
 }
 

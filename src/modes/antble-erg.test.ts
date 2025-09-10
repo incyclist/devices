@@ -90,7 +90,7 @@ describe('BLE-ERG',()=>{
             expect(res).toEqual({targetPower:120})
 
             res = cm.sendBikeUpdate({})
-            expect(res).toEqual({targetPower:120,refresh:true})
+            expect(res).toEqual({targetPower:120})
         })
 
         test('empty request at start',()=>{
@@ -108,7 +108,7 @@ describe('BLE-ERG',()=>{
             expect(res).toEqual({targetPower:120})
 
             res = cm.sendBikeUpdate({slope:10})
-            expect(res).toEqual({targetPower:120,refresh:true})
+            expect(res).toEqual({targetPower:120})
             expect(cm.getSlope()).toBe(10)
         })
 

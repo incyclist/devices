@@ -417,7 +417,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         }
 
         const sensor = this.getSensor();
-        const connected = await sensor.startSensor()
+        let connected = await sensor.startSensor()
 
         await sensor.subscribe()
 
@@ -425,6 +425,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             sensor.on('data',this.onDeviceDataHandler) 
             sensor.on('disconnected', this.emit.bind(this))
             sensor.on('error',console.log) 
+            connected = await sensor.pair()
         }
         
         return connected

@@ -9,7 +9,7 @@ export interface AntDeviceSettings extends DeviceSettings {
     protocol?:string // legacy @deprecated
 }
 
-export type LegacyProfile = 'Heartrate Monitor' | 'Power Meter' | 'Smart Trainer' | 'Speed Sensor' | 'Cadence Sensor' | 'Speed + Cadence Sensor'
+export type LegacyProfile = 'Heartrate Monitor' | 'Power Meter' | 'Smart Trainer' | 'Speed Sensor' | 'Cadence Sensor' | 'Speed + Cadence Sensor' | 'Controller'
 
 
 export const isLegacyProfile = (o:unknown):boolean => o==='Heartrate Monitor' || o==='Power Meter' || o==='Smart Trainer' || o==='Speed Sensor' || o==='Cadence Sensor' || o==='Speed + Cadence Sensor'

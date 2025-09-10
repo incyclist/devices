@@ -9,6 +9,7 @@ import { BleDeviceSettings, BleInterfaceProps } from './types'
 import { BleInterface, BleInterfaceFactory } from '../ble/base/interface'
 import { BleMultiTransportInterfaceFactory,BleAdapterFactory } from './factories'
 import { BleCSCAdapter, BleCyclingSpeedCadenceDevice } from './csc'
+import { BleZwiftPlaySensor, ZwiftPlayAdapter } from './zwift/play'
 
 
 
@@ -20,6 +21,7 @@ import { BleCSCAdapter, BleCyclingSpeedCadenceDevice } from './csc'
     af.register('wahoo',BleWahooAdapter,BleWahooComms)
     af.register('tacx',BleTacxAdapter,BleTacxComms)
     af.register('csc',BleCSCAdapter,BleCyclingSpeedCadenceDevice)
+    af.register('zwift-play',ZwiftPlayAdapter,BleZwiftPlaySensor)
 })
 
 BleMultiTransportInterfaceFactory.register('ble',BleInterfaceFactory)

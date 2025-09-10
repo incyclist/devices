@@ -111,6 +111,10 @@ export class BlePeripheral implements IBlePeripheral {
         this.onDisconnectHandler = callback
     }
 
+    getManufacturerData() {
+        return this.announcement?.manufacturerData
+    }
+
     protected async onPeripheralDisconnect() {
 
         // sometimes event was sent twice within 3ms, avoid to process it twice
@@ -164,17 +168,17 @@ export class BlePeripheral implements IBlePeripheral {
     }
 
 
-    async subscribe(characteristicUUID: string, callback: (characteristicUuid: string, data: Buffer) => void): Promise<boolean> {
+    async subscribe(characteristicUUID: string, callback: (characteristicUuid: string, data: Buffer, isNotify?) => void): Promise<boolean> {
         try {
             if (this.disconnecting || !this.connected)
                 return false
 
             const uuid = beautifyUUID(characteristicUUID)
 
-            const onData=(data:Buffer):void => {                        
+            const onData=(data:Buffer, isNotify?:boolean):void => {                        
                 try {
                     //this.logEvent({message:'notify', characteristic:beautifyUUID(uuid),data:Buffer.from(data).toString('hex') })
-                    callback(characteristicUUID,data)                        
+                    callback(characteristicUUID,data,isNotify)                        
                 }
                 catch {}
             }
@@ -269,7 +273,7 @@ export class BlePeripheral implements IBlePeripheral {
         
     }
 
-    async subscribeSelected(characteristics:string[], callback: (characteristicUuid: string, data: Buffer) => void): Promise<boolean> {
+    async subscribeSelected(characteristics:string[], callback: (characteristicUuid: string, data: Buffer, isNotify?:boolean) => void): Promise<boolean> {
 
         try {
             if (Object.keys(this.characteristics).length===0) {
@@ -279,7 +283,7 @@ export class BlePeripheral implements IBlePeripheral {
     
             for (const element of characteristics) {            
                 const c = this.getRawCharacteristic(element)
-                if (c?.properties.includes('notify')) {
+                if (c?.properties.includes('notify') || c?.properties.includes('indicate')) {
                     const success = await this.subscribe(c.uuid, callback)
                     if (!success)
                         retry.push(c)
@@ -308,6 +312,7 @@ export class BlePeripheral implements IBlePeripheral {
                 this.characteristics[beautifyUUID(c.uuid)] = c
                 found.push(c.uuid)
             });
+
             return found        
         }
         catch(err) {
@@ -354,14 +359,20 @@ export class BlePeripheral implements IBlePeripheral {
         await Promise.allSettled(promises)
     }
 
-    read(characteristicUUID: string): Promise<Buffer> {
+    async read(characteristicUUID: string): Promise<Buffer> {
         if (this.disconnecting || !this.connected)
-            return Promise.resolve(Buffer.from([]))
+            return Buffer.from([])
 
-        const c = this.characteristics[beautifyUUID(characteristicUUID)]
+        let c = this.characteristics[beautifyUUID(characteristicUUID)]
         if (!c) {
-            return Promise.reject( new Error('characteristic not found'))
+            await this.discoverAllCharacteristics()
+            c = this.characteristics[beautifyUUID(characteristicUUID)]
+            if (!c) {
+                return Promise.reject( new Error('characteristic not found: '+characteristicUUID))
+            }
+
         }
+
         return new Promise( (resolve,reject) => {
             c.read( (err:Error|undefined, data:Buffer) => {
                 if (err) {
@@ -372,22 +383,26 @@ export class BlePeripheral implements IBlePeripheral {
                 }
             })
         })
-
     }
-    write(characteristicUUID: string, data: Buffer, options?: BleWriteProps): Promise<Buffer> {
+
+    async write(characteristicUUID: string, data: Buffer, options?: BleWriteProps): Promise<Buffer> {
         if (this.disconnecting || !this.connected)
-            return Promise.resolve(Buffer.from([]))
+            return Buffer.from([])
 
         const uuid = beautifyUUID(characteristicUUID)
-        const c = this.characteristics[uuid]
+        let c = this.characteristics[uuid]
         if (!c) {
-            return Promise.reject( new Error('characteristic not found'))
+            await this.discoverAllCharacteristics()
+            c = this.characteristics[beautifyUUID(characteristicUUID)]
+            if (!c) {
+                return Promise.reject( new Error('characteristic not found: '+characteristicUUID))
+            }
         }
+
+
         return new Promise( (resolve,reject) => {
 
-            
-
-            this.subscribe(characteristicUUID,null).then( success => {
+            const write = () => {
                 if (this.disconnecting || !this.connected)
                     return Promise.resolve(Buffer.from([]))
         
@@ -406,8 +421,17 @@ export class BlePeripheral implements IBlePeripheral {
                 if (options?.withoutResponse) {
                     resolve(Buffer.from([]))
                 }   
-    
-            })
+
+            }
+
+            if ( !options?.withoutResponse ) {
+                this.subscribe(characteristicUUID,null).then( success => {
+                    write()
+                })
+            }
+            else {
+                write() 
+            }
 
         })
 

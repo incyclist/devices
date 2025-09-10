@@ -3,7 +3,7 @@ import { EventLogger } from "gd-eventlog";
 import { DeviceProperties, DeviceSettings, DeviceStartProperties, IncyclistInterface, IncyclistScanProps,InterfaceProps } from "../types";
 
 
-export type BleProtocol = 'hr' | 'fm' | 'cp' | 'tacx' | 'wahoo' | 'elite' | 'csc'
+export type BleProtocol = 'hr' | 'fm' | 'cp' | 'tacx' | 'wahoo' | 'elite' | 'csc' | 'zwift-play'
 export type BleInterfaceState  =  'unknown' | 'resetting' | 'unsupported' | 'unauthorized' | 'poweredOff'|  'poweredOn'
 
 
@@ -62,6 +62,7 @@ export interface PeripheralAnnouncement {
 
 export interface BlePeripheralAnnouncement extends PeripheralAnnouncement { 
     advertisement: any;
+    manufacturerData?: Buffer;
     peripheral: BleRawPeripheral
 }
 
@@ -127,7 +128,7 @@ export type DiscoverResult = {
 
 
 
-export type BleProperty = 'notify' | 'read' | 'write'
+export type BleProperty = 'notify' | 'read' | 'write' | 'indicate'
 
 export interface BleCharacteristic  {
     uuid: string;
@@ -215,6 +216,8 @@ export interface IBlePeripheral {
 
     read(characteristicUUID: string): Promise<Buffer>;
     write(characteristicUUID: string, data: Buffer, options?: BleWriteProps): Promise<Buffer>;
+
+    getManufacturerData?():Buffer
 }
 
 export interface IBleSensor extends EventEmitter  {
