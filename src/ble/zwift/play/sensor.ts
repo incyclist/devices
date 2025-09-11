@@ -1,4 +1,4 @@
-import { LegacyProfile } from "incyclist-devices/lib/antv2/types";
+import { LegacyProfile } from "../../../antv2/types";
 import { TBleSensor } from "../../base/sensor";
 import { BleProtocol } from "../../types";
 import { beautifyUUID, fullUUID  } from "../../utils";
