@@ -450,7 +450,7 @@ describe( 'Daum8i', ()=> {
 
             await bike.write()
 
-            expect(bike.logger.logEvent).toBeCalledWith({message:'write failed',error:error.message})
+            expect(bike.logger.logEvent).toHaveBeenCalledWith({message:'write failed',error:error.message})
             expect(bike.writePromise).toBeNull()
         })
 
@@ -1291,7 +1291,7 @@ describe( 'Daum8i', ()=> {
                 await bike.getProtocolVersion();
             }
             catch (err) { error = err}
-            expect(simulator.onNAK).toBeCalled();
+            expect(simulator.onNAK).toHaveBeenCalled();
 
             expect(error.message).toBe('RESP timeout'); // as mock is not sending the correct response
         })
@@ -1308,7 +1308,7 @@ describe( 'Daum8i', ()=> {
                 res = await bike.getProtocolVersion();
             }
             catch (err) { error = err}
-            expect(simulator.onNAK).toBeCalled();
+            expect(simulator.onNAK).toHaveBeenCalled();
             expect(error).toBeUndefined();
             expect(res).toBe('2.01')
         })

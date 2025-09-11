@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`DaumClassic - Standard statics 1`] = `
 "The device calculates speed and power based on slope. Incyclist will not modify any values recived from the device

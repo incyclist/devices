@@ -117,7 +117,7 @@ describe( 'TCPPort' ,()=> {
             // give some time for TCP communication
             await sleep(50)
            
-            expect(fnReceive).toBeCalledWith( Buffer.from('Hello'))
+            expect(fnReceive).toHaveBeenCalledWith( Buffer.from('Hello'))
             
 
         })

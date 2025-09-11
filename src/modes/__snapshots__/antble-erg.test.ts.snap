@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`BLE-ERG statics 1`] = `"Calculates speed based on power and slope. Power targets are set by workout or remain stable throughout the workout"`;
 

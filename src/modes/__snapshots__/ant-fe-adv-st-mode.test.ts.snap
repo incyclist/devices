@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`Adv SmartTrainer statics 1`] = `"Sends Slope to device. Respects Limits (from workout or settings). Calculates speed based on power and slope. "`;
 

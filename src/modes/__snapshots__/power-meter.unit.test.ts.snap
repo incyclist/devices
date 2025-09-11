@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`PowerMeterMode getDescription should match description from config 1`] = `
 "Power and cadence are taken from device. Speed is calculated from power and current slope

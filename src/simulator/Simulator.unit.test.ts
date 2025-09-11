@@ -214,7 +214,7 @@ describe('Simulator',() => {
             const onData = jest.fn();
             s.onData(onData);
             s.update()
-            expect(onData).toBeCalled();
+            expect(onData).toHaveBeenCalled();
         }) 
 
         test('setting twice',async () => {
@@ -223,14 +223,14 @@ describe('Simulator',() => {
             s.setMaxUpdateFrequency(-1)
             s.onData(onData1);
             s.update()
-            expect(onData1).toBeCalled();
-            expect(onData2).not.toBeCalled();
+            expect(onData1).toHaveBeenCalled();
+            expect(onData2).not.toHaveBeenCalled();
             onData1.mockReset();
 
             s.onData(onData2);
             s.update()
-            expect(onData1).not.toBeCalled();
-            expect(onData2).toBeCalled();
+            expect(onData1).not.toHaveBeenCalled();
+            expect(onData2).toHaveBeenCalled();
         }) 
 
     });

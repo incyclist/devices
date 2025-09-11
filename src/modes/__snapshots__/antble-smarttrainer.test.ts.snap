@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`BLE-SmartTrainer statics 1`] = `"Calculates speed based on power and slope. Slope is set to the device"`;
 

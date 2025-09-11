@@ -642,7 +642,7 @@ describe( 'DaumPremiumAdapter', ()=>{
                 expect(error).toBeUndefined()
 
                 expect(device.stop).toHaveBeenCalled()
-                expect(device.startUpdatePull).toBeCalled();
+                expect(device.startUpdatePull).toHaveBeenCalled();
                 expect(device.stopped).toBeFalsy()
                 expect(device.paused).toBeFalsy()
                 expect(bike.programUpload).not.toHaveBeenCalled()

@@ -78,13 +78,13 @@ describe( 'DaumAdapter', ()=>{
             a.started = false
             const res = await a.sendInitCommands()
             expect(res).toBe(false)
-            expect(a.sendUpdate).not.toBeCalled()
+            expect(a.sendUpdate).not.toHaveBeenCalled()
         })
 
         test('paused',async ()=>{
             a.paused = true
             const res = await a.sendInitCommands()
-            expect(a.sendUpdate).toBeCalled()
+            expect(a.sendUpdate).toHaveBeenCalled()
             expect(res).toBeTruthy()
 
         })
@@ -93,7 +93,7 @@ describe( 'DaumAdapter', ()=>{
             a.stopped = true
             const res = await a.sendInitCommands()
             expect(res).toBe(false)
-            expect(a.sendUpdate).not.toBeCalled()
+            expect(a.sendUpdate).not.toHaveBeenCalled()
         })
 
         test('ERG Mode, power already set',async ()=>{
@@ -123,14 +123,14 @@ describe( 'DaumAdapter', ()=>{
             a.getCyclingMode = jest.fn().mockReturnValue(cm)
             const res = await a.sendInitCommands()
             expect(res).toBe(false)
-            expect(a.sendUpdate).not.toBeCalled()
+            expect(a.sendUpdate).not.toHaveBeenCalled()
         })
 
         test('send Update throws error',async ()=>{
             a.sendUpdate = jest.fn().mockRejectedValue(new Error('XXX'))
             const res = await a.sendInitCommands()
             expect(res).toBe(false)
-            expect(a.sendUpdate).toBeCalled()
+            expect(a.sendUpdate).toHaveBeenCalled()
 
         })
 
@@ -144,12 +144,12 @@ describe( 'DaumAdapter', ()=>{
     test('getCurrentBikeData: need to be implemnted in subclass',()=>{
         const a = new DaumAdapter( DEFAULT_SETTINGS,  {userWeight:80, bikeWeight:10});
 
-        expect( ()=>{a.getCurrentBikeData()}).toThrowError('Method not implemented.')
+        expect( ()=>{a.getCurrentBikeData()}).toThrow('Method not implemented.')
     })
 
     test('start: need to be implemnted in subclass',()=>{
         const a = new DaumAdapter( DEFAULT_SETTINGS,  {userWeight:80, bikeWeight:10});
-        expect( ()=>{a.getCurrentBikeData()}).toThrowError('Method not implemented.')
+        expect( ()=>{a.getCurrentBikeData()}).toThrow('Method not implemented.')
     })
 
 
@@ -299,7 +299,7 @@ describe( 'DaumAdapter', ()=>{
 
         test('check throws error',async ()=>{
             a.performCheck = jest.fn( ).mockRejectedValue( new Error('not connected'))
-            await expect( async ()=> { await a.check()}).rejects.toThrowError('not connected')
+            await expect( async ()=> { await a.check()}).rejects.toThrow('not connected')
             expect(a.performCheck).toHaveBeenCalled()
             
         })
@@ -453,7 +453,7 @@ describe( 'DaumAdapter', ()=>{
 
         test('start throws error',async ()=>{
             a.performStart = jest.fn( ).mockRejectedValue( new Error('not connected'))
-            await expect( async ()=> { await a.start()}).rejects.toThrowError('not connected')
+            await expect( async ()=> { await a.start()}).rejects.toThrow('not connected')
             expect(a.started).toBe(false)
             expect(a.performStart).toHaveBeenCalled()
             expect(a.startPromise).toBeUndefined()
