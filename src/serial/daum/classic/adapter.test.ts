@@ -94,6 +94,10 @@ describe( 'DaumClassicAdapter', ()=>{
             device.getComms().getVersion = jest.fn().mockResolvedValue({serialNo:'Test',cockpit:'Test'})
         })
 
+        afterEach( ()=> {
+            device.reset()
+        })
+
         const run = async(props?) => {
             let started:boolean = false;
             let error:Error|undefined = undefined

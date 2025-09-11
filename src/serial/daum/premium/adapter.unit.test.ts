@@ -360,6 +360,10 @@ describe( 'DaumPremiumAdapter', ()=>{
             device.comms.resumeLogging = jest.fn ()
         })
 
+        afterEach( ()=> {
+            device.reset()
+        })
+
         test('not paused',async()=>{
             device.paused = false;
 
@@ -390,6 +394,7 @@ describe( 'DaumPremiumAdapter', ()=>{
         afterEach( async ()=> {
             if (device)
                 await device.stop()
+            device.reset()
         })
 
         const run = async(props?) => {
@@ -467,6 +472,7 @@ describe( 'DaumPremiumAdapter', ()=>{
 
         afterEach( async ()=> {
             await device.stop()
+            device.reset()
         })
 
         const run = async(props?,isReperformStart?) => {
@@ -572,12 +578,19 @@ describe( 'DaumPremiumAdapter', ()=>{
 
 
         test('stop during start attempt',async ()=>{
+            let to 
+
             device = new DaumPremiumAdapter( {interface:'serial', port:'COM5', protocol:'Daum Premium'})            
             device.connect = jest.fn().mockResolvedValue(true)         
             device.reconnect   = jest.fn().mockResolvedValue(true)
-            device.comms.getDeviceType = jest.fn( async ()=> { 
-                await sleep(5000); 
-                throw ( new Error('RESP timeout'))
+            device.comms.getDeviceType = jest.fn( ()=> { 
+                return new Promise( (_resolve, reject)=> {
+                    to = setTimeout(()=> {
+                        reject (new Error('RESP timeout'))
+                    },5000)
+                })
+                
+                
             }) 
 
             const startPromise = device.performStart()
@@ -585,6 +598,9 @@ describe( 'DaumPremiumAdapter', ()=>{
 
             const t1 = Date.now()
             device.stop()
+
+            if (to)
+                clearTimeout(to)
 
             const res = await startPromise
             expect(res).toBe(false)
@@ -613,6 +629,7 @@ describe( 'DaumPremiumAdapter', ()=>{
             afterEach( ()=>{
                 
                 device.comms.close().catch()
+                device.reset()
                 jest.useRealTimers()
             })
 
@@ -652,6 +669,7 @@ describe( 'DaumPremiumAdapter', ()=>{
             afterEach( ()=>{
                 
                 device.comms.close().catch()
+                device.reset()
                 jest.useRealTimers()
             })
 

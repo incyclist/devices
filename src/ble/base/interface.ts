@@ -973,6 +973,25 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         this.logEvent({message:'Error', fn, ...logInfo, error:err.message, stack:err.stack})
     }
 
+     protected async  reset() {
+        if (this.connectTask) {
+            await this.connectTask.stop()
+        }
+        if (this.disconnectTask) {
+            await this.disconnectTask.stop()
+        }
+        if (this.scanTask) {
+            await this.scanTask.stop()
+        }
+        if (this.discoverTask) {
+            await this.discoverTask.stop()
+        }
+
+        this.removeAllListeners()
+        this.internalEvents.removeAllListeners()
+
+        //console.log(this)
+    }
 
 
 

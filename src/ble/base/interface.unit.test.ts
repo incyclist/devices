@@ -73,7 +73,7 @@ describe('BleInterface', () => {
             startPeripheralScan?:jest.Mock
         }
 
-        let i:BleInterface
+        let i
         const logger:Partial<EventLogger>= {logEvent:jest.fn(), getName:()=>'Ble'} 
         let mocks:Mocks        
 
@@ -115,11 +115,13 @@ describe('BleInterface', () => {
             BleInterface.prototype['autoConnect'] = jest.fn()
             i = BleInterface.getInstance({logger: logger as EventLogger})
         })
-        afterEach(() => {
+        afterEach(async () => {
             // cleanup instance
             (BleInterface as any)._instance = undefined
 
             cleanupMocks()
+
+            await i.reset()
         })
 
 
@@ -210,9 +212,10 @@ describe('BleInterface', () => {
             addService?
         }
 
-        let i:BleInterface
+        let i
         let mocks:Mocks      
         let iv  
+        let to 
         
 
         const setupMocks  = ( iface, props:{ connected?:boolean, expected?:string[], peripheral?:Partial<BleRawPeripheral> ,protocol?:string}={},  ) =>{
@@ -266,21 +269,28 @@ describe('BleInterface', () => {
                 if ((cnt??1)>1) {
                     i.on('device',(device,service)=>{
                         cntFound++
-                        if (cntFound>=(cnt??1))
+                        if (cntFound>=(cnt??1)) {
                             resolve({device,service})
+                            if (to)
+                                clearTimeout(to)
+                        }
                             
                     })
                 }
                 else {
                     i.on('device',(device,service)=>{
                         resolve({device,service})
+                        if (to)
+                            clearTimeout(to)
+
                     })
                 }
                 
                 i.connect()
 
-                setTimeout(()=>{ 
+                to = setTimeout(()=>{ 
                     resolve(undefined)
+
                 },timeout??1000)
             })            
         }
@@ -298,6 +308,10 @@ describe('BleInterface', () => {
 
             cleanupMocks()
             if (iv) clearInterval(iv)
+            if (to) clearTimeout(to)
+
+            await i.reset()
+
         })
 
         test('no device announced', async () => {
@@ -408,7 +422,7 @@ describe('BleInterface', () => {
             
         }
 
-        let i: BleInterface
+        let i
 
         const P = (info:BlePeripheralInfo):Partial<BlePeripheralAnnouncement>=> {
             const p: Partial<BleRawPeripheral> = {
@@ -464,6 +478,7 @@ describe('BleInterface', () => {
             (BleInterface as any)._instance = undefined
 
             cleanupMocks()
+            i.reset()
         })
 
         test('FM device',async ()=>{

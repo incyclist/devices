@@ -4,6 +4,7 @@ import BleFmAdapter from './adapter'
 import BleFitnessMachineDevice from './sensor'
 describe('BleFmAdapter',()=>{
     describe('isEqual',()=>{
+
         test('name only equal',()=>{
             const A = new BleFmAdapter({interface:'ble', name:'1', protocol:'fm'})
             const res = A.isEqual({interface:'ble', name:'1', protocol:'fm'})

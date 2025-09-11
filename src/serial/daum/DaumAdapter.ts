@@ -645,6 +645,21 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         });
     }
 
+    protected reset() {
+        if (this.iv) {
+            const { sync, update, emitter } = this.iv
+
+            if (sync) clearInterval(sync)
+            if (update) clearInterval(update)
+            if (emitter) emitter.removeAllListeners()
+        }
+
+        if (this.internalEmitter) {
+            this.internalEmitter.removeAllListeners()
+        }
+
+    }
+
      /* istanbul ignore next */
    async getDeviceInfo():Promise<any> {
         throw new Error('Method not implemented.');
