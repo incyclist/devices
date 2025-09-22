@@ -1,8 +1,9 @@
 import { EventLogger } from "gd-eventlog";
-import ICyclingMode, { CyclingModeProperyType, Settings, UpdateRequest } from "./types";
+import ICyclingMode, { CyclingModeConfig, CyclingModeProperyType, Settings, UpdateRequest } from "./types";
 import { IncyclistBikeData } from "../types";
 import SmartTrainerCyclingMode from "./antble-smarttrainer";
 import { IncyclistDeviceAdapter } from "../base/adpater";
+import { CyclingModeBase } from "./base";
 
 
 const config = {
@@ -35,6 +36,15 @@ export default class DaumClassicCyclingMode extends SmartTrainerCyclingMode impl
     getBikeInitRequest(): UpdateRequest {
         return {slope:0}
     }    
+
+    getConfig():CyclingModeConfig {
+        if (this.localConfig)
+            return this.localConfig
+
+        let cm = this.constructor as typeof CyclingModeBase
+        return cm.config
+    }
+
 
     checkForResetOrEmpty(request: UpdateRequest):UpdateRequest|undefined {
 
