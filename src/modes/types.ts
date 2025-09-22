@@ -7,6 +7,7 @@ export type UpdateRequest = {
     maxPower?: number;
     targetPower?: number;
     targetPowerDelta?: number;
+    gearDelta?: number;
     reset?: boolean;
     refresh?: boolean;
     init?: boolean;

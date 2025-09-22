@@ -6,6 +6,7 @@ export  type IncyclistAdapterData = {
     heartrate?: number; // bpm
     distance?: number;  // m    
     timestamp?: number;
+    gearStr?: string
 
     deviceTime?: number;
     deviceDistanceCounter?: number;
@@ -20,5 +21,6 @@ export type IncyclistBikeData = {
     distanceInternal?: number // Total Distance in meters 
     time?: number
     gear?: number
+    gearStr?: string
     slope?: number
 }

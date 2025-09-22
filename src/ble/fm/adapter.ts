@@ -127,7 +127,8 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
             cadence: bikeData.pedalRpm!==undefined ? Math.round(bikeData.pedalRpm) : undefined,
             distance,
             heartrate: bikeData.heartrate,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            gearStr: bikeData.gearStr
         } as IncyclistAdapterData;
 
         return data;

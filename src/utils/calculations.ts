@@ -161,6 +161,19 @@ export default class C {
     
 }
 
+export const calculateVirtualSpeed = ( rpm:number, gearRatio:number, wheelCirc:number=2125) => {
+    if (rpm===undefined || rpm===null || rpm<0)
+        throw new IllegalArgumentException("rpm must be a positive number");
+    if (!gearRatio || gearRatio<0 )
+        throw new IllegalArgumentException("gearRatio must be a positive number");
+    if (!wheelCirc|| wheelCirc<0)
+        throw new IllegalArgumentException("wheelCirc must be a positive number");
+
+    let distRotation = wheelCirc*gearRatio/1000;  // distance per rotation [m]
+    let speed = rpm*distRotation*60/1000;         // speed [km/h]
+    return speed/3.6;
+}
+
 
 /*
     * z^3 + p*z + q = 0

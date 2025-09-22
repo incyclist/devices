@@ -43,6 +43,7 @@ export interface IAdapter extends EventEmitter, IBike, ISensor{
     getName(): string    
     getID(): string
     getUniqueName(): string
+    supportsVirtualShifting(): boolean
 
     // @deprecate 
     getDisplayName(): string 

@@ -46,6 +46,10 @@ export default class IncyclistDevice<P extends DeviceProperties>
         this.user = {}
         this.data = {}
         this.cyclingMode = this.getDefaultCyclingMode()
+    
+    }
+    supportsVirtualShifting(): boolean {
+        return false
     }
 
     getLogger(): EventLogger { return this.logger}
