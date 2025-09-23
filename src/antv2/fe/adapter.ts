@@ -95,7 +95,8 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
             }
     
             if (update.targetPower!==undefined) {
-                this.promiseSendUpdate = fe.sendTargetPower(update.targetPower)
+                const tp = update.targetPower>0 ? update.targetPower : 0;
+                this.promiseSendUpdate = fe.sendTargetPower(tp);
             }
             await this.promiseSendUpdate
             delete this.promiseSendUpdate
@@ -162,6 +163,7 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
             power: adapterData.power,
             speed: adapterData.speed,
             cadence: adapterData.pedalRpm,
+            gearStr: adapterData.gearStr,
             timestamp: Date.now()
         })
 

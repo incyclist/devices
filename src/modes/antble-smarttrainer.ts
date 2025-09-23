@@ -6,6 +6,7 @@ import calc, { calculateVirtualSpeed } from "../utils/calculations";
 
 type VirtshiftMode = 'Disabled' |  'SlopeDelta' | 'Adapter' | 'Simulated';
 
+const MIN_POWER = 25;
 export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase implements ICyclingMode {
 
     protected static config ={
@@ -120,7 +121,8 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
     protected checkSlopeWithSimulatedShifting(request: UpdateRequest, newRequest: UpdateRequest={}) { 
         
         if (this.gear===undefined) { 
-            return this.checkSlopeNoShiftig(request,newRequest);
+            this.checkSlopeNoShiftig(request,newRequest);
+            return
         }
 
 
@@ -141,27 +143,15 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
             }
 
 
-            if (this.data.slope===prev) {
-                newRequest.targetPower = this.simPower;
-                return
-            }
-            else  {
+            if (this.data.slope!==prev) {
                 const virtualSpeed = calculateVirtualSpeed(this.data.pedalRpm, this.gearRatios[this.gear-1]);
                 const m = this.adapter?.getWeight()??85
                 this.simPower = calc.calculatePower(m, virtualSpeed, this.simSlope??0);
-                newRequest.targetPower = this.simPower;
+                this.verifySimPower()
 
-            }
-
-            if (this.simPower<0)
-                this.simPower = 0
-
-
-            
+            }          
         }
-        else {
-            newRequest.targetPower = this.simPower;
-        }
+        newRequest.targetPower = this.simPower;
 
     }
 
@@ -219,6 +209,8 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                     const m = this.adapter?.getWeight()??85
                     
                     this.simPower = calc.calculatePower(m, virtualSpeed, this.simSlope??this.data.slope??0);
+                    this.verifySimPower()
+
                 }
                 break;
             case 'Adapter':
@@ -230,6 +222,15 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
 
     }
 
+    protected verifySimPower() {
+        if (this.simPower < 0) {
+            this.simPower = 0;
+        }
+
+        if (this.data.pedalRpm > 0 && this.simPower < MIN_POWER) {
+            this.simPower = MIN_POWER;
+        }
+    }   
 
     protected checkEmptyRequest(newRequest: UpdateRequest) {
         if (Object.keys(newRequest).length === 0) {
@@ -284,6 +285,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                 virtualSpeed = calculateVirtualSpeed(data.pedalRpm, this.gearRatios[this.gear-1]);
                 const m = this.adapter?.getWeight()??85
                 this.simPower = calc.calculatePower(m, virtualSpeed, this.simSlope??data.slope??0);
+                this.verifySimPower()
             }
         }
 
@@ -340,11 +342,11 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         if (mode==="Disabled")
             return undefined
 
-        if (this.gear===undefined || this.gear===null)
+        if ( mode==='Simulated' && (this.gear===undefined || this.gear===null)   )
             return '';
 
         if (mode==="SlopeDelta")
-            return this.gear >0 ? `+${this.gear}` : `${this.gear}`;
+            return this.gearDelta >0 ? `+${this.gearDelta}` : `${this.gearDelta}`;
 
         return this.gear.toString()        
     }   

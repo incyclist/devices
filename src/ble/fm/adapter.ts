@@ -300,7 +300,8 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
                 } 
 
                 if (update.targetPower!==undefined) {
-                    await device.setTargetPower(update.targetPower)
+                    const tp = update.targetPower>0 ? update.targetPower : 0
+                    await device.setTargetPower(tp)
                 } 
             }
 
