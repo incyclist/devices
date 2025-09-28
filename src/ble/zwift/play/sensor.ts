@@ -206,15 +206,17 @@ export class BleZwiftPlaySensor extends TBleSensor {
     }
 
     async pair() : Promise<boolean> {
-
+        let manufacturerData:string
         try {
             if (this.peripheral.getManufacturerData) {
-                const manufacturerData = this.getManufacturerData()
+                manufacturerData = this.getManufacturerData()
 
                 if (manufacturerData?.startsWith('4a09')) {
                     const typeVal = Number('0x'+manufacturerData.substring(2,4))
+                    
                     if (typeVal===9) {
                         this.deviceType = 'click'
+                        this.encrypted = false
                     }
                     else if (typeVal===2) { 
                         this.deviceType = 'right'
@@ -225,17 +227,22 @@ export class BleZwiftPlaySensor extends TBleSensor {
                 }
                 
             }
-            else if ( !this.encrpytedSupported()) {
+
+            if ( !this.encryptedSupported()) {
                 this.deviceType = 'click'                
+                this.encrypted = false
             }
+
+            this.logEvent({message:'Play protocol pairing info', deviceType:this.deviceType, encrypted:this.encrypted, manufacturerData})
 
             let message;
 
-            if (this.deviceType==='click') {
+            if (!this.encrypted) {
                 message = Buffer.from('RideOn')
-                this.encrypted = false
+                
             }
             else {
+                
                 const { publicKey, privateKey } = this.createKeyPair()
 
                 this.privateKey = this.privateKey ?? Buffer.from(privateKey)
@@ -261,7 +268,7 @@ export class BleZwiftPlaySensor extends TBleSensor {
     }
 
 
-    protected encrpytedSupported():boolean {
+    protected encryptedSupported():boolean {
         // TODO implement with crypto feature
 
         return generateKeyPairSync!==undefined && typeof (generateKeyPairSync)==='function'

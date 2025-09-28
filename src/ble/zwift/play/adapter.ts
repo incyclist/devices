@@ -4,7 +4,7 @@ import { LegacyProfile } from '../../../antv2/types';
 import BleAdapter from '../../base/adapter';
 import { BleZwiftPlaySensor } from './sensor';
 import { DeviceProperties, IAdapter, IncyclistAdapterData, IncyclistCapability } from '../../../types';
-import { BleDeviceSettings, BleStartProperties, IBlePeripheral } from '../../types';
+import { BleDeviceSettings,  IBlePeripheral } from '../../types';
 
 
 export class ZwiftPlayAdapter extends BleAdapter<BleDeviceData,BleZwiftPlaySensor>{  
@@ -24,9 +24,6 @@ export class ZwiftPlayAdapter extends BleAdapter<BleDeviceData,BleZwiftPlaySenso
         return ;
     }
 
-    start(startProps?: BleStartProperties): Promise<boolean> {
-        return super.start(startProps)
-    }
 
     async startSensor():Promise<boolean> {    
         try {

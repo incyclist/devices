@@ -92,6 +92,11 @@ export interface BleDeviceConstructProps extends BlePeripheralAnnouncement {
     logger?: EventLogger;    
 }
 
+export interface BleDeviceIdentifier { 
+    id?: string;
+    address?: string;    
+    name?: string;
+}
 
 export interface BleDeviceSettings extends DeviceSettings {
     id?: string;
@@ -218,6 +223,8 @@ export interface IBlePeripheral {
     write(characteristicUUID: string, data: Buffer, options?: BleWriteProps): Promise<Buffer>;
 
     getManufacturerData?():Buffer
+    getInfo():BleDeviceIdentifier
+
 }
 
 export interface IBleSensor extends EventEmitter  {

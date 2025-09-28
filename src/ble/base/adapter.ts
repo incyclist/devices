@@ -37,7 +37,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         if (settings.name?.match(/\d/g) || settings.address===undefined)      
             return this.getName()
         else {
-            const addressHash = settings.address.substring(0,2) + settings.address.slice(-2)
+            const addressHash = settings.id?.slice(-4)?.toUpperCase() ?? (settings.address?.substring(0,2)??'') + (settings.address?.slice(-2)??'')
             return `${this.getName()} ${addressHash}`
         }
     }
@@ -57,10 +57,28 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         this.logEvent({message:'waiting for sensor ...',device:this.getName(),interface:this.getInterface()})
         const ble = this.getBle()
         const peripheral = await  ble.waitForPeripheral(this.settings)
+        
 
         this.updateSensor(peripheral)
+        this.updateSettings(peripheral)
+
+
         
     }
+
+    protected updateSettings(peripheral: IBlePeripheral): void {
+        try {
+            const info = peripheral.getInfo()
+            const settings:BleDeviceSettings = {...this.settings} as BleDeviceSettings
+            
+            settings.id = settings.id ?? info.id
+            settings.address = settings.address ??info.address 
+            settings.name = settings.name ?? info.name 
+            this.settings = settings
+        }
+        catch {}
+    }
+
 
     updateSensor(peripheral:IBlePeripheral) {
         throw new Error('method not implemented')
@@ -368,6 +386,8 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
 
             const connected = await this.startSensor();
             if (connected) {
+                this.updateSettings(this.getPeripheral())
+
                 this.logEvent({ message: 'peripheral connected', device:this.getName(), interface:this.getInterface() });                                
             }
             else {

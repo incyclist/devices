@@ -391,15 +391,15 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     createPeripheral(announcement: BlePeripheralAnnouncement): IBlePeripheral {
         return new BlePeripheral(announcement)
     }
-    createPeripheralFromSettings(settings: DeviceSettings): IBlePeripheral {
-        const info = this.getAll().find(a=>a.service.name === settings.name)
+    createPeripheralFromSettings(settings: BleDeviceSettings): IBlePeripheral {
+        const info = this.getAll().find(a=>a.service?.name === settings.name || a.service?.peripheral?.address===settings.address)
 
         if (!info?.service)
             return null;
         return this.createPeripheral(info.service)
     }
 
-    waitForPeripheral(settings:DeviceSettings): Promise<IBlePeripheral> {
+    waitForPeripheral(settings:BleDeviceSettings): Promise<IBlePeripheral> {
         
         const peripheral =  this.createPeripheralFromSettings(settings)
         if (peripheral) return Promise.resolve(peripheral)
@@ -412,10 +412,9 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
             if (!wasDiscovering)
                 this.startPeripheralScan()
 
-            const onDevice = (device:DeviceSettings)=>{
-
-                if (device.name===settings.name) {
-                    const peripheral =  this.createPeripheralFromSettings(settings)
+            const onDevice = (device:BleDeviceSettings)=>{
+                if (device.name===settings.name || device.address===settings.address) {
+                    const peripheral =  this.createPeripheralFromSettings(device)
 
                     if (peripheral) {
                         this.off('device', onDevice)

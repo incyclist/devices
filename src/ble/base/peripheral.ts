@@ -1,4 +1,4 @@
-import { BleCharacteristic, BlePeripheralAnnouncement, BleRawCharacteristic, BleRawPeripheral, BleService, BleWriteProps, IBlePeripheral } from "../types";
+import { BleCharacteristic, BleDeviceIdentifier, BlePeripheralAnnouncement, BleRawCharacteristic, BleRawPeripheral, BleService, BleWriteProps, IBlePeripheral } from "../types";
 import { beautifyUUID, fullUUID } from "../utils";
 import { BleInterface } from "./interface";
 
@@ -25,6 +25,14 @@ export class BlePeripheral implements IBlePeripheral {
 
     getPeripheral():BleRawPeripheral {
         return this.announcement.peripheral
+    }
+
+    getInfo(): BleDeviceIdentifier {
+        return {
+            id: this.announcement?.peripheral?.id,
+            address: this.announcement?.peripheral?.address,
+            name: this.announcement?.advertisement?.localName ?? this.announcement?.peripheral?.id,
+        }
     }
 
     async connect(): Promise<boolean> {

@@ -1,4 +1,4 @@
-import { BleCharacteristic, BleService, BleWriteProps, IBlePeripheral, } from "../../ble/types";
+import { BleCharacteristic, BleDeviceIdentifier, BleService, BleWriteProps, IBlePeripheral, } from "../../ble/types";
 import { DirectConnectBinding, MulticastDnsAnnouncement, Socket } from "../bindings";
 import { InteruptableTask, TaskState } from "../../utils/task";
 import DirectConnectInterface from "./interface";
@@ -35,8 +35,17 @@ export class DirectConnectPeripheral implements IBlePeripheral {
     constructor( protected announcement:MulticastDnsAnnouncement) { 
         
     }
+
+    getInfo(): BleDeviceIdentifier {
+        return {
+            id: this.announcement?.address?.replace(/:/g,''),
+            address: this.announcement?.address,
+            name: this.announcement?.name
+        }
+    }
+
     get services(): BleService[] {
-        const services =  this.announcement.serviceUUIDs
+        const services =  this.announcement?.serviceUUIDs??[]
         return services.map(s => ({uuid:s}))
     }
 
