@@ -5,7 +5,10 @@ import { FTMS, FTMS_CP, FTMS_STATUS, INDOOR_BIKE_DATA } from "../consts";
 import { TBleSensor } from "../base/sensor";
 import { beautifyUUID, matches } from "../utils";
 import { IndoorBikeDataFlag, FitnessMachineStatusOpCode, FitnessMachineFeatureFlag, TargetSettingFeatureFlag, OpCode, OpCodeResut as OpCodeResult } from "./consts";
+import { InteruptableTask, TaskState } from "../../utils/task";
 
+
+const BLE_COMMAND_TIMEOUT = 800;  // ms
 
 export default class BleFitnessMachineDevice extends TBleSensor {
     static readonly profile: LegacyProfile = 'Smart Trainer'
@@ -345,8 +348,20 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         
         try {
             this.logEvent({message:'fmts:write', data:data.toString('hex')})
-            const res = await this.write( FTMS_CP, data, props )
-
+            let res:Buffer
+            let tsStart  = Date.now()
+            if (props?.timeout) {
+                res = await new InteruptableTask<TaskState,Buffer>(
+                    this.write( FTMS_CP, data, props ),
+                    {
+                        timeout: 800,
+                        errorOnTimeout: true
+                    }
+                ).run()
+            }
+            else {
+                res = await this.write( FTMS_CP, data, props )
+            }
             const responseData = Buffer.from(res)
 
             const opCode = responseData.readUInt8(0)
@@ -356,9 +371,10 @@ export default class BleFitnessMachineDevice extends TBleSensor {
             if (opCode !== OpCode.ResponseCode || request!==requestedOpCode)
                 throw new Error('Illegal response ')
 
-            this.logEvent({message:'fmts:write result', res,result})
-                
-            return result                        
+            const duration = Date.now() - tsStart
+            this.logEvent({message:'fmts:write result', res:responseData.toString('hex'),result, duration})
+
+            return result
         }
         catch(err) {
             this.logEvent({message:'fmts:write failed', opCode: requestedOpCode, reason: err.message})
@@ -386,7 +402,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         data.writeUInt8(OpCode.SetTargetInclination,0)
         data.writeInt16LE( Math.round(inclination*10), 1)
 
-        const res = await this.writeFtmsMessage( OpCode.SetTargetInclination, data )
+        const res = await this.writeFtmsMessage( OpCode.SetTargetInclination, data, {timeout:BLE_COMMAND_TIMEOUT} )
         return ( res===OpCodeResult.Success)    
     }
 
@@ -412,7 +428,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         data.writeUInt8( Math.round(crr*10000), 5)
         data.writeUInt8( Math.round(cw*100), 6)
 
-        const res = await this.writeFtmsMessage( OpCode.SetIndoorBikeSimulation, data )
+        const res = await this.writeFtmsMessage( OpCode.SetIndoorBikeSimulation, data, {timeout:BLE_COMMAND_TIMEOUT} )
         if (res === OpCodeResult.ControlNotPermitted) {
             this.hasControl = false            
         }

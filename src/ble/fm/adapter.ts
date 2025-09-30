@@ -4,7 +4,7 @@ import FtmsCyclingMode from '../../modes/antble-smarttrainer';
 import BleERGCyclingMode from '../../modes/antble-erg';
 import BleFitnessMachineDevice from './sensor';
 import BleAdapter  from '../base/adapter';
-import ICyclingMode, { CyclingMode } from '../../modes/types';
+import ICyclingMode, { CyclingMode, UpdateRequest } from '../../modes/types';
 import { IndoorBikeData, IndoorBikeFeatures } from './types';
 import { cRR, cwABike } from './consts';
 import { BleDeviceProperties, BleDeviceSettings, BleStartProperties, IBlePeripheral } from '../types';
@@ -18,6 +18,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
     protected distanceInternal: number = 0;
     protected connectPromise: Promise<boolean>
     protected requestControlRetryDelay = 1000
+    protected promiseSendUpdate: Promise<UpdateRequest|void>
 
     constructor( settings:BleDeviceSettings, props?:BleDeviceProperties) {
         super(settings,props);
@@ -276,7 +277,14 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         }
     }
  
-    async sendUpdate(request, enforced=false) {
+    async sendUpdate(request, enforced=false):Promise<UpdateRequest|void> {
+
+        if (this.promiseSendUpdate!==undefined  ) {
+            await this.promiseSendUpdate
+            this.promiseSendUpdate = undefined
+        }
+
+
         // don't send any commands if we are pausing, unless mode change was triggered
         if( !enforced && ( this.paused  || !this.device))
             return;
@@ -295,18 +303,32 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
             // don't send any commands if the Control capability is not supported
             if (this.hasCapability(IncyclistCapability.Control)) {
-                if (update.slope!==undefined) {
-                    await device.setSlope(update.slope)
-                } 
 
-                if (update.targetPower!==undefined) {
-                    const tp = update.targetPower>0 ? update.targetPower : 0
-                    await device.setTargetPower(tp)
-                } 
+                const send = async ()=> {                    
+                    const res: UpdateRequest = {}
+                    if (update.slope!==undefined) {
+                        await device.setSlope(update.slope)
+                        res.slope = update.slope
+                    } 
+
+                    if (update.targetPower!==undefined) {
+                        const tp = update.targetPower>0 ? update.targetPower : 0
+                        await device.setTargetPower(tp)
+                        res.targetPower = tp
+                    } 
+                    return res  
+                }
+
+                this.promiseSendUpdate = send()
+                const confirmed = await this.promiseSendUpdate
+                delete this.promiseSendUpdate
+                return confirmed
+
             }
 
         }
         catch(err) {
+            delete this.promiseSendUpdate
             if (err.message==='not connected') {
                 this.logEvent({message:'send bike update failed', reason:'not connected'})
             }

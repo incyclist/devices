@@ -148,6 +148,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                 const m = this.adapter?.getWeight()??85
                 this.simPower = calc.calculatePower(m, virtualSpeed, this.simSlope??0);
                 this.verifySimPower()
+                this.logger.logEvent({message:'set simulater power', power:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope})
 
             }          
         }
@@ -184,6 +185,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         switch (virtshiftMode) {
             case 'SlopeDelta':
                 if (request.gearDelta!==undefined) {
+//                    console.log(new Date().toISOString(), '# slopeDelta', request.gearDelta, 'from', this.gear   )
                     this.gearDelta += request.gearDelta;
                     request.slope = this.data.slope; // force slope to be reprocessed
 
@@ -192,6 +194,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                 break;
             case 'Simulated':
                 if (request.gearDelta!==undefined) {
+//                    console.log(new Date().toISOString(), '# gearDelta', request.gearDelta, 'from', this.gear   )
                     if (this.gear===undefined) {
                         this.gear = 10 +request.gearDelta
                     }
@@ -210,6 +213,14 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                     
                     this.simPower = calc.calculatePower(m, virtualSpeed, this.simSlope??this.data.slope??0);
                     this.verifySimPower()
+                    this.logger.logEvent({message:'set simulater power', power:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope})                    
+                    
+//                    console.log(new Date().toISOString(), '# sendAdapter Update',request)
+
+                    this.adapter.sendUpdate({targetPower:this.simPower}) .then( ()=> {
+//                        console.log(new Date().toISOString(), '# sendAdapter Update done',request)
+
+                    })
 
                 }
                 break;
@@ -292,6 +303,13 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         return data
     }
 
+    getData(): Partial<IncyclistBikeData> {
+        const gearStr = this.getGearString();
+        const data = super.getData();
+
+        return {...data,gearStr}
+    }
+
     sendBikeUpdate(incoming: UpdateRequest): UpdateRequest {
 
         this.logger.logEvent( {message:"processing update request",request:incoming,prev:this.prevRequest,data:this.getData()} );        
@@ -334,6 +352,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         deltas.sort( (a,b) => a.delta-b.delta )
 
         this.gear = deltas[0].gear
+        this.logger.logEvent( {message:'set initial gear', gear:this.gear, m, rpm:data.pedalRpm, power:data.power})
     }
 
     protected getGearString(): string {

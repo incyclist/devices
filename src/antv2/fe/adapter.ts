@@ -76,7 +76,7 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
             return
 
         // busy with previous update 
-        if (this.promiseSendUpdate) {
+        if (this.promiseSendUpdate!==undefined) {
             this.logEvent({message: 'send bike update skipped', device:this.getName(),request, reason:'busy'})
             return;
         }

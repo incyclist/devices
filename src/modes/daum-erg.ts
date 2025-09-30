@@ -197,7 +197,7 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
         }
         catch (err) /* istanbul ignore next */ {
             this.logger.logEvent({message:'error',fn:'updateData()',error:err.message, stack:err.stack})
-            return this.getData()
+            return this.getData() as IncyclistBikeData
         }
     }
 

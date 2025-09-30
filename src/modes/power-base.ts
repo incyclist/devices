@@ -22,7 +22,7 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
     }
 
 
-    getData():IncyclistBikeData {
+    getData():Partial<IncyclistBikeData> {
         return this.data
     }
 
@@ -224,7 +224,7 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
 
     protected getCalcBasics(bikeData:IncyclistBikeData) {
         const prevData = JSON.parse(JSON.stringify(this.getData()));
-        const data = Object.assign({},this.getData())
+        const data:IncyclistBikeData = { ...(this.getData() as IncyclistBikeData) }   ;
         const prevRequest = this.prevRequest||{}
         const bikeType = this.getSetting('bikeType')?.toLowerCase();
         const slope = ( prevData.slope!==undefined ? prevData.slope : prevRequest.slope || 0); // ignore slope delivered by bike
@@ -342,7 +342,7 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
         catch (err) /* istanbul ignore next */ {
             if (this.logger)
                 this.logger.logEvent({message:'error',fn:'updateData()',error:err.message||err})
-            return this.getData()
+            return this.getData() as IncyclistBikeData
         }
 
         

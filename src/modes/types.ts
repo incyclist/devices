@@ -60,6 +60,8 @@ export default interface ICyclingMode {
     setModeProperty(name: string, value: any):void;
     getModeProperty(name:string):any;
 
+    getData():Partial<IncyclistBikeData>;
+
 }
 
 export type CyclingModeConfig = {
@@ -127,6 +129,10 @@ export class CyclingMode implements ICyclingMode {
     isSIM():boolean {
         return this.getConfig().isSIM
 
+    }
+
+    getData(): Partial<IncyclistBikeData> {
+        return {}
     }
 
 }
