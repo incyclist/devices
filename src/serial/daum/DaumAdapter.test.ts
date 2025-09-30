@@ -169,6 +169,7 @@ describe( 'DaumAdapter', ()=>{
             getSettings: jest.fn(),
             setModeProperty: jest.fn(),
             getModeProperty: jest.fn(),
+            getData:jest.fn()
         }
     
         beforeEach( ()=>{
