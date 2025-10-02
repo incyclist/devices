@@ -167,7 +167,60 @@ describe('BleFitnessMachineDevice',()=>{
         })
 
     })
-    describe('getFitnessMachineFeatures',()=>{})
+    describe('getFitnessMachineFeatures',()=>{
+        let ftms: BleFitnessMachineDevice
+        
+
+        const setupMock = (s:any, data?:Buffer|string) => {
+            if (!data) {
+                s.read = jest.fn().mockResolvedValue(undefined)
+                
+
+            }
+            else {
+                const _data = typeof data ==='string' ?  Buffer.from(data,'hex' ) : Buffer.from(data)
+                s.read = jest.fn().mockResolvedValue(_data)
+            }
+
+        }
+
+        beforeAll( ()=>{
+            ftms = new BleFitnessMachineDevice({id:'test'})
+            
+        })
+
+        afterEach( ()=> {
+            jest.resetAllMocks()
+        })
+
+        test('valid FitnessMachineFeatures',async ()=>{
+
+            const b = Buffer.alloc(8)
+            b.writeUint16LE(16387,0)
+            b.writeUint16LE(24588,4)
+
+            setupMock(ftms,b)
+            const res = await ftms.getFitnessMachineFeatures()
+            expect(res).toMatchObject({fitnessMachine:16387,targetSettings:24588,power:true,heartrate:false,cadence:true,setPower:true,setSlope:true})
+
+        })
+
+        test('no data',async ()=>{
+            setupMock(ftms,undefined)
+            const res = await ftms.getFitnessMachineFeatures()
+            expect(res).toMatchObject({power:false,heartrate:false})
+
+
+        })
+        test('empty data',async ()=>{
+            setupMock(ftms,'')
+            const res = await ftms.getFitnessMachineFeatures()
+            expect(res).toMatchObject({power:false,heartrate:false})
+
+        })
+
+
+    })
 
 
 })

@@ -195,59 +195,63 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         const data:Buffer = Buffer.from(_data);
         let offset = 2 ;      
 
-        try {
-            const flags = data.readUInt16LE(0)
-    
-            if ((flags & IndoorBikeDataFlag.MoreData)===0 ) {
-                this.data.speed = data.readUInt16LE(offset)/100; offset+=2;
+        if (data.length>2) {
+
+            try {
+                const flags = data.readUInt16LE(0)
+        
+                if ((flags & IndoorBikeDataFlag.MoreData)===0 ) {
+                    this.data.speed = data.readUInt16LE(offset)/100; offset+=2;
+                }
+                if (flags & IndoorBikeDataFlag.AverageSpeedPresent) {
+                    this.data.averageSpeed = data.readUInt16LE(offset)/100; offset+=2;
+                }
+                if (flags & IndoorBikeDataFlag.InstantaneousCadence) {
+                    this.data.cadence = data.readUInt16LE(offset)/2; offset+=2;
+                }
+                if (flags & IndoorBikeDataFlag.AverageCadencePresent) {
+                    this.data.averageCadence = data.readUInt16LE(offset)/2; offset+=2;
+                }
+        
+                if (flags & IndoorBikeDataFlag.TotalDistancePresent) {
+                    const dvLow  = data.readUInt8(offset); offset+=1;
+                    const dvHigh = data.readUInt16LE(offset); offset+=2;
+                    this.data.totalDistance = (dvHigh<<8) +dvLow;
+                }
+                if (flags & IndoorBikeDataFlag.ResistanceLevelPresent) {
+                    this.data.resistanceLevel = data.readInt16LE(offset); offset+=2;
+                }
+                if (flags & IndoorBikeDataFlag.InstantaneousPowerPresent) {
+                    this.data.instantaneousPower = data.readInt16LE(offset); offset+=2;
+                }
+                if (flags & IndoorBikeDataFlag.AveragePowerPresent) {
+                    this.data.averagePower = data.readInt16LE(offset); offset+=2;
+                }
+                if (flags & IndoorBikeDataFlag.ExpendedEnergyPresent) {
+                    this.data.totalEnergy = data.readUInt16LE(offset); offset+=2;
+                    this.data.energyPerHour = data.readUInt16LE(offset); offset+=2;
+                    this.data.energyPerMinute = data.readUInt8(offset); offset+=1;
+                }
+        
+                if (flags & IndoorBikeDataFlag.HeartRatePresent) {
+                    this.data.heartrate = data.readUInt8(offset); offset+=1;
+                }
+                if (flags & IndoorBikeDataFlag.MetabolicEquivalentPresent) {
+                    this.data.metabolicEquivalent = data.readUInt8(offset)/10; offset+=1;
+                }
+                if (flags & IndoorBikeDataFlag.ElapsedTimePresent) {
+                    this.data.time = data.readUInt16LE(offset); offset+=2;
+                }
+                if (flags & IndoorBikeDataFlag.RemainingTimePresent) {
+                    this.data.remainingTime = data.readUInt16LE(offset); 
+                }
+        
             }
-            if (flags & IndoorBikeDataFlag.AverageSpeedPresent) {
-                this.data.averageSpeed = data.readUInt16LE(offset)/100; offset+=2;
+            catch(err) {
+                this.logEvent({message:'error',fn:'parseIndoorBikeData()',data:data.toString('hex'),offset, error:err.message, stack:err.stack})
             }
-            if (flags & IndoorBikeDataFlag.InstantaneousCadence) {
-                this.data.cadence = data.readUInt16LE(offset)/2; offset+=2;
-            }
-            if (flags & IndoorBikeDataFlag.AverageCadencePresent) {
-                this.data.averageCadence = data.readUInt16LE(offset)/2; offset+=2;
-            }
-    
-            if (flags & IndoorBikeDataFlag.TotalDistancePresent) {
-                const dvLow  = data.readUInt8(offset); offset+=1;
-                const dvHigh = data.readUInt16LE(offset); offset+=2;
-                this.data.totalDistance = (dvHigh<<8) +dvLow;
-            }
-            if (flags & IndoorBikeDataFlag.ResistanceLevelPresent) {
-                this.data.resistanceLevel = data.readInt16LE(offset); offset+=2;
-            }
-            if (flags & IndoorBikeDataFlag.InstantaneousPowerPresent) {
-                this.data.instantaneousPower = data.readInt16LE(offset); offset+=2;
-            }
-            if (flags & IndoorBikeDataFlag.AveragePowerPresent) {
-                this.data.averagePower = data.readInt16LE(offset); offset+=2;
-            }
-            if (flags & IndoorBikeDataFlag.ExpendedEnergyPresent) {
-                this.data.totalEnergy = data.readUInt16LE(offset); offset+=2;
-                this.data.energyPerHour = data.readUInt16LE(offset); offset+=2;
-                this.data.energyPerMinute = data.readUInt8(offset); offset+=1;
-            }
-    
-            if (flags & IndoorBikeDataFlag.HeartRatePresent) {
-                this.data.heartrate = data.readUInt8(offset); offset+=1;
-            }
-            if (flags & IndoorBikeDataFlag.MetabolicEquivalentPresent) {
-                this.data.metabolicEquivalent = data.readUInt8(offset)/10; offset+=1;
-            }
-            if (flags & IndoorBikeDataFlag.ElapsedTimePresent) {
-                this.data.time = data.readUInt16LE(offset); offset+=2;
-            }
-            if (flags & IndoorBikeDataFlag.RemainingTimePresent) {
-                this.data.remainingTime = data.readUInt16LE(offset); 
-            }
-    
         }
-        catch(err) {
-            this.logEvent({message:'error',fn:'parseIndoorBikeData()',data:data.toString('hex'),offset, error:err.message, stack:err.stack})
-        }
+
         return { ...this.data, raw:`2ad2:${data.toString('hex')}`};
 
     }
@@ -316,7 +320,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
             let power = services.some( s => matches(s.uuid,'1818'))  // Cycling Power
             let heartrate = services.some( s => matches(s.uuid,'180d'))  // Heart Rate
 
-            if (buffer) {
+            if (buffer?.length>=8) {
                 const fitnessMachine = buffer.readUInt32LE(0)
                 const targetSettings = buffer.readUInt32LE(4)
                 power = power || (fitnessMachine & FitnessMachineFeatureFlag.PowerMeasurementSupported) !== 0
@@ -332,7 +336,12 @@ export default class BleFitnessMachineDevice extends TBleSensor {
 
 
                 this.logEvent( {message:'supported Features: ',fatures:this._features, power, heartrate, cadence})
+                return this._features
             }
+            else {
+                return {fitnessMachine:undefined, targetSettings:undefined, power, heartrate}
+            }
+            
     
         }
         catch(err) {
