@@ -184,7 +184,7 @@ describe('BleFitnessMachineDevice',()=>{
 
         }
 
-        beforeAll( ()=>{
+        beforeEach( ()=>{
             ftms = new BleFitnessMachineDevice({id:'test'})
             
         })
