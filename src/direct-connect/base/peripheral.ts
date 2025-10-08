@@ -31,6 +31,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
     protected eventEmitter = new EventEmitter()
     protected subscribed: Array<string> = [] 
     protected onDisconnectHandler: ()=>void;
+    protected discoveredServiceUUIds: Array<string>
 
     constructor( protected announcement:MulticastDnsAnnouncement) { 
         
@@ -47,6 +48,15 @@ export class DirectConnectPeripheral implements IBlePeripheral {
     get services(): BleService[] {
         const services =  this.announcement?.serviceUUIDs??[]
         return services.map(s => ({uuid:s}))
+    }
+
+    getAnnouncedServices(): string[] {
+        return this.announcement?.serviceUUIDs.map(s=>beautifyUUID(s))
+    }
+
+    getDiscoveredServices():string[] { 
+        return this.discoveredServiceUUIds
+
     }
 
     async connect(): Promise<boolean> {
@@ -108,7 +118,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
             }
 
             this.logEvent({message:'DiscoverServices response',path:this.getPath(), rc,  uuids , raw:response.toString('hex') })
-
+            this.discoveredServiceUUIds = res.body.serviceDefinitions.map(s => beautifyUUID(s.serviceUUID))
             return res.body.serviceDefinitions.map(s => s.serviceUUID)        
         }
         catch(err) {

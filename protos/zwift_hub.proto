@@ -20,10 +20,10 @@ message HubRidingData {
 }
 
 message SimulationParam {
-	optional sint32 Wind = 1;					// Wind in m/s * 100. In zwift there is no wind (0). Negative is backwind
+	optional sint32 Windx100 = 1;					// Wind in m/s * 100. In zwift there is no wind (0). Negative is backwind
 	optional sint32 InclineX100 = 2;			// Incline value * 100  
-	optional uint32 CWa = 3;					// Wind coefficient CW * a * 10000. In zwift this is constant 0.51 (5100) 
-	optional uint32 Crr = 4;					// Rolling resistance Crr * 100000. In zwift this is constant 0.004 (400)
+	optional uint32 CWax10000 = 3;					// Wind coefficient CW * a * 10000. In zwift this is constant 0.51 (5100) 
+	optional uint32 Crrx100000 = 4;					// Rolling resistance Crr * 100000. In zwift this is constant 0.004 (400)
 }
 
 message PhysicalParam {
@@ -158,5 +158,24 @@ message SubContent {
 
 message DeviceInformation {
 	optional uint32 InformationId = 1;
-	optional SubContent SubContent = 2;
+	optional SubContent DeviceInformationContent = 2;
+}
+
+message DeviceSettings {
+	optional DeviceSettingsSubContent SubContent = 1;
+}
+
+message DeviceSettingsSubContent {
+	optional sint32 Windx100 = 5;					// Wind in m/s * 100. In zwift there is no wind (0). Negative is backwind
+	optional sint32 InclineX100 = 6;			// Incline value * 100  
+  	optional uint32 GearRatiox10000 = 8;
+  	optional uint32 BikeWeightx100  = 11;
+  	optional uint32 RiderWeightx100 = 12;
+	optional uint32 Crrx100000 = 13;					// Rolling resistance Crr * 100000. In zwift this is constant 0.004 (400)
+
+}
+
+message DeviceDataEnvelope {
+  optional uint32 message_type = 1;
+  optional bytes  payload      = 2; // raw inner bytes
 }

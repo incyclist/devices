@@ -12,6 +12,7 @@ export class BlePeripheral implements IBlePeripheral {
     protected subscribed: Array<{uuid:string,callback:(data:Buffer)=>void}> = [] 
     protected disconnecting: boolean = false
     protected disconnectedSignalled: boolean = false
+    protected discoveredServiceUUIds: Array<string>
 
     protected onErrorHandler = this.onPeripheralError.bind(this)
 
@@ -25,6 +26,13 @@ export class BlePeripheral implements IBlePeripheral {
 
     getPeripheral():BleRawPeripheral {
         return this.announcement.peripheral
+    }
+
+    getAnnouncedServices(): string[] {
+        return this.announcement.serviceUUIDs.map( s=> beautifyUUID(s))
+    }
+    getDiscoveredServices(): string[] {
+        return this.discoveredServiceUUIds 
     }
 
     getInfo(): BleDeviceIdentifier {
@@ -146,17 +154,23 @@ export class BlePeripheral implements IBlePeripheral {
     }
 
     async discoverServices(): Promise<string[]> {
+
         if (!this.getPeripheral())
             return []
         
         if (this.getPeripheral().discoverServicesAsync) {
             this.logEvent({message:'discover services', address:this.getPeripheral().address})
             const services = await this.getPeripheral().discoverServicesAsync([])
+
+            this.discoveredServiceUUIds = services.map(s=>beautifyUUID(s.uuid))
             return services.map(s=>s.uuid)    
         }
         else {
             this.logEvent({message:'discover services and characteristics', address:this.getPeripheral().address})
-            const res = await this.getPeripheral().discoverSomeServicesAndCharacteristicsAsync([],[])                
+            const res = await this.getPeripheral().discoverSomeServicesAndCharacteristicsAsync([],[])    
+            
+            this.discoveredServiceUUIds = res.services.map(s=>beautifyUUID(s.uuid))
+
             return res.services.map(s=>s.uuid)
         }
     }
@@ -282,7 +296,14 @@ export class BlePeripheral implements IBlePeripheral {
     }
 
     async subscribeSelected(characteristics:string[], callback: (characteristicUuid: string, data: Buffer, isNotify?:boolean) => void): Promise<boolean> {
+        if (!this.discoveredServiceUUIds) {
+            try {
+                await this.discoverServices()
+            }
+            catch {}
+        }
 
+        
         try {
             if (Object.keys(this.characteristics).length===0) {
                 await this.discoverAllCharacteristics();
@@ -347,7 +368,14 @@ export class BlePeripheral implements IBlePeripheral {
         }
     }
 
-    async subscribeAll(callback: (characteristicUuid: string, data: Buffer) => void): Promise<boolean> {        
+    async subscribeAll(callback: (characteristicUuid: string, data: Buffer) => void): Promise<boolean> {   
+        if (!this.discoveredServiceUUIds) {
+            try {
+                await this.discoverServices()
+            }
+            catch {}
+        }
+        
         const characteristics = await this.discoverAllCharacteristics()
         const success = await this.subscribeSelected(characteristics,callback)
         return success

@@ -30,7 +30,7 @@ export const parseConfig = async (file:string) => {
 
     const uuids = target.txt['ble-service-uuids'].split(',').map( s => beautifyUUID(s))
 
-    console.log(config, "\n", target    )
+    console.log(config, "\n", target ,uuids   )
 
 
     target.rawTxt = []

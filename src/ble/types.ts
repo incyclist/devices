@@ -224,6 +224,8 @@ export interface IBlePeripheral {
 
     getManufacturerData?():Buffer
     getInfo():BleDeviceIdentifier
+    getAnnouncedServices(): string[]
+    getDiscoveredServices(): string[]
 
 }
 

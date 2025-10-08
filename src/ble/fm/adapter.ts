@@ -11,6 +11,10 @@ import { BleDeviceProperties, BleDeviceSettings, BleStartProperties, IBlePeriphe
 import { IAdapter,IncyclistCapability,IncyclistAdapterData,IncyclistBikeData } from '../../types';
 import { LegacyProfile } from '../../antv2/types';
 import { sleep } from '../../utils/utils';
+import { matches } from '../utils';
+import { BleZwiftPlaySensor } from '../zwift/play';
+
+const ZWIFT_PLAY_UUID = '0000000119ca465186e5fa29dcdd09d1'
 
 export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMachineDevice> {
     protected static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Smart Trainer'
@@ -19,6 +23,8 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
     protected connectPromise: Promise<boolean>
     protected requestControlRetryDelay = 1000
     protected promiseSendUpdate: Promise<UpdateRequest|void>
+    protected zwiftPlay: BleZwiftPlaySensor
+    protected virtualShiftingSupported: undefined
 
     constructor( settings:BleDeviceSettings, props?:BleDeviceProperties) {
         super(settings,props);
@@ -47,6 +53,10 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
     isControllable(): boolean {
         return true;
+    }
+
+    supportsVirtualShifting(): boolean {
+        return this.device?.getSupportedServiceUUids()?.some( s=> matches(s,ZWIFT_PLAY_UUID))
     }
 
     getSupportedCyclingModes() : Array<typeof CyclingMode> {
@@ -150,7 +160,20 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         return [wasPaused, false];
     }
         
+    protected async initVirtualShifting() {
+
+        try {
+            this.zwiftPlay = this.zwiftPlay ?? new BleZwiftPlaySensor( this.device)
+
+        }
+        catch(err) {
+            this.logEvent({message:'could not init virtual shifting', reason:err.message})    
+            delete this.zwiftPlay        
+        }
+    }
+
     
+
     protected async initControl(_startProps?:BleStartProperties) {
         if (!this.isStarting())
             return;
@@ -199,6 +222,11 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
             })
 
             const waitUntilControl = async ()=>{
+                if (this.supportsVirtualShifting() ) {
+                    await this.initVirtualShifting()
+                }
+
+
                 while (!hasControl && this.isStarting()) {
                     if (tryCnt++ === 0) {
                         this.logEvent( {message:'requesting control', device:this.getName(), interface:this.getInterface()})
@@ -284,7 +312,6 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
             this.promiseSendUpdate = undefined
         }
 
-
         // don't send any commands if we are pausing, unless mode change was triggered
         if( !enforced && ( this.paused  || !this.device))
             return;
@@ -304,7 +331,8 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
             // don't send any commands if the Control capability is not supported
             if (this.hasCapability(IncyclistCapability.Control)) {
 
-                const send = async ()=> {                    
+                const send = async ()=> {             
+                    
                     const res: UpdateRequest = {}
                     if (update.slope!==undefined) {
                         await device.setSlope(update.slope)
@@ -316,6 +344,21 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
                         await device.setTargetPower(tp)
                         res.targetPower = tp
                     } 
+                    if (update.gearRatio!==undefined) {
+
+                        if (!this.zwiftPlay) {
+                            this.initVirtualShifting()                            
+                        }
+
+                        if (this.zwiftPlay) {
+                            const gearRatio = await this.zwiftPlay.setGearRatio( update.gearRatio)
+                            await this.zwiftPlay.setSimulationData({inclineX100:update.slope*100})
+                            res.gearRatio = gearRatio
+                        }
+
+                    } 
+
+
                     return res  
                 }
 
@@ -342,12 +385,18 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
         if (this.started && !this.stopped) {
             try {
-                if (this.getCyclingMode() instanceof BleERGCyclingMode) {
+                const mode = this.getCyclingMode() as CyclingMode
+                if (mode.isERG()) {
                 
                     const power = this.data.power
                     const request = power ? {targetPower:power} : this.getCyclingMode().getBikeInitRequest()
                     await this.sendUpdate(request,true)
                     return true
+                }
+                else if (mode.isSIM() && this.supportsVirtualShifting()){
+                    await this.sendInitialRequest()
+                    return true
+
                 }
             }
             catch {
@@ -361,5 +410,5 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
 
 
-}
 
+}

@@ -61,7 +61,7 @@ const initInterface = ()=> {
         // Select binding (based on OS)
         switch (platform) {
             case 'win32': binding= new Noble(new WinrtBindings());break;
-            case 'linux': break; // not supported
+            case 'linux': 
             case 'darwin': binding = new Noble(defaultBinding()); break;
             default:
                 process.exit()

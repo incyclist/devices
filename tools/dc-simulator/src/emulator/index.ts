@@ -7,6 +7,7 @@ import CyclingPowerService from './services/csp.js';
 import { Service } from "./services/service.js";
 import { FitnessMachineService } from './services/ftms.js';
 import { HeartRateService } from './services/hrs.js';
+import { ZwiftPlayService } from './services/zwift-play.js';
 
 const DEFAULT_FREQUENCY = 250;  // 250ms = 4Hz
 
@@ -28,6 +29,7 @@ export class Emulator extends EventEmitter {
   name: string;
   csp: CyclingPowerService;
   ftms: FitnessMachineService;
+  play: ZwiftPlayService
   hrs: HeartRateService;
   last_timestamp: number;
   rev_count: number;
@@ -56,6 +58,7 @@ export class Emulator extends EventEmitter {
     this.hrs = uuids.includes('180D') ? new HeartRateService() : null;
     this.csp = uuids.includes('1818') ? new CyclingPowerService() : null;
     this.ftms = uuids.includes('1826') ? new FitnessMachineService() : null;
+    this.play = uuids.includes('00000001-19CA-4651-86E5-FA29DCDD09D1') ? new ZwiftPlayService() : null
 
     this.last_timestamp = 0;
     this.rev_count = 0;
@@ -68,7 +71,7 @@ export class Emulator extends EventEmitter {
 
 
   getServices():Service[] {
-    return [this.ftms, this.csp, this.hrs].filter(s => s !== null);
+    return [this.ftms, this.csp, this.hrs, this.play].filter(s => s !== null);
   }
 
   start() {

@@ -40,6 +40,14 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
 
 
     getBikeInitRequest(): UpdateRequest {
+        const virtshiftMode = this.getVirtualShiftMode();
+
+        if (virtshiftMode==='Adapter' ) {
+            this.gear = this.getSetting('startGear')
+            const gearRatio = this.gearRatios[this.gear-1]
+            return {slope:0, gearRatio}
+        }
+
         this.prevRequest = {slope:0}
         return { slope:0};
     }    
@@ -60,15 +68,24 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         const config  = super.getConfig();
 
         let virtshift = config.properties.find(p => p.key==='virtshift');
+        let startGear = config.properties.find(p => p.key==='startGear');
+
         if (!virtshift) {
             // add virtual shifting info
-            virtshift = {key:'virtshift', name: 'Virtual Shifting', description: 'Enable virtual shifting', type: CyclingModeProperyType.SingleSelect, options:['Disabled','Enabled','Mixed'], default: 'Disabled'}
+            virtshift = {key:'virtshift', name: 'Virtual Shifting', description: 'Enable virtual shifting', type: CyclingModeProperyType.SingleSelect, options:['Disabled','Incyclist','Mixed'], default: 'Disabled'}
             config.properties.push( virtshift )
         }
         
         if (this.adapter.supportsVirtualShifting()) {
             virtshift.default = 'Enabled';
-            virtshift.options = ['Disabled','Enabled']
+            virtshift.options = ['Disabled','Incyclist','SmartTrainer','Mixed']
+            virtshift.default = 'SmartTrainer'
+        }
+
+        if (!startGear) {
+            startGear = {key:'startGear', name: 'Initial Gear', description: 'Initial Gear', type: CyclingModeProperyType.Integer,default:10,min:1, max:24,condition: (s)=> s?.virtshift==='Incyclist'||s?.virtshift==='SmartTrainer' }
+            config.properties.push(startGear)
+
         }
         
         return config;
@@ -196,7 +213,8 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                 if (request.gearDelta!==undefined) {
 //                    console.log(new Date().toISOString(), '# gearDelta', request.gearDelta, 'from', this.gear   )
                     if (this.gear===undefined) {
-                        this.gear = 10 +request.gearDelta
+                        const initialGear = this.getSetting('startGear')
+                        this.gear = initialGear +request.gearDelta
                     }
                     else { 
                         this.gear += request.gearDelta;
@@ -225,6 +243,57 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                 }
                 break;
             case 'Adapter':
+                if (request.gearRatio!==undefined) {
+                    newRequest.gearRatio = request.gearRatio
+                    if (this.gear===undefined) {
+
+                        const requestedRatio = request.gearRatio;
+                        let closestIndex = 0;
+                        let minDiff = Math.abs(this.gearRatios[0] - requestedRatio);
+
+                        for (let i = 1; i < this.gearRatios.length; i++) {
+                            const diff = Math.abs(this.gearRatios[i] - requestedRatio);
+                            if (diff < minDiff) {
+                                minDiff = diff;
+                                closestIndex = i;
+                            }
+                        }
+                        this.gear = closestIndex+1;
+                        
+                    }
+
+                }
+                else if (request.gearDelta!==undefined) {
+                    if (this.gear===undefined) {
+                        const initialGear = this.getSetting('startGear')
+                        this.gear = initialGear +request.gearDelta
+                    }
+                    else { 
+                        this.gear += request.gearDelta;
+                    }
+                    if (this.gear<1) {
+                        this.gear = 1;
+                    }
+                    if (this.gear>this.gearRatios.length) {
+                        this.gear = this.gearRatios.length;
+                    }
+                    delete request.gearDelta
+
+                    newRequest.gearRatio = this.gearRatios[this.gear]
+
+
+                }
+                else {
+                    if (this.gear===undefined) {
+                        const initialGear = this.getSetting('startGear')
+                        this.gear = initialGear +request.gearDelta
+                    }
+
+                    newRequest.gearRatio = this.gearRatios[this.gear]
+                }
+
+
+                break;
             case 'Disabled':
             default:
                 break;
@@ -258,16 +327,20 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         if (virtshiftMode === 'Disabled') {
             return 'Disabled';
         } 
-
-        if (this.adapter.supportsVirtualShifting()) {
-            if (virtshiftMode === 'Enabled') {
-                return 'Adapter';
-            }
+        else if (virtshiftMode==='Incyclist') {
+            return 'Simulated'
         }
-        else {
-            return virtshiftMode==='Mixed'  ? 'SlopeDelta' : 'Simulated';
-
+        else if (virtshiftMode==='SmartTrainer') {
+            return 'Adapter'
         }
+        else if (virtshiftMode==='Mixed') {
+            return 'SlopeDelta'
+        }
+        else if (virtshiftMode === 'Enabled') {
+            return this.adapter.supportsVirtualShifting() ? 'Adapter' : 'Simulated';
+        }
+
+        return 'Disabled'
     }
 
     updateData(bikeData: IncyclistBikeData, log?: boolean): IncyclistBikeData {
@@ -288,7 +361,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
             this.tsStart = Date.now();
         }
         if (this.gear===undefined && this.tsStart && data.power>0 && (Date.now() - this.tsStart > 3000)) { 
-            this.setInitialGear(data)
+            this.gear = this.getSetting('startGear')??0
             data.gearStr = this.getGearString()
         }
         else if (this.gear!==undefined ) { 
@@ -343,17 +416,6 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         
     }
 
-    protected setInitialGear(data:IncyclistBikeData) {
-        const m = this.adapter?.getWeight()??85        
-        const virtualSpeeds = this.gearRatios.map( r=>calculateVirtualSpeed(data.pedalRpm, r) )
-        const requiredPowers = virtualSpeeds.map( v=>calc.calculatePower(m, v, data.slope??0) )
-
-        const deltas = requiredPowers.map( (p,i) =>  ({gear:i+1, delta:Math.abs(p - data.power)}) )
-        deltas.sort( (a,b) => a.delta-b.delta )
-
-        this.gear = deltas[0].gear
-        this.logger.logEvent( {message:'set initial gear', gear:this.gear, m, rpm:data.pedalRpm, power:data.power})
-    }
 
     protected getGearString(): string {
         const mode = this.getVirtualShiftMode();

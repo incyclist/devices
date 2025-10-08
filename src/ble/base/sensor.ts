@@ -24,6 +24,10 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
         this.onDataHandler = this.onData.bind(this)
     }
 
+    getPeripheral() {
+        return this.peripheral
+    }
+
     getDetectionPriority():number {
         const C = this.constructor as typeof TBleSensor
         return C['detectionPriority']??0 
@@ -44,6 +48,11 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
     getServiceUUids(): string[] {
         const C = this.constructor as typeof TBleSensor
         return C['services'] 
+    }
+
+    getSupportedServiceUUids():string[] {
+        return this.peripheral?.getDiscoveredServices()
+        
     }
 
     isMatching(serviceUUIDs: string[]): boolean {             

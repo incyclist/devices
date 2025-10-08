@@ -12,6 +12,7 @@ export type UpdateRequest = {
     refresh?: boolean;
     init?: boolean;
     gear?: number;
+    gearRatio?: number,
     forced?:boolean
 }
 export enum CyclingModeProperyType {
@@ -32,6 +33,7 @@ export type CyclingModeProperty = {
     max?: number;
     default?: any;
     options?: any[];
+    condition?: (setting:any)=>boolean
 }
 
 export type Settings = {
