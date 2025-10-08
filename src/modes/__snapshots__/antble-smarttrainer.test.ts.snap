@@ -41,10 +41,20 @@ exports[`BLE-SmartTrainer statics 2`] = `
     "name": "Virtual Shifting",
     "options": [
       "Disabled",
-      "Enabled",
+      "Incyclist",
       "Mixed",
     ],
     "type": "SingleSelect",
+  },
+  {
+    "condition": [Function],
+    "default": 10,
+    "description": "Initial Gear",
+    "key": "startGear",
+    "max": 24,
+    "min": 1,
+    "name": "Initial Gear",
+    "type": "Integer",
   },
 ]
 `;
