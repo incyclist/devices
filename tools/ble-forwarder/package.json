@@ -1,0 +1,44 @@
+{
+	"name": "ble-forwarder",
+	"version": "0.1.0",
+	"description": "Forwards all messages of  Smart Trainer exposed by BLE",
+	"author": {
+		"name": "Guido Doumen",
+		"email": "incyclist@doumen-laumen.de"
+	},
+	"license": "MIT",
+	"scripts": {
+		"build": "tsc",
+		"prestart": "eslint && tsc",
+		"test": "jest --coverage",
+		"start": "node .",
+		"dev": "nodemon --watch src -e ts,ejs --exec npm start"
+	},
+	"dependencies": {
+		"@stoprocent/bleno": "^0.11.4",
+		"@stoprocent/noble": "^2.3.6",
+		"dotenv": "^17.2.3",
+		"incyclist-devices": "file:../.."
+	},
+	"devDependencies": {
+		"@eslint/js": "^9.15.0",
+		"@types/jest": "^30.0.0",
+		"@types/node": "^24.7.0",
+		"eslint": "^9.37.0",
+		"jest": "^30.2.0",
+		"nodemon": "^3.1.4",
+		"ts-jest": "^29.2.4",
+		"typescript": "^5.6.3",
+		"typescript-eslint": "^8.15.0"
+	},
+	"files": [
+		"build/"
+	],
+	"main": "build/index.js",
+	"directories": {
+		"lib": "./src"
+	},
+	"engines": {
+		"node": ">=10.0.0"
+	}
+}
