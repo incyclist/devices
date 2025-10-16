@@ -169,7 +169,7 @@ describe('BLE-SmartTrainer',()=>{
 
     describe('updateData',()=>{
 
-        let cm;
+        let cm:any;
         let bikeType = 'race'
 
         beforeEach( ()=>{

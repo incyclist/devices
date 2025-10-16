@@ -344,15 +344,18 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
                         await device.setTargetPower(tp)
                         res.targetPower = tp
                     } 
-                    if (update.gearRatio!==undefined) {
+                    if (update.gearRatio!==undefined ) {
 
                         if (!this.zwiftPlay) {
                             this.initVirtualShifting()                            
                         }
 
-                        if (this.zwiftPlay) {
+                        if (this.zwiftPlay && !isNaN(update.gearRatio)) {
+                            let slope = update.slope??0
+                            if (slope===0) slope = 0.01
+                            
+                            await this.zwiftPlay.setSimulationData({inclineX100:slope*100})
                             const gearRatio = await this.zwiftPlay.setGearRatio( update.gearRatio)
-                            await this.zwiftPlay.setSimulationData({inclineX100:update.slope*100})
                             res.gearRatio = gearRatio
                         }
 

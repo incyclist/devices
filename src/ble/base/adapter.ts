@@ -19,6 +19,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     protected lastDataTS: number;
     protected device: TDevice
     protected onDeviceDataHandler = this.onDeviceData.bind(this)
+    protected onDeviceDisconnectHandler = this.emit.bind(this)
     protected startTask: InteruptableTask<TaskState,boolean>;
     constructor( settings:BleDeviceSettings, props?:DeviceProperties) {
         super(settings,props)
@@ -443,7 +444,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
 
         if(connected) {
             sensor.on('data',this.onDeviceDataHandler) 
-            sensor.on('disconnected', this.emit.bind(this))
+            sensor.on('disconnected', this.onDeviceDisconnectHandler)
             sensor.on('error',console.log) 
             connected = await sensor.pair()
         }
@@ -489,6 +490,11 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             return true;
         }
         const sensor = this.getSensor();
+
+
+        sensor.off('data',this.onDeviceDataHandler) 
+        sensor.off('disconnected', this.onDeviceDisconnectHandler)
+        sensor.off('error',console.log) 
 
         sensor.reset();
         this.resetData()        

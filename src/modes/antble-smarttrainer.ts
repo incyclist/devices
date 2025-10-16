@@ -83,7 +83,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         }
 
         if (!startGear) {
-            startGear = {key:'startGear', name: 'Initial Gear', description: 'Initial Gear', type: CyclingModeProperyType.Integer,default:10,min:1, max:24,condition: (s)=> s?.virtshift==='Incyclist'||s?.virtshift==='SmartTrainer' }
+            startGear = {key:'startGear', name: 'Initial Gear', description: 'Initial Gear', type: CyclingModeProperyType.Integer,default:12,min:1, max:24,condition: (s)=> s?.virtshift==='Incyclist'||s?.virtshift==='SmartTrainer' }
             config.properties.push(startGear)
 
         }
@@ -112,7 +112,10 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
 
     protected checkSlopeWithAdapterShifting(request: UpdateRequest, newRequest: UpdateRequest={}) { 
         // TODO replace this implementation 
-        return this.checkSlopeNoShiftig(request,newRequest);
+        this.checkSlopeNoShiftig(request,newRequest);
+
+        newRequest.gearRatio = this.gearRatios[this.gear]            
+
     }
 
     protected getSlopeDelta()  {
@@ -423,13 +426,20 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         if (mode==="Disabled")
             return undefined
 
-        if ( mode==='Simulated' && (this.gear===undefined || this.gear===null)   )
-            return '';
+        if ( mode==='Simulated') {
+            this.gear = this.gear ?? this.getSetting('startGear') ?? 0
+            return this.gear.toString()
+        }
 
         if (mode==="SlopeDelta")
             return this.gearDelta >0 ? `+${this.gearDelta}` : `${this.gearDelta}`;
 
-        return this.gear.toString()        
+        if (mode==='Adapter') {
+            this.gear = this.gear ?? this.getSetting('startGear') ?? 0
+            return this.gear.toString()
+        }
+
+        return this.gear?.toString()        
     }   
 
 }

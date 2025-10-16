@@ -165,6 +165,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
             return true
         }
 
+        console.log('# subscribe ',characteristicUUID)
         const seqNo = this.getNextSeqNo()
                
         const message = new EnableCharacteristicNotificationsMessage() 
