@@ -42,4 +42,5 @@ export interface IService  {
 
 export interface IEmulator {
     setMode(mode: 'ERG' | 'SIM', power?: number): void
+    rideOn()
 }

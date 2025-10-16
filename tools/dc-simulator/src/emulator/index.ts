@@ -36,6 +36,7 @@ export class Emulator extends EventEmitter {
   paused: boolean;
 
   targetPower: number
+  protected playActive: boolean
 
   public power = 0;
   public speed = 0;
@@ -63,6 +64,7 @@ export class Emulator extends EventEmitter {
     this.last_timestamp = 0;
     this.rev_count = 0;
     this.mode = 'SIM'
+    this.playActive = false
   }
 
   setName(name:string) {
@@ -71,7 +73,9 @@ export class Emulator extends EventEmitter {
 
 
   getServices():Service[] {
-    return [this.ftms, this.csp, this.hrs, this.play].filter(s => s !== null);
+    const services = [this.ftms, this.csp, this.hrs, this.play].filter(s => s !== null);
+    console.log('Emulator services',services)
+    return services
   }
 
   start() {
@@ -147,10 +151,30 @@ export class Emulator extends EventEmitter {
         heart_rate: this.heartrate
     })
 
+    if (this.playActive) {
+      this.play?.measurement.update( {
+          cadence: this.cadence,
+          power: this.power,
+          speed: this.speed,
+          heartrate: this.heartrate
+      })
+    }
+
 
     
     
-}
+  }
+
+  async rideOn() {
+    console.log('# processing ride on')
+    this.play.measurement.send(Buffer.from('2a08031211220f4154582030312c2053545820303100','hex'))
+    setTimeout( ()=>{
+      this.playActive = true
+    }, 500)
+    
+  
+  }
+
 
 
 }

@@ -16,7 +16,7 @@ export class ZwiftPlayService extends Service {
         const response = new ZwiftPlayResponseCharacteristic()
 
         super({
-            uuid: '0000000119ca465186e5fa29dcdd09d1',
+            uuid: '00000001-19ca-4651-86e5-fa29dcdd09d1',
             characteristics: [
                 controlPoint, measurement, response
             ]

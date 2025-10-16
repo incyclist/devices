@@ -104,8 +104,11 @@ export class DirectConnectComms {
     handleDiscoverServices (buffer,message:DiscoverServiceMessage) {
         const request = message.parseRequest(buffer)
 
+        console.log('handleDiscoverServices',request.body)
         
-        const serviceDefinitions = ['0x1818','0x1826','0000000119ca465186e5fa29dcdd09d1'].map((uuid) => ({serviceUUID:parseUUID(uuid)}))
+        const serviceDefinitions = ['0x1826','00000001-19ca-4651-86e5-fa29dcdd09d1'].map((uuid) => ({serviceUUID:parseUUID(uuid)}))
+
+        console.log('# handleDiscoverServices services', serviceDefinitions)
         const body:TDCDiscoverServicesResponseBody = {serviceDefinitions}
         const response = message.prepareResponse(request,DC_RC_REQUEST_COMPLETED_SUCCESSFULLY,body)
         const respBuffer = message.buildResponse(response)
@@ -276,6 +279,10 @@ export class DirectConnectComms {
     }
 
     notify(characteristicUUID: string, characteristicData: Buffer) {
+
+        console.log('# notify', characteristicUUID, Buffer.from(characteristicData).toString('hex'))
+
+
         const notifyMsg = new CharacteristicNotificationMessage()
         const body = notifyMsg.buildResponseBody({
             characteristicUUID, characteristicData
