@@ -232,5 +232,62 @@ describe('BLE-SmartTrainer',()=>{
 
     })
 
+    describe('checkSlopeWithSimulatedShifting',()=>{
+        let cm:SmartTrainerCyclingMode;
+        let bikeType = 'Race'
+
+        const setData = (c:any, data:any) => {
+            c.data = { ...c.data, ...data }
+        }
+
+        const setupMocks = (c:any) => { 
+            c.getTimeSinceLastUpdate = jest.fn().mockReturnValue(1) // 1s
+            c.getSetting = jest.fn( (key) => { 
+                if (key==='bikeType') return bikeType
+                if (key==='slopeAdj') return 100
+                if (key==='slopeAdjDown') return 50
+                if (key==='startGear') return 12
+                if (key==='virtshift') return 'Incyclist'
+                return cm.settings[key]
+            });
+        }
+            
+
+        beforeEach( ()=>{
+            cm = new SmartTrainerCyclingMode(adapter);
+
+            setupMocks(cm)
+        })
+
+        test('start pedalling',()=>{
+            
+            let newRequest 
+
+            cm.updateData({slope:0,speed:10,isPedalling:false,power:0,distanceInternal:0,pedalRpm:0})
+            newRequest = cm.sendBikeUpdate({slope:0})
+            console.log('newRequest', newRequest)
+
+            cm.updateData({slope:0,speed:1.44,isPedalling:true,power:6,distanceInternal:0.46,pedalRpm:0})
+            newRequest = cm.sendBikeUpdate({slope:0})
+            console.log('newRequest', newRequest)
+
+            cm.updateData({slope:0,speed:3.21,isPedalling:true,power:27,distanceInternal:1.39,pedalRpm:0})
+            newRequest = cm.sendBikeUpdate({slope:0})
+            console.log('newRequest', newRequest)
+
+            cm.updateData({slope:0,speed:5.68,isPedalling:true,power:54,distanceInternal:3.34,pedalRpm:34})
+            newRequest = cm.sendBikeUpdate({slope:0})
+            console.log('newRequest', newRequest)
+
+            cm.updateData({slope:0,speed:5.68,isPedalling:true,power:48,distanceInternal:5.54,pedalRpm:35})
+            newRequest = cm.sendBikeUpdate({slope:0})
+            console.log('newRequest', newRequest)
+        })
+      
+
+    })
+
+        
+
 
 })
