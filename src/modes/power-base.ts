@@ -234,6 +234,9 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
     }
 
     copyBikeData(data:IncyclistBikeData, bikeData:IncyclistBikeData):IncyclistBikeData {
+
+        const prevCadence = data.pedalRpm
+
         const keys = Object.keys(bikeData)
         keys.forEach( key=> {
             if (bikeData[key]===null)
@@ -248,7 +251,13 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
         if (data.distanceInternal===undefined) data.distanceInternal=0
         if (data.time===undefined) data.time=0
         if (data.slope===undefined) data.slope=0
-        if (bikeData.isPedalling===undefined) data.isPedalling=data.pedalRpm>0
+        if (bikeData.isPedalling===undefined) (data.isPedalling=data.pedalRpm>0 || data.power>0)
+
+        // keep previous pedalRpm if pedalRpm=0 but power>0
+        if (bikeData.pedalRpm===0 && bikeData.power>0 && prevCadence!==undefined)  {
+            data.pedalRpm=prevCadence
+        }
+
 
         // slope will be copied from prev. request
         if (this.prevRequest?.slope!==undefined) {
