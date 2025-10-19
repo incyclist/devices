@@ -278,9 +278,10 @@ export class DirectConnectComms {
 
     }
 
-    notify(characteristicUUID: string, characteristicData: Buffer) {
 
-        console.log('# notify', characteristicUUID, Buffer.from(characteristicData).toString('hex'))
+    protected send(characteristicUUID: string, characteristicData: Buffer, msgId) {
+
+        //console.log('# notify', characteristicUUID, Buffer.from(characteristicData).toString('hex'))
 
 
         const notifyMsg = new CharacteristicNotificationMessage()
@@ -293,7 +294,7 @@ export class DirectConnectComms {
 
         const header = notifyMsg.buildHeader({
             msgVersion:1,                
-            msgId:DC_MESSAGE_CHARACTERISTIC_NOTIFICATION,
+            msgId,
             seqNum,
             respCode:DC_RC_REQUEST_COMPLETED_SUCCESSFULLY,
             length: body.length
@@ -304,6 +305,14 @@ export class DirectConnectComms {
         this.write(response)
 
         
+    }
+
+    notify(characteristicUUID: string, characteristicData: Buffer) {
+        this.send(characteristicUUID, characteristicData, DC_MESSAGE_CHARACTERISTIC_NOTIFICATION)
+    }
+
+    indicate(characteristicUUID: string, characteristicData: Buffer) {
+        this.send(characteristicUUID, characteristicData, DC_MESSAGE_CHARACTERISTIC_NOTIFICATION)
     }
 
     // handleWriteCharacteristic (buffer,message:WriteCharacteristicMessage) {

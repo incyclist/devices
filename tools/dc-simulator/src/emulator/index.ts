@@ -167,7 +167,11 @@ export class Emulator extends EventEmitter {
 
   async rideOn() {
     console.log('# processing ride on')
-    this.play.measurement.send(Buffer.from('2a08031211220f4154582030312c2053545820303100','hex'))
+   
+    //this.play.measurement.send(Buffer.from('2a08031211220f4154582030312c2053545820303100','hex'))
+    this.play.measurement.send(Buffer.from('2a0803120d220b524944455f4f4e28312900','hex'))
+
+    this.play.response.send(Buffer.from('526964654f6e0202','hex'))
     setTimeout( ()=>{
       this.playActive = true
     }, 500)

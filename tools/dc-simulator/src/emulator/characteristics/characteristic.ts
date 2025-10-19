@@ -60,6 +60,11 @@ export class Characteristic<T> implements ICharacteristic<T>{
         
     }
 
+    send(buffer:Buffer):void {
+        this.value = buffer
+        this.notify()
+    }
+
     valueStr() {
         if (!this.data)
             return ''

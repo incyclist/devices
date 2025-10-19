@@ -36,4 +36,12 @@ export class ZwiftPlayResponseCharacteristic extends  Characteristic<TValue> {
 
     // TODO
   }
+
+  send(message:Buffer) {
+
+    console.log('# zwift-play send response',message.toString('hex') )
+    this.value = message
+    this.emitter.emit('notification', message)
+  }
+
 };
