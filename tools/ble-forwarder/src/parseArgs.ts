@@ -11,7 +11,7 @@
 export const parseArgs = () => {
     const args = process.argv.slice(2);
     let deviceName: string | undefined;
-    let announceName: string = "BLE-FM SIM";
+    let announceName = "BLE-FM SIM";
 
     const printUsage = () => {
         console.log('Usage:\n  node index.js -n <deviceName> [-a <announceName>]');

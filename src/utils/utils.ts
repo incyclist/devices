@@ -65,8 +65,8 @@ export function floatVal(d?:number|string):number {
         return;
     if (typeof d==='number')
         return d
-    const res = parseFloat(d)
-    return isNaN(res) ? undefined : res;
+    const res = Number.parseFloat(d)
+    return Number.isNaN(res) ? undefined : res;
 }
 
 export function intVal(d?:number|string):number {
@@ -74,8 +74,8 @@ export function intVal(d?:number|string):number {
         return;
     if (typeof d==='number')
         return Math.floor(d)
-    const res = parseInt(d)
-    return isNaN(res) ? undefined : res;
+    const res = Number.parseInt(d)
+    return Number.isNaN(res) ? undefined : res;
 }
 
 
@@ -90,7 +90,7 @@ export function hexstr(arr,start?,len?) {
     }
 
     let added = 0;
-    for (var i = startIdx; i< endIdx; i ++) {
+    for (let i = startIdx; i< endIdx; i ++) {
         const hex = Math.abs( arr[i]).toString(16).toUpperCase();
         if ( added!==0 ) str+=' ';
         str+=hex;

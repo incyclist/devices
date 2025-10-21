@@ -248,7 +248,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
                     clearInterval(iv)
                     resolve(true)
                 }
-                if (!this.promiseWaitForData || this.stopped) {
+                if (this.promiseWaitForData===undefined || this.promiseWaitForData===null ||this.stopped) {
                     resolve(false)
                     clearInterval(iv)
                 }
@@ -268,7 +268,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
         const tsStart = Date.now()
 
         
-        if (this.promiseWaitForData){    
+        if (this.promiseWaitForData!==undefined && this.promiseWaitForData!==null){    
             let hasData = false
             try {
                 hasData =await this.promiseWaitForData                        
@@ -466,7 +466,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
 
     protected async initSensor(props: any):Promise<boolean> {
         this.startStatus.sensorStarted = this.sensorConnected
-        if (this.startStatus.sensorStarted || this.startStatus.sensorStarted) 
+        if (this.startStatus.sensorStarted) 
             return;
 
         this.logEvent({ message: 'start sensor', device:this.getName(), props });

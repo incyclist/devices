@@ -96,12 +96,12 @@ export default class SmartTrainerCyclingMode  extends CyclingModeBase implements
         const minMaxStr = this.getSetting(`${source}Rings`);
         const values = minMaxStr.split('-');
         if (values[0] && values[1] && values[0]<values[1]) {
-            return [parseInt(values[0]), parseInt(values[1])];
+            return [Number.parseInt(values[0]), Number.parseInt(values[1])];
         }
         if (values[0] && values[1] && values[0]>values[1]) {
-            return [parseInt(values[1]), parseInt(values[0])];
+            return [Number.parseInt(values[1]), Number.parseInt(values[0])];
         }
-        return;
+        
     }
 
 
@@ -118,7 +118,7 @@ export default class SmartTrainerCyclingMode  extends CyclingModeBase implements
         
         const event = {...this.event} as any;
         if (this.data===undefined) event.noData = true;
-        const slope = request.slope===undefined? request.slope : parseFloat(request.slope.toFixed(1));
+        const slope = request.slope===undefined? request.slope : Number.parseFloat(request.slope.toFixed(1));
         if (slope!==undefined && (event.noData || Math.abs(slope-this.data.slope)>=0.1 )) event.slopeUpdate = true;
         if (this.prevRequest===undefined) event.initialCall = true;
         this.logger.logEvent( {message:"processing update request",request,prev:this.prevRequest,data:getData(),event} );
@@ -335,29 +335,12 @@ export default class SmartTrainerCyclingMode  extends CyclingModeBase implements
                 }
                 else {
                     speed = this.calculateSpeed(gear,rpm,slope,speed,{fromPower,prevSpeed} ) 
-
-                    // power required to keep speed at given slope
-                    /*                    
-                    const vPrev = (prevData.speed || 0 )/3.6
-                    const EkinPrev = 1/2*m*vPrev*vPrev;
-                    
-                    
-
-
-                    let powerRequired = calc.calculatePower(m,vPrev,prevData.slope);
-                    const powerDelta = powerRequired - power;
-
-                    
-                    const Ekin = EkinPrev-powerDelta*duration;
-                    const v = Math.sqrt(2*Ekin/m);
-                    speed = v*3.6
-                    */
                 }                        
                 const v = speed /3.6;
                 distanceInternal += (v*duration);                
             }
         
-            data.speed = parseFloat(speed.toFixed(1));
+            data.speed = Number.parseFloat(speed.toFixed(1));
             data.power = Math.round(power);
             data.distanceInternal = distanceInternal;
             data.distance =  distance
@@ -446,7 +429,7 @@ export default class SmartTrainerCyclingMode  extends CyclingModeBase implements
         const m = this.getWeight()
 
         const prevData = this.data || {} as any;
-        const slope = parseFloat((request.slope===undefined ? prevData.slope||0 : request.slope).toFixed(1));
+        const slope = Number.parseFloat((request.slope?? prevData.slope??0).toFixed(1));
         let target = request.targetPower || defaultPower;
         
         if ( prevData.speed!==undefined || speed!==undefined) {
@@ -456,7 +439,7 @@ export default class SmartTrainerCyclingMode  extends CyclingModeBase implements
             // power required to keep speed at given slope
             const calculatedPower = calc.calculatePower(m,v,slope,{bikeType});
             
-            const power =  (calculatedPower<minPower) ? minPower: calculatedPower
+            const power =  Math.max(calculatedPower,minPower)
             let belowMin = (calculatedPower<minPower);
 
             // assumption: adjust power will take Xs, i.e. per second, we can adjust 1/X of the delta
@@ -474,8 +457,6 @@ export default class SmartTrainerCyclingMode  extends CyclingModeBase implements
                 target = power;
             }
 
-            //const speed = calc.calculateSpeedDaum(prevData.gear, prevData.pedalRpm )
-            //const speed = this.calculateSpeed(prevData.gear,prevData.pedalRpm,m,slope,prevData.speed ) 
             if (!speed)
                 this.logger.logEvent({message:'request:targetPower', info:{prev:prevData.power||0, calculated:calculatedPower, required:power, delta: powerDelta, target, belowMin }})
             request.targetPower = target;
@@ -484,26 +465,6 @@ export default class SmartTrainerCyclingMode  extends CyclingModeBase implements
             request.belowMin = belowMin;
 
             
-            /*
-            console.log('~~~ power', power)
-
-            // calculate speed that we would have after 1s if we would not adjust power
-            const Ekin = 1/2*m*v*v;
-            const powerDelta = power - prevData.power;
-            const EkinAfter1s = Ekin - powerDelta;
-            if (EkinAfter1s>=0) {
-                const vAfter1s = Math.sqrt(2*EkinAfter1s/m);
-
-                console.log('~~~ Ekin', Ekin, powerDelta,EkinAfter1s, vAfter1s)
-
-                power = calc.calculatePower(m,vAfter1s,prevData.slope);
-                if (power<minPower) power = minPower;
-                console.log('~~~ powerAdjusted', power)
-            }
-            
-
-            request.targetPower = power;
-            */
         }
         else {
             request.targetPower = target

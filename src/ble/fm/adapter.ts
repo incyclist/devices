@@ -350,7 +350,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
                             this.initVirtualShifting()                            
                         }
 
-                        if (this.zwiftPlay && !isNaN(update.gearRatio)) {
+                        if (this.zwiftPlay && !Number.isNaN(update.gearRatio)) {
                             let slope = update.slope??0
                             if (slope===0) slope = 0.01
                             

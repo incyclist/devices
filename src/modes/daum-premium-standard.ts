@@ -69,7 +69,7 @@ export default class DaumClassicCyclingMode extends PowerMeterCyclingMode implem
                 
             }
 
-            data.speed = parseFloat(speed.toFixed(1));
+            data.speed = Number.parseFloat(speed.toFixed(1));
             data.power = Math.round(power);
             data.distanceInternal = distanceInternal;
             data.slope = slope;

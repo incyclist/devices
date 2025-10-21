@@ -447,22 +447,22 @@ export default class Daum8i extends SerialPortComms<DaumPremiumCommsState,DaumPr
     async setPower( power:number|string ):Promise<number> {
         const powerStr = typeof power === 'string' ? Number.parseFloat(power).toFixed(2) : power.toFixed(2)
         const str = await this.sendStrCommand('setPower',`S23${powerStr}`)
-        return  parseInt(str);
+        return  Number.parseInt(str);
     }
 
     async getPower():Promise<number> {
         const str = await this.sendStrCommand('getPower','S23')
-        return  parseInt(str);
+        return Number.parseInt(str);
     }
 
     async setGear(gear:number):Promise<number> {
         const str = await this.sendStrCommand('setGear',`M71${gear}`)
-        return parseInt(str);       
+        return Number.parseInt(str);       
     }
 
     async getGear():Promise<number> {
         const str = await this.sendStrCommand('getGear','M71')
-        return parseInt(str);
+        return Number.parseInt(str);
     }
 
 
@@ -484,7 +484,7 @@ export default class Daum8i extends SerialPortComms<DaumPremiumCommsState,DaumPr
         const cmdData = Uint8Array.from(buffer);        
 
         const res = await this.sendBinaryCommand(logString||'ReservedCommand', 'M70', bin2esc(cmdData))
-        const resData = Uint8Array.from(res, x => x.charCodeAt(0));
+        const resData = Uint8Array.from(res, x => x.codePointAt(0));
         const cmd = esc2bin(resData);
 
         return cmd;

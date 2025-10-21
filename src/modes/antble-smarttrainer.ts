@@ -94,7 +94,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
 
     protected checkSlopeNoShiftig(request: UpdateRequest, newRequest: UpdateRequest={}) { 
         if (request.slope!==undefined) {
-            const targetSlope = newRequest.slope = parseFloat(request.slope.toFixed(1));
+            const targetSlope = newRequest.slope = Number.parseFloat(request.slope.toFixed(1));
             this.data.slope = newRequest.slope;
 
             try {
@@ -126,7 +126,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
 
     protected checkSlopeWithSlopeDelta(request: UpdateRequest, newRequest: UpdateRequest={}) { 
         if (request.slope!==undefined) {
-            const targetSlope = newRequest.slope = parseFloat(request.slope.toFixed(1))
+            const targetSlope = newRequest.slope = Number.parseFloat(request.slope.toFixed(1))
             this.data.slope = newRequest.slope;
 
             const requestedSlope = targetSlope + this.getSlopeDelta();
@@ -148,9 +148,13 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         }
 
 
-        if (request.slope!==undefined ) {
+        if (request.slope===undefined ) {
+            console.log('# set simulated power (same slope):', {simPower:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope, cadence:this.data.pedalRpm, power:this.data.power})                    
+            this.logger.logEvent({message:'set simulated power (same slope)', simPower:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope, cadence:this.data.pedalRpm, power:this.data.power})                    
+        }
+        else {
             const prev = this.data.slope??0
-            this.data.slope = parseFloat(request.slope.toFixed(1));
+            this.data.slope = Number.parseFloat(request.slope.toFixed(1));
             delete request.slope
             delete newRequest.slope;
 
@@ -216,10 +220,6 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
 
 
             // }
-        }
-        else {
-            console.log('# set simulated power (same slope):', {simPower:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope, cadence:this.data.pedalRpm, power:this.data.power})                    
-            this.logger.logEvent({message:'set simulated power (same slope)', simPower:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope, cadence:this.data.pedalRpm, power:this.data.power})                    
         }
 
         newRequest.targetPower = this.simPower;

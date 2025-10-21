@@ -290,49 +290,49 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceP
 		//   in PC mode: can be set with "pt mmss", counting up
 		//7: current power 
 		if (states.length === 8) {
-			const hr = parseInt(states[0]);
-			if (!isNaN(hr)) {
+			const hr = Number.parseInt(states[0]);
+			if (!Number.isNaN(hr)) {
 				result.heartrate = hr;
 			}
 
 			// cadence
-			var cadence = parseInt(states[1]);
-			if (!isNaN(cadence)) {
+			const cadence = Number.parseInt(states[1]);
+			if (!Number.isNaN(cadence)) {
 				result.cadence = cadence;
 			}
 
 			// speed
-			const speed = parseInt(states[2]);
-			if (!isNaN(speed)) {
+			const speed = Number.parseInt(states[2]);
+			if (!Number.isNaN(speed)) {
 				result.speed = speed * 0.1;
 			}
 
-            const distance = parseInt(states[3]);
-            if (!isNaN(distance)) { 
+            const distance = Number.parseInt(states[3]);
+            if (!Number.isNaN(distance)) { 
                 result.distance = distance*100;
             }
 
 			// power in Watt
-			const requestedPower = parseInt(states[4]);
-			if (!isNaN(requestedPower)) {
+			const requestedPower = Number.parseInt(states[4]);
+			if (!Number.isNaN(requestedPower)) {
 				result.requestedPower = requestedPower;
 			}
 
-            const energy = parseInt(states[5]);
-			if (!isNaN(energy)) {
+            const energy = Number.parseInt(states[5]);
+			if (!Number.isNaN(energy)) {
 				result.energy = energy;
 			}
 
             const timeStr = states[6];
             const time = timeStr.split(':');
-            const hours = parseInt(time[0]);
-            const minutes = parseInt(time[1]);
-            if (!isNaN(hours) && !isNaN(minutes)) {
+            const hours = Number.parseInt(time[0]);
+            const minutes = Number.parseInt(time[1]);
+            if (!Number.isNaN(hours) && !Number.isNaN(minutes)) {
                 result.time = hours * 60 + minutes;
             }
 
-            const power = parseInt(states[7]);
-            if (!isNaN(power)) {
+            const power = Number.parseInt(states[7]);
+            if (!Number.isNaN(power)) {
                 result.power = power;
             }
 
@@ -350,7 +350,7 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceP
     // check if we can communicate with bike
     async check(): Promise<boolean> {
         
-        var info = {} as any
+        const info = {} as any
 
         return new Promise(  async (resolve, reject ) => {
             this.logEvent( {message:"checking device",port:this.getPort()});
@@ -400,7 +400,7 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceP
 
         this.logEvent({message:'start()'});        
         
-        var info = {} as any
+        const info = {} as any
 
         await this.waitForOpened(true);
         

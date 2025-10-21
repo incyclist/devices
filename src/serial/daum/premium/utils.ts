@@ -12,7 +12,7 @@ export const DEBUG_LOGGER = {
 }
 
 const GS = 0x1D
-const GS_CHAR  = String.fromCharCode(GS)
+const GS_CHAR  = String.fromCodePoint(GS)
 
 export function responseLog(str:string):string {
     
@@ -162,7 +162,7 @@ export function hexstr(arr,start?,len?) {
 
 
 export function ascii(c:string):number {
-    return c.charCodeAt(0);
+    return c.codePointAt(0);
 }
 
 
@@ -174,7 +174,7 @@ export function getAsciiArrayFromStr (str) {
     const n = str.length;
     let result = [];
     for (let i=0;i<n;i++) {
-        result.push( str.charCodeAt(i) );
+        result.push( str.codePointAt(i) );
     }
     return result;
 }
@@ -275,20 +275,20 @@ export function parseTrainingData(payload:string):IncyclistBikeData {
     const gearVal = (v) => v>0 ? v-1 : undefined;
 
     //const strVals = payload.reduce ( (str,c) => str + (c==0x1d ? '#' :String.fromCharCode(c) ),'')
-    const vals = payload.split( String.fromCharCode(GS) );
+    const vals = payload.split( String.fromCodePoint(GS) );
     
     const data = {
-        time: parseInt(vals[0]),
-        heartrate: parseInt(vals[1]),
-        speed: parseFloat(vals[2]) *3.6,
-        slope: parseFloat(vals[3]),
-        distanceInternal: parseInt(vals[4]),
-        pedalRpm: parseFloat(vals[5]),
-        power: parseInt(vals[6]),
+        time: Number.parseInt(vals[0]),
+        heartrate: Number.parseInt(vals[1]),
+        speed: Number.parseFloat(vals[2]) *3.6,
+        slope: Number.parseFloat(vals[3]),
+        distanceInternal: Number.parseInt(vals[4]),
+        pedalRpm: Number.parseFloat(vals[5]),
+        power: Number.parseInt(vals[6]),
         //physEnergy: parseFloat(vals[7]),
         //realEnergy: parseFloat(vals[8]),
         //torque: parseFloat(vals[9]),
-        gear:  gearVal(parseInt(vals[10])),
+        gear:  gearVal(Number.parseInt(vals[10])),
         //deviceState: parseInt(vals[11]),
         //speedStatus: speedVals[parseInt(vals[12])],
         
