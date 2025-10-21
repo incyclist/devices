@@ -87,7 +87,7 @@ export default class BleCyclingPowerDevice extends TBleSensor {
             }
             
         }
-        catch (err) { 
+        catch  { 
 
         }
         const {instantaneousPower, balance,accTorque,rpm,time} = this

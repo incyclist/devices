@@ -10,7 +10,7 @@ import { getBrand, mapLegacyProfile } from '../utils';
 import { DEFAULT_UPDATE_FREQUENCY } from '../consts';
 import SensorFactory from '../factories/sensor-factory';
 import { EventLogger } from 'gd-eventlog';
-import EventEmitter from 'events';
+import EventEmitter from 'node:events';
 import ICyclingMode from '../../modes/types';
 
 const INTERFACE_NAME = 'ant'
@@ -286,7 +286,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
             this.promiseWaitForData =null;
             return hasData
         }
-        catch(err) {
+        catch {
             this.promiseWaitForData =null;
             return false
         }   
@@ -357,7 +357,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
         try {
             return await this.start();
         }
-        catch(error) {
+        catch {
             return false
         }
     }

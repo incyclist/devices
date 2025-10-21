@@ -1,7 +1,7 @@
 import { BindingPortInterface, OpenOptions, PortStatus, PortInfo, SetOptions, UpdateOptions, BindingInterface } from "@serialport/bindings-interface";
 import { EventLogger } from 'gd-eventlog';
-import { networkInterfaces } from 'os';
-import net from 'net'
+import { networkInterfaces } from 'node:os';
+import net from 'node:net'
 
 
 const DEFAULT_TIMEOUT = 3000
@@ -39,7 +39,7 @@ export function scanPort( host:string,port:number): Promise<boolean> {
                 try {
                     socket.destroy();
                 }
-                catch(err) {}
+                catch {}
                 socket.removeAllListeners()
             }
 
@@ -50,7 +50,7 @@ export function scanPort( host:string,port:number): Promise<boolean> {
 
             socket.connect( port, host );
         }
-        catch (err) {
+        catch  {
             // just in case - this code should never be reached
             resolve(false)
         }
@@ -148,10 +148,10 @@ export const TCPBinding: TCPBindingInterface = {
                         return reject( new TypeError('"path" is not valid'))
                     host = res[0]
                     port = Number(res[1])
-                    if (isNaN(port))
+                    if (Number.isNaN(port))
                         return reject( new TypeError('"path" is not valid'))
                 }
-                catch(err) {
+                catch{
                     return reject( new TypeError('"path" is not valid'))
                 }
 
@@ -303,12 +303,12 @@ export class TCPPortBinding implements BindingPortInterface  {
             throw new TypeError('"buffer" is not a Buffer')
         }
       
-        if (typeof offset !== 'number' || isNaN(offset)) {
-            throw new TypeError(`"offset" is not an integer got "${isNaN(offset) ? 'NaN' : typeof offset}"`)
+        if (typeof offset !== 'number' || Number.isNaN(offset)) {
+            throw new TypeError(`"offset" is not an integer got "${Number.isNaN(offset) ? 'NaN' : typeof offset}"`)
         }
       
-        if (typeof length !== 'number' || isNaN(length)) {
-            throw new TypeError(`"length" is not an integer got "${isNaN(length) ? 'NaN' : typeof length}"`)
+        if (typeof length !== 'number' || Number.isNaN(length)) {
+            throw new TypeError(`"length" is not an integer got "${Number.isNaN(length) ? 'NaN' : typeof length}"`)
         }
       
         if (buffer.length < offset + length) {

@@ -15,7 +15,7 @@ import { PROTOCOL_NAME, DEFAULT_GEAR } from './consts';
 
 export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings, DaumClassicProperties,Daum8008>{
 
-    static NAME = PROTOCOL_NAME;
+    static readonly NAME = PROTOCOL_NAME;
     protected static controllers: ControllerConfig = {
         modes: [ERGCyclingMode,SmartTrainerCyclingMode,DaumPowerMeterCyclingMode,DaumClassicCyclingMode],
         default:DaumClassicCyclingMode
@@ -48,7 +48,7 @@ export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings
             serial = props.interface
         }
     
-        if (!serial || !serial.binding)
+        if (!serial?.binding)
             throw new Error(`unknonwn interface: ${ifaceName}`)
     
         const path = `${port}` ;
@@ -70,9 +70,9 @@ export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings
 
     async performCheck():Promise<boolean> {
 
-        var info:DaumClassicStartInfo = {} 
+        const info:DaumClassicStartInfo = {} 
 
-        const check =  new Promise(  async (resolve, reject ) => {
+        const check =  async ():Promise<boolean> => {
             this.logEvent( {message:"checking device",port:this.getPort()});
             
 
@@ -84,8 +84,7 @@ export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings
                 })
 
                 if (!connected) {
-                    resolve(false)
-                    return;
+                    return false
                 }
                 this.stopped = false;
                                
@@ -101,16 +100,16 @@ export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings
                 this.started = false;
 
                 this.logEvent( {message:"checking device success",port:this.getPort(),info});
-                resolve(true)               
+                return true
             }
             catch (err) {
                 this.logEvent( {message:"checking device failed", port:this.getPort(), reason:err.message});
-                resolve(false)
+                return false
             }
 
-        })
+        }
 
-        return await waitWithTimeout( check, 5000, ()=>{
+        return await waitWithTimeout( check(), 5000, ()=>{
             this.logEvent( {message:"checking device failed", port:this.getPort(), reason:'Timeout'});
             return false
         })
@@ -168,7 +167,7 @@ export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings
                     try {                   
                         await this.getComms().setBikeType(bikeType.toLowerCase());                    
                     }
-                    catch(err) {
+                    catch {
                         //ignore for now
                     }
                     startState.setBikeType = true;                    

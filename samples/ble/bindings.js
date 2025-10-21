@@ -1,13 +1,13 @@
 // noble-winrt
 // Copyright (C) 2017, Uri Shaked
 // License: MIT
-const { spawn } = require('child_process');
+const { spawn } = require('node:child_process');
 const nativeMessage = require('chrome-native-messaging');
-const events = require('events');
+const events = require('node:events');
 const { EventLogger } = require('gd-eventlog');
-const os = require('os')
-const path = require('path')
-const fs = require('fs')
+const os = require('node:os')
+const path = require('node:path')
+const fs = require('node:fs')
 
 const BLE_SERVER_EXE = path.resolve(__dirname, 'prebuilt', 'BLEServer.exe');
 
@@ -287,6 +287,7 @@ class WinrtBindings extends events.EventEmitter {
                         break;
         
                 }  
+                break;
 
                 
 

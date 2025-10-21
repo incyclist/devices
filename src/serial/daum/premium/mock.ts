@@ -324,8 +324,7 @@ export class Daum8iMockBinding extends MockPortBinding {
 
 
             }
-            catch(err) {
-                //console.log('~~~ERROR',err)
+            catch {
             }
 
         }

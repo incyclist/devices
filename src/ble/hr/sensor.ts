@@ -34,7 +34,7 @@ export default class BleHrmDevice extends TBleSensor {
                 this.rr = (data.readUInt16LE(offset))/1024
             }
         }
-        catch (err) { 
+        catch { 
 
         }
         const {heartrate, rr} = this

@@ -38,7 +38,7 @@ const PROTOCOL_NAME = 'Kettler Racer'
 export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceProperties>   {
     private id: string;
     private iv : { sync: NodeJS.Timeout, update: NodeJS.Timeout };
-    private requests: Array<any> = []
+    private readonly requests: Array<any> = []
     private internalData: IncyclistBikeData;
     private kettlerData: KettlerBikeData;
     private updateBusy: boolean;
@@ -79,7 +79,7 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceP
     isSame(device:IAdapter):boolean {
         if (!(device instanceof KettlerRacerAdapter))
             return false;
-        const adapter = device as KettlerRacerAdapter;
+        const adapter = device
         return  (adapter.getName()===this.getName() && adapter.getPort()===this.getPort())
     }
 
@@ -232,18 +232,13 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceP
      * 
      **/
     async send( logStr: string, message:string, timeout? ): Promise<any> {
+        const opened = await this.waitForOpened();
+        if ( !opened ) {
+            throw (new Error('connection error'))
+        }
 
-        return new Promise( async (resolve,reject) => {
-            try {
-                const opened = await this.waitForOpened();
-                if ( !opened ) {
-                    reject (new Error('connection error'))
-                }
-            }
-            catch (err) { reject(err) }
-                
+        return new Promise( (resolve,reject) => {               
             this.comms.send( {logStr, message, onResponse: resolve, onError:reject,  timeout} ) 
-
         });
     }
 
@@ -700,26 +695,24 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceP
 
     async waitForOpened( retries: boolean = false): Promise<boolean> {
 
-        if (!retries) {
-            return await this.comms.open()
-        }
-        else  {
-            let opened;
-            let tries = 0;
+        const maxTries = retries ? 3 : 1
+        
+        let opened = false
+        let tries = 0;
 
-            while (!opened && tries<3) {
-                try {
-                    opened = await this.comms.open()
-                    if (opened) return true;
-                }
-                catch(err) {
+        while (!opened && tries<maxTries) {
 
-                }
-                tries++;
-                await sleep(500)
-            }   
-            return false;
-        }
+            try {
+                opened = await this.comms.open()
+                if (opened) return true;
+            }
+            catch { }
+            
+            tries++;
+            await sleep(500)
+        }   
+        return false;
+        
     }
 
     waitForClosed(): Promise<boolean> {
@@ -739,7 +732,10 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceP
                     resolve(true); 
                     cleanup();
                 }
-                const onError = (err) => {reject(err); cleanup(); }
+                const onError = (err) => {
+                    reject(err as Error); 
+                    cleanup(); 
+                }
                 const onOpen = () => { cleanup() }
 
                 this.comms.on('closed', onClose);
@@ -754,7 +750,7 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceP
             }
             catch( err ) {
                 this.logEvent( {message:'error',fn:'waitForClosed()',error:err.message||err})
-                reject(err);
+                reject(err as Error);
             }
 
         })

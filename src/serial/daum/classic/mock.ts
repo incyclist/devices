@@ -289,7 +289,7 @@ export class DaumClassicMockBinding extends MockPortBinding {
                 }
     
             }
-            catch(err) {               
+            catch {               
             }
             this.writeOperation = null
             
