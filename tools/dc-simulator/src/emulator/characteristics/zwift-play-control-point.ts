@@ -42,6 +42,10 @@ export class ZwiftPlayControlPointCharacteristic extends  Characteristic<TValue>
             this.emulator.rideOn()
             
         }
+        if (message.startsWith('04' )  ) {
+            this.emulator.setMode('ERG')
+        }
+
 
     }
     

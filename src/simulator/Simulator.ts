@@ -253,7 +253,7 @@ export class Simulator extends IncyclistDevice<SimulatorProperties> {
         if (this.paused)
             return;
 
-        return await this.getCyclingMode().sendBikeUpdate(request)
+        return this.getCyclingMode().buildUpdate(request)
     }
 
 }

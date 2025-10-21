@@ -666,7 +666,7 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceP
         if ( this.kettlerData?.cadence===0) 
             return;
 
-        let bikeRequest = this.getCyclingMode().sendBikeUpdate({refresh:true}) || {}
+        let bikeRequest = this.getCyclingMode().buildUpdate({refresh:true}) || {}
         const prev = this.requests[this.requests.length-1] || {};
 
         if (bikeRequest.targetPower!==undefined && bikeRequest.targetPower!==prev.targetPower) {
@@ -682,7 +682,7 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceP
         }
         
         return new Promise ( async (resolve) => {
-            let bikeRequest = this.getCyclingMode().sendBikeUpdate(request)
+            let bikeRequest = this.getCyclingMode().buildUpdate(request)
             this.logEvent({message:'add request',request:bikeRequest})
             this.requests.push(bikeRequest);
             resolve(bikeRequest);

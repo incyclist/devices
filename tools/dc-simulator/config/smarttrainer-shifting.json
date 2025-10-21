@@ -1,9 +1,9 @@
 {
     "addresses":["192.168.8.106"],
     "subtypes":[],
-    "name":"KICKR CORE 1BCD",
-    "fqdn":"KICKR CORE 1BCD._wahoo-fitness-tnp._tcp.local",
-    "host":"KICKR CORE 1BCD.local",
+    "name":"DCSIM FTMS",
+    "fqdn":"DCSIM FTMS._wahoo-fitness-tnp._tcp.local",
+    "host":"DCSIM FTMS.local",
     "referer":{
       "address":"192.168.8.106",
       "family":"IPv4",

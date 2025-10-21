@@ -617,7 +617,7 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         if (!this.deviceData.isPedalling || this.deviceData.pedalRpm===0) 
             return;
 
-        let bikeRequest = this.getCyclingMode().sendBikeUpdate({refresh:true}) || {}
+        let bikeRequest = this.getCyclingMode().buildUpdate({refresh:true}) || {}
         const prev = this.requests[this.requests.length-1] || {};
 
         if (bikeRequest.targetPower!==undefined && bikeRequest.targetPower!==prev.targetPower) {
@@ -635,7 +635,7 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
         return new Promise ( (resolve) => {
 
             const fn = async () => { 
-                let bikeRequest = this.getCyclingMode().sendBikeUpdate(request)
+                let bikeRequest = this.getCyclingMode().buildUpdate(request)
                 this.logEvent({message:'add request',request:bikeRequest})
                 this.requests.push(bikeRequest);
                 resolve(bikeRequest);    

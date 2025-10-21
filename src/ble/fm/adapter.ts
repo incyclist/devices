@@ -323,7 +323,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         
         try {
 
-            const update = this.getCyclingMode().sendBikeUpdate(request)
+            const update = this.getCyclingMode().buildUpdate(request)
             this.logEvent({message: 'send bike update requested',profile:this.getProfile(),mode:this.getCyclingMode()?.getName(),  update, request})
 
             const device = this.getSensor()

@@ -158,7 +158,7 @@ describe( 'DaumAdapter', ()=>{
         let cm: ICyclingMode = {
             getName: () => '',
             getDescription: () => '',
-            sendBikeUpdate: jest.fn(),
+            buildUpdate: jest.fn(),
             updateData: jest.fn(),
             getProperties: jest.fn(),
             getProperty: jest.fn(),
@@ -520,7 +520,7 @@ describe( 'DaumAdapter', ()=>{
     })
 
     describe('stopUpdatePull',()=>{
-        let a
+        let a:any
         beforeEach( ()=>{
             a = new DaumAdapter(DEFAULT_SETTINGS,  {userWeight:80, bikeWeight:10});
             //a.bikeSync = jest.fn()

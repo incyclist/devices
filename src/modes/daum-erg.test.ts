@@ -3,6 +3,9 @@ import DaumAdapter from '../serial/daum/DaumAdapter'
 import { EventLogger } from "gd-eventlog";
 import { MockLogger } from "../../test/logger";
 import ERGCyclingMode from "./daum-erg";
+import { SerialDeviceSettings } from "../serial/types";
+import { DeviceProperties } from "../types";
+import { DaumSerialComms } from "../serial/daum/types";
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
@@ -26,7 +29,12 @@ describe( 'ERGCyclingMode',()=>{
 
     describe ( 'constructor()',()=>{
 
-        let adapter
+        let adapter: DaumAdapter<SerialDeviceSettings, DeviceProperties, DaumSerialComms>;
+
+        const removeLogger = ( a:any) => { 
+            a.logger = undefined;
+        }
+
         beforeEach( ()=>{
             adapter = new DaumAdapter(DEFAULT_SETTINGS);
         })
@@ -49,7 +57,7 @@ describe( 'ERGCyclingMode',()=>{
         } );
 
         test( 'with adapter, adapter has no logger',()=>{
-            adapter.logger = undefined;
+            removeLogger(adapter)
             const cyclingMode = new ERGCyclingMode(adapter);
             
             expect( cyclingMode.logger.getName() ).toBe('ERGMode');
@@ -101,7 +109,7 @@ describe( 'ERGCyclingMode',()=>{
     })
 
     describe ( 'getSetting()',()=>{
-        let adapter
+        let adapter:DaumAdapter<SerialDeviceSettings, DeviceProperties,DaumSerialComms>
         beforeEach( ()=>{
             adapter = new DaumAdapter(DEFAULT_SETTINGS);
         })
@@ -122,7 +130,7 @@ describe( 'ERGCyclingMode',()=>{
     })
 
     describe ( 'setSetting()',()=>{
-        let adapter
+        let adapter:DaumAdapter<SerialDeviceSettings, DeviceProperties,DaumSerialComms>
         beforeEach( ()=>{
             adapter = new DaumAdapter(DEFAULT_SETTINGS);
         })
@@ -146,7 +154,7 @@ describe( 'ERGCyclingMode',()=>{
     })
 
     describe ( 'getBikeInitRequest()',()=>{
-        let adapter
+        let adapter:DaumAdapter<SerialDeviceSettings, DeviceProperties, DaumSerialComms>
         beforeEach( ()=>{
             adapter = new DaumAdapter(DEFAULT_SETTINGS);
         })
@@ -165,7 +173,7 @@ describe( 'ERGCyclingMode',()=>{
     })
 
     describe('updateData',()=>{
-        let adapter
+        let adapter:DaumAdapter<SerialDeviceSettings, DeviceProperties,DaumSerialComms>
         beforeEach( ()=>{
             adapter = new DaumAdapter(DEFAULT_SETTINGS);
         })
@@ -215,28 +223,33 @@ describe( 'ERGCyclingMode',()=>{
 
     describe('calculateTargetPower',()=> {
 
-        let cm;
+        let cm:ERGCyclingMode;
         let adapter;
+
+        const setupMocks  = (m:any, data:any) => {
+            m.adapter.getWeight = jest.fn().mockReturnValue(85);
+            m.data = data;
+        }
+
         beforeEach(()=>{
             adapter = new DaumAdapter(DEFAULT_SETTINGS);
-            adapter.getWeight = jest.fn().mockReturnValue(85);
             cm = new ERGCyclingMode(adapter);
         });
 
         describe('very first run',()=>{
             test('empty request: will set targetPower to "startPower" setting',()=>{
-                cm.data = undefined;
+                setupMocks(cm, undefined);
 
                 expect( cm.calculateTargetPower({}) ).toEqual(50);
             })
             test('targetPower not set: will set targetPower to "startPower" setting, remove slope',()=>{
-                cm.data = undefined;
+                setupMocks(cm, undefined);
                 cm.setSetting('startPower',75);
                 expect( cm.calculateTargetPower({slope:10}) ).toEqual( 75);
             })
             
             test('targetPower is set: use value from request',()=>{
-                cm.data = undefined;
+                setupMocks(cm, undefined);
                 expect( cm.calculateTargetPower({targetPower:100}) ).toEqual(100);
             })
     
@@ -245,7 +258,7 @@ describe( 'ERGCyclingMode',()=>{
         
         describe('subsequent runs',()=>{
             test('empty request: will set targetPower based on gear,cadence and weight',()=>{
-                cm.data = {pedalRpm:90, gear:10}
+                setupMocks(cm, {pedalRpm:90, gear:10});
                 
                 let res;
                 res = cm.calculateTargetPower({});
@@ -257,7 +270,7 @@ describe( 'ERGCyclingMode',()=>{
 
             })
             test('targetPower not set: will set targetPower according to gear and cadence ',()=>{
-                cm.data = {pedalRpm:90, gear:10}
+                setupMocks(cm, {pedalRpm:90, gear:10});
                 const res = cm.calculateTargetPower({slope:5});
                 expect(res  ).toBeCloseTo(146,0);
                 
@@ -266,14 +279,14 @@ describe( 'ERGCyclingMode',()=>{
             })
             
             test('not pedalling: will set targetPower to initial setting',()=>{
-                cm.data = {pedalRpm:0, gear:10}
+                setupMocks(cm, {pedalRpm:0, gear:10});
                 const res = cm.calculateTargetPower({slope:5});
                 expect(res  ).toBeCloseTo(50,0);
             })
 
 
             test('no gear:  will set targetPower to initial setting',()=>{
-                cm.data = {pedalRpm:90, gear:0}
+                setupMocks(cm, {pedalRpm:90, gear:0});
                 
                 const res = cm.calculateTargetPower({slope:5});
                 expect(res  ).toBeCloseTo(50,0);
@@ -291,7 +304,7 @@ describe( 'ERGCyclingMode',()=>{
         afterAll( () => {
             jest.useRealTimers();
         })
-        let adapter
+        let adapter:DaumAdapter<SerialDeviceSettings, DeviceProperties,DaumSerialComms>
         beforeEach( ()=>{
             adapter = new DaumAdapter(DEFAULT_SETTINGS);
         })
@@ -376,7 +389,7 @@ describe( 'ERGCyclingMode',()=>{
             
             res = cm.sendBikeUpdate({slope:-2.798902988433838})
             jest.advanceTimersByTime(1000);
-            res = cm.updateData({speed:50,slope:0,power:res.targetPower,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
+            res = cm.updateData({speed:50,slope:0,power:res.targetPower??0,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626})
             expect(res.speed).toBeGreaterThan(31)
 
             res = cm.sendBikeUpdate({slope:0})
@@ -415,7 +428,7 @@ describe( 'ERGCyclingMode',()=>{
             
             // back to previous will also reset speed and power
             jest.advanceTimersByTime(1000);
-            cm.updateData({speed:30,slope:0,power:res.targetPower,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626} )  
+            cm.updateData({speed:30,slope:0,power:res.targetPower??0,isPedalling:true,pedalRpm:90,heartrate:99,distanceInternal:242351,gear:10,time:1626} )  
             expect(cm.data.speed).toBeCloseTo(38.8,1)
             expect(cm.event.rpmUpdated).toBe(true)         
             res = cm.sendBikeUpdate({refresh:true})
@@ -429,7 +442,7 @@ describe( 'ERGCyclingMode',()=>{
             res = cm.sendBikeUpdate({refresh:true})
             expect(res.targetPower).toBeLessThan(158)
             jest.advanceTimersByTime(1000);
-            cm.updateData({speed:30,slope:0,power:res.targetPower,isPedalling:true, pedalRpm:89,heartrate:99,distanceInternal:242351,gear:10,time:1626} )  
+            cm.updateData({speed:30,slope:0,power:res.targetPower??0,isPedalling:true, pedalRpm:89,heartrate:99,distanceInternal:242351,gear:10,time:1626} )  
             expect(cm.data.speed).toBeCloseTo(37.6,1)
             expect(cm.event.rpmUpdated).toBeUndefined()
 

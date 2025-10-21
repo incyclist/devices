@@ -698,7 +698,7 @@ describe( 'fe adapter', ()=>{
             adapter.emit = jest.fn()
             adapter.started = true;
             adapter.paused = false;
-            adapter.getCyclingMode().sendBikeUpdate = jest.fn()
+            adapter.getCyclingMode().buildUpdate = jest.fn()
             adapter.getCyclingMode().getBikeInitRequest = jest.fn()
             adapter.sensor.sendTrackResistance = jest.fn()            
             adapter.sensor.sendTargetPower = jest.fn()
@@ -707,7 +707,7 @@ describe( 'fe adapter', ()=>{
         })
 
         test('slope',async ()=>{
-            adapter.getCyclingMode().sendBikeUpdate.mockReturnValue({slope:1})
+            adapter.getCyclingMode().buildUpdate.mockReturnValue({slope:1})
             
             await adapter.sendUpdate({slope:0, minPower:100, maxPower:200}) // any data that does not contain reset, cycling mode will determine the final request
 
@@ -716,7 +716,7 @@ describe( 'fe adapter', ()=>{
         })
 
         test('targetPower',async ()=>{
-            adapter.getCyclingMode().sendBikeUpdate.mockReturnValue({targetPower:110})
+            adapter.getCyclingMode().buildUpdate.mockReturnValue({targetPower:110})
 
             await adapter.sendUpdate({slope:0, minPower:100, maxPower:200}) // any data that does not contain reset, cycling mode will determine the final request
 
@@ -729,7 +729,7 @@ describe( 'fe adapter', ()=>{
         test('slope and targetPower',async ()=>{
             
             //adapter.sensor.sendTargetPower = console.log 
-            adapter.getCyclingMode().sendBikeUpdate.mockReturnValue({slope:2, targetPower:200})
+            adapter.getCyclingMode().buildUpdate.mockReturnValue({slope:2, targetPower:200})
 
             await adapter.sendUpdate({slope:0, minPower:100, maxPower:200}) // any data that does not contain reset, cycling mode will determine the final request
 
@@ -739,7 +739,7 @@ describe( 'fe adapter', ()=>{
 
 
         test('reset',async ()=>{
-            adapter.getCyclingMode().sendBikeUpdate.mockReturnValue({targetPower:110})
+            adapter.getCyclingMode().buildUpdate.mockReturnValue({targetPower:110})
             adapter.getCyclingMode().getBikeInitRequest.mockReturnValue({slope:1})
 
             await adapter.sendUpdate({reset:true}) 
@@ -755,7 +755,7 @@ describe( 'fe adapter', ()=>{
 
             await adapter.sendUpdate({slope:0, minPower:100, maxPower:200}) // any data that does not contain reset, cycling mode will determine the final request
 
-            expect(adapter.getCyclingMode().sendBikeUpdate).not.toHaveBeenCalled()
+            expect(adapter.getCyclingMode().buildUpdate).not.toHaveBeenCalled()
             expect(adapter.sensor.sendTrackResistance).not.toHaveBeenCalled()
             expect(adapter.sensor.sendTargetPower).not.toHaveBeenCalled()
             
@@ -766,14 +766,14 @@ describe( 'fe adapter', ()=>{
 
             await adapter.sendUpdate({slope:0, minPower:100, maxPower:200}) // any data that does not contain reset, cycling mode will determine the final request
 
-            expect(adapter.getCyclingMode().sendBikeUpdate).not.toHaveBeenCalled()
+            expect(adapter.getCyclingMode().buildUpdate).not.toHaveBeenCalled()
             expect(adapter.sensor.sendTrackResistance).not.toHaveBeenCalled()
             expect(adapter.sensor.sendTargetPower).not.toHaveBeenCalled()            
         })
 
         test('bike update times out, autmatic reconnect disabled',async ()=>{
             adapter.sensor.sendTrackResistance.mockRejectedValue(new Error('timeout'))
-            adapter.getCyclingMode().sendBikeUpdate.mockReturnValue({slope:1})
+            adapter.getCyclingMode().buildUpdate.mockReturnValue({slope:1})
 
             await adapter.sendUpdate({slope:0, minPower:100, maxPower:200}) // any data that does not contain reset, cycling mode will determine the final request
 
@@ -787,7 +787,7 @@ describe( 'fe adapter', ()=>{
             adapter.reconnect=jest.fn()
             adapter.startProps.automaticReconnect = true
             adapter.sensor.sendTargetPower.mockRejectedValue(new Error('timeout'))
-            adapter.getCyclingMode().sendBikeUpdate.mockReturnValue({targetPower:1})
+            adapter.getCyclingMode().buildUpdate.mockReturnValue({targetPower:1})
 
             await adapter.sendUpdate({slope:0, minPower:100, maxPower:200}) // any data that does not contain reset, cycling mode will determine the final request
 
@@ -796,7 +796,7 @@ describe( 'fe adapter', ()=>{
 
         test('previous bike update is still buy',async ()=>{
             adapter.sensor.sendTargetPower = jest.fn( ()=>setTimeout(()=>true,100) )
-            adapter.getCyclingMode().sendBikeUpdate.mockReturnValue({targetPower:1})
+            adapter.getCyclingMode().buildUpdate.mockReturnValue({targetPower:1})
             adapter.logEvent = jest.fn()
 
             adapter.sendUpdate({slope:0, minPower:100, maxPower:200}) // any data that does not contain reset, cycling mode will determine the final request

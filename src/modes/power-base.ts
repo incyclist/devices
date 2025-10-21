@@ -233,6 +233,10 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
         return { data,prevData, prevRequest, bikeType,slope };
     }
 
+    protected applyCadenceFixes(): boolean {
+        return true
+    }
+
     copyBikeData(data:IncyclistBikeData, bikeData:IncyclistBikeData):IncyclistBikeData {
 
         const prevCadence = data.pedalRpm
@@ -253,9 +257,11 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
         if (data.slope===undefined) data.slope=0
         if (bikeData.isPedalling===undefined) (data.isPedalling=data.pedalRpm>0 || data.power>0)
 
-        // keep previous pedalRpm if pedalRpm=0 but power>0
-        if (bikeData.pedalRpm===0 && bikeData.power>0 && prevCadence!==undefined)  {
-            data.pedalRpm=prevCadence
+        if (this.applyCadenceFixes()) {
+            // keep previous pedalRpm if pedalRpm=0 but power>0
+            if (bikeData.pedalRpm===0 && bikeData.power>0 && prevCadence!==undefined)  {
+                data.pedalRpm=prevCadence
+            }
         }
 
 

@@ -481,7 +481,7 @@ export class BleZwiftPlaySensor extends TBleSensor {
                 this.privateKey = this.privateKey ?? Buffer.from(privateKey)
                 this.publicKey = this.publicKey ?? Buffer.from(publicKey)
 
-                message = Buffer.concat( [ Buffer.from('RideOn'), Buffer.from( [0x01, 0x02]), this.publicKey ] )
+                message = Buffer.concat( [ Buffer.from('RideOn'), Buffer.from( [0x02, 0x03]), this.publicKey ] )
             
             }
 

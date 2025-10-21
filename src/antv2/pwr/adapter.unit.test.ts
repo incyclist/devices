@@ -4,7 +4,7 @@ import { AntDeviceSettings } from '../types'
 import AntPwrAdapter from './adapter'
 
 
-const D = (data):BicyclePowerSensorState => {
+const D = (data:any):BicyclePowerSensorState => {
     return {
         PairedDevices:[],
         RawData: Buffer.from([]),
@@ -297,21 +297,21 @@ describe( 'ANT PWR adapter', ()=>{
 
         beforeEach(()=>{
             a  = new AntPwrAdapter({deviceID: '2606',profile: 'PWR',interface: 'ant'})
-            a.getCyclingMode().sendBikeUpdate= jest.fn()
+            a.getCyclingMode().buildUpdate= jest.fn()
         })
 
         test('sending slope updae',()=>{
             a.sendUpdate({slope:1.2})           
-            expect(a.getCyclingMode().sendBikeUpdate).toHaveBeenCalledWith({slope:1.2})
+            expect(a.getCyclingMode().buildUpdate).toHaveBeenCalledWith({slope:1.2})
         })
 
         test('paused',()=>{
             a.isPaused = jest.fn().mockReturnValue(true)
-            expect(a.getCyclingMode().sendBikeUpdate).not.toHaveBeenCalled()
+            expect(a.getCyclingMode().buildUpdate).not.toHaveBeenCalled()
         })
         test('stopped',()=>{
             a.isPaused = jest.fn().mockReturnValue(true)
-            expect(a.getCyclingMode().sendBikeUpdate).not.toHaveBeenCalled()
+            expect(a.getCyclingMode().buildUpdate).not.toHaveBeenCalled()
         })
 
         

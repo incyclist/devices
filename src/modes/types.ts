@@ -50,7 +50,7 @@ export default interface ICyclingMode {
 
 
     getBikeInitRequest(): UpdateRequest;
-    sendBikeUpdate(request:UpdateRequest): UpdateRequest;
+    buildUpdate(request:UpdateRequest): UpdateRequest;
     updateData( data:IncyclistBikeData ): IncyclistBikeData;
 
 
@@ -96,7 +96,7 @@ export class CyclingMode implements ICyclingMode {
     getBikeInitRequest(): UpdateRequest {
         throw new Error("Method not implemented.");
     }
-    sendBikeUpdate(_request: UpdateRequest): UpdateRequest {
+    buildUpdate(_request: UpdateRequest): UpdateRequest {
         throw new Error("Method not implemented.");
     }
     updateData(_data: IncyclistBikeData): IncyclistBikeData {

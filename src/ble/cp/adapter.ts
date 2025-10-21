@@ -107,7 +107,7 @@ export default class PwrAdapter extends BleAdapter<PowerData,BleCyclingPowerDevi
             if (this.isPaused() || this.isStopped())
                 return;
 
-            return this.getCyclingMode().sendBikeUpdate(request) 
+            return this.getCyclingMode().buildUpdate(request) 
         }
         catch(err) {
              this.logEvent({message:'Error',fn:'BleCP:sendUpdate',error:err.message })

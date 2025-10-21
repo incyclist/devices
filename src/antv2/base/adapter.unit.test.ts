@@ -12,7 +12,7 @@ class TestAdapter extends AntAdapter<BaseDeviceData> {
 }
 
 describe( 'adapter', ()=>{
-    let cs ;
+    let cs:any ;
     beforeAll( ()=>{
         cs = AntAdapter.prototype.createSensor
         AntAdapter.prototype.createSensor = jest.fn()
@@ -162,7 +162,7 @@ describe( 'adapter', ()=>{
     })
 
     describe('check',()=>{
-        let adapter;
+        let adapter:any
         beforeEach( ()=>{            
             adapter = new TestAdapter({deviceID: '2606',profile: 'HR',interface: 'ant'})
             adapter.start = jest.fn()
@@ -301,7 +301,7 @@ describe( 'adapter', ()=>{
             a = new TestAdapter({deviceID: '2606',profile: 'HR',interface: 'ant'})            
             a.isControllable = jest.fn().mockReturnValue(true)
             jest.spyOn(a,'hasCapability')
-            a.getCyclingMode = jest.fn().mockReturnValue({sendBikeUpdate: jest.fn()})
+            a.getCyclingMode = jest.fn().mockReturnValue({buildUpdate: jest.fn()})
         })
 
         test('default -- needs to be implemented by subclass',()=>{
@@ -315,27 +315,27 @@ describe( 'adapter', ()=>{
         test('not controllable',async ()=>{
             a.isControllable = jest.fn().mockReturnValue(false)
             await a.sendUpdate({slope:0})
-            expect(a.getCyclingMode().sendBikeUpdate).not.toHaveBeenCalled()
+            expect(a.getCyclingMode().buildUpdate).not.toHaveBeenCalled()
         })
 
         test('does not have Control capabilty',()=>{
             a.capabilities=[IncyclistCapability.HeartRate]
             a.sendUpdate({slope:0})
-            expect(a.getCyclingMode().sendBikeUpdate).toHaveBeenCalledWith({slope:0})
+            expect(a.getCyclingMode().buildUpdate).toHaveBeenCalledWith({slope:0})
             
         })
 
         test('paused',()=>{
             a.paused = true
             a.sendUpdate({slope:0})
-            expect(a.getCyclingMode().sendBikeUpdate).not.toHaveBeenCalled()
+            expect(a.getCyclingMode().buildUpdate).not.toHaveBeenCalled()
             
         })
 
         test('stopped',()=>{
             a.stopped = true
             a.sendUpdate({slope:0})
-            expect(a.getCyclingMode().sendBikeUpdate).not.toHaveBeenCalled()
+            expect(a.getCyclingMode().buildUpdate).not.toHaveBeenCalled()
             
         })
 
@@ -343,7 +343,7 @@ describe( 'adapter', ()=>{
 
 
     describe('start',()=>{
-        let adapter;
+        let adapter:any;
         beforeEach( ()=>{            
             adapter = new TestAdapter({deviceID: '2606',profile: 'HR',interface: 'ant'})
 
@@ -378,13 +378,13 @@ describe( 'adapter', ()=>{
 
         test('connect fails',async ()=>{
             adapter.connect.mockResolvedValue(false)
-            let error;
+            let error
             try {
                 await adapter.start()         
             }
-            catch(err) { error=err} 
+            catch(err) { error =err} 
             expect(error).toBeDefined()  
-            expect(error.message).toBe('could not start device, reason:could not connect')
+            expect((error as Error).message).toBe('could not start device, reason:could not connect')
             expect(adapter.started).toBeFalsy()   
         })
 
@@ -397,7 +397,7 @@ describe( 'adapter', ()=>{
             }
             catch(err) { error=err} 
             expect(error).toBeDefined()  
-            expect(error.message).toBe('could not start device, reason:timeout')
+            expect((error as Error).message).toBe('could not start device, reason:timeout')
             expect(adapter.started).toBeFalsy()   
         })
 

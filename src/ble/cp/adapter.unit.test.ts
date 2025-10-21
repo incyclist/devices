@@ -1,7 +1,7 @@
 import { BlePwrAdapter, PowerData } from "."
 import { IncyclistCapability } from "../../types"
 
-const D = (data):PowerData => {
+const D = (data:any):PowerData => {
     return {
         time:1,
         ...data
@@ -37,7 +37,7 @@ describe('BLE Pwr Adapter',()=>{
 
     describe('onDeviceData',()=>{
         let a: BlePwrAdapter
-        let emitData
+        let emitData:any
         beforeEach( ()=>{
             a = new BlePwrAdapter({interface:'ble', protocol:'cp',name:'CP-Mock',address:'44:0d:ec:12:40:61'})
             emitData = jest.spyOn(a,'emitData')
@@ -53,26 +53,26 @@ describe('BLE Pwr Adapter',()=>{
         let a: BlePwrAdapter
         beforeEach( ()=>{
             a = new BlePwrAdapter({interface:'ble', protocol:'cp',name:'CP-Mock',address:'44:0d:ec:12:40:61'})
-            a.getCyclingMode().sendBikeUpdate= jest.fn()
+            a.getCyclingMode().buildUpdate= jest.fn()
         })
 
         test('sending slope updae',()=>{
             a.sendUpdate({slope:1.2})           
-            expect(a.getCyclingMode().sendBikeUpdate).toHaveBeenCalledWith({slope:1.2})
+            expect(a.getCyclingMode().buildUpdate).toHaveBeenCalledWith({slope:1.2})
         })
 
         test('sending target Power',()=>{
             a.sendUpdate({targetPower:100})           
-            expect(a.getCyclingMode().sendBikeUpdate).toHaveBeenCalledWith({targetPower:100})
+            expect(a.getCyclingMode().buildUpdate).toHaveBeenCalledWith({targetPower:100})
         })
 
         test('paused',()=>{
             a.isPaused = jest.fn().mockReturnValue(true)
-            expect(a.getCyclingMode().sendBikeUpdate).not.toHaveBeenCalled()
+            expect(a.getCyclingMode().buildUpdate).not.toHaveBeenCalled()
         })
         test('stopped',()=>{
             a.isPaused = jest.fn().mockReturnValue(true)
-            expect(a.getCyclingMode().sendBikeUpdate).not.toHaveBeenCalled()
+            expect(a.getCyclingMode().buildUpdate).not.toHaveBeenCalled()
         })
     })
 

@@ -284,12 +284,12 @@ export default class IncyclistDevice<P extends DeviceProperties>
         if (!request.enforced && (this.isPaused() || this.isStopped()))
             return;
 
-        // in case the adapter is not abel to control the device, we are calling the Cycling Mode to adjust slope
+        // in case the adapter is not able to control the device, we are calling the Cycling Mode to adjust slope
         // Otherwise the method needs to be overwritten
-        if (!this.hasCapability(IncyclistCapability.Control))
-            return this.getCyclingMode().sendBikeUpdate(request) 
-        else 
+        if (this.hasCapability(IncyclistCapability.Control))
             throw new Error('method not implemented')
+        
+        return this.getCyclingMode().buildUpdate(request) 
     }
 
     setUser(user: User): void {

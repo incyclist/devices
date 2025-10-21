@@ -34,7 +34,6 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
         this.initLogger('ERGMode')
     }
 
-
     getBikeInitRequest(): UpdateRequest {
         const startPower = this.getSetting('startPower');
         return { targetPower: startPower, init:true};
@@ -253,6 +252,10 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
 
             delete request.targetPowerDelta;
         }
+    }
+
+    protected applyCadenceFixes(): boolean {
+        return false    
     }
 
 

@@ -62,13 +62,13 @@ describe('Adv SmartTrainer',()=>{
 
             let res;
             
-            res = cm.sendBikeUpdate({ slope:1})
+            res = cm.buildUpdate({ slope:1})
             expect(res).toEqual({slope:1})
             expect(cm.getSlope()).toBe(1)
 
             jest.advanceTimersByTime(1000);
             cm.updateData({time:0,slope:0,speed:3,isPedalling:true,power:100,distanceInternal:0,pedalRpm:11,heartrate:216,gear:10})
-            res = cm.sendBikeUpdate({ refresh:true})
+            res = cm.buildUpdate({ refresh:true})
             expect(res).toEqual({slope:1});
         })
   
@@ -76,11 +76,11 @@ describe('Adv SmartTrainer',()=>{
         test('resetting',()=>{
             let res;
             
-            res = cm.sendBikeUpdate({ slope:1})
+            res = cm.buildUpdate({ slope:1})
             expect(res).toEqual({slope:1})
             expect(cm.prevRequest).toEqual({slope:1})
 
-            res = cm.sendBikeUpdate({ reset:true})
+            res = cm.buildUpdate({ reset:true})
             expect(res).toEqual({reset:true});
             expect(cm.prevRequest).toEqual({})
 
@@ -89,17 +89,17 @@ describe('Adv SmartTrainer',()=>{
         test('empty request repeats last request',()=>{
             let res;
             
-            res = cm.sendBikeUpdate({ slope:2})
+            res = cm.buildUpdate({ slope:2})
             expect(res).toEqual({slope:2})
 
-            res = cm.sendBikeUpdate({})
+            res = cm.buildUpdate({})
             expect(res).toEqual({slope:2,refresh:true})
         })
 
         test('empty request at start',()=>{
             let res;
             
-            res = cm.sendBikeUpdate({})
+            res = cm.buildUpdate({})
             expect(res).toEqual({})
 
         })
@@ -107,10 +107,10 @@ describe('Adv SmartTrainer',()=>{
         test('setting targetPower, triggers prev target to be sent again',()=>{
             let res;
             
-            res = cm.sendBikeUpdate({ slope:1})
+            res = cm.buildUpdate({ slope:1})
             expect(res).toEqual({slope:1})
 
-            res = cm.sendBikeUpdate({targetPower:120})
+            res = cm.buildUpdate({targetPower:120})
             expect(res).toEqual({slope:1,refresh:true})
         })
 
@@ -119,10 +119,10 @@ describe('Adv SmartTrainer',()=>{
         test('setting minPower will resend prev target',()=>{
             let res;
 
-            res = cm.sendBikeUpdate({ slope:1})
+            res = cm.buildUpdate({ slope:1})
             expect(res).toEqual({slope:1})
             
-            res = cm.sendBikeUpdate({minPower:25})
+            res = cm.buildUpdate({minPower:25})
             expect(res).toEqual({slope:1,refresh:true})
             
         })
@@ -131,13 +131,13 @@ describe('Adv SmartTrainer',()=>{
             let res;
             cm.getData = jest.fn().mockReturnValue({power:50,pedalRpm:90, speed:30})
 
-            res = cm.sendBikeUpdate({ slope:1})
+            res = cm.buildUpdate({ slope:1})
             expect(res).toEqual({slope:1})
             
-            res = cm.sendBikeUpdate({minPower:125})
+            res = cm.buildUpdate({minPower:125})
             expect(res).toEqual({targetPower:125})
 
-            res = cm.sendBikeUpdate({slope:1,minPower:115})
+            res = cm.buildUpdate({slope:1,minPower:115})
             expect(res).toEqual({slope:1,targetPower:115})
             
         })
@@ -145,10 +145,10 @@ describe('Adv SmartTrainer',()=>{
         test('setting maxPower will resend prev target',()=>{
             let res;
 
-            res = cm.sendBikeUpdate({ slope:1})
+            res = cm.buildUpdate({ slope:1})
             expect(res).toEqual({slope:1})
             
-            res = cm.sendBikeUpdate({maxPower:125})
+            res = cm.buildUpdate({maxPower:125})
             expect(res).toEqual({slope:1,refresh:true})
             
         })
@@ -157,13 +157,13 @@ describe('Adv SmartTrainer',()=>{
             let res;
             cm.getData = jest.fn().mockReturnValue({power:150,pedalRpm:90, speed:30})
 
-            res = cm.sendBikeUpdate({ slope:1})
+            res = cm.buildUpdate({ slope:1})
             expect(res).toEqual({slope:1})
             
-            res = cm.sendBikeUpdate({maxPower:125})
+            res = cm.buildUpdate({maxPower:125})
             expect(res).toEqual({targetPower:125})
 
-            res = cm.sendBikeUpdate({slope:1,maxPower:125})
+            res = cm.buildUpdate({slope:1,maxPower:125})
             expect(res).toEqual({slope:1,targetPower:125})
             
         })
@@ -172,10 +172,10 @@ describe('Adv SmartTrainer',()=>{
         test('no data:setting minPower=maxPower will resend prev target',()=>{
             let res;
             
-            res = cm.sendBikeUpdate({ slope:1})
+            res = cm.buildUpdate({ slope:1})
             expect(res).toEqual({slope:1})
             
-            res = cm.sendBikeUpdate({minPower:125,maxPower:125})
+            res = cm.buildUpdate({minPower:125,maxPower:125})
             expect(res).toEqual({slope:1,refresh:true})
             
         })
@@ -184,13 +184,13 @@ describe('Adv SmartTrainer',()=>{
 
             let res;
             cm.getData = jest.fn().mockReturnValue({power:100,pedalRpm:90, speed:30})
-            res = cm.sendBikeUpdate({ slope:1})
+            res = cm.buildUpdate({ slope:1})
             expect(res).toEqual({slope:1})
             
-            res = cm.sendBikeUpdate({slope:2,minPower:125,maxPower:125})
+            res = cm.buildUpdate({slope:2,minPower:125,maxPower:125})
             expect(res).toEqual({slope:2,targetPower:125})
 
-            res = cm.sendBikeUpdate({minPower:135,maxPower:135})
+            res = cm.buildUpdate({minPower:135,maxPower:135})
             expect(res).toEqual({targetPower:135})
             
         })
@@ -199,10 +199,10 @@ describe('Adv SmartTrainer',()=>{
             let res;
             cm.getData = jest.fn().mockReturnValue({power:100,pedalRpm:90, speed:30})
             
-            res = cm.sendBikeUpdate({ slope:1,minPower:125,maxPower:125})
+            res = cm.buildUpdate({ slope:1,minPower:125,maxPower:125})
             expect(res).toEqual({slope:1,targetPower:125})
 
-            res = cm.sendBikeUpdate({targetPowerDelta:10})
+            res = cm.buildUpdate({targetPowerDelta:10})
             expect(res).toEqual({targetPower:135})
 
         })

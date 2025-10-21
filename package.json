@@ -34,7 +34,7 @@
   "scripts": {
     "lint": "eslint . --ext .ts",
     "build": "tsc",
-    "test": "npx jest --coverage",
+    "test:unit": "npx jest --coverage",
     "test:ci": "npx jest --coverage --forceExit",
     "dev": "tsc --watch",
     "postversion": "git push && git push --tags",

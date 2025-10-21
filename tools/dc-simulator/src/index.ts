@@ -23,6 +23,8 @@ const main = async ({configFile = './config/smarttrainer.json'}) => {
 
     let paused = false
     let currentCadence = 90
+    let currentPower = 0
+    let randomPower = true
 
     const {config, emulator} = await parseConfig(configFile)
 
@@ -51,8 +53,10 @@ const main = async ({configFile = './config/smarttrainer.json'}) => {
         setInterval(() => {
             if (paused)
                 emulator.pause()
-            else 
-                emulator.update({power:Math.round(Math.random()*100+50), heartrate:Math.round(Math.random()*40+80), cadence:currentCadence})
+            else {
+                const power = randomPower ? Math.round(Math.random()*100+50) : currentPower
+                emulator.update({power, heartrate:Math.round(Math.random()*40+80), cadence:currentCadence})
+            }
         }, 1000)        
     }
 
@@ -67,10 +71,24 @@ const main = async ({configFile = './config/smarttrainer.json'}) => {
     listenKeyPresses( (key,event)=>{
         if (key === 'p')  {
             paused = true
+            console.log( 'PAUSED')
         }
         else if (key === 'r')  {
             paused = false
             emulator.resume()
+            console.log( 'RESUMED')
+        }
+        else if (key === '#')  {            
+            randomPower = !randomPower
+            console.log('randomPower',randomPower ? 'ON' : 'OFF')
+        }
+        else if (key==='+' && !randomPower) {
+            currentPower += 5
+            console.log('currentPower',currentPower)
+        }
+        else if (key==='-' && !randomPower) {
+            currentPower -= 5
+            console.log('currentPower',currentPower)    
         }
         else if (event.name==='left') 
             currentCadence  = event.shift ? Math.max(0,currentCadence-20) : Math.max(0,currentCadence-5)

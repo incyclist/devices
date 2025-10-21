@@ -82,7 +82,7 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
         }
 
         let isReset = request.reset && Object.keys(request).length===1 
-        const update = isReset ? this.getCyclingMode().getBikeInitRequest() : this.getCyclingMode().sendBikeUpdate(request)
+        const update = isReset ? this.getCyclingMode().getBikeInitRequest() : this.getCyclingMode().buildUpdate(request)
 
         this.logEvent({message: 'send bike update requested', device:this.getName(),update, request})
 
@@ -115,7 +115,7 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
                 }
             }
 
-            this.logEvent( {message:'sendBikeUpdate() error',device:this.getName(),error:err.message})
+            this.logEvent( {message:'sendUpdate() error',device:this.getName(),error:err.message})
         }
 
 

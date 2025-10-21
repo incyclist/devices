@@ -8,6 +8,7 @@ export abstract class CyclingModeBase extends CyclingMode implements ICyclingMod
     localConfig: CyclingModeConfig;
     protected static config:CyclingModeConfig={name:'',description:'',properties:[]}
     protected static isERG:boolean
+    protected prevUpdate:UpdateRequest
 
     static supportsERGMode():boolean  {
         //let cm = this.constructor as typeof CyclingModeBase
@@ -91,6 +92,33 @@ export abstract class CyclingModeBase extends CyclingMode implements ICyclingMod
         if (prop && prop.default!==undefined) 
             return prop.default;
         return undefined;
+    }
+
+    protected updateRequired(request: UpdateRequest={}): boolean {
+        const prevRequest = {...this.prevUpdate}
+        this.prevUpdate = {...request}
+
+        if (prevRequest && !request.targetPowerDelta && !request.reset) {
+
+            if ( (request.slope!==undefined && prevRequest.slope === request.slope) &&  
+                 (request.targetPower!==undefined && prevRequest.targetPower === request.targetPower)) {
+                return false
+            }
+
+        }
+
+        return true;
+    }
+
+    buildUpdate(request?:UpdateRequest): UpdateRequest {  
+        if (!request) {
+            return {}
+        }
+
+        if (!this.updateRequired(request)) {
+            return {}
+        }
+        return this.sendBikeUpdate(request)
     }
 
 
