@@ -2,6 +2,7 @@ import ICyclingMode, { CyclingModeConfig, CyclingModeProperyType, UpdateRequest 
 import PowerBasedCyclingModeBase from "./power-base";
 import { IAdapter, IncyclistBikeData } from "../types";
 import calc, { calculateVirtualSpeed } from "../utils/calculations";
+import { useFeatureToggle } from "../features";
 
 
 type VirtshiftMode = 'Disabled' |  'SlopeDelta' | 'Adapter' | 'Simulated';
@@ -67,6 +68,10 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
 
     getConfig(): CyclingModeConfig {
         const config  = super.getConfig();
+
+        if (!this.getFeatureToogle().has('VirtualShifting')) {
+            return config
+        }
 
         let virtshift = config.properties.find(p => p.key==='virtshift');
         let startGear = config.properties.find(p => p.key==='startGear');
@@ -449,6 +454,11 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
     }
 
     protected getVirtualShiftMode():VirtshiftMode {
+
+        if (!this.getFeatureToogle().has('VirtualShifting')) {
+            return 'Disabled'
+        }
+
         const virtshiftMode = this.getSetting('virtshift');
 
         if (virtshiftMode === 'Disabled') {
@@ -567,5 +577,9 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
 
         return this.gear?.toString()        
     }   
+
+    protected getFeatureToogle() {
+        return useFeatureToggle()
+    }
 
 }

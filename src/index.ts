@@ -16,6 +16,7 @@ export * from './serial'
 export * from './ble'
 export * from './antv2'
 export * from './direct-connect'
+export * from './features'
 
 export {
     IAdapter,IncyclistDevice,IncyclistDeviceAdapter,DeviceSettings,DeviceProperties,

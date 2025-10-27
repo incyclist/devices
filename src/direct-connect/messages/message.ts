@@ -66,7 +66,8 @@ export class Message<TReq extends TDCBody,TRes extends TDCBody > {
         return {header,body}
     }
 
-    parseResponse(buffer:Buffer):TDCResponse<TRes> {
+    parseResponse(response:Buffer):TDCResponse<TRes> {
+        const buffer = Buffer.from(response)
         const header = parseHeader(buffer)
         this.verifyHeader(header)
         const bodyBuffer = buffer.subarray(6)

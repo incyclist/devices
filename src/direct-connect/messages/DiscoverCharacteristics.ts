@@ -51,10 +51,11 @@ export class DiscoverCharacteristicsMessage extends Message<TDCDiscoverCharacter
         return Buffer.concat([serviceUUIDBuffer, ...characteristicBuffers]);
     }
 
-    parseResponseBody(body: Buffer): TDCDiscoverCharacteristicsResponseBody {
+    parseResponseBody(responseBody: Buffer): TDCDiscoverCharacteristicsResponseBody {
+        const body = Buffer.from(responseBody)
         const length = body.length;
 
-        const serviceUUID = body.subarray(0, 16).toString("hex");
+        const serviceUUID = Buffer.from(body.subarray(0, 16)).toString("hex");
         const characteristicDefinitions = [];
         for (let i = 16; i < length; i += 17) {
             const characteristicUUID = Buffer.from(body.subarray(i, i + 16)).toString("hex");

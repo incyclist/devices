@@ -10,7 +10,7 @@ import { getBrand, mapLegacyProfile } from '../utils';
 import { DEFAULT_UPDATE_FREQUENCY } from '../consts';
 import SensorFactory from '../factories/sensor-factory';
 import { EventLogger } from 'gd-eventlog';
-import EventEmitter from 'node:events';
+import EventEmitter from 'events';
 import ICyclingMode from '../../modes/types';
 
 const INTERFACE_NAME = 'ant'

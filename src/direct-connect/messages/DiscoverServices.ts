@@ -18,17 +18,22 @@ export class DiscoverServiceMessage extends Message<EmptyBody,TDCDiscoverService
 
 
     buildResponseBody  (body: TDCDiscoverServicesResponseBody): Buffer {
+
+
+        
         const serviceBuffers = body.serviceDefinitions.map((service) => {
             return Buffer.from(service.serviceUUID, "hex");
         });
-        return Buffer.concat(serviceBuffers);        
+        const response =  Buffer.concat(serviceBuffers);        
+        return response
     }
 
-    parseResponseBody(body: Buffer): TDCDiscoverServicesResponseBody {
+    parseResponseBody(responseBody: Buffer): TDCDiscoverServicesResponseBody {
+        const body = Buffer.from(responseBody)
         const serviceDefinitions = [];
         const length = body.length;
         for (let i = 0; i < length; i += 16) {
-            const serviceUUID = body.subarray(i, i + 16).toString("hex");
+            const serviceUUID = Buffer.from(body.subarray(i, i + 16)).toString("hex");
             serviceDefinitions.push({ serviceUUID });
         }
 

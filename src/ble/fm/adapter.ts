@@ -13,6 +13,7 @@ import { LegacyProfile } from '../../antv2/types';
 import { sleep } from '../../utils/utils';
 import { matches } from '../utils';
 import { BleZwiftPlaySensor } from '../zwift/play';
+import { useFeatureToggle } from '../../features';
 
 const ZWIFT_PLAY_UUID = '0000000119ca465186e5fa29dcdd09d1'
 
@@ -56,6 +57,9 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
     }
 
     supportsVirtualShifting(): boolean {
+        if (!this.getFeatureToggle().has('VirtualShifting')) 
+            return false
+
         return this.device?.getSupportedServiceUUids()?.some( s=> matches(s,ZWIFT_PLAY_UUID))
     }
 
@@ -409,6 +413,10 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         else {
             return false
         }
+    }
+
+    protected getFeatureToggle() {
+        return useFeatureToggle()
     }
 
 

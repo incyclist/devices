@@ -1,7 +1,7 @@
 import { BindingPortInterface, OpenOptions, PortStatus, PortInfo, SetOptions, UpdateOptions, BindingInterface } from "@serialport/bindings-interface";
 import { EventLogger } from 'gd-eventlog';
-import { networkInterfaces } from 'node:os';
-import net from 'node:net'
+import { networkInterfaces } from 'os';
+import net from 'net'
 
 
 const DEFAULT_TIMEOUT = 3000
