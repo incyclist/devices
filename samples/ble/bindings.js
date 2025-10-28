@@ -1,15 +1,16 @@
 // noble-winrt
 // Copyright (C) 2017, Uri Shaked
 // License: MIT
-const { spawn } = require('node:child_process');
+const { spawn } = require('child_process');
 const nativeMessage = require('chrome-native-messaging');
-const events = require('node:events');
+const events = require('events');
 const { EventLogger } = require('gd-eventlog');
-const os = require('node:os')
-const path = require('node:path')
-const fs = require('node:fs')
+const os = require('os')
+const path = require('path')
+const fs = require('fs')
 
 const BLE_SERVER_EXE = path.resolve(__dirname, 'prebuilt', 'BLEServer.exe');
+const BLE_SERVER_LINUX = path.resolve(__dirname, 'prebuilt', 'bleserver');
 
 const DEFAULT_UPDATE_SERVER_URL_DEV  = 'http://localhost:4000';
 const DEFAULT_UPDATE_SERVER_URL_PROD = 'https://updates.incyclist.com';
@@ -46,7 +47,14 @@ class WinrtBindings extends events.EventEmitter {
     constructor(appDirectory) { 
         super();
         this.logger = new EventLogger('BLE');
-        this.app = BLE_SERVER_EXE;
+
+        if (os.platform()==='linux') {
+            this.app = BLE_SERVER_LINUX;
+        }
+        else if (os.platform()==='win32') {
+            this.app = BLE_SERVER_EXE;
+        }
+
         this.appDirectory = appDirectory;        
         
     }
@@ -122,10 +130,13 @@ class WinrtBindings extends events.EventEmitter {
     startScanning() {
         this.scanResult = {};
         this._sendMessage({ cmd: 'scan' });
+        this.emit('scanStart',false);
+
     }
 
     stopScanning() {
         this._sendMessage({ cmd: 'stopScan' });
+        this.emit('scanStop',false);
     }
 
     connect(address) {
@@ -149,6 +160,7 @@ class WinrtBindings extends events.EventEmitter {
     }
 
     discoverServices(address, filters = []) {
+
         this._sendRequest({ cmd: 'services', device: this._deviceMap[address] })
             .then(result => {
     
@@ -247,8 +259,8 @@ class WinrtBindings extends events.EventEmitter {
                 const uuid = message.bluetoothAddress.replace(/:/g, '')
                 const advertisement = {
                     localName: message.localName,
-                    txPowerLevel: 0,
-                    manufacturerData: null,
+                    txPowerLevel: message.txPowerLevel,
+                    manufacturerData: message.manufacturerData,
                     serviceUuids: message.serviceUuids.map(fromWindowsUuid),
                     serviceData: [],
                 };
@@ -261,6 +273,8 @@ class WinrtBindings extends events.EventEmitter {
                         this.scanResult[address] = { uuid, address,advertisement }
                         break;
                     case 'ScanResponse':
+
+                   
                         let d =  this.scanResult[address];
                         if (!d) 
                             d = this.scanResult[address] = { uuid, address,advertisement }
@@ -275,6 +289,7 @@ class WinrtBindings extends events.EventEmitter {
                                         d.advertisement.serviceUuids.push(sid)                                    
                                 }) 
                         }
+
 
                         this.emit(
                             'discover',
@@ -300,12 +315,6 @@ class WinrtBindings extends events.EventEmitter {
                         this._requests[message._id].resolve(result);
                     }
                     delete this._requests[message._id];
-                }
-                else if (this._prevMessage && this._prevMessage.cmd === 'scan')   {
-                    this.emit('scanStart',false);
-                }
-                else if (this._prevMessage && this._prevMessage.cmd === 'stopScan')   {
-                    this.emit('scanStop',false);
                 }
                 break;
 

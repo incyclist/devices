@@ -61,7 +61,7 @@ const initInterface = ()=> {
         // Select binding (based on OS)
         switch (platform) {
             case 'win32': binding= new Noble(new WinrtBindings());break;
-            case 'linux': 
+            case 'linux': binding= new Noble(new WinrtBindings());break;
             case 'darwin': binding = new Noble(defaultBinding()); break;
             default:
                 process.exit()
@@ -98,17 +98,17 @@ const scan = async (props) => {
 
     let devices
 
-    for (let i=0; i<10; i++) {
+    // for (let i=0; i<10; i++) {
         
         devices = await ble.scan({protocols,timeout:10000})
-        console.log('> info', `${devices.length} device(s) found`)
-    }
+        // console.log('> info', `${devices.length} device(s) found`)
+    // }
     
     
-    if (devices.length===0) {
-        await sleep(2000)
-        devices = await ble.scan({protocols,timeout:5000})
-    }
+    // if (devices.length===0) {
+    //     await sleep(2000)
+    //     devices = await ble.scan({protocols,timeout:5000})
+    // }
 
     if (devices.length>0) {
         console.log('> info', `${devices.length} device(s) found`)
@@ -117,9 +117,9 @@ const scan = async (props) => {
             adapter = AdapterFactory.create(device)
             try {
                 const started = await adapter.start()
+                    cntStartet++;
                 if (started) {
                     adapter.on('data', (device,data)=>{ console.log('> data', {...device, ...data})})
-                    cntStartet++;
                 }
             }
             catch(err) {
@@ -130,15 +130,17 @@ const scan = async (props) => {
 
             }
         })
+        
+        setTimeout( ()=>{
+            if (cntStartet===0) {
+                onAppExit()    
+            }
+        }, 5000)
+
     }
     else {
         console.log('> info', 'no device found')
     }
-    setTimeout( ()=>{
-        if (cntStartet===0) {
-            onAppExit()    
-        }
-    }, 1000)
 
 }
 
