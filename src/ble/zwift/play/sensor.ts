@@ -84,8 +84,6 @@ export class BleZwiftPlaySensor extends TBleSensor {
 
         const uuid = beautifyUUID(characteristic).toLowerCase()
 
-        console.log('# data', uuid, data?.toString('hex'))            
-
         if (uuid === '00000002-19ca-4651-86e5-fa29dcdd09d1') { 
             this.onMeasurement(data)
         }

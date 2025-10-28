@@ -513,7 +513,6 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
 
     protected updateRequired(request?: UpdateRequest): boolean {
 
-        console.log('# SmartTrainerCyclingMode updateRequired check');
         const virtshiftMode = this.getVirtualShiftMode();
         if (virtshiftMode==='Adapter' || virtshiftMode==='Simulated') {
             return true;
