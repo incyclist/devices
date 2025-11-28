@@ -9,8 +9,8 @@ const os = require('os')
 const path = require('path')
 const fs = require('fs')
 
-const BLE_SERVER_EXE = path.resolve(__dirname, 'prebuilt', 'BLEServer.exe');
-const BLE_SERVER_LINUX = path.resolve(__dirname, 'prebuilt', 'bleserver');
+const BLE_SERVER_EXE = process.env.BLE_SERVER ?? path.resolve(__dirname, 'prebuilt', 'BLEServer.exe');
+const BLE_SERVER_LINUX = process.env.BLE_SERVER ?? path.resolve(__dirname, 'prebuilt', 'bleserver');
 
 const DEFAULT_UPDATE_SERVER_URL_DEV  = 'http://localhost:4000';
 const DEFAULT_UPDATE_SERVER_URL_PROD = 'https://updates.incyclist.com';
@@ -45,7 +45,10 @@ class WinrtBindings extends events.EventEmitter {
     static _instance
     
     constructor(appDirectory) { 
+
         super();
+
+        console.log('BLEServer:',process.env.BLE_SERVER,process.env.BLE_DEBUG   )
         this.logger = new EventLogger('BLE');
 
         if (os.platform()==='linux') {
@@ -91,8 +94,9 @@ class WinrtBindings extends events.EventEmitter {
         .on('data', (data) => {
             this._processMessage(data);
         });
-        this._bleServer.stderr.on('data', (data) => {
-            console.error('BLEServer:', data);
+        this._bleServer.stderr
+        .on('data', (data) => {
+            console.error(new Date().toISOString(), 'BLEServer debug:', Buffer.from(data).toString('ascii'));
         });
         this._bleServer.on('close', (code) => {
             this.state = 'poweredOff';
@@ -206,7 +210,6 @@ class WinrtBindings extends events.EventEmitter {
                 this.emit('read', address, service, characteristic, Buffer.from(result), false);
             })
             .catch(err => {
-                console.log('~~ read error',toWindowsUuid(characteristic), err )
                 this.emit('read', address, service, characteristic, err, false)
             });
 
@@ -214,12 +217,15 @@ class WinrtBindings extends events.EventEmitter {
 
     write(address, service, characteristic, data, withoutResponse) {
         // TODO data, withoutResponse
+
+        const value = typeof data === 'string' ? data : Buffer.from(data).toString('hex');
         this._sendRequest({
             cmd: 'write',
             device: this._deviceMap[address],
             service: toWindowsUuid(service),
             characteristic: toWindowsUuid(characteristic),
-            value: Array.from(data),
+            withoutResponse,
+            value,
         })
             .then(result => {
                 this.emit('write', address, service, characteristic);
@@ -246,7 +252,8 @@ class WinrtBindings extends events.EventEmitter {
     }
 
     _processMessage(message) {
-        this.logEvent( {message:'BLEserver in:', msg:message});
+        if (!process.env.SKIP_ANNOUNCE || message._type!=='scanResult')
+            this.logEvent( {message:'BLEserver in:', msg:message});
         switch (message._type) {
             case 'Start':
                 this.state = 'poweredOn';
@@ -330,11 +337,16 @@ class WinrtBindings extends events.EventEmitter {
             case 'valueChangedNotification':
                
             const subscription  = this._subscriptions[message.subscriptionId]
+
+            
             if (subscription) {
                 const { address, service, characteristic } = subscription;
+                const data = typeof message.value === 'string' ? Buffer.from(message.value, 'hex') : Buffer.from(message.value);
 
-               
-                this.emit('read', address, service, characteristic, Buffer.from(message.value), true);
+                this.emit('read', address, service, characteristic, data, true);
+            }
+            else {
+                console.log('# subscription not found',message.subscriptionId)
             }
             break;
         }

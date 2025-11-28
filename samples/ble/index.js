@@ -161,16 +161,16 @@ const pair = async (props) => {
 
 
     try {
-        console.log('starting adapter')
+        console.log(new Date().toISOString(),'> starting adapter')
         const adapter = AdapterFactory.create( {interface: 'ble',protocol,id,name,address})        
         const started = await adapter.start()
-        console.log('started', started)
+        console.log(new Date().toISOString(),'started', started)
 
         if (started)
             adapter.on('data', (device,data)=>{ console.log('> data', {...device, ...data})})
     }
     catch(err) {
-        console.log('> error',err.message, err.stack)            
+        console.log(new Date().toISOString(),'> error',err.message, err.stack)            
         onAppExit()            
     }
 
@@ -186,18 +186,31 @@ const  main = async(props = {})=> {
     }
 }
 
+const onAppExitRequest = async()=> {
+    console.log(new Date().toISOString(),'> exit requested')
+    onAppExit()
+}
+
 const onAppExit = async()=> { 
+
+    let to = setTimeout( ()=>{
+            process.exit()
+    }, 1000)
+
     const ble = InterfaceFactory.create('ble')
     if (!ble)
         return process.exit();
 
     await ble.disconnect();
+    if (to) clearTimeout(to)
     process.exit()
+
+
 
 }
 
-process.on('SIGINT', () => onAppExit() );  // CTRL+C
-process.on('SIGQUIT', () => onAppExit() ); // Keyboard quit
+process.on('SIGINT', () => onAppExitRequest() );  // CTRL+C
+process.on('SIGQUIT', () => onAppExitRequest() ); // Keyboard quit
 process.on('SIGTERM', () => onAppExit() ); // `kill` command 
 
 const args = parseArgs()
