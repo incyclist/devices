@@ -3,7 +3,7 @@ import { PortInfo, BindingInterface } from "@serialport/bindings-interface";
 import { SerialPortStream } from '@serialport/stream'
 import SerialPortProvider from "./serialport";
 import { SerialDeviceSettings,SerialScannerProps, PortMapping, SerialInterfaceProps  } from "../types";
-import { IncyclistInterface } from "../../types";
+import { DeviceSettings, IncyclistInterface } from "../../types";
 
 import { TCPBinding } from "../bindings/tcp";
 import { EventLogger } from "gd-eventlog";
@@ -377,7 +377,8 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
         return true;
     }
 
-
+    addKnownDevice(_settings: DeviceSettings): void {
+        // not supported
+    }
 
 }
-

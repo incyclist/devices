@@ -104,7 +104,9 @@ export interface BleDeviceSettings extends DeviceSettings {
     profile?:string; // Legacy
     address?: string;    
     name?: string;
+    services?: string
 }
+
 
 export interface BleDeviceProperties extends DeviceProperties {
     wheelDiameter?:number, 
@@ -194,7 +196,6 @@ export interface IBleInterface<T extends PeripheralAnnouncement> extends Incycli
     createPeripheralFromSettings(settings:DeviceSettings):IBlePeripheral
     createDeviceSetting(announcement: T):DeviceSettings
     waitForPeripheral(settings:DeviceSettings): Promise<IBlePeripheral>
-
     pauseDiscovery?():Promise<void>
     resumeDiscovery?():Promise<void>
 }

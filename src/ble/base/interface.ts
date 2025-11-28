@@ -248,6 +248,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
             if (this.isConnecting())
                 await this.connectTask?.stop()
 
+            // TODO: call binding discconnect -> termintes BLE server on Windows and Linux
     
             this.emit('disconnect-done')
 
@@ -846,6 +847,9 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         this.debug = enabled
     }
 
+    addKnownDevice(_settings: BleDeviceSettings): void {
+        // not supported
+    }
 
     protected async connectBle():Promise<boolean> {
 

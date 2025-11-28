@@ -6,17 +6,21 @@ import { DirectConnectScanProps } from "../types";
 import { BleDeviceSettings, BleProtocol, IBleInterface, IBlePeripheral } from '../../ble/types';
 import { InteruptableTask,  TaskState } from "../../utils/task";
 import { DirectConnectPeripheral } from "./peripheral";
-import { BleAdapterFactory } from "../../ble";
+import { beautifyUUID, BleAdapterFactory } from "../../ble";
 import { TBleSensor } from "../../ble/base/sensor";
 import { InterfaceFactory } from "../../ble/base/types";
+import { CSC, CSP } from "../../ble/consts";
+import { WAHOO_ADVANCED_FTMS } from "../../ble/wahoo/consts";
 
 const DC_TYPE = 'wahoo-fitness-tnp'
+const DC_PORT = 36866
 const DC_EXPIRATION_TIMEOUT = 10*1000*60 // 10min
 
 
 interface Announcement {
     service: MulticastDnsAnnouncement,
     ts: number
+    source?:string
 }
 
 let instanceId = 0;
@@ -100,21 +104,29 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
     setProps(props:InterfaceProps) {
         this.props = props
     }
+
+
     createPeripheral(announcement: MulticastDnsAnnouncement): IBlePeripheral {
         return DirectConnectPeripheral.create(announcement) 
     }
 
+    
     createDeviceSetting(service:MulticastDnsAnnouncement):BleDeviceSettings {
         try {
             const name = service.name
             const protocol = this.getProtocol(service)
+            const address = service.address
+            const services = service.serviceUUIDs?.map(uuid=> beautifyUUID(uuid,false))?.join(',')
 
-            return {interface:DirectConnectInterface.INTERFACE_NAME, name, protocol}
+            console.log('# created device setting from announcement', name,service.serviceUUIDs, services)
+
+            return {interface:DirectConnectInterface.INTERFACE_NAME, name, protocol,address, services }
         }
         catch {
             return null
         }
     }
+
     createPeripheralFromSettings(settings: DeviceSettings): IBlePeripheral {
         const info = this.getAll().find(a=>a.service.name === settings.name)
 
@@ -122,6 +134,28 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
             return null;
         return this.createPeripheral(info.service)
     }
+
+    /**
+     * Add a Wifi device to the known-device registry (i.e. peripheral cache) using the provided settings.
+     * This allows the interface to recognize and connect to devices based on pre-defined configurations 
+     * in case MulticastDNS announcements are not available.
+     *
+     * @param settings - The device settings as specfied in `BleDeviceSettings`.
+     *
+     * @remarks
+     * - If an announcement cannot be created from the provided settings, this method is a no-op.
+     * - The method performs side effects (creates an announcement and registers a service).
+     * - This method does not return a value and does not throw on unsupported configurations.
+     */
+    addKnownDevice(settings: BleDeviceSettings): void {
+        const announcement = this.createAnnouncementFromSettings(settings)
+        if (announcement) {
+            this.addService(announcement,'known-device')
+        }
+        // not supported
+    }
+
+
 
     /**
      * Gets the logger instance.
@@ -366,6 +400,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         const device = this.createDeviceSetting(service);
         if (!device) return;
 
+        console.log('# emitting device', device,service)
         this.emit('device',device,service)
     }
 
@@ -378,6 +413,10 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
 
 
     protected addService(service:MulticastDnsAnnouncement, source?:string):void {
+        console.log(`# DirectConnectInterface.addService from ${source}`, service.name, service.serviceUUIDs    )
+
+        const src = source==='known-device' ? 'known-device' :  'mdns';
+
         try {
             service.transport = this.getName();
             
@@ -385,9 +424,16 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
             if (existing)  {
                 const idx = this.services.indexOf(existing)
                 this.services[idx]= {ts:Date.now(),service}
+                if (src!=='known-device' && existing.source==='known-device') { 
+                    this.services[idx].source = src
+                    this.logEvent({message:'device re-announced',device:service.name, announcement:service, source})
+                    this.emitDevice(service)                    
+                }
+                
+
             }
             else {
-                this.services.push( {ts:Date.now(),service})
+                this.services.push( {ts:Date.now(),service,source:src} )
                 if ( !service.serviceUUIDs?.length)
                     return;
 
@@ -468,6 +514,51 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         
         return details[0].class
     }
+    protected createAnnouncementFromSettings(settings: BleDeviceSettings): MulticastDnsAnnouncement {
+        if (settings.protocol && settings.address) {
+            const announcement:MulticastDnsAnnouncement = {
+                name: settings.name,
+                address: settings.address, 
+                protocol: 'tcp',
+                port: DC_PORT,
+                type: DC_TYPE,
+                transport: 'wifi',
+                serviceUUIDs: this.getServiceUUIDs(settings),
+            }
+
+            console.log('# created announcement from settings', announcement)
+            return announcement
+        }
+
+            
+
+    }
+
+    protected getServiceUUIDs(settings: BleDeviceSettings):string[] { 
+
+        if (settings.services && settings.services.length>0) {
+            return settings.services.split(',').map(s=>s.trim())
+        }
+
+        switch (settings.protocol) {
+            case 'fm':
+                return ['1826']
+            case 'hr':
+                return ['180d']
+            case 'wahoo':
+                return [CSP,WAHOO_ADVANCED_FTMS]
+            case 'cp':
+                return [CSP]
+            case 'csc':
+                return [CSC]
+            case 'zwift-play':
+                return ['0000000119ca465186e5fa29dcdd09d1']
+            default:
+                return []
+        }
+    }
+
+
 
     protected getAdapterFactory() {
         return BleAdapterFactory.getInstance('wifi')

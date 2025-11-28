@@ -2,7 +2,7 @@ import EventEmitter from "events";
 import { EventLogger } from "gd-eventlog";
 import { Channel, IAntDevice, IChannel, ISensor } from "incyclist-ant-plus";
 import { AntDeviceSettings, AntScanProps,AntInterfaceProps  } from "../types";
-import { IncyclistInterface } from "../../types";
+import { DeviceSettings, IncyclistInterface } from "../../types";
 import AntDeviceBinding from "./binding";
 import SensorFactory from "../factories/sensor-factory";
 import { isTrue, runWithTimeout, sleep, waitWithTimeout } from "../../utils/utils";
@@ -523,6 +523,9 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
     }
 
 
+    addKnownDevice(_settings: DeviceSettings): void {
+        // not supported
+    }
 
 
 
