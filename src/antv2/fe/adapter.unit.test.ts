@@ -689,7 +689,7 @@ describe( 'fe adapter', ()=>{
 
     describe('sendUpdate',()=>{
 
-        let adapter
+        let adapter: any
         beforeEach( ()=>{           
             
             adapter = new AntFeAdapter({deviceID: '2606',profile: 'FE',interface: 'ant'})           
@@ -795,7 +795,23 @@ describe( 'fe adapter', ()=>{
         })
 
         test('previous bike update is still buy',async ()=>{
-            adapter.sensor.sendTargetPower = jest.fn( ()=>setTimeout(()=>true,100) )
+            
+                
+            // change mock to throw an error if it is called concurrently
+            let busy = false
+            adapter.sensor.sendTargetPower = jest.fn( ()=>{
+
+                return new Promise( (resolve,reject)=> {
+                    if (busy) return reject( new Error('busy'))
+                    busy = true
+                    setTimeout( ()=> {
+                        busy = false
+                        resolve(true)
+                    },100)
+                })  
+            })
+
+
             adapter.getCyclingMode().buildUpdate.mockReturnValue({targetPower:1})
             adapter.logEvent = jest.fn()
 
@@ -804,8 +820,8 @@ describe( 'fe adapter', ()=>{
             await adapter.promiseSendUpdate             
 
             expect(adapter.logEvent).toHaveBeenNthCalledWith(1, expect.objectContaining({message:'send bike update requested'}))
-            expect(adapter.logEvent).toHaveBeenNthCalledWith(2,expect.objectContaining({message:'send bike update skipped', reason:'busy'}))
-            expect(adapter.sensor.sendTargetPower).toHaveBeenCalledTimes(1)   
+            expect(adapter.logEvent).toHaveBeenNthCalledWith(2,expect.objectContaining({message:'send bike update requested'}))
+            expect(adapter.sensor.sendTargetPower).toHaveBeenCalledTimes(2)   
             expect(adapter.logEvent).toHaveBeenCalledTimes(2)
         })
 
