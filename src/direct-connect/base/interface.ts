@@ -118,8 +118,6 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
             const address = service.address
             const services = service.serviceUUIDs?.map(uuid=> beautifyUUID(uuid,false))?.join(',')
 
-            console.log('# created device setting from announcement', name,service.serviceUUIDs, services)
-
             return {interface:DirectConnectInterface.INTERFACE_NAME, name, protocol,address, services }
         }
         catch {
@@ -400,7 +398,6 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         const device = this.createDeviceSetting(service);
         if (!device) return;
 
-        console.log('# emitting device', device,service)
         this.emit('device',device,service)
     }
 
@@ -413,8 +410,6 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
 
 
     protected addService(service:MulticastDnsAnnouncement, source?:string):void {
-        console.log(`# DirectConnectInterface.addService from ${source}`, service.name, service.serviceUUIDs    )
-
         const src = source==='known-device' ? 'known-device' :  'mdns';
 
         try {
@@ -526,7 +521,6 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
                 serviceUUIDs: this.getServiceUUIDs(settings),
             }
 
-            console.log('# created announcement from settings', announcement)
             return announcement
         }
 
