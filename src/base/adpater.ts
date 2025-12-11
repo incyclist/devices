@@ -190,7 +190,7 @@ export default class IncyclistDevice<P extends DeviceProperties>
     // --------------------------------------------------------
 
     setCyclingMode(mode: string | ICyclingMode, settings?: any, sendInitCommands?: boolean): void {
-        if (!this.isControllable())
+        if (!this.isControllable() || !mode)
             return;
 
         const selectedMode :ICyclingMode = this.createOrGetMode(mode)
