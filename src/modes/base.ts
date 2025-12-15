@@ -9,6 +9,7 @@ export abstract class CyclingModeBase extends CyclingMode implements ICyclingMod
     protected static config:CyclingModeConfig={name:'',description:'',properties:[]}
     protected static isERG:boolean
     protected prevUpdate:UpdateRequest
+    protected prevConfirmed:UpdateRequest
 
     static supportsERGMode():boolean  {
         //let cm = this.constructor as typeof CyclingModeBase
@@ -119,6 +120,10 @@ export abstract class CyclingModeBase extends CyclingMode implements ICyclingMod
             return {}
         }
         return this.sendBikeUpdate(request)
+    }
+
+    confirmed(request: UpdateRequest): void {        
+        this.prevConfirmed = {...request}   
     }
 
 

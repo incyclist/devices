@@ -23,4 +23,5 @@ export type IncyclistBikeData = {
     gear?: number
     gearStr?: string
     slope?: number
+    resistance?: number
 }

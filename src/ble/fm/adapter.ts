@@ -14,6 +14,7 @@ import { sleep } from '../../utils/utils';
 import { matches } from '../utils';
 import { BleZwiftPlaySensor } from '../zwift/play';
 import { useFeatureToggle } from '../../features';
+import FMResistanceMode from '../../modes/fm-resistance';
 
 const ZWIFT_PLAY_UUID = '0000000119ca465186e5fa29dcdd09d1'
 
@@ -79,6 +80,10 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         if (features.setSlope===undefined || features.setSlope) 
             modes.push(FtmsCyclingMode)
 
+        if (features.setResistance) {
+            modes.push( FMResistanceMode)
+        }
+
         return modes;
     }
    
@@ -98,12 +103,17 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         if (features.setPower===undefined || features.setPower) 
             return new BleERGCyclingMode(this)
 
+        if (features.setResistance) {
+            return new FMResistanceMode(this);
+        }
+
+
         return new PowerMeterCyclingMode(this);
     }
 
     mapData(deviceData:IndoorBikeData): IncyclistBikeData{
         // update data based on information received from ANT+PWR sensor
-        const data = {
+        const data:IncyclistBikeData = {
             isPedalling: false,
             power: 0,
             pedalRpm: undefined,
@@ -119,6 +129,13 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         data.time = deviceData?.time ?? data.time;
         data.isPedalling = data.pedalRpm>0 || (data.pedalRpm===undefined && data.power>0);
         data.heartrate = deviceData.heartrate || data.heartrate
+
+        const features = this.getSensor()?.features        
+        if (features?.setResistance || features?.fmInfo?.includes('resistanceLevel')) { 
+            data.resistance = deviceData.resistanceLevel
+        }
+
+
         return data;
     }
 
@@ -303,7 +320,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
             this.capabilities = this.capabilities.filter(cap => cap !== IncyclistCapability.Power);
             
         }
-        if (features.setPower === false && features.setSlope === false) {
+        if (features.setPower === false && features.setSlope === false && features.setResistance === false ) {
             this.logEvent({message:'downgrade to Power Meter', name:this.getSettings().name, interface:this.getSettings().interface})
             this.capabilities = this.capabilities.filter(cap => cap !== IncyclistCapability.Control);
         }
@@ -336,7 +353,6 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
             if (this.hasCapability(IncyclistCapability.Control)) {
 
                 const send = async ()=> {             
-                    
                     const res: UpdateRequest = {}
                     if (update.slope!==undefined) {
                         await device.setSlope(update.slope)
@@ -348,6 +364,13 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
                         await device.setTargetPower(tp)
                         res.targetPower = tp
                     } 
+
+                    if (update.targetResistance!==undefined ) {
+                        await device.setTargetResistanceLevel(update.targetResistance)
+                        res.targetResistance = update.targetResistance
+                        
+                    }
+
                     if (update.gearRatio!==undefined ) {
 
                         if (!this.zwiftPlay) {
@@ -366,11 +389,15 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
                     } 
 
 
+
                     return res  
                 }
 
                 this.promiseSendUpdate = send()
                 const confirmed = await this.promiseSendUpdate
+                if (confirmed) {
+                    this.getCyclingMode().confirmed(confirmed)                
+                }
                 delete this.promiseSendUpdate
                 return confirmed
 
@@ -400,10 +427,9 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
                     await this.sendUpdate(request,true)
                     return true
                 }
-                else if (mode.isSIM() && this.supportsVirtualShifting()){
+                else if ( (mode.isSIM() && this.supportsVirtualShifting()) || mode.isResistance()){
                     await this.sendInitialRequest()
                     return true
-
                 }
             }
             catch {

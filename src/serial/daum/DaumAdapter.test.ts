@@ -159,6 +159,7 @@ describe( 'DaumAdapter', ()=>{
             getName: () => '',
             getDescription: () => '',
             buildUpdate: jest.fn(),
+            confirmed: jest.fn(),   
             updateData: jest.fn(),
             getProperties: jest.fn(),
             getProperty: jest.fn(),

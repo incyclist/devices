@@ -1,0 +1,3 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`BleFMResistanceMode getDescription should match description from config 1`] = `"Resistance levels are set by the app based on selected gear. Calculates speed based on power and slope."`;

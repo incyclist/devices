@@ -31,5 +31,9 @@ export type IndoorBikeFeatures = {
     cadence?: boolean;
     setSlope?: boolean;
     setPower?: boolean;
+    setResistance?: boolean;
+    fmInfo?: string[],
+    tsInfo?: string[]
 }
+
 

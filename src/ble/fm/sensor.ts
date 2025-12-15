@@ -112,13 +112,14 @@ export default class BleFitnessMachineDevice extends TBleSensor {
 
     async requestControl(): Promise<boolean> {
 
-        if (this.hasControl)
+        if (this.hasControl) {
             return true;
+        }
 
         // If we know from features flag that setPower and setSlope are not supported, just ignore
-        if (this.features?.setPower===false && this.features?.setSlope===false)
+        if (this.features?.setPower===false && this.features?.setSlope===false && this.features?.setResistance===false) {
             return true;
-
+        }
 
         this.logEvent( {message:'requestControl'})
         this.isCheckingControl = true;
@@ -138,7 +139,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     }
 
     async setTargetPower( power: number): Promise<boolean> {
-        this.logEvent( {message:'setTargetPower', power, skip:(this.data.targetPower!==undefined && this.data.targetPower===power)})
+        this.logEvent( {message:'setTargetPower', device:this.getName(),power, skip:(this.data.targetPower!==undefined && this.data.targetPower===power)})
 
         // avoid repeating the same value
         if (this.data.targetPower!==undefined && this.data.targetPower===power)
@@ -162,8 +163,35 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         return ( res===OpCodeResult.Success)    
     }
 
+    async setTargetResistanceLevel( resistanceLevel: number): Promise<boolean> {
+        this.logEvent( {message:'setTargetResistanceLevel', device:this.getName(), resistanceLevel, skip:(this.data.resistanceLevel!==undefined && this.data.resistanceLevel===resistanceLevel)})
+
+        // avoid repeating the same value
+        if (this.data.resistanceLevel!==undefined && this.data.resistanceLevel===resistanceLevel)
+            return true;
+
+        const hasControl = await this.requestControl(); 
+        if (!hasControl) {
+            this.logEvent({message: 'setTargetResistanceLevel failed',reason:'control is disabled'})
+            return true;
+        }
+        
+   
+        const data = Buffer.alloc(3)
+        data.writeUInt8(OpCode.SetTargetResistance,0)
+        let resistance = Math.min(resistanceLevel, 100);
+        resistance = Math.max(resistance, 0);
+        data.writeInt16LE( Math.round(resistance*10), 1)
+
+        const res = await this.writeFtmsMessage( OpCode.SetTargetResistance, data ) 
+        if (res === OpCodeResult.ControlNotPermitted) {
+            this.hasControl = false
+        }
+        return ( res===OpCodeResult.Success)
+    }
+
     async setSlope(slope) {
-        this.logEvent( {message:'setSlope', slope})
+        this.logEvent( {message:'setSlope',  device:this.getName(), slope})
 
         const {windSpeed,crr, cw} = this;
         return await this.setIndoorBikeSimulation( windSpeed, slope, crr, cw)
@@ -248,7 +276,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         
             }
             catch(err) {
-                this.logEvent({message:'error',fn:'parseIndoorBikeData()',data:data.toString('hex'),offset, error:err.message, stack:err.stack})
+                this.logEvent({message:'error',fn:'parseIndoorBikeData()', device:this.getName(), data:data.toString('hex'),offset, error:err.message, stack:err.stack})
             }
         }
 
@@ -300,7 +328,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     
         }
         catch(err) {
-            this.logEvent({message:'error',fn:'parseFitnessMachineStatus()', error:err.message,data:data.toString('hex'), stack:err.stack})
+            this.logEvent({message:'error',fn:'parseFitnessMachineStatus()', error:err.message,device:this.getName(), data:data.toString('hex'), stack:err.stack})
         }
 
         return { ...this.data, raw:`2ada:${data.toString('hex')}`};
@@ -331,11 +359,17 @@ export default class BleFitnessMachineDevice extends TBleSensor {
                                 || (targetSettings & TargetSettingFeatureFlag.InclinationTargetSettingSupported)!==0  
 
                 const setPower = (targetSettings & TargetSettingFeatureFlag.PowerTargetSettingSupported)!==0  
+                const setResistance = (targetSettings & TargetSettingFeatureFlag.ResistanceTargetSettingSupported)!==0
 
-                this._features = {fitnessMachine, targetSettings,power, heartrate, cadence, setPower, setSlope}
+                const fmInfo = this.buildFitnessMachineInfo(fitnessMachine)
+                const tsInfo = this.buildTargetSettingsInfo(targetSettings) 
 
+                this._features = {fitnessMachine, targetSettings,power, heartrate, cadence, setPower, setSlope, setResistance}
 
-                this.logEvent( {message:'supported Features: ',fatures:this._features, power, heartrate, cadence})
+                this.logEvent( {message:'supported features',device:this.getName(),fmFeatures: fmInfo.join('|'), tsFeatures: tsInfo.join('|'), features:this._features })
+                this._features.fmInfo = fmInfo
+                this._features.tsInfo = tsInfo
+
                 return this._features
             }
             else {
@@ -345,18 +379,90 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     
         }
         catch(err) {
-            this.logEvent({message:'could not read FitnessMachineFeatures', error:err.message, stack: err.stack})
+            this.logEvent({message:'could not read FitnessMachineFeatures', error:err.message, stack: err.stack,device:this.getName()})
             return undefined
         }
 
         
     }
 
+    protected buildFitnessMachineInfo(fitnessMachine:number):string[] { 
+
+        const info = [];
+
+        const check = (flag:number, name:string):void => {
+            if (fitnessMachine & flag) 
+                info.push(name);
+        }
+
+        try {
+            check( FitnessMachineFeatureFlag.AverageSpeedSupported, 'avgSpeed');
+            check( FitnessMachineFeatureFlag.CadenceSupported, 'cadence');
+            check( FitnessMachineFeatureFlag.TotalDistanceSupported, 'totalDistance');
+            check( FitnessMachineFeatureFlag.InclinationSupported, 'inclination');
+            check( FitnessMachineFeatureFlag.ElevationGainSupported, 'elevationGain');
+            check( FitnessMachineFeatureFlag.PaceSupported, 'pace');
+            check( FitnessMachineFeatureFlag.StepCountSupported, 'stepCount');
+            check( FitnessMachineFeatureFlag.ResistanceLevelSupported, 'resistanceLevel');
+            check( FitnessMachineFeatureFlag.StrideCountSupported, 'strideCount');
+            check( FitnessMachineFeatureFlag.ExpendedEnergySupported, 'expendedEnergy') ;
+            check( FitnessMachineFeatureFlag.HeartRateMeasurementSupported, 'heartrate');
+            check( FitnessMachineFeatureFlag.MetabolicEquivalentSupported, 'metabolicEquivalent');
+            check( FitnessMachineFeatureFlag.ElapsedTimeSupported, 'elapsedTime');
+            check( FitnessMachineFeatureFlag.RemainingTimeSupported, 'remainingTime');
+            check( FitnessMachineFeatureFlag.PowerMeasurementSupported, 'power');
+            check( FitnessMachineFeatureFlag.ForceOnBeltAndPowerOutputSupported, 'force');
+            check( FitnessMachineFeatureFlag.UserDataRetentionSupported, 'userDataRetention');
+        }
+        catch(err) {
+            this.logEvent({message:'could not read FitnessMachineInfo', error:err.message, stack: err.stack,device:this.getName()})
+            return undefined
+        }
+        return info;
+    }
+
+
+    protected buildTargetSettingsInfo(targetSettings:number):string[] { 
+        const info = [];
+
+        const check = (flag:number, name:string):void => {
+            if (targetSettings & flag) 
+                info.push(name);
+        }
+
+        try {
+            check( TargetSettingFeatureFlag.SpeedTargetSettingSupported, 'speed');
+            check( TargetSettingFeatureFlag.InclinationTargetSettingSupported, 'inclination');
+            check( TargetSettingFeatureFlag.ResistanceTargetSettingSupported, 'resistance');
+            check( TargetSettingFeatureFlag.PowerTargetSettingSupported, 'power');
+            check( TargetSettingFeatureFlag.HeartRateTargetSettingSupported, 'heartrate');
+            check( TargetSettingFeatureFlag.TargetedExpendedEnergyConfigurationSupported, 'expendedEnergy');
+            check( TargetSettingFeatureFlag.TargetedStepNumberConfigurationSupported, 'steps');
+            check( TargetSettingFeatureFlag.TargetedStrideNumberConfigurationSupported, 'strides');
+            check( TargetSettingFeatureFlag.TargetedDistanceConfigurationSupported, 'distance');
+            check( TargetSettingFeatureFlag.TargetedTrainingTimeConfigurationSupported, 'trainingTime');
+            check( TargetSettingFeatureFlag.TargetedTimeInTwoHeartRateZonesConfigurationSupported, 'timeInTwoHRZones');     
+            check( TargetSettingFeatureFlag.TargetedTimeInThreeHeartRateZonesConfigurationSupported, 'timeInThreeHRZones');     
+            check( TargetSettingFeatureFlag.TargetedTimeInFiveHeartRateZonesConfigurationSupported, 'timeInFiveHRZones');     
+            check( TargetSettingFeatureFlag.IndoorBikeSimulationParametersSupported, 'SIM');     
+            check( TargetSettingFeatureFlag.WheelCircumferenceConfigurationSupported, 'wheelCircumference');     
+            check( TargetSettingFeatureFlag.SpinDownControlSupported, 'spindown');     
+            check( TargetSettingFeatureFlag.TargetedCadenceConfigurationSupported, 'cadence');
+        }
+        catch(err) {
+            this.logEvent({message:'could not read TargetSettingsInfo', error:err.message, stack: err.stack,device:this.getName()})
+            return undefined
+        }
+        return info;
+    }
+
+
+
 
     protected async writeFtmsMessage(requestedOpCode, data, props?:BleWriteProps) {
         
         try {
-            this.logEvent({message:'fmts:write', data:data.toString('hex')})
+            this.logEvent({message:'fmts:write', device:this.getName(), data:data.toString('hex')})
             let res:Buffer
             let tsStart  = Date.now()
             if (props?.timeout) {
@@ -381,12 +487,12 @@ export default class BleFitnessMachineDevice extends TBleSensor {
                 throw new Error('Illegal response ')
 
             const duration = Date.now() - tsStart
-            this.logEvent({message:'fmts:write result', res:responseData.toString('hex'),result, duration})
+            this.logEvent({message:'fmts:write result', device:this.getName(), res:responseData.toString('hex'),result, duration})
 
             return result
         }
         catch(err) {
-            this.logEvent({message:'fmts:write failed', opCode: requestedOpCode, reason: err.message})
+            this.logEvent({message:'fmts:write failed', device:this.getName(), opCode: requestedOpCode, reason: err.message})
             return OpCodeResult.OperationFailed
         } 
     }
@@ -401,6 +507,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         if (this.features?.setSlope===false)
             return true;
 
+        this.logEvent( {message:'setTargetInclination', device:this.getName(), inclination})
         const hasControl = await this.requestControl();
         if (!hasControl) {
             this.logEvent({message: 'setTargetInclination failed',reason:'control is disabled'})
@@ -423,9 +530,10 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         if (this.features?.setPower===false)
             return true;
 
+        this.logEvent( {message:'setIndoorBikeSimulation', device:this.getName(), windSpeed, gradient, crr, cw})
         const hasControl = await this.requestControl(); 
         if (!hasControl) {
-            this.logEvent({message: 'setIndoorBikeSimulation failed',reason:'control is disabled'})
+            this.logEvent({message: 'setIndoorBikeSimulation failed', device:this.getName(), reason:'control is disabled'})
             return false;
         }
     
@@ -488,6 +596,10 @@ export default class BleFitnessMachineDevice extends TBleSensor {
 
         const res = await this.writeFtmsMessage( OpCode.StopOrPause, data )
         return ( res===OpCodeResult.Success)    
+    }
+
+    protected getName(): string {
+        return this.peripheral?.getInfo().name ?? 'ble-fm-device';
     }
 
 }

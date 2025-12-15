@@ -7,6 +7,8 @@ export type UpdateRequest = {
     maxPower?: number;
     targetPower?: number;
     targetPowerDelta?: number;
+    targetResistance?: number;
+    targetResistanceDelta?: number;
     gearDelta?: number;
     reset?: boolean;
     refresh?: boolean;
@@ -51,6 +53,7 @@ export default interface ICyclingMode {
 
     getBikeInitRequest(): UpdateRequest;
     buildUpdate(request:UpdateRequest): UpdateRequest;
+    confirmed(request:UpdateRequest): void;
     updateData( data:IncyclistBikeData ): IncyclistBikeData;
 
 
@@ -69,6 +72,7 @@ export default interface ICyclingMode {
 export type CyclingModeConfig = {
     isERG?:boolean
     isSIM?:boolean,
+    isResistance?:boolean,
     name: string,
     description: string,
     properties: CyclingModeProperty[]
@@ -130,11 +134,16 @@ export class CyclingMode implements ICyclingMode {
     }
     isSIM():boolean {
         return this.getConfig().isSIM
-
+    }
+    isResistance():boolean { 
+        return this.getConfig().isResistance
     }
 
     getData(): Partial<IncyclistBikeData> {
         return {}
+    }
+    confirmed(request: UpdateRequest): void {
+        // no-op by default
     }
 
 }

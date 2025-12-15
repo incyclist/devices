@@ -185,7 +185,7 @@ describe('BleFitnessMachineDevice',()=>{
         }
 
         beforeEach( ()=>{
-            ftms = new BleFitnessMachineDevice({id:'test'})
+            ftms = new BleFitnessMachineDevice({id:'test', getInfo: jest.fn().mockResolvedValue({name:'test'})})
             
         })
 
