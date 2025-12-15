@@ -61,7 +61,12 @@ const initInterface = ()=> {
         // Select binding (based on OS)
         switch (platform) {
             case 'win32': binding= new Noble(new WinrtBindings());break;
-            case 'linux': binding= new Noble(new WinrtBindings());break;
+            case 'linux': 
+                if (process.env.NATIVE_BLE_LINUX)
+                    binding = new Noble(defaultBinding()); 
+                else 
+                    binding= new Noble(new WinrtBindings());
+                break;
             case 'darwin': binding = new Noble(defaultBinding()); break;
             default:
                 process.exit()
@@ -165,6 +170,12 @@ const pair = async (props) => {
         const adapter = AdapterFactory.create( {interface: 'ble',protocol,id,name,address})        
         const started = await adapter.start()
         console.log(new Date().toISOString(),'started', started)
+
+        if (adapter?.isControllable() ) {
+            await adapter.checkCapabilities()
+            const modes = adapter.getSupportedCyclingModes();
+            console.log(new Date().toISOString(),'> supported modes', modes)
+        }
 
         if (started)
             adapter.on('data', (device,data)=>{ console.log('> data', {...device, ...data})})
