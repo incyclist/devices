@@ -14,6 +14,7 @@ const PowerMeasurementSupported = bit(14);
 
 const PowerTargetSettingSupported = bit(3);
 const IndoorBikeSimulationParametersSupported = bit(13);
+const ResistanceTargetSettingSupported = bit(2);
 
 const CharacteristicUserDescription = '2901';
 const FitnessMachineFeature = '2ACC';
@@ -30,7 +31,7 @@ export class FitnessMachineFeatureCharacteristic extends  Characteristic<TValue>
 
     const flags = Buffer.alloc(8);
     flags.writeUInt32LE(CadenceSupported | PowerMeasurementSupported | HeartRateMeasurementSupported, 0);
-    flags.writeUInt32LE(IndoorBikeSimulationParametersSupported | PowerTargetSettingSupported, 4);
+    flags.writeUInt32LE(IndoorBikeSimulationParametersSupported | PowerTargetSettingSupported | ResistanceTargetSettingSupported, 4);
 
     this.value = flags
   }

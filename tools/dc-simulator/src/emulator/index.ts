@@ -39,12 +39,13 @@ export class Emulator extends EventEmitter {
   protected playActive: boolean
 
   public power = 0;
+  public resistance = 0
   public speed = 0;
   public cadence = 0;
   public heartrate = 0;
   frequency = DEFAULT_FREQUENCY;
 
-  mode: 'ERG' | 'SIM'
+  mode: 'ERG' | 'SIM' | 'RES'
 
   constructor(options: EmulatorOptions={}) {
     super();
@@ -86,11 +87,15 @@ export class Emulator extends EventEmitter {
     });
   }
 
-  setMode(mode: 'ERG' | 'SIM', power?) {
+  setMode(mode: 'ERG' | 'SIM' | 'RES', value?) {
     
     this.mode = mode
-    if (power && mode === 'ERG' && !this.paused) 
-        this.power = power    
+    if (value && mode === 'ERG' && !this.paused) 
+        this.power = value    
+    if (value && mode === 'RES' && !this.paused)  {
+        this.resistance = value
+    }
+
   }
 
   pause() {
@@ -143,6 +148,7 @@ export class Emulator extends EventEmitter {
 
     this.ftms?.indoorBikeData.update({
         watts: this.power,
+        resistance: this.resistance,
         cadence: this.cadence,
         heart_rate: this.heartrate
     })

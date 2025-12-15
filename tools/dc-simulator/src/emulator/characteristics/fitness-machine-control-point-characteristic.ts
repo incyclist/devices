@@ -3,6 +3,7 @@ import { TValue } from "../types.js";
 
 const RequestControl = 0x00;
 const Reset = 0x01;
+const SetTargetResistance = 0x04;
 const SetTargetPower = 0x05;
 const StartOrResume = 0x07;
 const StopOrPause = 0x08;
@@ -40,6 +41,7 @@ export class FitnessMachineControlPointCharacteristic extends  Characteristic<TV
     this.handlers[StartOrResume] = this.handleStartOrResume.bind(this)
     this.handlers[StopOrPause] = this.handleStopOrPause.bind(this)
     this.handlers[SetIndoorBikeSimulation] = this.handleSetIndoorBikeSimulation.bind(this)
+    this.handlers[SetTargetResistance] = this.handleSetTargetResistance.bind(this)  
     }
   
     handleRequestControl(): number {
@@ -62,7 +64,7 @@ export class FitnessMachineControlPointCharacteristic extends  Characteristic<TV
     }
 
     handleSetTargetPower(data: Buffer): number {
-        if (this.hasControl) {
+        if (    this.hasControl) {
             this.targetPower = data.readInt16LE(1);
             console.log(this.description, 'Set target power', this.targetPower);
 
@@ -75,6 +77,22 @@ export class FitnessMachineControlPointCharacteristic extends  Characteristic<TV
             console.log(this.description, 'Set target power', this.targetPower, 'Error: no control');
             return ControlNotPermitted
 
+        }
+    }
+
+    handleSetTargetResistance(data: Buffer): number {
+        if (this.hasControl) {
+            const targetResistance = data.readInt16LE(1) /10;
+            console.log(new Date().toISOString(), this.description, 'Set target resistance', targetResistance);
+
+            if (this.emulator) {
+                this.emulator.setMode('RES', targetResistance)
+            }
+            return Success
+        }
+        else {
+            console.log(this.description, 'Set target resistance', 'Error: no control');
+            return ControlNotPermitted
         }
     }
 

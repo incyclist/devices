@@ -8,12 +8,14 @@ function bit(nr) {
 
 const InstantaneousCadencePresent = bit(2);
 const InstantaneousPowerPresent = bit(6);
+const InstantaneousResistancePresent = bit(5);
 const HeartRatePresent = bit(9);
 
 interface IndoorBikeData extends TValue {
     watts: number,
     cadence: number
     heart_rate: number
+    resistance?: number
 }
 
 export class IndoorBikeDataCharacteristic extends  Characteristic<IndoorBikeData> {
@@ -37,6 +39,7 @@ export class IndoorBikeDataCharacteristic extends  Characteristic<IndoorBikeData
     offset += 2;
 
     // Instantaneous speed, always 0 ATM
+    buffer.writeUInt16LE(0, offset);
     offset += 2;
 
     if ('cadence' in event) {
@@ -46,7 +49,14 @@ export class IndoorBikeDataCharacteristic extends  Characteristic<IndoorBikeData
       buffer.writeUInt16LE(cadence, offset);
       offset += 2;
     }
-    
+
+    if ('resistance' in event) {
+      flags |= InstantaneousResistancePresent;
+      const resistance = event.resistance;
+      buffer.writeUInt16LE(resistance, offset);
+      offset += 2;
+    }
+
     if ('watts' in event) {
       flags |= InstantaneousPowerPresent;
       const watts = event.watts;
@@ -68,6 +78,9 @@ export class IndoorBikeDataCharacteristic extends  Characteristic<IndoorBikeData
 
     this.value = finalbuffer
     this.data = event
+
+    console.log( '# update', event, finalbuffer.toString('hex') )
+
   }
 };
 
