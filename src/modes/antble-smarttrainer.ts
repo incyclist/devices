@@ -69,26 +69,42 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
     getConfig(): CyclingModeConfig {
         const config  = super.getConfig();
 
-        if (!this.getFeatureToogle().has('VirtualShifting')) {
-            return config
-        }
+        const virtShiftEnabled =this.getFeatureToogle().has('VirtualShifting')
 
         let virtshift = config.properties.find(p => p.key==='virtshift');
         let startGear = config.properties.find(p => p.key==='startGear');
 
-        if (!virtshift) {
+        if (!virtshift && !this.adapter.supportsVirtualShifting()) {
             // add virtual shifting info
-            virtshift = {key:'virtshift', name: 'Virtual Shifting', description: 'Enable virtual shifting', type: CyclingModeProperyType.SingleSelect, options:['Disabled','Incyclist','Mixed'], default: 'Disabled'}
+            const options= virtShiftEnabled ? [
+                'Disabled',
+                { key:'Incyclist', display:'App only (beta)' },
+                { key: 'Mixed', display: 'App + Bike' }
+            ] :
+            [
+                'Disabled',
+                { key: 'Mixed', display: 'Enabled' }
+
+            ]
+
+            virtshift = {key:'virtshift', name: 'Virtual Shifting', description: 'Enable virtual shifting', type: CyclingModeProperyType.SingleSelect, options, default: 'Disabled'}
             config.properties.push( virtshift )
         }
+
         
-        if (this.adapter.supportsVirtualShifting()) {
+        if (!virtshift && virtShiftEnabled && this.adapter.supportsVirtualShifting()) {
             virtshift.default = 'Enabled';
-            virtshift.options = ['Disabled','Incyclist','SmartTrainer','Mixed']
+            
+            virtshift.options = [
+                'Disabled',
+                { key: 'Incyclist', display:'App only (beta)' },
+                { key: 'Mixed', display: 'App + Bike' },
+                { key:'SmartTrainer', display: 'SmartTreiner (beta)' }
+            ]            
             virtshift.default = 'SmartTrainer'
         }
 
-        if (!startGear) {
+        if (virtshift && !startGear) {
             startGear = {key:'startGear', name: 'Initial Gear', description: 'Initial Gear', type: CyclingModeProperyType.Integer,default:12,min:1, max:24,condition: (s)=> s?.virtshift==='Incyclist'||s?.virtshift==='SmartTrainer' }
             config.properties.push(startGear)
 
