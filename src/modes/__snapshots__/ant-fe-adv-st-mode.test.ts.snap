@@ -34,5 +34,29 @@ exports[`Adv SmartTrainer statics 2`] = `
     "name": "Bike Reality Factor downhill",
     "type": "Integer",
   },
+  {
+    "default": "Disabled",
+    "description": "Enable virtual shifting",
+    "key": "virtshift",
+    "name": "Virtual Shifting",
+    "options": [
+      "Disabled",
+      {
+        "display": "Enabled",
+        "key": "Mixed",
+      },
+    ],
+    "type": "SingleSelect",
+  },
+  {
+    "condition": [Function],
+    "default": 12,
+    "description": "Initial Gear",
+    "key": "startGear",
+    "max": 24,
+    "min": 1,
+    "name": "Initial Gear",
+    "type": "Integer",
+  },
 ]
 `;
