@@ -151,23 +151,30 @@ const scan = async (props) => {
 
 
 const pair = async (props) => {
+    console.log(new Date().toISOString(),'Pairing device')
+
+
     const ble = initInterface()
     const {id,name,address,protocol} = props
 
     
+    console.log(new Date().toISOString(),'conncting to BLE ....')
     const connected = await ble.connect(20000);
     if (!connected) {
         console.log('> error could not connect')
         onAppExit()
         return;
     }
+    console.log(new Date().toISOString(),'conncted to BLE')
 
+
+    console.log(new Date().toISOString(),'waiting 5s')
     await sleep(5000)
    
 
 
     try {
-        console.log(new Date().toISOString(),'> starting adapter')
+        console.log(new Date().toISOString(),'starting adapter')
         const adapter = AdapterFactory.create( {interface: 'ble',protocol,id,name,address})        
         const started = await adapter.start()
         console.log(new Date().toISOString(),'started', started)
@@ -175,7 +182,7 @@ const pair = async (props) => {
         if (adapter?.isControllable() ) {
             await adapter.checkCapabilities()
             const modes = adapter.getSupportedCyclingModes();
-            console.log(new Date().toISOString(),'> supported modes', modes)
+            console.log(new Date().toISOString(),'supported modes', modes)
         }
 
         if (started)
@@ -227,6 +234,6 @@ process.on('SIGTERM', () => onAppExit() ); // `kill` command
 
 const args = parseArgs()
 
-console.log(args)
+console.log(new Date().toISOString(),args)
 main(args)
 
