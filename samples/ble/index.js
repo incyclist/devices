@@ -42,12 +42,12 @@ const parseArgs = ()=> {
         props.protocol = args[1]
         return props
     }
-    if ( args[0]!=='scan') {
-        console.log('Usage: node index.js <command>')
-        console.log('Commands:')
-        console.log('  scan [proctocol,protocol,....]')
-        console.log('  connect <protocol> [id=device id|name=device name|address=device address]')
-    }
+    
+    console.log('Usage: node index.js <command>')
+    console.log('Commands:')
+    console.log('  scan [proctocol,protocol,....]')
+    console.log('  connect <protocol> [id=device id|name=device name|address=device address]')
+    process.exit()
 }
 
 const initInterface = ()=> {
@@ -153,6 +153,7 @@ const scan = async (props) => {
 const pair = async (props) => {
     const ble = initInterface()
     const {id,name,address,protocol} = props
+
     
     const connected = await ble.connect(20000);
     if (!connected) {
@@ -225,5 +226,7 @@ process.on('SIGQUIT', () => onAppExitRequest() ); // Keyboard quit
 process.on('SIGTERM', () => onAppExit() ); // `kill` command 
 
 const args = parseArgs()
+
+console.log(args)
 main(args)
 

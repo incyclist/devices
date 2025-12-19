@@ -469,7 +469,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
                 res = await new InteruptableTask<TaskState,Buffer>(
                     this.write( FTMS_CP, data, props ),
                     {
-                        timeout: 800,
+                        timeout: props.timeout??800,
                         errorOnTimeout: true
                     }
                 ).run()
