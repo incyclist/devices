@@ -47,6 +47,8 @@ export class BlePeripheral implements IBlePeripheral {
         if (this.isConnected())
             return true;
 
+        
+
         if (this.connectPromise!==undefined) {
             return this.connectPromise.then( ()=>this.connected)
         }
@@ -54,6 +56,13 @@ export class BlePeripheral implements IBlePeripheral {
         this.connectPromise = new Promise<void> ( (done) => {
 
             const peripheral = this.getPeripheral()
+            this.connected = false;
+
+            this.ble.unregisterConnected(peripheral.id)            
+            if (!this.ble.isConnected()) {
+                return done()
+            }
+
             this.logEvent({message:'connect peripheral',address:peripheral.address})
             peripheral.connectAsync().then( ()=>{
                 this.ble.registerConnected(this,peripheral.id)
@@ -107,6 +116,9 @@ export class BlePeripheral implements IBlePeripheral {
             }
     
             peripheral.removeAllListeners()            
+        }
+        else {
+            delete this.onDisconnectHandler
         }
 
         this.ble.unregisterConnected(peripheral.id)

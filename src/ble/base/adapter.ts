@@ -453,6 +453,8 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     }
 
     protected async onDisconnectDone() {
+        try { this.getBle().removeAllListeners('disconnect-done') } catch {}
+
         this.logEvent( {message:'disconnecting device', device:this.getName(),interface:this.getInterface()})
         if (this.isStarting()) {
             await this.startTask.stop()
@@ -463,7 +465,9 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         const sensor = this.getSensor();
 
         try {
-            stopped = await sensor.stopSensor();
+            stopped = await sensor.stopSensor();    
+            this.logEvent( {message:'disconnecting device completed', device:this.getName(),interface:this.getInterface()})
+            
         }
         catch(err) {    
             reason = err.message;

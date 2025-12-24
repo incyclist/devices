@@ -132,6 +132,7 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
     }
 
     async reconnectSensor() {
+        this.logEvent({message:'reconnect sensor'})
         let connected = false;
         let subscribed = false;
 
