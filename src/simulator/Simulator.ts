@@ -93,7 +93,7 @@ export class Simulator extends IncyclistDevice<SimulatorProperties> {
         return new Promise( (resolve) => {
 
             if (!this.isBot)
-                this.logEvent( {message:'starting device', device:this.getName(), props})
+                this.logEvent( {message:'starting device', device:this.getName()})
              
             if ( this.started) {
                 return resolve(true);  
