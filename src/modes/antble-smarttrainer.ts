@@ -90,18 +90,17 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
             virtshift = {key:'virtshift', name: 'Virtual Shifting', description: 'Enable virtual shifting', type: CyclingModeProperyType.SingleSelect, options, default: 'Disabled'}
             config.properties.push( virtshift )
         }
-
         
-        if (!virtshift && virtShiftEnabled && this.adapter.supportsVirtualShifting()) {
-            virtshift.default = 'Enabled';
-            
-            virtshift.options = [
+        if (!virtshift && virtShiftEnabled && this.adapter.supportsVirtualShifting()) {            
+            const options = [
                 'Disabled',
                 { key: 'Incyclist', display:'App only (beta)' },
                 { key: 'Mixed', display: 'App + Bike' },
                 { key:'SmartTrainer', display: 'SmartTreiner (beta)' }
             ]            
-            virtshift.default = 'SmartTrainer'
+
+            virtshift = {key:'virtshift', name: 'Virtual Shifting', description: 'Enable virtual shifting', type: CyclingModeProperyType.SingleSelect, options, default: 'SmartTrainer'}
+            config.properties.push( virtshift )
         }
 
         if (virtshift && !startGear) {
@@ -471,28 +470,32 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
 
     protected getVirtualShiftMode():VirtshiftMode {
 
-        if (!this.getFeatureToogle().has('VirtualShifting')) {
-            return 'Disabled'
-        }
+        try {
+            if (!this.getFeatureToogle().has('VirtualShifting')) {
+                return 'Disabled'
+            }
 
-        const virtshiftMode = this.getSetting('virtshift');
+            const virtshiftMode = this.getSetting('virtshift');
 
-        if (virtshiftMode === 'Disabled') {
-            return 'Disabled';
-        } 
-        else if (virtshiftMode==='Incyclist') {
-            return 'Simulated'
+            if (virtshiftMode === 'Disabled') {
+                return 'Disabled';
+            } 
+            else if (virtshiftMode==='Incyclist') {
+                return 'Simulated'
+            }
+            else if (virtshiftMode==='SmartTrainer') {
+                return 'Adapter'
+            }
+            else if (virtshiftMode==='Mixed') {
+                return 'SlopeDelta'
+            }
+            else if (virtshiftMode === 'Enabled') {
+                return this.adapter.supportsVirtualShifting() ? 'Adapter' : 'Simulated';
+            }
         }
-        else if (virtshiftMode==='SmartTrainer') {
-            return 'Adapter'
+        catch(err) {
+            this.logger.logEvent({message:'error', fn:'getVirtualShiftMode', error:err.message,  stack:err.stack})
         }
-        else if (virtshiftMode==='Mixed') {
-            return 'SlopeDelta'
-        }
-        else if (virtshiftMode === 'Enabled') {
-            return this.adapter.supportsVirtualShifting() ? 'Adapter' : 'Simulated';
-        }
-
         return 'Disabled'
     }
 
