@@ -27,7 +27,9 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
 
     protected simPower: number
     protected simSlope: number
+    protected maintainPower: number
     protected prevData
+    protected prevEkin: number
 
     protected readonly gearRatios = [
         0.75, 0.87, 0.99, 1.11, 1.23, 1.38, 1.53, 1.68, 1.86, 2.04, 2.22, 2.40,
@@ -99,7 +101,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                 { key:'SmartTrainer', display: 'SmartTreiner (beta)' }
             ]            
 
-            virtshift = {key:'virtshift', name: 'Virtual Shifting', description: 'Enable virtual shifting', type: CyclingModeProperyType.SingleSelect, options, default: 'SmartTrainer'}
+            virtshift = {key:'virtshift', name: 'Virtual Shifting', description: 'Enable virtual shifting', type: CyclingModeProperyType.SingleSelect, options, default: 'Mixed'}
             config.properties.push( virtshift )
         }
 
@@ -161,7 +163,10 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         }
     }
     protected checkSlopeWithSimulatedShifting(request: UpdateRequest, newRequest: UpdateRequest={}) { 
-        
+        // simPower already set
+        if (this.simPower)
+            return
+
         if (this.gear===undefined) { 
             this.checkSlopeNoShiftig(request,newRequest);
             return
@@ -187,59 +192,8 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
             catch {
 
             }
-
-            const virtualSpeed = calculateVirtualSpeed(this.data.pedalRpm, this.gearRatios[this.gear-1]);                
-            const m = this.adapter?.getWeight()??85
-
-            const vCurrent = this.data.speed * 1000 / 3600;
-            const eKinCurrent = m * vCurrent * vCurrent / 2;
-
-            // power required to maintain current cadence at slope   
-            const newPower = calc.calculatePower(m, virtualSpeed, this.simSlope??0);
-            const prevPower = this.data.power;
-
-            if (this.data.speed<10 && this.data.isPedalling && (this.data.slope<1 || this.data.speed===0))  {
-                this.simPower = Math.max(newPower, prevPower);
-                console.log('# set simulated power', {power:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope,  prevPower, newPower})
-
-                this.logger.logEvent({message:'set simulated power', power:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope,  prevPower, newPower})
-            }
-            else if (this.data.slope===prev && newPower<prevPower) {
-                this.simPower = prevPower;
-                console.log('# set simulated power:', {power:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope,  prevPower, newPower})
-                this.logger.logEvent({message:'set simulated power', power:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope,  prevPower, newPower})
-            }
-            else {
-
-            // if (this.data.slope!==prev ) {
-
-
-                const powerDiff = newPower - prevPower; 
-                                
-                const vTarget = virtualSpeed * 1000 / 3600;
-                const eKinTarget = m * vTarget * vTarget / 2;
-
-
-                const eKinPrev = eKinCurrent 
-                const delta = eKinTarget - eKinPrev;
-
-                const eKinAfter1sec = eKinPrev -powerDiff*1
-                const vAfter1sec = Math.sqrt(2*eKinAfter1sec/m)*3600/1000;
-                this.simPower = calc.calculatePower(m, vAfter1sec/3.6, this.simSlope??0);
-                console.log('# set simulated power (Ekin):', {power:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope, eKinPrev,eKinTarget,delta,  prevPower, newPower})
-                this.logger.logEvent({message:'set simulated power (Ekin)', power:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope, eKinPrev,eKinTarget,delta,  prevPower, newPower})
-            }
-
-            //this.simPower = Math.min(this.simPower+delta/2, newPower);
-            //this.simPowerDelta = newPower - this.simPower;  
+            this.calculateSimulatedPower('slope')
             this.verifySimPower()
-
-            // }          
-            // else {
-
-
-
-            // }
         }
 
         newRequest.targetPower = this.simPower;
@@ -285,31 +239,46 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
 
         if (this.data.pedalRpm!==this.prevData.pedalRpm) {
             console.log('# cadence changed  ', {cadence:this.data.pedalRpm, prevCadence:this.prevData.pedalRpm})
-            this.calculateSimulatedPower(request)
+            this.logger.logEvent({message:'cadence changed', cadence:this.data.pedalRpm, prevCadence:this.prevData.pedalRpm})            
+            this.calculateSimulatedPower('cadence')
             delete request.slope
         }
 
     }
 
-    calculateSimulatedPower(request: UpdateRequest) {
+    calculateSimulatedPower(changed?:string) {
+        if (this.simPower)
+            return
+
         const m = this.adapter?.getWeight()??85
         const vCurrent = this.data.speed * 1000 / 3600;
         const eKinCurrent = m * vCurrent * vCurrent / 2;
 
 
         if (this.data.pedalRpm>0) {
-            const virtualSpeed = calculateVirtualSpeed(this.data.pedalRpm, this.gearRatios[this.gear-1]);
+            const virtualSpeed = calculateVirtualSpeed(this.data.pedalRpm, this.gearRatios[this.gear-1])*3.6;
+            const v = virtualSpeed/3.6
 
-            // power required to maintain current cadence at slope   
-            const newPower = calc.calculatePower(m, virtualSpeed, this.simSlope??0);
+            // power required to maintain current cadence at given slope   
+            const newPower = calc.calculatePower(m, virtualSpeed/3.6, this.simSlope??0);
             const prevPower = this.data.power;
 
-            if (this.data.speed<10 && this.data.isPedalling && (this.data.slope<1 || this.data.speed===0))  {
+
+            if (!this.prevEkin  && this.data.isPedalling )  {
                 // starting ...
                 this.simPower = Math.max(newPower, prevPower);
+                this.prevEkin = m * v*v/2
                 console.log('# set simulated power (starting)', {power:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope,  prevPower, newPower})
 
                 this.logger.logEvent({message:'set simulated power (starting)', power:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope,  prevPower, newPower})
+            }
+            else if (changed==='gear') {
+                this.simPower = newPower
+                this.prevEkin = m * v*v/2
+                console.log('# set simulated power (gear change)', {power:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope,  prevPower, newPower})
+
+                this.logger.logEvent({message:'set simulated power (gear change)', power:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope,  prevPower, newPower})
+
             }
             else {
 
@@ -322,25 +291,74 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                 const eKinTarget = m * vTarget * vTarget / 2;
 
 
-                const eKinPrev = eKinCurrent 
+                const eKinPrev = this.prevEkin??0 
                 const delta = eKinTarget - eKinPrev;
 
-                const eKinAfter1sec = eKinPrev -powerDiff*1
-                const vAfter1sec = Math.sqrt(2*eKinAfter1sec/m)*3600/1000;
-                this.simPower = calc.calculatePower(m, vAfter1sec/3.6, this.simSlope??0);
+                const eKinAfter1sec = eKinPrev + powerDiff*1
+
+                const vAfter1sec = Math.sqrt( eKinAfter1sec/m *2);
+                this.simPower = calc.calculatePower(m, vAfter1sec, this.simSlope??0);
                 console.log('# set simulated power (Ekin):', {power:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope, eKinPrev,eKinTarget,delta,  prevPower, newPower})
                 this.logger.logEvent({message:'set simulated power (Ekin)', power:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope, eKinPrev,eKinTarget,delta,  prevPower, newPower})
             }
 
 
 
+            // const vCurrent = calculateVirtualSpeed(this.data.pedalRpm, this.gearRatios[this.gear-1])
+            // const virtualSpeed = vCurrent*3.6;                
+            // const m = this.adapter?.getWeight()??85
+
+            // const eKinCurrent = this.prevEkin??0
+
+            // // power required to maintain current cadence at given slope 
+            // const newPower = calc.calculatePower(m, vCurrent, this.simSlope??0);
+            // const prevPower = this.data.power;
+            // this.maintainPower = newPower
+
+            // if (this.data.speed<10 && this.data.isPedalling && (this.data.slope<1 || this.data.speed===0))  {
+            //     this.simPower = Math.max(newPower, prevPower);
+            //     console.log('# set simulated power (speed<10, slope<1)', {power:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope,  prevPower, newPower})
+            //     this.prevEkin = m * vCurrent * vCurrent/2
+            //     this.logger.logEvent({message:'set simulated power (speed<10)', power:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope,  prevPower, newPower})
+            // }
+            // else if (this.data.slope===prev && newPower<prevPower) {
+            //     this.simPower = prevPower;
+            //     this.prevEkin = m * vCurrent * vCurrent/2
+            //     console.log('# set simulated power (same slope, power<prev):', {power:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope,  prevPower, newPower})
+            //     this.logger.logEvent({message:'set simulated power', power:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope,  prevPower, newPower})
+            // }
+            // else {
+
+            // // if (this.data.slope!==prev ) {
+
+
+            //     const powerDiff = newPower - prevPower; 
+                                
+            //     const vTarget = virtualSpeed * 1000 / 3600;
+            //     const eKinTarget = m * vTarget * vTarget / 2;
+
+
+            //     const eKinPrev = eKinCurrent 
+            //     const delta = eKinTarget - eKinPrev;
+
+            //     const eKinAfter1sec = eKinPrev -powerDiff*1
+            //     const vAfter1sec = Math.sqrt(2*eKinAfter1sec/m);
+            //     const speedAfter1sec = vAfter1sec*3.6
+            //     this.simPower = calc.calculatePower(m, vAfter1sec, this.simSlope??0);
+            //     this.prevEkin = eKinAfter1sec
+            //     console.log('# set simulated power (Ekin):', {power:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope, eKinPrev,eKinTarget,delta,  prevPower, newPower})
+            //     this.logger.logEvent({message:'set simulated power (Ekin)', power:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope, eKinPrev,eKinTarget,delta,  prevPower, newPower})
+            // }
+
+
+
             
-            // this.simPower = calc.calculatePower(m, virtualSpeed, this.simSlope??this.data.slope??0);
-            // this.verifySimPower()
-            // this.logger.logEvent({message:'set simulater power', simPower:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope, cadence:this.data.pedalRpm, power:this.data.power})                    
         }
         else {
             delete this.simPower
+            if (this.data.speed<5) {
+                delete this.prevEkin
+            }
         }
 
     }
@@ -361,13 +379,14 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                 break;
             case 'Simulated':
                 if (request.gearDelta!==undefined) {
+                    const oldGear = this.gear
 //                    console.log(new Date().toISOString(), '# gearDelta', request.gearDelta, 'from', this.gear   )
                     if (this.gear===undefined) {
-                        const initialGear = this.getSetting('startGear')
-                        this.gear = initialGear +request.gearDelta
+                        const initialGear = Number(this.getSetting('startGear'))
+                        this.gear = initialGear +Number(request.gearDelta)
                     }
                     else { 
-                        this.gear += request.gearDelta;
+                        this.gear += Number(request.gearDelta);
                     }
                     if (this.gear<1) {
                         this.gear = 1;
@@ -377,7 +396,9 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                     }
                     delete request.gearDelta
 
-                    this.calculateSimulatedPower(request)
+                    console.log('# gear changed')
+                    this.logger.logEvent( {message:'gear changed', gear:this.gear, oldGear})
+                    this.calculateSimulatedPower('gear')
                     if (this.simPower!==undefined) {
                         this.adapter.sendUpdate({targetPower:this.simPower}) .then( ()=> { })
                     }
@@ -408,7 +429,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                 }
                 else if (request.gearDelta!==undefined) {
                     if (this.gear===undefined) {
-                        const initialGear = this.getSetting('startGear')
+                        const initialGear = Number(this.getSetting('startGear'))
                         this.gear = initialGear +request.gearDelta
                     }
                     else { 
@@ -428,7 +449,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                 }
                 else {
                     if (this.gear===undefined) {
-                        const initialGear = this.getSetting('startGear')
+                        const initialGear = Number(this.getSetting('startGear'))
                         this.gear = initialGear +request.gearDelta
                     }
 
@@ -501,6 +522,8 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
 
     updateData(bikeData: IncyclistBikeData, log?: boolean): IncyclistBikeData {
 
+        console.log('# update data',bikeData)
+
         const prev = this.prevData = {...this.data}
 
         const data = super.updateData(bikeData,log);
@@ -517,9 +540,13 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
             this.tsStart = Date.now();
         }
         if (this.gear===undefined && this.tsStart && data.power>0 && (Date.now() - this.tsStart > 3000)) { 
-            this.gear = this.getSetting('startGear')??0
+            this.gear = Number(this.getSetting('startGear'))??0
             data.gearStr = this.getGearString()
         }
+        
+
+        console.log('# data updated',data)
+
         return data
     }
 
@@ -541,11 +568,13 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
 
     sendBikeUpdate(incoming: UpdateRequest): UpdateRequest {
 
+        console.log('# bike update request', incoming)
         this.logger.logEvent( {message:"processing update request",request:incoming,prev:this.prevRequest,data:this.getData()} );        
 
         let newRequest:UpdateRequest = {}
         const request = {...incoming}
 
+        delete this.simPower
         try {
 
             const req = this.checkForResetOrEmpty(request)
@@ -581,7 +610,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
             return undefined
 
         if ( mode==='Simulated') {
-            this.gear = this.gear ?? this.getSetting('startGear') ?? 0
+            this.gear = this.gear ?? Number(this.getSetting('startGear') ?? 0)
             return this.gear.toString()
         }
 
@@ -589,7 +618,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
             return this.gearDelta >0 ? `+${this.gearDelta}` : `${this.gearDelta}`;
 
         if (mode==='Adapter') {
-            this.gear = this.gear ?? this.getSetting('startGear') 
+            this.gear = this.gear ?? Number(this.getSetting('startGear')  ?? 1)
             return this.gear.toString()
         }
 

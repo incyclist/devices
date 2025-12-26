@@ -246,10 +246,13 @@ describe('BLE-SmartTrainer',()=>{
                 if (key==='bikeType') return bikeType
                 if (key==='slopeAdj') return 100
                 if (key==='slopeAdjDown') return 50
-                if (key==='startGear') return 12
+                if (key==='startGear') return 15
                 if (key==='virtshift') return 'Incyclist'
                 return cm.settings[key]
             });
+            c.getFeatureToogle = jest.fn().mockReturnValue( 
+                { has: jest.fn().mockReturnValue(true) }
+            )
         }
             
 
@@ -260,28 +263,33 @@ describe('BLE-SmartTrainer',()=>{
         })
 
         test('start pedalling',()=>{
+
             
             let newRequest 
+            cm.sendBikeUpdate({slope:0})
+            cm.updateData({slope:0,speed:0,isPedalling:false,power:0,distanceInternal:0,pedalRpm:0})
 
-            cm.updateData({slope:0,speed:10,isPedalling:false,power:0,distanceInternal:0,pedalRpm:0})
+            cm.updateData({slope:0,speed:0,isPedalling:true,power:100,distanceInternal:0.46,pedalRpm:90})
             newRequest = cm.sendBikeUpdate({slope:0})
-            console.log('newRequest', newRequest)
+            //console.log('newRequest', newRequest)
 
-            cm.updateData({slope:0,speed:1.44,isPedalling:true,power:6,distanceInternal:0.46,pedalRpm:0})
+            cm.updateData({slope:0,speed:0,isPedalling:true,power:100,distanceInternal:0.46,pedalRpm:90})
             newRequest = cm.sendBikeUpdate({slope:0})
-            console.log('newRequest', newRequest)
+            //console.log('newRequest', newRequest)
 
-            cm.updateData({slope:0,speed:3.21,isPedalling:true,power:27,distanceInternal:1.39,pedalRpm:0})
-            newRequest = cm.sendBikeUpdate({slope:0})
-            console.log('newRequest', newRequest)
+            cm.updateData({slope:0,speed:0,isPedalling:true,power:219,distanceInternal:0.46,pedalRpm:90})
+            newRequest = cm.sendBikeUpdate({slope:-0.20923})
 
-            cm.updateData({slope:0,speed:5.68,isPedalling:true,power:54,distanceInternal:3.34,pedalRpm:34})
+            cm.updateData({slope:0,speed:0,isPedalling:true,power:219,distanceInternal:0.46,pedalRpm:90})
             newRequest = cm.sendBikeUpdate({slope:0})
-            console.log('newRequest', newRequest)
 
-            cm.updateData({slope:0,speed:5.68,isPedalling:true,power:48,distanceInternal:5.54,pedalRpm:35})
-            newRequest = cm.sendBikeUpdate({slope:0})
-            console.log('newRequest', newRequest)
+            cm.updateData({slope:0,speed:0,isPedalling:true,power:219,distanceInternal:0.46,pedalRpm:90})
+            newRequest = cm.sendBikeUpdate({slope:2})
+
+
+            cm.updateData({slope:0,speed:0,isPedalling:true,power:219,distanceInternal:0.46,pedalRpm:90})
+            newRequest = cm.sendBikeUpdate({gearDelta:-5})
+
         })
       
 
