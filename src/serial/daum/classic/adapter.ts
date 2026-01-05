@@ -9,7 +9,6 @@ import { IncyclistBikeData,ControllerConfig,User } from "../../../types";
 import Daum8008 from './comms';
 import SerialInterface from '../../base/serial-interface';
 import ERGCyclingMode from '../../../modes/daum-erg';
-import SmartTrainerCyclingMode from '../../../modes/daum-smarttrainer';
 import DaumPowerMeterCyclingMode from '../../../modes/daum-power';
 import { PROTOCOL_NAME, DEFAULT_GEAR } from './consts';
 
@@ -17,7 +16,7 @@ export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings
 
     static readonly NAME = PROTOCOL_NAME;
     protected static controllers: ControllerConfig = {
-        modes: [ERGCyclingMode,SmartTrainerCyclingMode,DaumPowerMeterCyclingMode,DaumClassicCyclingMode],
+        modes: [ERGCyclingMode,DaumPowerMeterCyclingMode,DaumClassicCyclingMode],
         default:DaumClassicCyclingMode
     }
 
