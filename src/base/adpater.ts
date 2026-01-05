@@ -203,7 +203,7 @@ export default class IncyclistDevice<P extends DeviceProperties>
     createMode(ModeClass:typeof CyclingMode):ICyclingMode {
         try {
             const mode = new ModeClass(null)
-            return this.createOrGetMode(mode.getName())
+            return this.createOrGetMode(mode.getName(), false)
         }
         catch(err) {
             this.logEvent({message:'error', error:err.message, stack:err.stack, mode: ModeClass?.name})
@@ -212,10 +212,10 @@ export default class IncyclistDevice<P extends DeviceProperties>
  
 
 
-    protected createOrGetMode(mode: string | ICyclingMode) {
+    protected createOrGetMode(mode: string | ICyclingMode, useCurrent:boolean=true) {
         if ( typeof mode === 'string') {
 
-            if (mode===this.getCyclingMode()?.getName()) {
+            if (useCurrent && this.cyclingMode && mode===this.cyclingMode?.getName()) {
                 return  this.cyclingMode
             }
 

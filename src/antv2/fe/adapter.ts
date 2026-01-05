@@ -1,7 +1,7 @@
 import { FitnessEquipmentSensor, FitnessEquipmentSensorState, Profile } from "incyclist-ant-plus";
 
 import  AntAdapter from "../base/adapter";
-import ICyclingMode, {  UpdateRequest } from '../../modes/types';
+import ICyclingMode, {  CyclingMode, UpdateRequest } from '../../modes/types';
 import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "../types";
 import { IncyclistAdapterData, IncyclistBikeData,IncyclistCapability,ControllerConfig } from "../../types";
 import AntAdvSimCyclingMode from "../../modes/ant-fe-adv-st-mode";
@@ -53,6 +53,16 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
     /* istanbul ignore next */
     isReconnecting():boolean {
         return this.promiseReconnect!==null && this.promiseReconnect!==undefined
+    }
+
+    getSupportedCyclingModes(): Array<typeof CyclingMode> {
+
+        const modes:Array<typeof CyclingMode> =[PowerMeterCyclingMode]
+        if (this.props?.capabilities  && this.props.capabilities.indexOf(IncyclistCapability.Control)===-1)
+            return modes
+
+        return super.getSupportedCyclingModes()
+        
     }
 
     getDefaultCyclingMode(): ICyclingMode {
