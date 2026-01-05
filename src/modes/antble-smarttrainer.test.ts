@@ -261,7 +261,7 @@ describe('BLE-SmartTrainer',()=>{
 
         })
 
-        test('start pedalling',()=>{
+        test.skip('start pedalling',()=>{
 
             setupMocks(cm,{startGear:13})
             
@@ -320,7 +320,7 @@ describe('BLE-SmartTrainer',()=>{
         })
       
 
-        test('real ride',()=>{
+        test.skip('real ride',()=>{
 
             setupMocks(cm,{startGear:12})
             

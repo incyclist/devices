@@ -250,7 +250,6 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         }
 
         if ( request.targetPower!==undefined || request.targetPowerDelta!==undefined || request.gearDelta!==undefined || request.gearRatio!==undefined) {    
-            console.log('# cadence change ignored due to other power/gear request', request)
             return
         }
 
