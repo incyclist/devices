@@ -58,7 +58,7 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
     getDefaultCyclingMode(): ICyclingMode {
 
         if (this.props.capabilities  && this.props.capabilities.indexOf(IncyclistCapability.Control)===-1)
-            return new PowerMeterCyclingMode(this);
+            return this.createMode(PowerMeterCyclingMode);
 
         return super.getDefaultCyclingMode();
     }

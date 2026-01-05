@@ -101,3 +101,5 @@ export const TargetSettingFeatureFlag = {
     SpinDownControlSupported: bit(15),
     TargetedCadenceConfigurationSupported: bit(16)
 };
+
+export const ZWIFT_PLAY_UUID = '0000000119ca465186e5fa29dcdd09d1'

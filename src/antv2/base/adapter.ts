@@ -295,8 +295,8 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
 
 
     getID(): string {
-        const id=this.deviceData.DeviceID || this.sensor?.getDeviceID()
-        return id.toString();
+        const id=this.deviceData?.DeviceID ?? this.sensor?.getDeviceID()
+        return id?.toString();
     }
 
     getName(): string {

@@ -22,6 +22,7 @@ export default class IncyclistDevice<P extends DeviceProperties>
 
     protected props: P
     protected cyclingMode: ICyclingMode;
+    protected modes: Record<string,ICyclingMode> = {}
     protected logger: EventLogger
     protected static controllers:ControllerConfig = {}
     protected user:User
@@ -199,6 +200,18 @@ export default class IncyclistDevice<P extends DeviceProperties>
     
     }
 
+    createMode(ModeClass:typeof CyclingMode):ICyclingMode {
+        try {
+            const mode = new ModeClass(null)
+            return this.createOrGetMode(mode.getName())
+        }
+        catch(err) {
+            this.logEvent({message:'error', error:err.message, stack:err.stack, mode: ModeClass?.name})
+        }
+    }
+ 
+
+
     protected createOrGetMode(mode: string | ICyclingMode) {
         if ( typeof mode === 'string') {
 
@@ -207,9 +220,12 @@ export default class IncyclistDevice<P extends DeviceProperties>
             }
 
             const supported = this.getSupportedCyclingModes();
-            const CyclingModeClass = supported.find( M => { const m = new M(this); return m.getName() === mode })
+            const CyclingModeClass = supported.find( M => { const m = new M(null); return m.getName() === mode })
+
             if (CyclingModeClass) {
-                return new CyclingModeClass(this);    
+                this.modes[mode] = this.modes[mode] ?? new CyclingModeClass(this)
+                    
+                return this.modes[mode];    
             }
             else {
                 return this.getDefaultCyclingMode();
@@ -247,7 +263,7 @@ export default class IncyclistDevice<P extends DeviceProperties>
         const C = config.default
 
         try {
-            return new C(this)
+            return this.createMode(C)
         }
         catch(err) {
             this.logEvent({message:'error', error:err.message, fn:'getDefaultCyclingMode', stack:err.stack})

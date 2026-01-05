@@ -69,15 +69,31 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
 
     }
 
+    resetConfig(): void {
+        const config = this.getConfig()
+
+        const virtshiftIdx = config.properties.findIndex(p => p.key==='virtshift');
+        if (virtshiftIdx!==-1) {
+            config.properties.splice(virtshiftIdx,1)
+        }
+
+        let startGearIdx = config.properties.findIndex(p => p.key==='startGear');
+        if (startGearIdx!==-1) {
+            config.properties.splice(startGearIdx,1)
+        }
+        
+    }
+
     getConfig(): CyclingModeConfig {
         const config  = super.getConfig();
 
         const virtShiftEnabled =this.getFeatureToogle().has('VirtualShifting')
 
+
         let virtshift = config.properties.find(p => p.key==='virtshift');
         let startGear = config.properties.find(p => p.key==='startGear');
 
-        if (!virtshift && !this.adapter.supportsVirtualShifting()) {
+        if (!virtshift && !this.adapter?.supportsVirtualShifting()) {
             // add virtual shifting info
             const options= virtShiftEnabled ? [
                 'Disabled',
@@ -94,7 +110,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
             config.properties.push( virtshift )
         }
         
-        if (!virtshift && virtShiftEnabled && this.adapter.supportsVirtualShifting()) {            
+        if (!virtshift && virtShiftEnabled && this.adapter?.supportsVirtualShifting()) {            
             const options = [
                 'Disabled',
                 { key: 'Incyclist', display:'App only (beta)' },
@@ -446,7 +462,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                 return 'SlopeDelta'
             }
             else if (virtshiftMode === 'Enabled') {
-                return this.adapter.supportsVirtualShifting() ? 'Adapter' : 'Simulated';
+                return this.adapter?.supportsVirtualShifting() ? 'Adapter' : 'Simulated';
             }
         }
         catch(err) {

@@ -74,7 +74,7 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
     getDefaultCyclingMode(): ICyclingMode {
 
         if (this.props.capabilities  && this.props.capabilities.indexOf(IncyclistCapability.Control)===-1)
-            return new DaumPowerMeterCyclingMode(this);
+            return this.createMode(DaumPowerMeterCyclingMode);
 
         return super.getDefaultCyclingMode();
     }

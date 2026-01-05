@@ -4,7 +4,7 @@ import { IndoorBikeData, IndoorBikeFeatures } from "./types";
 import { FTMS, FTMS_CP, FTMS_STATUS, INDOOR_BIKE_DATA } from "../consts";
 import { TBleSensor } from "../base/sensor";
 import { beautifyUUID, matches } from "../utils";
-import { IndoorBikeDataFlag, FitnessMachineStatusOpCode, FitnessMachineFeatureFlag, TargetSettingFeatureFlag, OpCode, OpCodeResut as OpCodeResult } from "./consts";
+import { IndoorBikeDataFlag, FitnessMachineStatusOpCode, FitnessMachineFeatureFlag, TargetSettingFeatureFlag, OpCode, OpCodeResut as OpCodeResult, ZWIFT_PLAY_UUID } from "./consts";
 import { InteruptableTask, TaskState } from "../../utils/task";
 
 
@@ -386,6 +386,11 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         
     }
 
+    supportsVirtualShifting(): boolean {
+        return this.getSupportedServiceUUids()?.some( s=> matches(s,ZWIFT_PLAY_UUID))
+    }
+
+
     protected buildFitnessMachineInfo(fitnessMachine:number):string[] { 
 
         const info = [];
@@ -448,6 +453,10 @@ export default class BleFitnessMachineDevice extends TBleSensor {
             check( TargetSettingFeatureFlag.WheelCircumferenceConfigurationSupported, 'wheelCircumference');     
             check( TargetSettingFeatureFlag.SpinDownControlSupported, 'spindown');     
             check( TargetSettingFeatureFlag.TargetedCadenceConfigurationSupported, 'cadence');
+
+            if (this.supportsVirtualShifting) {
+                info.push('virtualShifting')
+            }
         }
         catch(err) {
             this.logEvent({message:'could not read TargetSettingsInfo', error:err.message, stack: err.stack,device:this.getName()})

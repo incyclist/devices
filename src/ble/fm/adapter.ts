@@ -11,12 +11,9 @@ import { BleDeviceProperties, BleDeviceSettings, BleStartProperties, IBlePeriphe
 import { IAdapter,IncyclistCapability,IncyclistAdapterData,IncyclistBikeData } from '../../types';
 import { LegacyProfile } from '../../antv2/types';
 import { sleep } from '../../utils/utils';
-import { matches } from '../utils';
 import { BleZwiftPlaySensor } from '../zwift/play';
 import { useFeatureToggle } from '../../features';
 import FMResistanceMode from '../../modes/fm-resistance';
-
-const ZWIFT_PLAY_UUID = '0000000119ca465186e5fa29dcdd09d1'
 
 export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMachineDevice> {
     protected static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Smart Trainer'
@@ -61,7 +58,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         if (!this.getFeatureToggle().has('VirtualShifting')) 
             return false
 
-        return this.device?.getSupportedServiceUUids()?.some( s=> matches(s,ZWIFT_PLAY_UUID))
+        return this.device?.supportsVirtualShifting()??false
     }
 
     getSupportedCyclingModes() : Array<typeof CyclingMode> {
@@ -87,28 +84,30 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         return modes;
     }
    
- 
+
     getDefaultCyclingMode(): ICyclingMode {
 
-        if (this.props?.capabilities  && this.props.capabilities.indexOf(IncyclistCapability.Control)===-1)
-            return new PowerMeterCyclingMode(this);
+        if (this.props?.capabilities  && this.props.capabilities.indexOf(IncyclistCapability.Control)===-1)            
+            return this.createMode(PowerMeterCyclingMode);
 
         const features = this.getSensor()?.features        
-        if (!features)
-            return new FtmsCyclingMode(this);
+        if (!features) {
+            return this.createMode(FtmsCyclingMode)
+        }
 
-        if (features.setSlope===undefined || features.setSlope) 
-            return new FtmsCyclingMode(this);
+        if (features.setSlope===undefined || features.setSlope) {
+            return this.createMode(FtmsCyclingMode)
+        }
 
         if (features.setPower===undefined || features.setPower) 
-            return new BleERGCyclingMode(this)
+            return this.createMode(BleERGCyclingMode)
 
         if (features.setResistance) {
-            return new FMResistanceMode(this);
+            return this.createMode(FMResistanceMode);
         }
 
 
-        return new PowerMeterCyclingMode(this);
+        return this.createMode(PowerMeterCyclingMode);
     }
 
     mapData(deviceData:IndoorBikeData): IncyclistBikeData{
@@ -274,6 +273,17 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
     }
 
+    protected updateCyclingModeConfig() {
+
+        const modes = this.getSupportedCyclingModes()
+        modes.forEach( ModeClass=> {
+            const mode = this.createMode(ModeClass)
+            mode.resetConfig()
+            mode.getConfig()
+
+        })
+    }
+
     protected async checkCapabilities() {
         const before = this.capabilities.join(',')
         const sensor = this.getSensor()
@@ -297,6 +307,8 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         if (before !== after) {
             this.logEvent({message:'device capabilities updated', name:this.getSettings().name, interface:this.getSettings().interface,capabilities: this.capabilities})    
             this.emit('device-info', this.getSettings(), {capabilities:this.capabilities})
+
+            this.updateCyclingModeConfig()
         }
     }
 

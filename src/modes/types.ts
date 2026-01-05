@@ -67,6 +67,10 @@ export default interface ICyclingMode {
 
     getData():Partial<IncyclistBikeData>;
 
+    resetConfig():void;
+    getConfig():CyclingModeConfig ;
+
+
 }
 
 export type CyclingModeConfig = {
@@ -138,6 +142,8 @@ export class CyclingMode implements ICyclingMode {
     isResistance():boolean { 
         return this.getConfig().isResistance
     }
+
+    resetConfig(): void {}
 
     getData(): Partial<IncyclistBikeData> {
         return {}
