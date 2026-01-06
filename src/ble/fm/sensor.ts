@@ -361,8 +361,8 @@ export default class BleFitnessMachineDevice extends TBleSensor {
                 const setPower = (targetSettings & TargetSettingFeatureFlag.PowerTargetSettingSupported)!==0  
                 const setResistance = (targetSettings & TargetSettingFeatureFlag.ResistanceTargetSettingSupported)!==0
 
-                const fmInfo = this.buildFitnessMachineInfo(fitnessMachine)
-                const tsInfo = this.buildTargetSettingsInfo(targetSettings) 
+                const fmInfo = this.buildFitnessMachineInfo(fitnessMachine) ?? []
+                const tsInfo = this.buildTargetSettingsInfo(targetSettings) ?? []
 
                 this._features = {fitnessMachine, targetSettings,power, heartrate, cadence, setPower, setSlope, setResistance}
 
