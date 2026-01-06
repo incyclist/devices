@@ -56,7 +56,6 @@ export class Emulator extends EventEmitter {
     this.targetPower = power
     this.name = options.name ?? "Emulator";
 
-
     this.hrs = uuids.includes('180D') ? new HeartRateService() : null;
     this.csp = uuids.includes('1818') ? new CyclingPowerService() : null;
     this.ftms = uuids.includes('1826') ? new FitnessMachineService() : null;
@@ -75,7 +74,7 @@ export class Emulator extends EventEmitter {
 
   getServices():Service[] {
     const services = [this.ftms, this.csp, this.hrs, this.play].filter(s => s !== null);
-    console.log('Emulator services',services)
+    console.log('Emulator services',services.map(s=>s.constructor?.name))
     return services
   }
 

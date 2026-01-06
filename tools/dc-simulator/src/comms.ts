@@ -106,7 +106,10 @@ export class DirectConnectComms {
 
         console.log('handleDiscoverServices',request.body)
         
-        const serviceDefinitions = ['0x1826','00000001-19ca-4651-86e5-fa29dcdd09d1'].map((uuid) => ({serviceUUID:parseUUID(uuid)}))
+        const defaultServices = ['0x1826','00000001-19ca-4651-86e5-fa29dcdd09d1']
+        const serviceDefinitions = this.services?.map( s=>({serviceUUID:parseUUID(s.uuid)})) ??
+                                   defaultServices.map((uuid) => ({serviceUUID:parseUUID(uuid)}))
+        
 
         const body:TDCDiscoverServicesResponseBody = {serviceDefinitions}
         const response = message.prepareResponse(request,DC_RC_REQUEST_COMPLETED_SUCCESSFULLY,body)
