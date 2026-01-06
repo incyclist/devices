@@ -42,7 +42,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
     
     }
     protected getRequiredCharacteristics():Array<string> {
-        return [INDOOR_BIKE_DATA,'2a37',FTMS_STATUS,CSP_MEASUREMENT,CSC_MEASUREMENT,this.tacxRx ]
+        return [CSP_MEASUREMENT,this.tacxRx ]
     }
 
     onData(characteristic:string,characteristicData: Buffer):boolean {     
