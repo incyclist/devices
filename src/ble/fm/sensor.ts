@@ -454,7 +454,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
             check( TargetSettingFeatureFlag.SpinDownControlSupported, 'spindown');     
             check( TargetSettingFeatureFlag.TargetedCadenceConfigurationSupported, 'cadence');
 
-            if (this.supportsVirtualShifting) {
+            if (this.supportsVirtualShifting()) {
                 info.push('virtualShifting')
             }
         }
