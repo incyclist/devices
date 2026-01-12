@@ -5,6 +5,7 @@ import EventEmitter from "events";
 import { DEFAULT_PROPS, DEFAULT_USER_WEIGHT, DEFAULT_BIKE_WEIGHT } from "./consts";
 import { sleep } from "../utils/utils";
 
+
 export default class IncyclistDevice<P extends DeviceProperties> 
                 extends EventEmitter 
                 implements IAdapter  {
@@ -27,6 +28,9 @@ export default class IncyclistDevice<P extends DeviceProperties>
     protected static controllers:ControllerConfig = {}
     protected user:User
     protected data:IncyclistAdapterData
+    protected debugLogEnabled: boolean
+
+
 
     /**
         * @param {DeviceSettings}   settings    A Json Object that defines all neccessary parameters of the device (interface, port, ...)
@@ -47,6 +51,7 @@ export default class IncyclistDevice<P extends DeviceProperties>
         this.user = {}
         this.data = {}
         this.cyclingMode = this.getDefaultCyclingMode()
+        this.debugLogEnabled = false
     
     }
     supportsVirtualShifting(): boolean {
@@ -70,12 +75,11 @@ export default class IncyclistDevice<P extends DeviceProperties>
         if (!this.logger || this.paused)
             return;
 
+        if (this.isDebugEnabled() && !this.debugLogEnabled)
+            this.initDebugLog()
+
         this.logger.logEvent(event)
 
-        if (this.isDebugEnabled()) {
-            const logText = `~~~ ${this.getInterface()}: ${this.logger.getName()}`
-            console.log(logText,event)
-        }
     }
 
 
@@ -404,6 +408,35 @@ export default class IncyclistDevice<P extends DeviceProperties>
         this.scanning = false
 
     }
+
+    protected initDebugLog() {
+
+        if (this.debugLogEnabled) {
+            return;
+        }
+
+        if (this.isDebugEnabled() && this.logger) {
+
+            const logText = `~~~ ${this.getInterface()}: ${this.logger.getName()}`            
+            const logEvent = this.logger.logEvent.bind(this.logger)
+
+            this.logger.logEvent = (event:any) => {
+                try {
+                    logEvent(event)
+                } catch {}
+
+                try {
+                    console.log(logText,event)
+                }
+                catch {}
+
+            }
+            this.debugLogEnabled = true;
+        }
+        
+    }
+
+
 }
 
 export type IncyclistDeviceAdapter = IncyclistDevice<DeviceProperties>

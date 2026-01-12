@@ -1,3 +1,4 @@
+import { EventLogger } from "gd-eventlog";
 import { LegacyProfile } from "../../../antv2/types";
 import { ClickKeyPadStatus, DeviceDataEnvelope, DeviceInformationContent, DeviceSettings, HubCommand, HubRequest, HubRidingData, Idle, PlayButtonStatus, SimulationParam } from "../../../proto/zwift_hub";
 import { TBleSensor } from "../../base/sensor";
@@ -11,7 +12,15 @@ type ButtonState = {
     timestamp: number
 }
 
-type DeviceType = 'left' | 'right' | 'click'
+type BleZwiftPlaySensorProps = 
+{ 
+    logger?:EventLogger
+    isTrainer?:boolean
+
+}    
+
+
+type DeviceType = 'left' | 'right' | 'click' | 'hub'
 
 export class BleZwiftPlaySensor extends TBleSensor {
     static readonly profile:LegacyProfile  = 'Controller'   
@@ -21,7 +30,7 @@ export class BleZwiftPlaySensor extends TBleSensor {
     static readonly detectionPriority = 1;
 
     protected emitter: EventEmitter
-    protected paired: boolean
+    protected isHubPairConfirmed: boolean
     protected encrypted: boolean
     protected deviceKey: Buffer
     protected prevClickMessage: string
@@ -35,11 +44,20 @@ export class BleZwiftPlaySensor extends TBleSensor {
     protected isHubServiceActive: boolean
     protected isHubServicePaired: boolean
     protected isHubServiceSubscribed: boolean
-    protected initHubServicePromise: Promise<boolean>
 
-    constructor (peripheral:IBlePeripheral|TBleSensor , props?) {
+    protected initHubServicePromise: Promise<boolean>
+    protected pairPromise: Promise<boolean>
+    protected subscribePromise: Promise<boolean>
+
+    constructor (peripheral:IBlePeripheral|TBleSensor , props?:BleZwiftPlaySensorProps) {
         
-        if ( peripheral && 
+        if ( props?.isTrainer && peripheral) {
+            const sensor = peripheral as TBleSensor
+            super(sensor.getPeripheral(),props) 
+            this.isFM = true
+        }
+
+        else if ( peripheral && 
             'startSensor' in peripheral && typeof peripheral.startSensor === 'function'  && 
             'getPeripheral' in peripheral && typeof peripheral.getPeripheral === 'function'
         ) {
@@ -50,9 +68,7 @@ export class BleZwiftPlaySensor extends TBleSensor {
         else {
             super(peripheral as IBlePeripheral,props)
             this.isFM = false
-        }
-        
-        
+        }        
 
         this.emitter = new EventEmitter()
         this.setInitialState()
@@ -102,32 +118,42 @@ export class BleZwiftPlaySensor extends TBleSensor {
     }
 
     async setSimulationData( data?:SimulationParam) {
-        if (!this.isHubServiceActive) {
-            await this.initHubService(false)
+        try {
+
+            if (!this.isHubServiceActive) {
+                await this.initHubService(false)
+            }
+
+            if (!this.isHubServiceActive || !this.isHubPairConfirmed)
+                return
+
+            const crrx100000 = Math.round(data?.crrx100000??400)
+            const cWax10000 = Math.round(data?.cWax10000??5100)
+            const windx100 = Math.round(data?.windx100??0)
+            
+            let inclineX100 = Math.round(data?.inclineX100??1)
+            if (inclineX100===0 || Number.isNaN(inclineX100)) inclineX100 = 1
+            
+
+            const simulation:SimulationParam = { inclineX100, crrx100000, cWax10000,windx100}
+
+            await this.sendHubCommand( {simulation})
+            await this.requestDataUpdate(512)
+        }
+        catch(err) {
+            this.logger.logEvent( {message:"error",fn:'setSimulationData',data, error:err.message,stack:err.stack} );                        
         }
 
-        const crrx100000 = Math.round(data?.crrx100000??400)
-        const cWax10000 = Math.round(data?.cWax10000??5100)
-        const windx100 = Math.round(data?.windx100??0)
-        
-        let inclineX100 = Math.round(data?.inclineX100??1)
-        if (inclineX100===0 || Number.isNaN(inclineX100)) inclineX100 = 1
-        
-
-        const simulation:SimulationParam = { inclineX100, crrx100000, cWax10000,windx100}
-
-        console.log('# set simulation data', simulation)
-        await this.sendHubCommand( {simulation})
-        await this.requestDataUpdate(512)
     }
 
     async setGearRatio( gearRatio:number):Promise<number> {
 
         try {
-            console.log('# set gear ratio', gearRatio )
             if (!this.isHubServiceActive) {
                 await this.initHubService()
             }
+            if (!this.isHubServiceActive|| !this.isHubPairConfirmed)
+                return
             
             const gearRatioX10000 = Math.round(gearRatio*10000)
             const bikeWeightx100 = 10*100        
@@ -140,7 +166,8 @@ export class BleZwiftPlaySensor extends TBleSensor {
             await this.requestDataUpdate(512)
         }
         catch(err) {
-            console.log('# set gear ratio failed',err)
+            this.logger.logEvent( {message:"error",fn:'setGearRatio',gearRatio, error:err.message,stack:err.stack} );                        
+
         }
 
         return gearRatio
@@ -155,6 +182,8 @@ export class BleZwiftPlaySensor extends TBleSensor {
 
     protected onMeasurement(d: Buffer): boolean {
         const data = Buffer.from(d)
+
+        this.logEvent({message:'got hub notification', raw:data.toString('hex')})
 
         if (data?.length<1) {
             console.log('Invalid click measurement data', data.toString('hex'))
@@ -194,27 +223,50 @@ export class BleZwiftPlaySensor extends TBleSensor {
             await this.initHubServicePromise            
         }
 
+        
+
 
         if (this.isHubServiceActive)
             return true;
 
-        this.logEvent({message:'init hub service', paired:this.paired,subscribed:this.isHubServiceSubscribed })
-        console.log('# init Hub Service')
+        this.logEvent({message:'init hub service', paired:this.isHubPairConfirmed,subscribed:this.isHubServiceSubscribed })
 
         if (!this.isHubServicePaired) {
-            await this.pair()
+
+            this.logEvent({message:'pair hub service'})
+
+            this.pairPromise  = this.pair()
+            const paired = await this.pairPromise
+            this.pairPromise = undefined
+
+            if (!paired)
+                return false
+            
         }
 
         if (!this.isHubServiceSubscribed) {
-            await this.subscribe()
-            this.isHubServiceSubscribed = true
+            this.logEvent({message:'subscribe to hub service characteristics'})
+
+            this.subscribePromise  = this.subscribePromise ?? this.subscribe()
+            const subscribed = await this.subscribePromise
+            this.subscribePromise = undefined
+
+            this.isHubServiceSubscribed = subscribed
+            if (!subscribed)
+                return false
+
+            this.logEvent({message:'subscribed to hub service characteristics'})
+
         }
 
 
 
         this.initHubServicePromise  = new Promise<boolean> ( (done)=>{
 
+            this.logEvent({message:'send hub init message'})
+
             let timeout = setTimeout( ()=>{
+                this.logEvent({message:'could not init hub service', reason: 'timeout'})
                 done(false)
             }, 2000)
 
@@ -225,8 +277,7 @@ export class BleZwiftPlaySensor extends TBleSensor {
                 }
                 this.isHubServiceActive = true
 
-                console.log('# init hub service completed')
-                this.logEvent({message:'init hub service done', paired:this.paired,subscribed:this.isHubServiceSubscribed })
+                this.logEvent({message:'init hub service done', paired: this.isHubServicePaired,confirmed:this.isHubPairConfirmed,subscribed:this.isHubServiceSubscribed })
 
 
                 if (setSimulation) {
@@ -249,7 +300,6 @@ export class BleZwiftPlaySensor extends TBleSensor {
                     clearTimeout(timeout)
                     timeout = undefined
                 }
-                console.log('# init hub service timeout')
                 done(false)
                 this.logEvent({message:'could not init hub service', reason: err.message})
             })
@@ -261,18 +311,13 @@ export class BleZwiftPlaySensor extends TBleSensor {
 
     async sendHubRequest( request:HubRequest) {
         const message =  Buffer.from(HubRequest.toBinary(request))      
-        console.log('# sending hub request', request, message )
         this.logEvent({mesage:'send zwift hub request',request})
         return await this.sendPlayCommand( 0x00, message)
     }
 
     async sendHubCommand( command:HubCommand) {
         const message =  Buffer.from(HubCommand.toBinary(command))      
-
-
-        console.log('# sending hub command', command, message, )
         this.logEvent({mesage:'send zwift hub command',command})
-
         return await this.sendPlayCommand( 0x04, message)
 
     }
@@ -283,7 +328,7 @@ export class BleZwiftPlaySensor extends TBleSensor {
             this.tsLastRidingData = Date.now()
             const data = HubRidingData.fromBinary( m)
             this.emit('hub-riding-data', data)
-            console.log('#riding data',data)
+            
             this.logEvent({ message:'riding data received',   power:data.power,  cadence:data.cadence, Speed:data.speedX100/100, heartrate:data.hR,  unknown1: data.unknown1, unknown2:data.unknown2})
         }
         catch(err) {
@@ -298,14 +343,12 @@ export class BleZwiftPlaySensor extends TBleSensor {
             const {messageType,payload} = envelope
             if (messageType<16) {
                 const deviceInfo = DeviceInformationContent.fromBinary(payload)
-                console.log('# deviceInfo',deviceInfo)
                 this.emit('hub-device-info', deviceInfo)
                 this.logEvent({message:'hub device info update', deviceInfo})
             }
             else if (messageType>=512 && messageType<526) {
                 const si = DeviceSettings.fromBinary(payload)
 
-                console.log('# settings',si?.subContent)                
                 this.emit('hub-settings', si?.subContent)
                 this.logEvent({message:'hub settings update', settings:si?.subContent})
             }
@@ -364,12 +407,13 @@ export class BleZwiftPlaySensor extends TBleSensor {
     onPingMessage(message:Buffer) {
         const idle:Idle = Idle.fromBinary(message)
 
-        console.log('# ping message',idle)
-        this.emit('data', { deviceType:this.deviceType, paired: this.paired, alive:true, ts:Date.now() })
+        this.emit('data', { deviceType:this.deviceType, paired: this.isHubPairConfirmed, alive:true, ts:Date.now() })
     }
 
     onResponse(d: Buffer): boolean {
+
         const data = Buffer.from(d)
+        this.logEvent({message:'got hub message',raw:data.toString('hex'),str:data.toString() })
 
         if (data?.length<1) {
             console.log('Invalid response data', data.toString('hex'))
@@ -382,41 +426,56 @@ export class BleZwiftPlaySensor extends TBleSensor {
             this.onDeviceInformation(message)
         }
         else {
-        const len = data.length
-        if (len === 6 && data.toString()==='RideOn') {
-            this.encrypted = false
-            this.paired = true
-            this.emitter.emit('paired')
-            try {
-                this.emit('data', { deviceType:this.deviceType, paired:true, ts:Date.now() })
-            } catch (err) {
-                
-                this.logEvent({message:'error', fn:'onPairResponse', error:err.message, stack:err.stack})
-            }
+            const len = data.length
 
-        }
-        
 
-        else if (len > 8 && Buffer.from(data.subarray(0, 6)).toString() === 'RideOn') {
-            const message = Buffer.from(data.subarray(6,2)).toString('hex')
-            if (message==='0900') {
-                this.encrypted = true
-                this.paired = true
-                this.deviceKey = data.subarray(8)
+
+            if (len==6 && data.toString()==='RideOn') {
+                this.encrypted = false
+                this.isHubPairConfirmed = true
                 this.emitter.emit('paired')
                 try {
                     this.emit('data', { deviceType:this.deviceType, paired:true, ts:Date.now() })
                 } catch (err) {
+                    
                     this.logEvent({message:'error', fn:'onPairResponse', error:err.message, stack:err.stack})
                 }
-            }
-            else {
-                this.logEvent({message: 'Pairing failed! ', reason:'unknown message', raw:message})
+
             }
             
-        }
 
-        return true
+            else if (len > 8 && Buffer.from(data.subarray(0, 6)).toString() === 'RideOn') {
+                const message = Buffer.from(data.subarray(6,2)).toString('hex')
+                if (message==='0900') {
+                    this.encrypted = true
+                    this.isHubPairConfirmed = true
+                    this.deviceKey = data.subarray(8)
+                    this.emitter.emit('paired')
+                    try {
+                        this.emit('data', { deviceType:this.deviceType, paired:true, ts:Date.now() })
+                    } catch (err) {
+                        this.logEvent({message:'error', fn:'onPairResponse', error:err.message, stack:err.stack})
+                    }
+                }
+                else {
+                    this.logEvent({message: 'Pairing failed! ', reason:'unknown message', raw:message})
+                }
+                
+            }
+            else if (Buffer.from(data.subarray(0, 6)).toString() === 'RideOn'){
+                this.encrypted = false
+                this.isHubPairConfirmed = true
+                this.emitter.emit('paired')
+                try {
+                    this.emit('data', { deviceType:this.deviceType, paired:true, ts:Date.now() })
+                } catch (err) {
+                    
+                    this.logEvent({message:'error', fn:'onPairResponse', error:err.message, stack:err.stack})
+                }
+
+            }
+
+            return true
 
         }
 
@@ -438,9 +497,21 @@ export class BleZwiftPlaySensor extends TBleSensor {
         if (this.isHubServicePaired)
             return true
 
+        if (this.pairPromise!==undefined) {
+            const paired = await this.pairPromise
+            this.pairPromise = undefined
+            if (paired)
+                return
+        }
+
         let manufacturerData:string
         try {
-            if (this.peripheral.getManufacturerData) {
+
+            if (this.isFM) {
+                this.deviceType = 'hub'
+                this.encrypted = false
+            }
+            else if (this.peripheral.getManufacturerData) {
                 manufacturerData = this.getManufacturerData()
 
                 if (manufacturerData?.startsWith('4a09')) {
@@ -459,35 +530,44 @@ export class BleZwiftPlaySensor extends TBleSensor {
                 }
                 
             }
+            
 
-            if ( !this.encryptedSupported()) {
-                this.deviceType = 'click'                
+            if ( !this.deviceType && !this.encryptedSupported()) {
+                this.deviceType = 'click'
                 this.encrypted = false
             }
+
+            // fallback to 'click if we could not identify a device yet
+            this.deviceType = this.deviceType ?? 'click'
+            
 
             this.logEvent({message:'Play protocol pairing info', deviceType:this.deviceType, encrypted:this.encrypted, manufacturerData})
 
             let message;
-            if (!this.encrypted) {
-                message = this.isFM ? Buffer.concat( [ Buffer.from('RideOn'), Buffer.from( [0x02, 0x01]) ] ) :Buffer.from('RideOn') 
-               
+
+            if (this.isFM) {
+                message = Buffer.concat( [ Buffer.from('RideOn'), Buffer.from( [0x02, 0x01]) ] ) 
             }
-            else {
-                
+            else if (this.encrypted) {
                 const { publicKey, privateKey } = this.createKeyPair()
 
                 this.privateKey = this.privateKey ?? Buffer.from(privateKey)
                 this.publicKey = this.publicKey ?? Buffer.from(publicKey)
 
                 message = Buffer.concat( [ Buffer.from('RideOn'), Buffer.from( [0x02, 0x03]), this.publicKey ] )
-            
+               
+            }
+            else {
+                message = Buffer.from('RideOn') 
             }
 
+            this.logEvent({message:`send rideOn` })
             await this.write( fullUUID('00000003-19ca-4651-86e5-fa29dcdd09d1'), 
                          message, 
                          {withoutResponse:true} )
-
             this.isHubServicePaired = true
+
+            this.logEvent({message: 'pairing done', deviceType:this.deviceType, encrypted:this.encrypted, manufacturerData})
             return true
         } catch (err) {
 
@@ -523,7 +603,7 @@ export class BleZwiftPlaySensor extends TBleSensor {
 
 
     protected setInitialState() {
-        this.paired = false
+        this.isHubPairConfirmed = false
         this.encrypted = false
         this.deviceKey = null
 

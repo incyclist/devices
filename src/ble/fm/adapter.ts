@@ -29,7 +29,6 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         super(settings,props);
 
         this.logger = new EventLogger('BLE-FM')
-
         this.device = new BleFitnessMachineDevice( this.getPeripheral(), {logger:this.logger})
         this.capabilities = [ 
             IncyclistCapability.Power, IncyclistCapability.Speed, IncyclistCapability.Cadence, 
@@ -182,8 +181,9 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         
     protected async initVirtualShifting() {
 
+        this.logEvent({message:'init virtual shifting', hasSensor: this.zwiftPlay!==undefined})
         try {
-            this.zwiftPlay = this.zwiftPlay ?? new BleZwiftPlaySensor( this.device)
+            this.zwiftPlay = this.zwiftPlay ?? new BleZwiftPlaySensor( this.device, {logger:this.logger, isTrainer:true})
 
         }
         catch(err) {
