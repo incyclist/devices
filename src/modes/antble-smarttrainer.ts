@@ -3,6 +3,7 @@ import PowerBasedCyclingModeBase from "./power-base";
 import { IAdapter, IncyclistBikeData } from "../types";
 import calc, { calculateVirtualSpeed } from "../utils/calculations";
 import { useFeatureToggle } from "../features";
+import { intVal } from "../utils/utils";
 
 
 type VirtshiftMode = 'Disabled' |  'SlopeDelta' | 'Adapter' | 'Simulated';
@@ -48,7 +49,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         const virtshiftMode = this.getVirtualShiftMode();
 
         if (virtshiftMode==='Adapter' ) {
-            this.gear = this.getSetting('startGear')
+            this.gear = intVal(this.getSetting('startGear'))
             const gearRatio = this.gearRatios[this.gear-1]
             return {slope:0, gearRatio}
         }
@@ -332,11 +333,11 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                     const oldGear = this.gear
 //                    console.log(new Date().toISOString(), '# gearDelta', request.gearDelta, 'from', this.gear   )
                     if (this.gear===undefined) {
-                        const initialGear = Number(this.getSetting('startGear'))
-                        this.gear = initialGear +Number(request.gearDelta)
+                        const initialGear = intVal(this.getSetting('startGear'))
+                        this.gear = initialGear + (intVal(request.gearDelta)??0)
                     }
                     else { 
-                        this.gear += Number(request.gearDelta);
+                        this.gear += (intVal(request.gearDelta)??0);
                     }
                     if (this.gear<1) {
                         this.gear = 1;
@@ -358,6 +359,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                 break;
             case 'Adapter':
                 if (request.gearRatio!==undefined) {
+                    const oldGear = this.gear;
                     newRequest.gearRatio = request.gearRatio
                     if (this.gear===undefined) {
 
@@ -373,13 +375,14 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                             }
                         }
                         this.gear = closestIndex+1;
-                        
+                        this.logger.logEvent( {message:'gear changed', gear:this.gear, gearRatio:newRequest.gearRatio, oldGear})                        
                     }
 
                 }
                 else if (request.gearDelta!==undefined) {
+                    const oldGear = this.gear;
                     if (this.gear===undefined) {
-                        const initialGear = Number(this.getSetting('startGear'))
+                        const initialGear = intVal(this.getSetting('startGear'))
                         this.gear = initialGear +request.gearDelta
                     }
                     else { 
@@ -392,18 +395,20 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                         this.gear = this.gearRatios.length;
                     }
                     delete request.gearDelta
-
                     newRequest.gearRatio = this.gearRatios[this.gear]
+                    this.logger.logEvent( {message:'gear changed', gear:this.gear, gearRatio:newRequest.gearRatio, oldGear})                        
+
 
 
                 }
                 else {
                     if (this.gear===undefined) {
-                        const initialGear = Number(this.getSetting('startGear'))
+                        const initialGear = intVal(this.getSetting('startGear'))
                         this.gear = initialGear +request.gearDelta
                     }
 
                     newRequest.gearRatio = this.gearRatios[this.gear]
+                    this.logger.logEvent( {message:'gear initialized', gear:this.gear, gearRatio:newRequest.gearRatio})                        
                 }
 
 
