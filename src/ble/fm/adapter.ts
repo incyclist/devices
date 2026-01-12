@@ -185,6 +185,10 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         try {
             this.zwiftPlay = this.zwiftPlay ?? new BleZwiftPlaySensor( this.device, {logger:this.logger, isTrainer:true})
 
+            // todo: remove and only init once it is used
+            // for now: I want to get more data on what the trainers are sending
+            this.zwiftPlay.initHubService(false)
+
         }
         catch(err) {
             this.logEvent({message:'could not init virtual shifting', reason:err.message})    
