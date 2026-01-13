@@ -223,7 +223,42 @@ export class BleZwiftPlaySensor extends TBleSensor {
             await this.initHubServicePromise            
         }
 
+
+        const subscribe = async () => {
+            if (!this.isHubServiceSubscribed) {
+                this.logEvent({message:'subscribe to hub service characteristics'})
+
+                this.subscribePromise  = this.subscribePromise ?? this.subscribe()
+                const subscribed = await this.subscribePromise
+                this.subscribePromise = undefined
+
+                this.isHubServiceSubscribed = subscribed
+                if (!subscribed)
+                    return false
+
+                this.logEvent({message:'subscribed to hub service characteristics'})
+
+            }
+
+        }
+
+        const pair = async ()=> {
+            if (!this.isHubServicePaired) {
+
+                this.logEvent({message:'pair hub service'})
+
+                this.pairPromise  = this.pair()
+                const paired = await this.pairPromise
+                this.pairPromise = undefined
+
+                if (!paired)
+                    return false
+                
+            }
+
+        }
         
+
 
 
         if (this.isHubServiceActive)
@@ -231,34 +266,10 @@ export class BleZwiftPlaySensor extends TBleSensor {
 
         this.logEvent({message:'init hub service', paired:this.isHubPairConfirmed,subscribed:this.isHubServiceSubscribed })
 
-        if (!this.isHubServicePaired) {
 
-            this.logEvent({message:'pair hub service'})
-
-            this.pairPromise  = this.pair()
-            const paired = await this.pairPromise
-            this.pairPromise = undefined
-
-            if (!paired)
-                return false
-            
-        }
-
-        if (!this.isHubServiceSubscribed) {
-            this.logEvent({message:'subscribe to hub service characteristics'})
-
-            this.subscribePromise  = this.subscribePromise ?? this.subscribe()
-            const subscribed = await this.subscribePromise
-            this.subscribePromise = undefined
-
-            this.isHubServiceSubscribed = subscribed
-            if (!subscribed)
-                return false
-
-            this.logEvent({message:'subscribed to hub service characteristics'})
-
-        }
-
+        await subscribe()
+        await pair()
+        await subscribe() // if subscribe was not successfull before pairing, try again after pairing
 
 
         this.initHubServicePromise  = new Promise<boolean> ( (done)=>{
