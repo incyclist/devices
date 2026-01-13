@@ -125,6 +125,19 @@ message RideKeyPadStatus {
 	optional RideAnalogKeyGroup AnalogButtons = 2;
 }
 
+
+//------------------ Zwift Hub message after sending rideOn
+// The command code prepending this message is 0x2a
+message TrainerResponse {
+	optional uint32 Unknown = 1;
+	optional TrainerResponseContent Content = 2;
+}
+
+message TrainerResponseContent  {
+	optional string Text = 4;
+}
+
+
 //------------------ Zwift Click messages
 // The command code prepending this message is 0x37
 message ClickKeyPadStatus {

@@ -1,6 +1,6 @@
 import { EventLogger } from "gd-eventlog";
 import { LegacyProfile } from "../../../antv2/types";
-import { ClickKeyPadStatus, DeviceDataEnvelope, DeviceInformationContent, DeviceSettings, HubCommand, HubRequest, HubRidingData, Idle, PlayButtonStatus, SimulationParam } from "../../../proto/zwift_hub";
+import { ClickKeyPadStatus, DeviceDataEnvelope, DeviceInformationContent, DeviceSettings, HubCommand, HubRequest, HubRidingData, Idle, PlayButtonStatus, SimulationParam, TrainerResponse } from "../../../proto/zwift_hub";
 import { TBleSensor } from "../../base/sensor";
 import { BleProtocol, IBlePeripheral  } from "../../types";
 import { beautifyUUID, fullUUID  } from "../../utils";
@@ -204,6 +204,9 @@ export class BleZwiftPlaySensor extends TBleSensor {
         else if (type===0x03) {
             this.onRidingData(message)
         }
+        else if (type===0x2A) {  
+            this.onTrainerResponse(message)
+        }
         else if (type===0x3c) {
             this.onDeviceInformation(message)
         }
@@ -331,6 +334,19 @@ export class BleZwiftPlaySensor extends TBleSensor {
         this.logEvent({mesage:'send zwift hub command',command})
         return await this.sendPlayCommand( 0x04, message)
 
+    }
+
+    protected onTrainerResponse(m:Buffer) {
+        try {
+
+            const data = TrainerResponse.fromBinary( m)
+            this.emit('hub-trainer-response', data)
+            
+            this.logEvent({ message:'trainer response received',   data})
+        }               
+        catch(err) {
+            this.logEvent( {message:'Error', fn:'onTrainerResponse', error:err.message, stack:err.stack})
+        }
     }
 
     protected onRidingData(m:Buffer) {

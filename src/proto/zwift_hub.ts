@@ -235,6 +235,31 @@ export interface RideKeyPadStatus {
     analogButtons?: RideAnalogKeyGroup;
 }
 /**
+ * ------------------ Zwift Hub message after sending rideOn
+ * The command code prepending this message is 0x2a
+ *
+ * @generated from protobuf message org.cagnulen.qdomyoszwift.TrainerResponse
+ */
+export interface TrainerResponse {
+    /**
+     * @generated from protobuf field: optional uint32 Unknown = 1
+     */
+    unknown?: number;
+    /**
+     * @generated from protobuf field: optional org.cagnulen.qdomyoszwift.TrainerResponseContent Content = 2
+     */
+    content?: TrainerResponseContent;
+}
+/**
+ * @generated from protobuf message org.cagnulen.qdomyoszwift.TrainerResponseContent
+ */
+export interface TrainerResponseContent {
+    /**
+     * @generated from protobuf field: optional string Text = 4
+     */
+    text?: string;
+}
+/**
  * ------------------ Zwift Click messages
  * The command code prepending this message is 0x37
  *
@@ -1265,6 +1290,105 @@ class RideKeyPadStatus$Type extends MessageType<RideKeyPadStatus> {
  * @generated MessageType for protobuf message org.cagnulen.qdomyoszwift.RideKeyPadStatus
  */
 export const RideKeyPadStatus = new RideKeyPadStatus$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class TrainerResponse$Type extends MessageType<TrainerResponse> {
+    constructor() {
+        super("org.cagnulen.qdomyoszwift.TrainerResponse", [
+            { no: 1, name: "Unknown", kind: "scalar", jsonName: "Unknown", opt: true, T: 13 /*ScalarType.UINT32*/ },
+            { no: 2, name: "Content", kind: "message", jsonName: "Content", T: () => TrainerResponseContent }
+        ]);
+    }
+    create(value?: PartialMessage<TrainerResponse>): TrainerResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        if (value !== undefined)
+            reflectionMergePartial<TrainerResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: TrainerResponse): TrainerResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* optional uint32 Unknown */ 1:
+                    message.unknown = reader.uint32();
+                    break;
+                case /* optional org.cagnulen.qdomyoszwift.TrainerResponseContent Content */ 2:
+                    message.content = TrainerResponseContent.internalBinaryRead(reader, reader.uint32(), options, message.content);
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: TrainerResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* optional uint32 Unknown = 1; */
+        if (message.unknown !== undefined)
+            writer.tag(1, WireType.Varint).uint32(message.unknown);
+        /* optional org.cagnulen.qdomyoszwift.TrainerResponseContent Content = 2; */
+        if (message.content)
+            TrainerResponseContent.internalBinaryWrite(message.content, writer.tag(2, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message org.cagnulen.qdomyoszwift.TrainerResponse
+ */
+export const TrainerResponse = new TrainerResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class TrainerResponseContent$Type extends MessageType<TrainerResponseContent> {
+    constructor() {
+        super("org.cagnulen.qdomyoszwift.TrainerResponseContent", [
+            { no: 4, name: "Text", kind: "scalar", jsonName: "Text", opt: true, T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<TrainerResponseContent>): TrainerResponseContent {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        if (value !== undefined)
+            reflectionMergePartial<TrainerResponseContent>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: TrainerResponseContent): TrainerResponseContent {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* optional string Text */ 4:
+                    message.text = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: TrainerResponseContent, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* optional string Text = 4; */
+        if (message.text !== undefined)
+            writer.tag(4, WireType.LengthDelimited).string(message.text);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message org.cagnulen.qdomyoszwift.TrainerResponseContent
+ */
+export const TrainerResponseContent = new TrainerResponseContent$Type();
 // @generated message type with reflection information, may provide speed optimized methods
 class ClickKeyPadStatus$Type extends MessageType<ClickKeyPadStatus> {
     constructor() {
