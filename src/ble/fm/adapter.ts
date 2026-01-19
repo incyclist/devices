@@ -371,17 +371,28 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
                 const send = async ()=> {             
                     const res: UpdateRequest = {}
                     if (update.slope!==undefined) {
-                        await device.setSlope(update.slope)
+                        if (update.isHub) {
+                            if (!this.zwiftPlay) {
+                                this.initVirtualShifting()                            
+                            }
+
+                            if (this.zwiftPlay) {
+                                await this.zwiftPlay.setIncline(update.slope)
+                            }
+                        }
+                        else {
+                            await device.setSlope(update.slope)
+                        }
                         res.slope = update.slope
                     } 
 
-                    if (update.targetPower!==undefined) {
+                    if (update.targetPower!==undefined && !update.isHub) {
                         const tp = update.targetPower>0 ? update.targetPower : 0
                         await device.setTargetPower(tp)
                         res.targetPower = tp
                     } 
 
-                    if (update.targetResistance!==undefined ) {
+                    if (update.targetResistance!==undefined && !update.isHub) {
                         await device.setTargetResistanceLevel(update.targetResistance)
                         res.targetResistance = update.targetResistance
                         
@@ -394,14 +405,9 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
                         }
 
                         if (this.zwiftPlay && !Number.isNaN(update.gearRatio)) {
-                            let slope = update.slope??0
-                            if (slope===0) slope = 0.01
-                            
-                            await this.zwiftPlay.setSimulationData({inclineX100:slope*100})
                             const gearRatio = await this.zwiftPlay.setGearRatio( update.gearRatio)
                             res.gearRatio = gearRatio
                         }
-
                     } 
 
 

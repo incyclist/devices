@@ -6,7 +6,7 @@ import { useFeatureToggle } from "../features";
 import { intVal } from "../utils/utils";
 
 
-type VirtshiftMode = 'Disabled' |  'SlopeDelta' | 'Adapter' | 'Simulated';
+export type VirtshiftMode = 'Disabled' |  'SlopeDelta' | 'Adapter' | 'Simulated';
 
 const MIN_POWER = 25;
 export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase implements ICyclingMode {
@@ -51,7 +51,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         if (virtshiftMode==='Adapter' ) {
             this.gear = intVal(this.getSetting('startGear'))
             const gearRatio = this.gearRatios[this.gear-1]
-            return {slope:0, gearRatio}
+            return {slope:0, gearRatio, isHub:true}
         }
 
         this.prevRequest = {slope:0}
@@ -157,6 +157,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         // enforce to add gearRatio on every request that is sent
         const gear = this.gear ?? this.getSetting('startGear')
         newRequest.gearRatio = this.gearRatios[gear-1];
+        newRequest.isHub = true;
 
     }
 

@@ -16,6 +16,7 @@ export type UpdateRequest = {
     gear?: number;
     gearRatio?: number,
     forced?:boolean
+    isHub?: boolean
 }
 export enum CyclingModeProperyType {
     Integer = 'Integer',

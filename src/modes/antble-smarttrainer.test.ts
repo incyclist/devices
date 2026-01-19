@@ -1,4 +1,4 @@
-import SmartTrainerCyclingMode from "./antble-smarttrainer"
+import SmartTrainerCyclingMode, { VirtshiftMode } from "./antble-smarttrainer"
 import MockAdapter from '../../test/mock-adapter';
 
 let adapter = new MockAdapter()
@@ -35,6 +35,11 @@ describe('BLE-SmartTrainer',()=>{
         let cm:SmartTrainerCyclingMode;
         let bikeType = 'Race'
 
+        const setupMock = (c:any, props:{virtshiftMode?:VirtshiftMode}) => {
+            if (props.virtshiftMode)
+                c.getVirtualShiftMode = jest.fn().mockReturnValue(props.virtshiftMode)
+        }
+
         beforeEach( ()=>{
             cm = new SmartTrainerCyclingMode(adapter);
             cm.getSetting = jest.fn( (key) => { 
@@ -42,6 +47,10 @@ describe('BLE-SmartTrainer',()=>{
                 return cm.settings[key]
             });
 
+        })
+
+        afterEach( ()=> {
+            jest.resetAllMocks()
         })
 
         test('starting',()=>{
@@ -163,6 +172,17 @@ describe('BLE-SmartTrainer',()=>{
 
         })
 
+        test('slope change for smarttrainer virtual shifting',()=>{
+            let res;
+
+            setupMock(cm, {virtshiftMode:'Adapter'})
+            res = cm.sendBikeUpdate({ slope:10})
+            expect(res.isHub).toBeTruthy()
+            expect(res.slope).toBe(10)
+            expect(res.gearRatio).toBeDefined()
+            
+        })
+
 
     })
 
@@ -231,6 +251,7 @@ describe('BLE-SmartTrainer',()=>{
         })
 
     })
+
 
     describe('checkSlopeWithSimulatedShifting',()=>{
         let cm:SmartTrainerCyclingMode;

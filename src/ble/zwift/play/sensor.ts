@@ -1,6 +1,6 @@
 import { EventLogger } from "gd-eventlog";
 import { LegacyProfile } from "../../../antv2/types";
-import { ClickKeyPadStatus, DeviceDataEnvelope, DeviceInformationContent, DeviceSettings, HubCommand, HubRequest, HubRidingData, Idle, PlayButtonStatus, SimulationParam, TrainerResponse } from "../../../proto/zwift_hub";
+import { ClickKeyPadStatus, DeviceDataEnvelope, DeviceInformationContent, DeviceSettings, DeviceSettingsSubContent, HubCommand, HubRequest, HubRidingData, Idle, PhysicalParam, PlayButtonStatus, SimulationParam, TrainerResponse } from "../../../proto/zwift_hub";
 import { TBleSensor } from "../../base/sensor";
 import { BleProtocol, IBlePeripheral  } from "../../types";
 import { beautifyUUID, fullUUID  } from "../../utils";
@@ -48,6 +48,8 @@ export class BleZwiftPlaySensor extends TBleSensor {
     protected initHubServicePromise: Promise<boolean>
     protected pairPromise: Promise<boolean>
     protected subscribePromise: Promise<boolean>
+    protected prevHubSettings: DeviceSettingsSubContent|undefined
+    protected prevcWax10000: number
 
     constructor (peripheral:IBlePeripheral|TBleSensor , props?:BleZwiftPlaySensorProps) {
         
@@ -135,7 +137,20 @@ export class BleZwiftPlaySensor extends TBleSensor {
             if (inclineX100===0 || Number.isNaN(inclineX100)) inclineX100 = 1
             
 
-            const simulation:SimulationParam = { inclineX100, crrx100000, cWax10000,windx100}
+            // only send things that have changed
+            const simulation:SimulationParam = {}
+            if (inclineX100 !== this.prevHubSettings?.inclineX100) {
+                simulation.inclineX100 = inclineX100
+            }
+            if ( crrx100000 !== this.prevHubSettings?.crrx100000) 
+                simulation.crrx100000 = crrx100000
+            if ( cWax10000 !== this.prevcWax10000) {
+                simulation.cWax10000 = cWax10000
+                this.prevcWax10000 = cWax10000
+            }
+            if ( windx100!== this.prevHubSettings?.windx100) {
+                simulation.windx100 = windx100
+            }
 
             await this.sendHubCommand( {simulation})
             await this.requestDataUpdate(512)
@@ -144,6 +159,11 @@ export class BleZwiftPlaySensor extends TBleSensor {
             this.logger.logEvent( {message:"error",fn:'setSimulationData',data, error:err.message,stack:err.stack} );                        
         }
 
+    }
+
+    async setIncline( incline:number) {
+        const inclineX100 = Math.round(incline *100);
+        await this.setSimulationData({inclineX100})
     }
 
     async setGearRatio( gearRatio:number):Promise<number> {
@@ -158,11 +178,23 @@ export class BleZwiftPlaySensor extends TBleSensor {
             const gearRatioX10000 = Math.round(gearRatio*10000)
             const bikeWeightx100 = 10*100        
             const riderWeightx100 = 75*100
-            const command:HubCommand = { 
-                physical: {bikeWeightx100,gearRatioX10000,riderWeightx100}
+
+            // only send was has changed
+            const physical:PhysicalParam = {}
+            if (bikeWeightx100!==this.prevHubSettings?.bikeWeightx100)
+                physical.bikeWeightx100 = bikeWeightx100
+            if (riderWeightx100!==this.prevHubSettings?.riderWeightx100)
+                physical.riderWeightx100 = riderWeightx100
+            if (gearRatioX10000!==this.prevHubSettings?.gearRatiox10000) {
+                physical.gearRatioX10000 = gearRatioX10000
             }
 
-            await this.sendHubCommand( command)
+            if (Object.keys(physical).length===0) {
+                // no update
+                return
+            }
+
+            await this.sendHubCommand( {physical})
             await this.requestDataUpdate(512)
         }
         catch(err) {
@@ -378,6 +410,7 @@ export class BleZwiftPlaySensor extends TBleSensor {
 
                 this.emit('hub-settings', si?.subContent)
                 this.logEvent({message:'hub settings update', settings:si?.subContent})
+                this.prevHubSettings = si?.subContent
             }
 
         // PB
@@ -638,6 +671,7 @@ export class BleZwiftPlaySensor extends TBleSensor {
         this.isHubServiceSubscribed = false
         this.isHubServiceActive = false
         delete this.initHubServicePromise
+        delete this.prevHubSettings
 
     }
 
