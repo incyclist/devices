@@ -15,7 +15,7 @@
 		"dev": "nodemon --watch src -e ts,ejs --exec npm start"
 	},
 	"dependencies": {
-		"@stoprocent/bleno": "^0.8.5",
+		"@stoprocent/bleno": "^0.12.1",
 		"dotenv": "^16.4.5",
 		"incyclist-devices": "file:../.."
 	},
