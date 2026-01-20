@@ -150,6 +150,10 @@ export class BlePeripheral implements IBlePeripheral {
             return
 
         this.disconnectedSignalled = true
+        
+        // ensure that this is logged
+        this.ble.resumeLogging()
+
         this.logEvent({message:'peripheral disconnected', address:this.getPeripheral()?.address })
         try {
             await this.disconnect(true)

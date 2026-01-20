@@ -478,6 +478,16 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
 
     }
 
+    async restart(pause?:number):Promise<boolean> {
+
+        // make sure that the sensor is unregistering all subscriptions (otherwise it might re-use)
+        const sensor = this.getSensor();
+        await sensor.getPeripheral().disconnect()
+
+        const res = await super.restart(pause)
+        return res;
+    }
+
     async stop(): Promise<boolean> { 
         this.logEvent( {message:'stopping device', device:this.getName(),interface:this.getInterface()})
 
