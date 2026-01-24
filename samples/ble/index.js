@@ -5,7 +5,6 @@ const os = require('os')
 const Noble = require('noble/lib/noble');
 const {WinrtBindings} = require('./bindings')
 const defaultBinding = require('noble/lib/resolve-bindings');
-const { sleep } = require('incyclist-devices/lib/utils/utils');
 const { MockBinding } = require('incyclist-devices/lib/ble/bindings');
 const { HrMock } = require('incyclist-devices/lib/ble/hr/mock');
 const platform = os.platform()
@@ -13,7 +12,9 @@ const platform = os.platform()
 EventLogger.registerAdapter(new ConsoleAdapter()) 
 const Logger = new EventLogger('BleSampleApp')
 
-
+const sleep = (ms) => { 
+    return new Promise( resolve => setTimeout(resolve, ms))
+};
 
 const parseArgs = ()=> {
     const args = process.argv.slice(2)
