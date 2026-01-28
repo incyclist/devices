@@ -1,7 +1,7 @@
 const {EventLogger,ConsoleAdapter} = require( 'gd-eventlog');
 const { autoDetect } = require('@serialport/bindings-cpp')
 const { AdapterFactory, InterfaceFactory} = require('incyclist-devices');
-const { Daum8iMock:DaumPremiumMock, Daum8MockSimulator: DaumPremiumSimulator, Daum8iMockImpl: DaumPremiumMockImpl } = require('incyclist-devices/lib/serial/daum/premium/mock');
+const { DaumPremiumMock, DaumPremiumSimulator, DaumPremiumMockImpl } = require('incyclist-devices');
 
 EventLogger.registerAdapter(new ConsoleAdapter()) 
 

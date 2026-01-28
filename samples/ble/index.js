@@ -5,8 +5,7 @@ const os = require('os')
 const Noble = require('noble/lib/noble');
 const {WinrtBindings} = require('./bindings')
 const defaultBinding = require('noble/lib/resolve-bindings');
-const { MockBinding } = require('incyclist-devices/lib/ble/bindings');
-const { HrMock } = require('incyclist-devices/lib/ble/hr/mock');
+const { BleHrMock,MockBinding } = require('incyclist-devices');
 const platform = os.platform()
 
 EventLogger.registerAdapter(new ConsoleAdapter()) 
@@ -56,7 +55,7 @@ const initInterface = ()=> {
 
     if (process.env.USE_MOCK) {
         binding = MockBinding
-        MockBinding.addMock(HrMock)
+        MockBinding.addMock(BleHrMock)
     }
     else {
         // Select binding (based on OS)
