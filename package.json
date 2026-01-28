@@ -42,6 +42,9 @@
         "typescript": "^5.9.2",
         "vitest": "^4.0.18"
     },
+    "files": [
+        "lib/"
+    ],
     "module": "./lib/esm/index.js",
     "main": "./lib/cjs/index.js",
     "types": "./lib/types/index.d.ts",
