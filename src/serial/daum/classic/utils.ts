@@ -1,4 +1,4 @@
-import {DeviceType,IncyclistBikeData} from '../../../types'
+import {DeviceType,IncyclistBikeData} from '../../../types/index.js'
 
 export const DEFAULT_AGE         = 30;
 export const DEFAULT_USER_WEIGHT = 75;

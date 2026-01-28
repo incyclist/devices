@@ -1,9 +1,9 @@
-import ICyclingMode, { CyclingModeConfig, CyclingModeProperyType, UpdateRequest } from "./types";
-import PowerBasedCyclingModeBase from "./power-base";
-import { IAdapter, IncyclistBikeData } from "../types";
-import calc, { calculateVirtualSpeed } from "../utils/calculations";
-import { useFeatureToggle } from "../features";
-import { intVal } from "../utils/utils";
+import ICyclingMode, { CyclingModeConfig, CyclingModeProperyType, UpdateRequest } from "./types.js";
+import PowerBasedCyclingModeBase from "./power-base.js";
+import { IAdapter, IncyclistBikeData } from "../types/index.js";
+import calc, { calculateVirtualSpeed } from "../utils/calculations.js";
+import { useFeatureToggle } from "../features/index.js";
+import { intVal } from "../utils/utils.js";
 
 
 export type VirtshiftMode = 'Disabled' |  'SlopeDelta' | 'Adapter' | 'Simulated';
@@ -255,8 +255,8 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
             return
         }
 
-        if (this.data.pedalRpm!==this.prevData.pedalRpm) {
-            this.logger.logEvent({message:'cadence changed', cadence:this.data.pedalRpm, prevCadence:this.prevData.pedalRpm})            
+        if (this.data?.pedalRpm!==this.prevData?.pedalRpm) {
+            this.logger.logEvent({message:'cadence changed', cadence:this.data?.pedalRpm, prevCadence:this.prevData?.pedalRpm})            
             //this.calculateSimulatedPower('cadence')
             request.slope = request.slope??this.data.slope
         }

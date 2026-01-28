@@ -1,4 +1,4 @@
-import { IAdapter,IncyclistBikeData } from "../types";
+import { IAdapter,IncyclistBikeData } from "../types/index.js";
 
 
 export type UpdateRequest = {

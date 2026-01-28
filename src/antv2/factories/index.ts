@@ -1,1 +1,1 @@
-export * from './adapter-factory'
+export * from './adapter-factory.js'

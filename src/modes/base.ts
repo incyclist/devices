@@ -1,5 +1,5 @@
-import { IncyclistBikeData, IAdapter } from "../types";
-import ICyclingMode, { CyclingMode, CyclingModeConfig, CyclingModeProperty, Settings, UpdateRequest } from "./types";
+import { IncyclistBikeData, IAdapter } from "../types/index.js";
+import ICyclingMode, { CyclingMode, CyclingModeConfig, CyclingModeProperty, Settings, UpdateRequest } from "./types.js";
 
 export abstract class CyclingModeBase extends CyclingMode implements ICyclingMode {
     adapter: IAdapter

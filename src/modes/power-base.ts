@@ -1,10 +1,10 @@
-import { CyclingModeConfig, Settings, UpdateRequest } from './types';
-import { IncyclistBikeData,IAdapter } from "../types";
+import { CyclingModeConfig, Settings, UpdateRequest } from './types.js';
+import { IncyclistBikeData,IAdapter } from "../types/index.js";
 
-import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../base/consts";
-import calc from '../utils/calculations'
+import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../base/consts.js";
+import calc from '../utils/calculations.js'
 import { EventLogger } from 'gd-eventlog';
-import { CyclingModeBase } from './base';
+import { CyclingModeBase } from './base.js';
 
 const MIN_SPEED = 10;
 

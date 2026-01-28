@@ -1,8 +1,8 @@
 /* istanbul ignore file */
 
-import { DeviceProperties } from "../../../types";
-import { Queue } from "../../../utils/utils";
-import { Request, Response } from "../../base/comms";
+import { DeviceProperties } from "../../../types/index.js";
+import { Queue } from "../../../utils/utils.js";
+import { Request, Response } from "../../base/comms.js";
 
 export type Point = {
     lat?: number;

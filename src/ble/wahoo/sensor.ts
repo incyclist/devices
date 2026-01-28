@@ -1,12 +1,12 @@
-import { LegacyProfile } from "../../antv2/types";
-import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/consts";
-import { CSP, CSP_MEASUREMENT, FTMS_CP, FTMS_FEATURE, FTMS_STATUS, HR_MEASUREMENT, INDOOR_BIKE_DATA, POWER_RANGE, RES_LEVEL_RANGE } from "../consts";
-import { WAHOO_ADVANCED_FTMS, WAHOO_ADVANCED_TRAINER_CP,OpCode, ErgWriteDelay } from './consts'
-import { CrankData } from "../cp";
-import { IndoorBikeData } from "../fm";
-import BleFitnessMachineDevice from "../fm/sensor";
-import { BleProtocol, BleWriteProps  } from "../types";
-import { beautifyUUID} from "../utils";
+import { LegacyProfile } from "../../antv2/types.js";
+import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/consts.js";
+import { CSP, CSP_MEASUREMENT, FTMS_CP, FTMS_FEATURE, FTMS_STATUS, HR_MEASUREMENT, INDOOR_BIKE_DATA, POWER_RANGE, RES_LEVEL_RANGE } from "../consts.js";
+import { WAHOO_ADVANCED_FTMS, WAHOO_ADVANCED_TRAINER_CP,OpCode, ErgWriteDelay } from './consts.js'
+import { CrankData } from "../cp/index.js";
+import { IndoorBikeData } from "../fm/index.js";
+import BleFitnessMachineDevice from "../fm/sensor.js";
+import { BleProtocol, BleWriteProps  } from "../types.js";
+import { beautifyUUID} from "../utils.js";
 
 export default class BleWahooDevice extends BleFitnessMachineDevice {
     static readonly profile: LegacyProfile = 'Smart Trainer'

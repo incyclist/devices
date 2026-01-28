@@ -1,5 +1,5 @@
-import { CrankData } from "../../cp";
-import { CharacteristicParser, Feature } from "../types";
+import { CrankData } from "../../cp/index.js";
+import { CharacteristicParser, Feature } from "../types.js";
 
 export type CyclingCadenceAndSpeed = {
     cadence?: number    // rpm

@@ -1,16 +1,15 @@
 import { EventLogger } from "gd-eventlog";
-import SerialComms from "../comms";
-import { IncyclistBikeData } from "../../../types";
-import { SerialDeviceSettings } from "../../types";
-import { Command } from "../types";
-import { runWithRetries, sleep } from "../../../utils/utils";
-import PowerMeterCyclingMode from "../../../modes/power-meter";
-import ERGCyclingMode from "../../../modes/kettler-erg";
 
-import { SerialIncyclistDevice } from "../../base/adapter";
-import SerialInterface from "../../base/serial-interface";
-import { IncyclistCapability,ControllerConfig, IAdapter,IncyclistAdapterData,DeviceProperties } from "../../../types";
-import { UpdateRequest } from "../../../modes/types";
+import SerialComms from "../comms.js";
+import { SerialDeviceSettings } from "../../types.js";
+import { Command } from "../types.js";
+import { runWithRetries, sleep } from "../../../utils/utils.js";
+import PowerMeterCyclingMode from "../../../modes/power-meter.js";
+import ERGCyclingMode from "../../../modes/kettler-erg.js";
+import { SerialIncyclistDevice } from "../../base/adapter.js";
+import SerialInterface from "../../base/serial-interface.js";
+import { IncyclistBikeData, IncyclistCapability,ControllerConfig, IAdapter,IncyclistAdapterData,DeviceProperties } from "../../../types/index.js";
+import { UpdateRequest } from "../../../modes/types.js";
 
 export interface KettlerRacerCommand extends Command  {
     

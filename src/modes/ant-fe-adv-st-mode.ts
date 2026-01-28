@@ -1,6 +1,6 @@
-import { IncyclistDeviceAdapter } from "../base/adpater";
-import SmartTrainerCyclingMode from "./antble-smarttrainer";
-import { UpdateRequest } from "./types";
+import { IncyclistDeviceAdapter } from "../base/adpater.js";
+import SmartTrainerCyclingMode from "./antble-smarttrainer.js";
+import { UpdateRequest } from "./types.js";
 
 const MAX_DEVIATION = 10;
 

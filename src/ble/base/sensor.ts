@@ -1,9 +1,10 @@
-import { LegacyProfile } from "../../antv2/types";
-import { sleep } from "../../utils/utils";
-import { BleWriteProps, IBlePeripheral, BleProtocol, IBleSensor} from "../types";
+import { EventEmitter } from "node:events";
 import { EventLogger } from "gd-eventlog";
-import { beautifyUUID } from "../utils";
-import EventEmitter from "events";
+
+import { LegacyProfile } from "../../antv2/types.js";
+import { sleep } from "../../utils/utils.js";
+import { BleWriteProps, IBlePeripheral, BleProtocol, IBleSensor} from "../types.js";
+import { beautifyUUID } from "../utils.js";
 
 export class TBleSensor extends EventEmitter implements IBleSensor {
 

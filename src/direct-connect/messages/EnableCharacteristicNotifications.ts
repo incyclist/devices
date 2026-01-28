@@ -1,6 +1,6 @@
-import { DC_MESSAGE_ENABLE_CHARACTERISTIC_NOTIFICATIONS } from "../consts";
-import { TDCBody, TDCRequest, TDCResponse } from "../types";
-import { Message } from "./message";
+import { DC_MESSAGE_ENABLE_CHARACTERISTIC_NOTIFICATIONS } from "../consts.js";
+import { TDCBody, TDCRequest, TDCResponse } from "../types.js";
+import { Message } from "./message.js";
 
 export type TDCEnableCharacteristicNotificationsRequest = TDCRequest<TDCEnableCharacteristicNotificationsRequestBody>
 export type TDCEnableCharacteristicNotificationsResponse = TDCResponse<TDCEnableCharacteristicNotificationsResponseBody>

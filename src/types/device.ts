@@ -1,7 +1,7 @@
 import { EventLogger } from "gd-eventlog"
-import { IncyclistInterface } from "./interface"
-import { User } from "./user"
-import { IncyclistCapability } from "./capabilities"
+import { IncyclistInterface } from "./interface.js"
+import { User } from "./user.js"
+import { IncyclistCapability } from "./capabilities.js"
 
 export enum INTERFACE  {
     SERIAL= 'serial',

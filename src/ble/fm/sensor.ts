@@ -1,11 +1,11 @@
-import { LegacyProfile } from "../../antv2/types";
-import { BleProtocol, BleWriteProps  } from "../types";
-import { IndoorBikeData, IndoorBikeFeatures } from "./types";
-import { FTMS, FTMS_CP, FTMS_STATUS, INDOOR_BIKE_DATA } from "../consts";
-import { TBleSensor } from "../base/sensor";
-import { beautifyUUID, matches } from "../utils";
-import { IndoorBikeDataFlag, FitnessMachineStatusOpCode, FitnessMachineFeatureFlag, TargetSettingFeatureFlag, OpCode, OpCodeResut as OpCodeResult, ZWIFT_PLAY_UUID } from "./consts";
-import { InteruptableTask, TaskState } from "../../utils/task";
+import { LegacyProfile } from "../../antv2/types.js";
+import { BleProtocol, BleWriteProps  } from "../types.js";
+import { IndoorBikeData, IndoorBikeFeatures } from "./types.js";
+import { FTMS, FTMS_CP, FTMS_STATUS, INDOOR_BIKE_DATA } from "../consts.js";
+import { TBleSensor } from "../base/sensor.js";
+import { beautifyUUID, matches } from "../utils.js";
+import { IndoorBikeDataFlag, FitnessMachineStatusOpCode, FitnessMachineFeatureFlag, TargetSettingFeatureFlag, OpCode, OpCodeResut as OpCodeResult, ZWIFT_PLAY_UUID } from "./consts.js";
+import { InteruptableTask, TaskState } from "../../utils/task.js";
 
 
 const BLE_COMMAND_TIMEOUT = 800;  // ms

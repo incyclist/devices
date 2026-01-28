@@ -1,10 +1,10 @@
 import {EventLogger} from 'gd-eventlog';
-import BleAdapter from '../base/adapter';
-import {  BleDeviceSettings, IBlePeripheral } from '../types';
-import { DeviceProperties,IncyclistCapability, IAdapter, IncyclistAdapterData  } from '../../types';
-import { LegacyProfile } from '../../antv2/types';
-import {BleCyclingSpeedCadenceDevice} from './sensor';
-import { CSCData } from './types';
+import BleAdapter from '../base/adapter.js';
+import {  BleDeviceSettings, IBlePeripheral } from '../types.js';
+import { DeviceProperties,IncyclistCapability, IAdapter, IncyclistAdapterData  } from '../../types/index.js';
+import { LegacyProfile } from '../../antv2/types.js';
+import {BleCyclingSpeedCadenceDevice} from './sensor.js';
+import { CSCData } from './types.js';
 
 
 export class BleCSCAdapter extends BleAdapter<CSCData,BleCyclingSpeedCadenceDevice>{  

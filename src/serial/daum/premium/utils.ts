@@ -1,6 +1,6 @@
-import { Gender, User,IncyclistBikeData } from "../../../types";
+import { Gender, User,IncyclistBikeData } from "../../../types/index.js";
 import FileTime from 'win32filetime'
-import { Route } from "./types";
+import { Route } from "./types.js";
 
 const sum = (arr) => arr.reduce( (a,b) => a+b,0);
 

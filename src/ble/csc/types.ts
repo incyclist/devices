@@ -1,4 +1,4 @@
-import { BleDeviceData } from "../base/types";
+import { BleDeviceData } from "../base/types.js";
 
 export interface CSCData extends BleDeviceData  {
     speed?: number,     // m/s

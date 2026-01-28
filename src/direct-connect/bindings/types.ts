@@ -1,5 +1,5 @@
-import EventEmitter from "events"
-import { PeripheralAnnouncement } from "../../ble/types"
+import EventEmitter from "node:events"
+import { PeripheralAnnouncement } from "../../ble/types.js"
 
 export interface Socket extends EventEmitter {
     connect(port: number, host:string): Socket

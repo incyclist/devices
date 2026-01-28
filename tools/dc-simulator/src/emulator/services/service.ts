@@ -1,4 +1,4 @@
-import { IService, ICharacteristic, TValue, IServiceDefinition, IEmulator } from "emulator/types";
+import { IService, ICharacteristic, TValue, IServiceDefinition, IEmulator } from "emulator/types.js";
 
 
 export class Service implements IService {

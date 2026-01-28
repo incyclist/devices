@@ -1,5 +1,5 @@
-import EventEmitter from "events"
-import { resolveNextTick } from "./utils"
+import EventEmitter from "node:events"
+import { resolveNextTick } from "./utils.js"
 
 export interface TaskState {
     result? : 'completed' |'timeout' | 'stopped' | 'error' | 'paused'

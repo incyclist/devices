@@ -4,7 +4,7 @@ import { TValue } from "../types.js";
 
 export class StaticReadCharacteristic extends Characteristic<TValue> {
 
-    public description: string
+    declare public description: string
 	constructor(uuid, description, value) {
 		super({
 			uuid: uuid,

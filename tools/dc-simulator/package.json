@@ -2,6 +2,7 @@
 	"name": "dc-simulator",
 	"version": "0.1.0",
 	"description": "Simulates a Smart Trainer exposed by DC",
+    "type": "module",
 	"author": {
 		"name": "Guido Doumen",
 		"email": "incyclist@doumen-laumen.de"

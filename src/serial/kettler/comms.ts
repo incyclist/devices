@@ -1,8 +1,8 @@
 import { EventLogger } from "gd-eventlog";
-import { hexstr, Queue } from "../../utils/utils";
-import { Command } from "./types";
-import EventEmitter from "events";
-import { SerialInterface } from "..";
+import { hexstr, Queue } from "../../utils/utils.js";
+import { Command } from "./types.js";
+import EventEmitter from "node:events";
+import { SerialInterface } from "../index.js";
 import { ReadlineParser } from '@serialport/parser-readline'
 
 const DEFAULT_RCV_TIMEOUT = 1500;

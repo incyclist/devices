@@ -1,9 +1,9 @@
 import { BicyclePowerSensorState,  Profile } from "incyclist-ant-plus";
-import AntAdapter from "../base/adapter";
-import PowerMeterCyclingMode from "../../modes/power-meter";
-import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "../types";
-import { IncyclistCapability,ControllerConfig,IncyclistBikeData, IncyclistAdapterData } from "../../types";
-import { UpdateRequest } from "../../modes/types";
+import AntAdapter from "../base/adapter.js";
+import PowerMeterCyclingMode from "../../modes/power-meter.js";
+import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "../types.js";
+import { IncyclistCapability,ControllerConfig,IncyclistBikeData, IncyclistAdapterData } from "../../types/index.js";
+import { UpdateRequest } from "../../modes/types.js";
 
 export default class AntPwrAdapter extends AntAdapter<BicyclePowerSensorState> {
 

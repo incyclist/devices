@@ -1,8 +1,8 @@
-import { BleProperty } from "../../ble/types";
-import { propertyFromVal, propertyVal } from "../../ble/utils";
-import { DC_MESSAGE_DISCOVER_CHARACTERISTICS } from "../consts";
-import { TDCBody, TDCRequest, TDCResponse } from "../types";
-import { Message } from "./message";
+import { BleProperty } from "../../ble/types.js";
+import { propertyFromVal, propertyVal } from "../../ble/utils.js";
+import { DC_MESSAGE_DISCOVER_CHARACTERISTICS } from "../consts.js";
+import { TDCBody, TDCRequest, TDCResponse } from "../types.js";
+import { Message } from "./message.js";
 
 export type TDCDiscoverCharacteristicsRequest = TDCRequest<TDCDiscoverCharacteristicsRequestBody>
 export type TDCDiscoverCharacteristicsResponse = TDCResponse<TDCDiscoverCharacteristicsResponseBody>

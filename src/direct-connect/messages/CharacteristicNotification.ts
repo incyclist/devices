@@ -1,6 +1,6 @@
-import { DC_MESSAGE_CHARACTERISTIC_NOTIFICATION } from "../consts";
-import { EmptyBody, TDCBody, TDCResponse } from "../types";
-import { Message } from "./message";
+import { DC_MESSAGE_CHARACTERISTIC_NOTIFICATION } from "../consts.js";
+import { EmptyBody, TDCBody, TDCResponse } from "../types.js";
+import { Message } from "./message.js";
 
 export type TDCCharacteristicNotification = TDCResponse<TDCCharacteristicNotificationBody>
 export interface TDCCharacteristicNotificationBody extends TDCBody {

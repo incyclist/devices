@@ -1,7 +1,7 @@
-import IncyclistDevice from "../../base/adpater";
-import { DeviceProperties } from "../../types";
-import SerialInterface from "./serial-interface";
-import { SerialDeviceSettings } from "../types";
+import IncyclistDevice from "../../base/adpater.js";
+import { DeviceProperties } from "../../types/index.js";
+import SerialInterface from "./serial-interface.js";
+import { SerialDeviceSettings } from "../types.js";
 
 const DEFAULT_PULL_FREQUENCY = 1000;
 

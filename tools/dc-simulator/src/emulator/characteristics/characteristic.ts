@@ -1,6 +1,6 @@
-import { EventEmitter } from "stream";
-import { BleProperty } from "../../../../../lib/ble/types";
+import { EventEmitter } from "node:events";
 import { Descriptor, ICharacteristic, ICharacteristicDefinition, IEmulator } from "../types";
+import { BleProperty } from "../../../../../lib/types/ble/types";
 
 export class Characteristic<T> implements ICharacteristic<T>{
 

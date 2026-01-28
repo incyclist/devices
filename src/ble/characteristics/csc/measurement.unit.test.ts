@@ -1,4 +1,4 @@
-import {CscMeasurement} from './measurement'
+import {CscMeasurement} from './measurement.js'
 
 describe('BleCscMeasurement',()=>{
 

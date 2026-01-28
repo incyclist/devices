@@ -1,7 +1,7 @@
-import ICyclingMode, { Settings, UpdateRequest } from './types';
-import { IncyclistBikeData } from "../types";
-import PowerBasedCyclingModeBase from './power-base';
-import { IncyclistDeviceAdapter } from '../base/adpater';
+import ICyclingMode, { Settings, UpdateRequest } from './types.js';
+import { IncyclistBikeData } from "../types/index.js";
+import PowerBasedCyclingModeBase from './power-base.js';
+import { IncyclistDeviceAdapter } from '../base/adpater.js';
 
 export default class PowerMeterCyclingMode extends PowerBasedCyclingModeBase implements ICyclingMode {
 

@@ -1,9 +1,9 @@
 import { EventLogger } from "gd-eventlog";
 
-import { CyclingModeProperyType, UpdateRequest } from "./types";
-import { IncyclistBikeData } from "../types";
-import { Simulator } from "../simulator/Simulator";
-import PowerBasedCyclingModeBase from "./power-base";
+import { CyclingModeProperyType, UpdateRequest } from "./types.js";
+import { IncyclistBikeData } from "../types/index.js";
+import { Simulator } from "../simulator/Simulator.js";
+import PowerBasedCyclingModeBase from "./power-base.js";
 
 const MIN_SPEED = 10;
 
@@ -30,9 +30,7 @@ export default class SimulatorCyclingMode extends PowerBasedCyclingModeBase {
             {key:'bikeType',name: 'Bike Type', description: '', type: CyclingModeProperyType.SingleSelect, options:['Race','Mountain','Triathlon'], default: 'Race'}
         ]
     }
-    logger: EventLogger;
-    data: IncyclistBikeData ;
-    prevRequest: UpdateRequest;
+    declare data: IncyclistBikeData ;
     prevUpdateTS: number = 0;
     event: ERGEvent ={};
 

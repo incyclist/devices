@@ -1,6 +1,6 @@
-import ICyclingMode, {  CyclingModeProperyType, UpdateRequest } from "./types";
-import PowerBasedCyclingModeBase from "./power-base";
-import { IncyclistDeviceAdapter } from "../base/adpater";
+import ICyclingMode, {  CyclingModeProperyType, UpdateRequest } from "./types.js";
+import PowerBasedCyclingModeBase from "./power-base.js";
+import { IncyclistDeviceAdapter } from "../base/adpater.js";
 
 
 export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements ICyclingMode {

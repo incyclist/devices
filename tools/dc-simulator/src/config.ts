@@ -1,8 +1,8 @@
-import fs from 'fs/promises'
-import { getAddress } from './net'
-import { hostname } from 'os'
+import fs from 'node:fs/promises'
+import { getAddress } from './net.js'
+import { hostname } from 'node:os'
 import { beautifyUUID } from 'incyclist-devices'
-import { Emulator, EmulatorOptions } from './emulator'
+import { Emulator, EmulatorOptions } from './emulator/index.js'
 
 const createRawText = (txt) => {
     const buffer = Buffer.from(txt,'utf8')

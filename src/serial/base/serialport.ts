@@ -1,7 +1,6 @@
 
-import { BindingInterface } from '@serialport/bindings-interface'
-import { InterfaceBinding, InterfaceImplementation } from '../types';
-const { SerialPortStream } = require('@serialport/stream')
+import { InterfaceBinding, InterfaceImplementation } from '../types.js';
+import { SerialPortStream } from '@serialport/stream'
 
 const DEFAULT_BAUD_RATE = 9600
 
@@ -24,7 +23,7 @@ export default class SerialPortProvider {
         this.implemenations = []
     }
 
-    setBinding( ifaceName: string,binding: BindingInterface): void {
+    setBinding( ifaceName: string,binding: any): void {
         const existing = this.interfaces.find( ib => ib.name===ifaceName)
         if (existing)
             existing.binding = binding
@@ -32,7 +31,7 @@ export default class SerialPortProvider {
             this.interfaces.push({name:ifaceName,binding})
     }
 
-    getBinding( ifaceName:string ):BindingInterface {
+    getBinding( ifaceName:string ):any {
         const existing = this.interfaces.find( ib => ib.name===ifaceName)
         if (existing)
             return existing.binding

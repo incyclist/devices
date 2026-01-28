@@ -1,4 +1,4 @@
-import { NetworkInterfaceInfo, networkInterfaces } from "os"
+import { NetworkInterfaceInfo, networkInterfaces } from "node:os"
 
 
 /**

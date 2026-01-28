@@ -1,7 +1,7 @@
-import { DC_ERROR_INVALID_MESSAGE_TYPE, DC_MESSAGE_DISCOVER_SERVICES } from "../consts";
-import { EmptyBody, TDCBody, TDCMessageHeader, TDCRequest, TDCResponse } from "../types";
-import { IllegalMessageError } from "./error";
-import { Message } from "./message";
+import { DC_ERROR_INVALID_MESSAGE_TYPE, DC_MESSAGE_DISCOVER_SERVICES } from "../consts.js";
+import { EmptyBody, TDCBody, TDCMessageHeader, TDCRequest, TDCResponse } from "../types.js";
+import { IllegalMessageError } from "./error.js";
+import { Message } from "./message.js";
 
 export type TDCDiscoverServicesRequest = TDCRequest<EmptyBody>
 export type TDCDiscoverServicesResponse = TDCResponse<TDCDiscoverServicesResponseBody>

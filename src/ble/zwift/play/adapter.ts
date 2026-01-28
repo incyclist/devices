@@ -1,10 +1,10 @@
 import {EventLogger} from 'gd-eventlog';
-import { BleDeviceData } from '../../base/types';
-import { LegacyProfile } from '../../../antv2/types';
-import BleAdapter from '../../base/adapter';
-import { BleZwiftPlaySensor } from './sensor';
-import { DeviceProperties, IAdapter, IncyclistAdapterData, IncyclistCapability } from '../../../types';
-import { BleDeviceSettings,  IBlePeripheral } from '../../types';
+import { BleDeviceData } from '../../base/types.js';
+import { LegacyProfile } from '../../../antv2/types.js';
+import BleAdapter from '../../base/adapter.js';
+import { BleZwiftPlaySensor } from './sensor.js';
+import { DeviceProperties, IAdapter, IncyclistAdapterData, IncyclistCapability } from '../../../types/index.js';
+import { BleDeviceSettings,  IBlePeripheral } from '../../types.js';
 
 
 export class ZwiftPlayAdapter extends BleAdapter<BleDeviceData,BleZwiftPlaySensor>{  

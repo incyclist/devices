@@ -1,6 +1,6 @@
-import { DC_MESSAGE_READ_CHARACTERISTIC } from "../consts";
-import { TDCBody, TDCRequest, TDCResponse } from "../types";
-import { Message } from "./message";
+import { DC_MESSAGE_READ_CHARACTERISTIC } from "../consts.js";
+import { TDCBody, TDCRequest, TDCResponse } from "../types.js";
+import { Message } from "./message.js";
 
 export type TDCReadCharacteristicRequest = TDCRequest<TDCReadCharacteristicRequestBody>
 export type TDCReadCharacteristicResponse = TDCResponse<TDCReadCharacteristicResponseBody>

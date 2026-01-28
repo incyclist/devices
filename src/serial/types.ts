@@ -1,8 +1,9 @@
 import { EventLogger } from "gd-eventlog"
-import SerialInterface from "./base/serial-interface"
 import { BindingInterface } from "@serialport/bindings-interface"
 import { SerialPortStream } from "@serialport/stream"
-import { DeviceSettings, IncyclistScanProps, InterfaceProps } from "../types"
+
+import { DeviceSettings, IncyclistScanProps, InterfaceProps } from "../types/index.js"
+import SerialInterface from "./base/serial-interface.js"
 
 
 export type SerialCommProps = {

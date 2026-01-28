@@ -1,5 +1,5 @@
-import { bit } from "../../utils"
-import { CharacteristicParser } from "../types"
+import { bit } from "../../utils.js"
+import { CharacteristicParser } from "../types.js"
 
 
 export type BleCSCFeatures = {

@@ -1,12 +1,12 @@
-import { LegacyProfile } from "../../antv2/types";
-import { CSC_MEASUREMENT, CSP_MEASUREMENT, FTMS_STATUS, INDOOR_BIKE_DATA } from "../consts";
-import { TACX_FE_C_BLE, TACX_FE_C_RX, TACX_FE_C_TX , SYNC_BYTE, ANTMessages, DEFAULT_CHANNEL, ACKNOWLEDGED_DATA } from "./consts";
-import { CrankData } from "../cp";
-import { IndoorBikeData } from "../fm";
-import BleFitnessMachineDevice from "../fm/sensor";
-import { BleProtocol } from "../types";
-import { beautifyUUID, matches } from "../utils";
-import { BleFeBikeData, FECState } from "./types";
+import { LegacyProfile } from "../../antv2/types.js";
+import { CSC_MEASUREMENT, CSP_MEASUREMENT, FTMS_STATUS, INDOOR_BIKE_DATA } from "../consts.js";
+import { TACX_FE_C_BLE, TACX_FE_C_RX, TACX_FE_C_TX , SYNC_BYTE, ANTMessages, DEFAULT_CHANNEL, ACKNOWLEDGED_DATA } from "./consts.js";
+import { CrankData } from "../cp/index.js";
+import { IndoorBikeData } from "../fm/index.js";
+import BleFitnessMachineDevice from "../fm/sensor.js";
+import { BleProtocol } from "../types.js";
+import { beautifyUUID, matches } from "../utils.js";
+import { BleFeBikeData, FECState } from "./types.js";
 
 export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineDevice {
     static readonly profile: LegacyProfile = 'Smart Trainer'
@@ -19,7 +19,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
     protected currentCrankData: CrankData = undefined
     protected timeOffset: number = 0
     protected tsPrevWrite = undefined;  
-    protected data: BleFeBikeData;
+    declare protected data: BleFeBikeData;
     protected hasFECData: boolean
     protected messageCnt: number
     protected currentState:FECState

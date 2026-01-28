@@ -1,7 +1,6 @@
 import { Characteristic } from "./characteristic.js";
 import { TValue } from "../types.js";
-import { HubRidingData } from "../../../../../lib/proto/zwift_hub.js";
-
+import {HubRidingData} from 'incyclist-devices'
 
 
 export interface ZwiftPlayUpdate extends TValue {

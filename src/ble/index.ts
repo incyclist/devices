@@ -1,15 +1,15 @@
 /* istanbul ignore file */
 
-import {BleHrmAdapter, BleHrmComms} from './hr'
-import {BlePwrAdapter, BlePwrComms} from './cp'
-import {BleFmAdapter,BleFmComms} from './fm'
-import {BleWahooAdapter,BleWahooComms} from './wahoo'
-import { BleTacxAdapter, BleTacxComms } from './tacx'
-import { BleDeviceSettings, BleInterfaceProps } from './types'
-import { BleInterface, BleInterfaceFactory } from '../ble/base/interface'
-import { BleMultiTransportInterfaceFactory,BleAdapterFactory } from './factories'
-import { BleCSCAdapter, BleCyclingSpeedCadenceDevice } from './csc'
-import { BleZwiftPlaySensor, ZwiftPlayAdapter } from './zwift/play'
+import {BleHrmAdapter, BleHrmComms} from './hr/index.js'
+import {BlePwrAdapter, BlePwrComms} from './cp/index.js'
+import {BleFmAdapter,BleFmComms} from './fm/index.js'
+import {BleWahooAdapter,BleWahooComms} from './wahoo/index.js'
+import { BleTacxAdapter, BleTacxComms } from './tacx/index.js'
+import { BleDeviceSettings, BleInterfaceProps } from './types.js'
+import { BleInterface, BleInterfaceFactory } from '../ble/base/interface.js'
+import { BleMultiTransportInterfaceFactory,BleAdapterFactory } from './factories/index.js'
+import { BleCSCAdapter, BleCyclingSpeedCadenceDevice } from './csc/index.js'
+import { BleZwiftPlaySensor, ZwiftPlayAdapter } from './zwift/play/index.js'
 
 
 
@@ -26,7 +26,7 @@ import { BleZwiftPlaySensor, ZwiftPlayAdapter } from './zwift/play'
 
 BleMultiTransportInterfaceFactory.register('ble',BleInterfaceFactory)
 
-export * from './utils'
+export * from './utils.js'
 
 export {
     BleAdapterFactory,

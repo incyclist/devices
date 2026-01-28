@@ -1,5 +1,5 @@
-import { BleMockPeripheral } from "../bindings/mock";
-import { PrimaryService, StaticReadCharacteristic,MockCharacteristic, StaticNotifyCharacteristic } from "../bindings/types";
+import { BleMockPeripheral } from "../bindings/mock.js";
+import { PrimaryService, StaticReadCharacteristic,MockCharacteristic, StaticNotifyCharacteristic } from "../bindings/types.js";
 
 
 class HeartRateMeasuremenCharacteristic extends StaticNotifyCharacteristic {

@@ -1,5 +1,5 @@
 /* istanbul ignore file */
 
-import AntFEAdapter from './adapter'
+import AntFEAdapter from './adapter.js'
 
 export default AntFEAdapter

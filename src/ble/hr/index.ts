@@ -1,6 +1,6 @@
 /* istanbul ignore file */
-import {HrmData} from './types'
-import BleHrmAdapter from './adapter'
-import BleHrmComms from './sensor'
+import {HrmData} from './types.js'
+import BleHrmAdapter from './adapter.js'
+import BleHrmComms from './sensor.js'
 
 export {HrmData, BleHrmAdapter, BleHrmComms}

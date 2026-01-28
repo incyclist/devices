@@ -1,8 +1,8 @@
-import { FitnessMachineControlPointCharacteristic } from "../characteristics/fitness-machine-control-point-characteristic";
-import { Service } from "./service";
-import { FitnessMachineFeatureCharacteristic } from "../characteristics/fitness-machine-feature-characteristic";
-import { IndoorBikeDataCharacteristic } from "../characteristics/indoor-bike-data-characteristic";
-import { StaticReadCharacteristic } from "../characteristics/read-characteristic";
+import { FitnessMachineControlPointCharacteristic } from "../characteristics/fitness-machine-control-point-characteristic.js";
+import { Service } from "./service.js";
+import { FitnessMachineFeatureCharacteristic } from "../characteristics/fitness-machine-feature-characteristic.js";
+import { IndoorBikeDataCharacteristic } from "../characteristics/indoor-bike-data-characteristic.js";
+import { StaticReadCharacteristic } from "../characteristics/read-characteristic.js";
 
 export class FitnessMachineService extends Service {
 

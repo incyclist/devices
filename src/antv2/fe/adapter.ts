@@ -1,14 +1,14 @@
 import { FitnessEquipmentSensor, FitnessEquipmentSensorState, Profile } from "incyclist-ant-plus";
 
-import  AntAdapter from "../base/adapter";
-import ICyclingMode, {  CyclingMode, UpdateRequest } from '../../modes/types';
-import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "../types";
-import { IncyclistAdapterData, IncyclistBikeData,IncyclistCapability,ControllerConfig } from "../../types";
-import AntAdvSimCyclingMode from "../../modes/ant-fe-adv-st-mode";
-import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/consts";
-import ERGCyclingMode from "../../modes/antble-erg";
-import SmartTrainerCyclingMode from "../../modes/antble-smarttrainer";
-import PowerMeterCyclingMode from "../../modes/power-meter";
+import  AntAdapter from "../base/adapter.js";
+import ICyclingMode, {  CyclingMode, UpdateRequest } from '../../modes/types.js';
+import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "../types.js";
+import { IncyclistAdapterData, IncyclistBikeData,IncyclistCapability,ControllerConfig } from "../../types/index.js";
+import AntAdvSimCyclingMode from "../../modes/ant-fe-adv-st-mode.js";
+import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/consts.js";
+import ERGCyclingMode from "../../modes/antble-erg.js";
+import SmartTrainerCyclingMode from "../../modes/antble-smarttrainer.js";
+import PowerMeterCyclingMode from "../../modes/power-meter.js";
 
 const DEFAULT_BIKE_WEIGHT_MOUNTAIN = 14.5;
 

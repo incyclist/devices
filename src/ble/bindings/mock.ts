@@ -1,7 +1,7 @@
 import EventEmitter from 'events';
-import { sleep } from '../../utils/utils';
-import { BleBinding,  BleInterfaceState, BleRawPeripheral, BleService } from '../types';
-import { MockCharacteristic, PrimaryService } from './types';
+import { sleep } from '../../utils/utils.js';
+import { BleBinding,  BleInterfaceState, BleRawPeripheral, BleService } from '../types.js';
+import { MockCharacteristic, PrimaryService } from './types.js';
 
 export type BleMockPeripheral = {
     services: PrimaryService[]

@@ -1,6 +1,6 @@
-import EventEmitter from "events";
+import EventEmitter from "node:events";
 import { EventLogger } from "gd-eventlog";
-import { IncyclistScanProps, DeviceSettings } from "./device";
+import { IncyclistScanProps, DeviceSettings } from "./device.js";
 
 
 export type InterfaceProps = {

@@ -1,12 +1,12 @@
 /* eslint-disable react-hooks/rules-of-hooks */
-import { sleep } from '../../../utils/utils'
-import { ClassicBikeResponse, DaumClassicCommsState, DaumClassicRequest, DaumClassicResponse, GetVersionReponse, ProgResponse, SetGearRepsonse, SetPowerRepsonse, SetProgResponse, SetSlopeRepsonse, checkCockpitReponse } from './types'
-import SerialPortComms from '../../base/comms'
-import { DEFAULT_AGE, between, buildSetSlopeCommand, getBikeType, getCockpit, getGender, getLength, getSerialNo, getWeight, parseRunData } from './utils'
+import { sleep } from '../../../utils/utils.js'
+import { ClassicBikeResponse, DaumClassicCommsState, DaumClassicRequest, DaumClassicResponse, GetVersionReponse, ProgResponse, SetGearRepsonse, SetPowerRepsonse, SetProgResponse, SetSlopeRepsonse, checkCockpitReponse } from './types.js'
+import SerialPortComms from '../../base/comms.js'
+import { DEFAULT_AGE, between, buildSetSlopeCommand, getBikeType, getCockpit, getGender, getLength, getSerialNo, getWeight, parseRunData } from './utils.js'
 
-import { DaumSerialComms,ResponseTimeout } from '../types'
-import { SerialCommProps } from '../../types'
-import { DeviceType,IncyclistBikeData,User } from '../../../types'
+import { DaumSerialComms,ResponseTimeout } from '../types.js'
+import { SerialCommProps } from '../../types.js'
+import { DeviceType,IncyclistBikeData,User } from '../../../types/index.js'
 
 const TIMEOUT_SEND  = 2000;    // 1s
 

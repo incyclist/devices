@@ -1,5 +1,5 @@
-import ICyclingMode, { UpdateRequest} from "./types";
-import PowerMeterCyclingMode from "./power-meter";
+import ICyclingMode, { UpdateRequest} from "./types.js";
+import PowerMeterCyclingMode from "./power-meter.js";
 
 
 export default class DaumPowerMeterCyclingMode extends PowerMeterCyclingMode implements ICyclingMode {

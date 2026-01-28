@@ -1,12 +1,12 @@
-import { AntDeviceSettings } from "../antv2/types";
-import AntAdapterFactory from "../antv2/factories/adapter-factory";
-import { IncyclistDeviceAdapter } from "../base/adpater";
-import { BleAdapterFactory } from "../ble";
-import { BleDeviceSettings } from "../ble/types";
-import { SerialAdapterFactory } from "../serial";
-import { SerialDeviceSettings } from "../serial/types";
-import { Simulator } from "../simulator/Simulator";
-import { DeviceProperties, DeviceSettings, INTERFACE } from "../types/device";
+import { AntDeviceSettings } from "../antv2/types.js";
+import AntAdapterFactory from "../antv2/factories/adapter-factory.js";
+import { IncyclistDeviceAdapter } from "../base/adpater.js";
+import { BleAdapterFactory } from "../ble/index.js";
+import { BleDeviceSettings } from "../ble/types.js";
+import { SerialAdapterFactory } from "../serial/index.js";
+import { SerialDeviceSettings } from "../serial/types.js";
+import { Simulator } from "../simulator/Simulator.js";
+import { DeviceProperties, DeviceSettings, INTERFACE } from "../types/device.js";
 
 export default class AdapterFactory {
     protected static adapters: IncyclistDeviceAdapter[] = []

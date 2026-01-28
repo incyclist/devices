@@ -1,8 +1,8 @@
 import { EventLogger } from "gd-eventlog";
-import ICyclingMode, {  CyclingModeProperyType, Settings, UpdateRequest } from "./types";
-import { IncyclistBikeData } from "../types";
-import PowerMeterCyclingMode from "./power-meter";
-import { IncyclistDeviceAdapter } from "../base/adpater";
+import ICyclingMode, {  CyclingModeProperyType, Settings, UpdateRequest } from "./types.js";
+import { IncyclistBikeData } from "../types/index.js";
+import PowerMeterCyclingMode from "./power-meter.js";
+import { IncyclistDeviceAdapter } from "../base/adpater.js";
 
 
 export default class DaumClassicCyclingMode extends PowerMeterCyclingMode implements ICyclingMode {

@@ -1,8 +1,8 @@
 import {EventLogger} from 'gd-eventlog'
-import SimulatorCyclingMode from '../modes/simulator';
-import IncyclistDevice from '../base/adpater';
-import { IAdapter,IncyclistBikeData,DeviceProperties, DeviceSettings,IncyclistCapability,IncyclistAdapterData } from '../types';
-import { UpdateRequest } from '../modes/types';
+import SimulatorCyclingMode from '../modes/simulator.js';
+import IncyclistDevice from '../base/adpater.js';
+import { IAdapter,IncyclistBikeData,DeviceProperties, DeviceSettings,IncyclistCapability,IncyclistAdapterData } from '../types/index.js';
+import { UpdateRequest } from '../modes/types.js';
 
 const DEFAULT_PROPS = {isBot:false }
 
@@ -28,7 +28,7 @@ export class Simulator extends IncyclistDevice<SimulatorProperties> {
     limit: any
     startProps?: any;
     startTS: number;
-    data: IncyclistBikeData
+    declare data: IncyclistBikeData
     isBot: boolean;
     iv:NodeJS.Timeout
     userSettings: { weight?:number};

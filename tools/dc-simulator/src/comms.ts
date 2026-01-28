@@ -1,4 +1,4 @@
-import { Socket } from "net"
+import { Socket } from "node:net"
 import {Service} from './emulator/services'
 
 import {beautifyUUID, CharacteristicNotificationMessage, DC_MESSAGE_CHARACTERISTIC_NOTIFICATION, DC_MESSAGE_DISCOVER_CHARACTERISTICS, DC_MESSAGE_DISCOVER_SERVICES, DC_MESSAGE_ENABLE_CHARACTERISTIC_NOTIFICATIONS, DC_MESSAGE_READ_CHARACTERISTIC, DC_MESSAGE_WRITE_CHARACTERISTIC, 

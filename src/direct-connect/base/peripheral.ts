@@ -1,11 +1,11 @@
-import { BleCharacteristic, BleDeviceIdentifier, BleService, BleWriteProps, IBlePeripheral, } from "../../ble/types";
-import { DirectConnectBinding, MulticastDnsAnnouncement, Socket } from "../bindings";
-import { InteruptableTask, TaskState } from "../../utils/task";
-import DirectConnectInterface from "./interface";
-import { CharacteristicNotificationMessage, DiscoverCharacteristicsMessage, DiscoverServiceMessage, EnableCharacteristicNotificationsMessage, parseHeader, RC, ReadCharacteristicMessage, WriteCharacteristicMessage } from "../messages";
-import EventEmitter from "events";
-import { DC_MESSAGE_CHARACTERISTIC_NOTIFICATION, DC_RC_REQUEST_COMPLETED_SUCCESSFULLY } from "../consts";
-import {  beautifyUUID, parseUUID } from "../../ble/utils";
+import { BleCharacteristic, BleDeviceIdentifier, BleService, BleWriteProps, IBlePeripheral, } from "../../ble/types.js";
+import { DirectConnectBinding, MulticastDnsAnnouncement, Socket } from "../bindings/index.js";
+import { InteruptableTask, TaskState } from "../../utils/task.js";
+import DirectConnectInterface from "./interface.js";
+import { CharacteristicNotificationMessage, DiscoverCharacteristicsMessage, DiscoverServiceMessage, EnableCharacteristicNotificationsMessage, parseHeader, RC, ReadCharacteristicMessage, WriteCharacteristicMessage } from "../messages/index.js";
+import EventEmitter from "node:events";
+import { DC_MESSAGE_CHARACTERISTIC_NOTIFICATION, DC_RC_REQUEST_COMPLETED_SUCCESSFULLY } from "../consts.js";
+import {  beautifyUUID, parseUUID } from "../../ble/utils.js";
 
 export class DirectConnectPeripheral implements IBlePeripheral {
 
@@ -436,6 +436,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
         try {
             const net = this.getBinding().net
 
+            console.log('# net Binding ',this.getBinding().net)
             this.socket = net.createSocket()
             return new Promise((resolve, reject) => {
                 //socket.setTimeout(options.timeout||DEFAULT_TIMEOUT)

@@ -1,9 +1,9 @@
-import ERGCyclingMode from "./kettler-erg";
-import { CyclingModeProperyType } from "./types";
-import KettlerRacerAdapter from '../serial/kettler/ergo-racer/adapter'
+import ERGCyclingMode from "./kettler-erg.js";
+import { CyclingModeProperyType } from "./types.js";
+import KettlerRacerAdapter from '../serial/kettler/ergo-racer/adapter.js'
 
 import { EventLogger } from "gd-eventlog";
-import { MockLogger } from "../../test/logger";
+import { MockLogger } from "../../test/logger.js";
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();

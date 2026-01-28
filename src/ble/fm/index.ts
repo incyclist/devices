@@ -1,7 +1,7 @@
 /* istanbul ignore file */
-import BleFmComms from './sensor';
-import BleFmAdapter from './adapter';
-import { IndoorBikeData } from './types';
-import { cRR, cwABike } from './consts';
+import BleFmComms from './sensor.js';
+import BleFmAdapter from './adapter.js';
+import { IndoorBikeData } from './types.js';
+import { cRR, cwABike } from './consts.js';
 
 export {BleFmAdapter,BleFmComms, IndoorBikeData, cRR, cwABike}

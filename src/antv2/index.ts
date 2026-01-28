@@ -1,16 +1,16 @@
 /* istanbul ignore file */
 
-import AntPwrAdapter from "./pwr";
-import AntFEAdapter from "./fe";
-import AntHrAdapter from "./hr";
-import AntCadAdapter from "./cad";
-import AntAdapterFactory from "./factories/adapter-factory";
-import AntInterface from "./base/interface";
-import { AntInterfaceProps } from "./types";
-import AntSpdAdapter from "./spd";
-import AntScAdapter from "./sc";
+import AntPwrAdapter from "./pwr/index.js";
+import AntFEAdapter from "./fe/index.js";
+import AntHrAdapter from "./hr/index.js";
+import AntCadAdapter from "./cad/index.js";
+import AntAdapterFactory from "./factories/adapter-factory.js";
+import AntInterface from "./base/interface.js";
+import { AntInterfaceProps } from "./types.js";
+import AntSpdAdapter from "./spd/index.js";
+import AntScAdapter from "./sc/index.js";
 
-export { AntDeviceSettings,AntDeviceProperties,AntScanProps } from "./types";
+export { AntDeviceSettings,AntDeviceProperties,AntScanProps } from "./types.js";
 
 export const initAntFactory = ()=> {
     const af = AntAdapterFactory.getInstance()

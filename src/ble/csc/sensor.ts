@@ -1,11 +1,11 @@
-import {CSC, CSC_MEASUREMENT,CSC_FEATURE}  from '../consts'
-import { beautifyUUID} from '../utils';
-import { LegacyProfile } from '../../antv2/types';
-import { BleProtocol } from '../types';
-import { TBleSensor } from '../base/sensor';
-import { CharacteristicParser } from '../characteristics/types';
-import { CscMeasurement, CyclingCadenceAndSpeed } from '../characteristics/csc/measurement';
-import { BleCSCFeatures, CscFeatures } from '../characteristics/csc/features';
+import {CSC, CSC_MEASUREMENT,CSC_FEATURE}  from '../consts.js'
+import { beautifyUUID} from '../utils.js';
+import { LegacyProfile } from '../../antv2/types.js';
+import { BleProtocol } from '../types.js';
+import { TBleSensor } from '../base/sensor.js';
+import { CharacteristicParser } from '../characteristics/types.js';
+import { CscMeasurement, CyclingCadenceAndSpeed } from '../characteristics/csc/measurement.js';
+import { BleCSCFeatures, CscFeatures } from '../characteristics/csc/features.js';
 
 
 export class BleCyclingSpeedCadenceDevice extends TBleSensor {

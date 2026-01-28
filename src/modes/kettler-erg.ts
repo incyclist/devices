@@ -1,6 +1,6 @@
-import ICyclingMode, { CyclingModeProperyType, UpdateRequest } from './types';
-import { IncyclistBikeData,IAdapter } from "../types";
-import PowerBasedCyclingModeBase from './power-base';
+import ICyclingMode, { CyclingModeProperyType, UpdateRequest } from './types.js';
+import { IncyclistBikeData,IAdapter } from "../types/index.js";
+import PowerBasedCyclingModeBase from './power-base.js';
 
 const MIN_SPEED = 10;
 
@@ -23,7 +23,6 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
             {key:'startPower',name: 'Starting Power', description: 'Initial power in Watts at start of training', type: CyclingModeProperyType.Integer, default: 50, min:25, max:800},
         ]
     }
-    prevRequest: UpdateRequest;
     hasBikeUpdate: boolean = false;
     chain: number[];
     cassette: number[];

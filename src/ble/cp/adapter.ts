@@ -1,12 +1,12 @@
 import {EventLogger} from 'gd-eventlog';
-import BleCyclingPowerDevice from './sensor';
-import BleAdapter from '../base/adapter';
-import { PowerData } from './types';
-import {  BleDeviceSettings, IBlePeripheral } from '../types';
-import { DeviceProperties,IncyclistBikeData,IncyclistAdapterData,IncyclistCapability, ControllerConfig, IAdapter  } from '../../types';
-import PowerMeterCyclingMode from '../../modes/power-meter';
-import { LegacyProfile } from '../../antv2/types';
-import { UpdateRequest } from '../../modes/types';
+import BleCyclingPowerDevice from './sensor.js';
+import BleAdapter from '../base/adapter.js';
+import { PowerData } from './types.js';
+import {  BleDeviceSettings, IBlePeripheral } from '../types.js';
+import { DeviceProperties,IncyclistBikeData,IncyclistAdapterData,IncyclistCapability, ControllerConfig, IAdapter  } from '../../types/index.js';
+import PowerMeterCyclingMode from '../../modes/power-meter.js';
+import { LegacyProfile } from '../../antv2/types.js';
+import { UpdateRequest } from '../../modes/types.js';
 
 
 export default class PwrAdapter extends BleAdapter<PowerData,BleCyclingPowerDevice>{  

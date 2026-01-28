@@ -1,12 +1,12 @@
-import { DC_ERROR_INVALID_MESSAGE_LENGTH, DC_ERROR_UNKNOWN_MESSAGE_TYPE, DC_MESSAGE_CHARACTERISTIC_NOTIFICATION, DC_MESSAGE_DISCOVER_CHARACTERISTICS, DC_MESSAGE_DISCOVER_SERVICES, DC_MESSAGE_ENABLE_CHARACTERISTIC_NOTIFICATIONS, DC_MESSAGE_READ_CHARACTERISTIC, DC_MESSAGE_WRITE_CHARACTERISTIC } from "../consts";
-import { CharacteristicNotificationMessage } from "./CharacteristicNotification";
-import { DiscoverCharacteristicsMessage } from "./DiscoverCharacteristics";
-import { DiscoverServiceMessage } from "./DiscoverServices";
-import { EnableCharacteristicNotificationsMessage } from "./EnableCharacteristicNotifications";
-import { IllegalMessageError } from "./error";
-import { Message } from "./message";
-import { ReadCharacteristicMessage } from "./ReadCharacteristic";
-import { WriteCharacteristicMessage } from "./WriteCharacteristic";
+import { DC_ERROR_INVALID_MESSAGE_LENGTH, DC_ERROR_UNKNOWN_MESSAGE_TYPE, DC_MESSAGE_CHARACTERISTIC_NOTIFICATION, DC_MESSAGE_DISCOVER_CHARACTERISTICS, DC_MESSAGE_DISCOVER_SERVICES, DC_MESSAGE_ENABLE_CHARACTERISTIC_NOTIFICATIONS, DC_MESSAGE_READ_CHARACTERISTIC, DC_MESSAGE_WRITE_CHARACTERISTIC } from "../consts.js";
+import { CharacteristicNotificationMessage } from "./CharacteristicNotification.js";
+import { DiscoverCharacteristicsMessage } from "./DiscoverCharacteristics.js";
+import { DiscoverServiceMessage } from "./DiscoverServices.js";
+import { EnableCharacteristicNotificationsMessage } from "./EnableCharacteristicNotifications.js";
+import { IllegalMessageError } from "./error.js";
+import { Message } from "./message.js";
+import { ReadCharacteristicMessage } from "./ReadCharacteristic.js";
+import { WriteCharacteristicMessage } from "./WriteCharacteristic.js";
 
 export class DCMessageFactory {
 

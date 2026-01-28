@@ -1,9 +1,9 @@
-import { LegacyProfile } from '../../antv2/types';
-import { TBleSensor } from '../base/sensor';
-import { HR_MEASUREMENT } from '../consts';
-import { BleProtocol } from '../types';
-import { matches } from '../utils';
-import { HrmData } from './types';
+import { LegacyProfile } from '../../antv2/types.js';
+import { TBleSensor } from '../base/sensor.js';
+import { HR_MEASUREMENT } from '../consts.js';
+import { BleProtocol } from '../types.js';
+import { matches } from '../utils.js';
+import { HrmData } from './types.js';
 
 export default class BleHrmDevice extends TBleSensor {
     static readonly profile:LegacyProfile  ='Heartrate Monitor'

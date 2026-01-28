@@ -1,7 +1,7 @@
-import ICyclingMode, { CyclingModeProperyType, UpdateRequest } from "./types";
-import { IncyclistBikeData,IAdapter } from "../types";
-import calc from '../utils/calculations'
-import PowerBasedCyclingModeBase from "./power-base";
+import ICyclingMode, { CyclingModeProperyType, UpdateRequest } from "./types.js";
+import { IncyclistBikeData,IAdapter } from "../types/index.js";
+import calc from '../utils/calculations.js'
+import PowerBasedCyclingModeBase from "./power-base.js";
 
 export type ERGEvent = {
     rpmUpdated?: boolean;
@@ -13,7 +13,6 @@ export type ERGEvent = {
 
 export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements ICyclingMode {
 
-    prevRequest: UpdateRequest;
     hasBikeUpdate: boolean = false;
     chain: number[];
     cassette: number[];

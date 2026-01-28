@@ -1,9 +1,9 @@
-import EventEmitter from "events";
-import ICyclingMode, { CyclingMode, UpdateRequest } from "../modes/types"
-import { IncyclistCapability } from "./capabilities";
-import { IncyclistAdapterData } from "./data";
-import { DeviceProperties, DeviceSettings } from "./device"
-import { User } from "./user"
+import EventEmitter from "node:events";
+import ICyclingMode, { CyclingMode, UpdateRequest } from "../modes/types.js"
+import { IncyclistCapability } from "./capabilities.js";
+import { IncyclistAdapterData } from "./data.js";
+import { DeviceProperties, DeviceSettings } from "./device.js"
+import { User } from "./user.js"
 
 export type OnDeviceDataCallback = ( data:IncyclistAdapterData ) => void;
 

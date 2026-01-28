@@ -1,20 +1,19 @@
 
-import IncyclistDevice from "../../base/adpater";
-import { BleDeviceProperties, BleDeviceSettings, BleStartProperties, IBleInterface, IBlePeripheral } from "../types";
-import { IAdapter,IncyclistBikeData,IncyclistAdapterData,DeviceProperties, IncyclistInterface, IncyclistCapability} from "../../types";
-import { BleDeviceData } from "./types";
-import { LegacyProfile } from "../../antv2/types";
-import ICyclingMode from "../../modes/types";
-import { BleMultiTransportInterfaceFactory } from "../factories/interface-factory";
-import { InteruptableTask, TaskState } from "../../utils/task";
-import { TBleSensor } from "./sensor";
-import { resolveNextTick } from "../../utils/utils";
+import IncyclistDevice from "../../base/adpater.js";
+import { BleDeviceProperties, BleDeviceSettings, BleStartProperties, IBleInterface, IBlePeripheral } from "../types.js";
+import { IAdapter,IncyclistBikeData,IncyclistAdapterData,DeviceProperties, IncyclistInterface, IncyclistCapability} from "../../types/index.js";
+import { BleDeviceData } from "./types.js";
+import { LegacyProfile } from "../../antv2/types.js";
+import ICyclingMode from "../../modes/types.js";
+import { BleMultiTransportInterfaceFactory } from "../factories/interface-factory.js";
+import { InteruptableTask, TaskState } from "../../utils/task.js";
+import { TBleSensor } from "./sensor.js";
+import { resolveNextTick } from "../../utils/utils.js";
 
 
 export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice extends TBleSensor>  extends IncyclistDevice<BleDeviceProperties>  { 
 
     protected deviceData: TDeviceData
-    protected data: IncyclistAdapterData
     protected dataMsgCount: number
     protected lastDataTS: number;
     protected device: TDevice

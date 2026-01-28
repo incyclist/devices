@@ -1,8 +1,8 @@
-import { parseConfig } from "./config"
-import {createServer} from 'net'
+import { parseConfig } from "./config.js"
+import {createServer} from 'node:net'
 import { Bonjour } from 'bonjour-service'
-import { DirectConnectComms } from './comms'
-import { getAddresses } from "./net"
+import { DirectConnectComms } from './comms.js'
+import { getAddresses } from "./net.js"
 import readline from "readline/promises"
 
 

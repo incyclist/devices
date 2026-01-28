@@ -1,16 +1,16 @@
-import ERGCyclingMode from '../../modes/daum-erg';
-import {intVal} from '../../utils/utils'
+import ERGCyclingMode from '../../modes/daum-erg.js';
+import {intVal} from '../../utils/utils.js'
 
-import { IncyclistCapability,IncyclistAdapterData,ControllerConfig, IAdapter,DeviceProperties,IncyclistBikeData  } from '../../types';
-import { SerialDeviceSettings } from "../types";
-import { DaumSerialComms}  from './types';
-import { SerialIncyclistDevice } from '../base/adapter';
-import SerialInterface from '../base/serial-interface';
+import { IncyclistCapability,IncyclistAdapterData,ControllerConfig, IAdapter,DeviceProperties,IncyclistBikeData  } from '../../types/index.js';
+import { SerialDeviceSettings } from "../types.js";
+import { DaumSerialComms}  from './types.js';
+import { SerialIncyclistDevice } from '../base/adapter.js';
+import SerialInterface from '../base/serial-interface.js';
 
-import SmartTrainerCyclingMode from '../../modes/daum-smarttrainer';
-import DaumPowerMeterCyclingMode from '../../modes/daum-power';
-import EventEmitter from 'events';
-import ICyclingMode, { UpdateRequest } from '../../modes/types';
+import SmartTrainerCyclingMode from '../../modes/daum-smarttrainer.js';
+import DaumPowerMeterCyclingMode from '../../modes/daum-power.js';
+import EventEmitter from 'node:events';
+import ICyclingMode, { UpdateRequest } from '../../modes/types.js';
 
 export default class DaumAdapter<S extends SerialDeviceSettings, P extends DeviceProperties, C extends DaumSerialComms> extends SerialIncyclistDevice<P>  {
 

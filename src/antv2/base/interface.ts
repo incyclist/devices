@@ -1,12 +1,12 @@
-import EventEmitter from "events";
+import EventEmitter from "node:events";
 import { EventLogger } from "gd-eventlog";
 import { Channel, IAntDevice, IChannel, ISensor } from "incyclist-ant-plus";
-import { AntDeviceSettings, AntScanProps,AntInterfaceProps  } from "../types";
-import { DeviceSettings, IncyclistInterface } from "../../types";
-import AntDeviceBinding from "./binding";
-import SensorFactory from "../factories/sensor-factory";
-import { isTrue, runWithTimeout, sleep, waitWithTimeout } from "../../utils/utils";
-import AntAdapterFactory from "../factories/adapter-factory";
+import { AntDeviceSettings, AntScanProps,AntInterfaceProps  } from "../types.js";
+import { DeviceSettings, IncyclistInterface } from "../../types/index.js";
+import AntDeviceBinding from "./binding.js";
+import SensorFactory from "../factories/sensor-factory.js";
+import { isTrue, runWithTimeout, sleep, waitWithTimeout } from "../../utils/utils.js";
+import AntAdapterFactory from "../factories/adapter-factory.js";
 
 type ChannelUsage = 'scan'|'sensor'
 interface ChannelInfo  {

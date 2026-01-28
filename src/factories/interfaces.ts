@@ -1,18 +1,20 @@
-import { InterfaceProps } from "../types/interface";
+import { InterfaceProps } from "../types/interface.js";
 
-import { SerialInterface } from "../serial";
-import AntInterface from "../antv2/base/interface";
-import { AntInterfaceProps } from "../antv2/types";
-import { INTERFACE } from "../types/device";
-import { SerialInterfaceProps } from "../serial/types";
-import { BleInterfaceProps } from "../ble/types";
-import { BleInterface } from "../ble";
-import DirectConnectInterface from "../direct-connect/base/interface";
+import { SerialInterface } from "../serial/index.js";
+import AntInterface from "../antv2/base/interface.js";
+import { AntInterfaceProps } from "../antv2/types.js";
+import { INTERFACE } from "../types/device.js";
+import { SerialInterfaceProps } from "../serial/types.js";
+import { BleInterfaceProps } from "../ble/types.js";
+import { BleInterface } from "../ble/index.js";
+import DirectConnectInterface from "../direct-connect/base/interface.js";
 
 
 export default class InterfaceFactory {
 
     static create( ifaceName:string, props?:InterfaceProps) {
+
+        console.log('# create interface',ifaceName, props)
         switch(ifaceName) {
             case INTERFACE.SERIAL: 
             case INTERFACE.TCPIP:

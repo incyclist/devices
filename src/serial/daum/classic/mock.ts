@@ -1,10 +1,10 @@
 /* istanbul ignore file */
-import {MockBindingInterface, MockPortBinding,CreatePortOptions, MockBinding} from '@serialport/binding-mock'
-import { BindingInterface } from '@serialport/bindings-interface'
-import { resolveNextTick, sleep } from '../../../utils/utils';
-import calc from '../../../utils/calculations'
-import SerialPortProvider from '../../base/serialport';
-import SerialInterface from '../../base/serial-interface';
+import {MockBindingInterface, MockPortBinding,CreatePortOptions, MockBinding, MockPortInternal} from '@serialport/binding-mock'
+import { BindingInterface,BindingPortInterface } from '@serialport/bindings-interface'
+import { resolveNextTick, sleep } from '../../../utils/utils.js';
+import calc from '../../../utils/calculations.js'
+import SerialPortProvider from '../../base/serialport.js';
+import SerialInterface from '../../base/serial-interface.js';
 
 export type MockProps = {
     interface: string;
@@ -198,13 +198,14 @@ export class DaumClassicSimulator {
 
 
 
-export class DaumClassicMockBinding extends MockPortBinding {
+export class DaumClassicMockBinding extends MockPortBinding implements BindingPortInterface  {
 
     prevCommand: Buffer
     simulator: DaumClassicSimulator;
     handlers: Map<number,(payload:Buffer)=>void>
-    
-
+    // readonly port: MockPortInternal 
+    // isOpen: boolean
+    // writeOperation: null | Promise<void>
 
     constructor(parent:MockPortBinding) {
         super(parent.port,parent.openOptions)

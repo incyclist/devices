@@ -1,11 +1,11 @@
 import { BindingPortInterface, OpenOptions, PortStatus, PortInfo, SetOptions, UpdateOptions, BindingInterface } from "@serialport/bindings-interface";
 import { EventLogger } from 'gd-eventlog';
-import { networkInterfaces } from 'os';
-import net from 'net'
+import { networkInterfaces } from 'node:os';
+import net from 'node:net'
 
 
 const DEFAULT_TIMEOUT = 3000
-export interface TCPOpenOptions extends OpenOptions {
+export type TCPOpenOptions =  OpenOptions & {
     timeout? : number
 }
 

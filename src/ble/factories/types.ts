@@ -1,8 +1,8 @@
-import { DeviceProperties } from "../../types";
-import BleAdapter from "../base/adapter";
-import { TBleSensor } from "../base/sensor";
-import { BleDeviceData } from "../base/types";
-import { BleDeviceSettings, BleProtocol } from "../types";
+import { DeviceProperties } from "../../types/index.js";
+import BleAdapter from "../base/adapter.js";
+import { TBleSensor } from "../base/sensor.js";
+import { BleDeviceData } from "../base/types.js";
+import { BleDeviceSettings, BleProtocol } from "../types.js";
 
 export interface TBleAdapterFactory<T extends TBleSensor> {
     createInstance(settings:BleDeviceSettings,props?:DeviceProperties):BleAdapter<BleDeviceData,T>

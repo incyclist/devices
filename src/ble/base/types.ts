@@ -1,5 +1,5 @@
-import { DeviceSettings } from "../../types";
-import { BleProtocol, IBleInterface } from "../types";
+import { DeviceSettings } from "../../types/index.js";
+import { BleProtocol, IBleInterface } from "../types.js";
 
 export interface BleDeviceData {}
 

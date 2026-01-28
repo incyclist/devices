@@ -1,4 +1,4 @@
-import { DC_ERROR_UNKNOWN_MESSAGE_TYPE, DC_RC_UNEXPECTED_ERROR, DC_RC_UNKNOWN_MESSAGE_TYPE } from "../consts";
+import { DC_ERROR_UNKNOWN_MESSAGE_TYPE, DC_RC_UNEXPECTED_ERROR, DC_RC_UNKNOWN_MESSAGE_TYPE } from "../consts.js";
 
 export class IllegalMessageError extends Error {
     constructor(public code:number) {

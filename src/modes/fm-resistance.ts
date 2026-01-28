@@ -1,7 +1,7 @@
-import { IncyclistDeviceAdapter } from "../base/adpater";
-import { IncyclistBikeData } from "../types";
-import PowerBasedCyclingModeBase from "./power-base";
-import ICyclingMode, { CyclingModeProperyType, UpdateRequest } from "./types";
+import { IncyclistDeviceAdapter } from "../base/adpater.js";
+import { IncyclistBikeData } from "../types/index.js";
+import PowerBasedCyclingModeBase from "./power-base.js";
+import ICyclingMode, { CyclingModeProperyType, UpdateRequest } from "./types.js";
 
 export default class FMResistanceMode extends PowerBasedCyclingModeBase implements ICyclingMode {
 

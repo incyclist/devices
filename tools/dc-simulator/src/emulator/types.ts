@@ -1,4 +1,4 @@
-import { BleProperty } from "../../../../lib/ble/types"
+import { BleProperty } from "../../../../lib/types/ble/types"
 
 export interface Descriptor  {
     uuid: string,

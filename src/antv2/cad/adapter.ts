@@ -1,7 +1,7 @@
 import { CadenceSensorState, Profile } from "incyclist-ant-plus";
-import AntAdapter from "../base/adapter";
-import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "../types";
-import { IncyclistCapability } from "../../types";
+import AntAdapter from "../base/adapter.js";
+import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "../types.js";
+import { IncyclistCapability } from "../../types/index.js";
 
 export default class AntCadAdapter extends AntAdapter<CadenceSensorState>{   
     protected static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Cadence Sensor'

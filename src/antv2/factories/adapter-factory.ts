@@ -1,6 +1,6 @@
 import { Profile } from "incyclist-ant-plus";
-import AntAdapter from "../base/adapter";
-import { AntDeviceProperties, AntDeviceSettings, LegacyProfile,BaseDeviceData,AntAdapterInfo, AdapterQuery } from "../types";
+import AntAdapter from "../base/adapter.js";
+import { AntDeviceProperties, AntDeviceSettings, LegacyProfile,BaseDeviceData,AntAdapterInfo, AdapterQuery } from "../types.js";
 
 
 export default class AntAdapterFactory {

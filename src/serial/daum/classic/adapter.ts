@@ -1,16 +1,16 @@
 import { EventLogger } from 'gd-eventlog';
-import {runWithRetries, waitWithTimeout} from '../../../utils/utils';
-import DaumAdapter from '../DaumAdapter'
-import DaumClassicCyclingMode from '../../../modes/daum-classic-standard';
+import {runWithRetries, waitWithTimeout} from '../../../utils/utils.js';
+import DaumAdapter from '../DaumAdapter.js'
+import DaumClassicCyclingMode from '../../../modes/daum-classic-standard.js';
 
-import { DaumClassicProperties, DaumClassicStartInfo } from './types';
-import { SerialDeviceSettings,SerialCommProps } from "../../types";
-import { IncyclistBikeData,ControllerConfig,User } from "../../../types";
-import Daum8008 from './comms';
-import SerialInterface from '../../base/serial-interface';
-import ERGCyclingMode from '../../../modes/daum-erg';
-import DaumPowerMeterCyclingMode from '../../../modes/daum-power';
-import { PROTOCOL_NAME, DEFAULT_GEAR } from './consts';
+import { DaumClassicProperties, DaumClassicStartInfo } from './types.js';
+import { SerialDeviceSettings,SerialCommProps } from "../../types.js";
+import { IncyclistBikeData,ControllerConfig,User } from "../../../types/index.js";
+import Daum8008 from './comms.js';
+import SerialInterface from '../../base/serial-interface.js';
+import ERGCyclingMode from '../../../modes/daum-erg.js';
+import DaumPowerMeterCyclingMode from '../../../modes/daum-power.js';
+import { PROTOCOL_NAME, DEFAULT_GEAR } from './consts.js';
 
 export default class DaumClassicAdapter extends DaumAdapter<SerialDeviceSettings, DaumClassicProperties,Daum8008>{
 

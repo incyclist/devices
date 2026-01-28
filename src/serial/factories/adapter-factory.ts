@@ -1,6 +1,6 @@
-import { DeviceProperties } from '../../types';
-import { SerialIncyclistDevice } from '../base/adapter';
-import { SerialDeviceSettings } from "../types";
+import { DeviceProperties } from '../../types/index.js';
+import { SerialIncyclistDevice } from '../base/adapter.js';
+import { SerialDeviceSettings } from "../types.js";
 
 
 export default class SerialAdapterFactory {

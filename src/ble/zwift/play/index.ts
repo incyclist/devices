@@ -1,3 +1,3 @@
-export * from './sensor'
-export * from './adapter'
+export * from './sensor.js'
+export * from './adapter.js'
 

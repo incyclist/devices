@@ -1,6 +1,6 @@
-import { BleCharacteristic, BleDeviceIdentifier, BlePeripheralAnnouncement, BleRawCharacteristic, BleRawPeripheral, BleService, BleWriteProps, IBlePeripheral } from "../types";
-import { beautifyUUID, fullUUID } from "../utils";
-import { BleInterface } from "./interface";
+import { BleCharacteristic, BleDeviceIdentifier, BlePeripheralAnnouncement, BleRawCharacteristic, BleRawPeripheral, BleService, BleWriteProps, IBlePeripheral } from "../types.js";
+import { beautifyUUID, fullUUID } from "../utils.js";
+import { BleInterface } from "./interface.js";
 
 export class BlePeripheral implements IBlePeripheral {
 

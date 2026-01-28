@@ -1,9 +1,9 @@
-import { CrankData, PowerData } from './types';
-import {CSP, CSP_MEASUREMENT,CSP_FEATURE}  from '../consts'
-import { matches } from '../utils';
-import { LegacyProfile } from '../../antv2/types';
-import { BleProtocol } from '../types';
-import { TBleSensor } from '../base/sensor';
+import { CrankData, PowerData } from './types.js';
+import {CSP, CSP_MEASUREMENT,CSP_FEATURE}  from '../consts.js'
+import { matches } from '../utils.js';
+import { LegacyProfile } from '../../antv2/types.js';
+import { BleProtocol } from '../types.js';
+import { TBleSensor } from '../base/sensor.js';
 
 
 export default class BleCyclingPowerDevice extends TBleSensor {

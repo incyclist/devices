@@ -1,9 +1,9 @@
 /* istanbul ignore file */
 import {MockBindingInterface, MockPortBinding,CreatePortOptions, MockBinding,MockPortInternal} from '@serialport/binding-mock'
-import { SerialInterface, SerialPortProvider } from '../..';
-import { BindingInterface, BindingPortInterface, PortStatus, SetOptions, UpdateOptions, OpenOptions, PortInfo } from '@serialport/bindings-interface'
-import { sleep,resolveNextTick } from '../../../utils/utils';
-import { Gender, User } from '../../../types/user';
+import { SerialInterface, SerialPortProvider } from '../../index.js';
+import { BindingInterface  } from '@serialport/bindings-interface'
+import { resolveNextTick } from '../../../utils/utils.js';
+import { Gender, User } from '../../../types/user.js';
 
 const CRLF = '\r\n'; 
 
@@ -118,6 +118,10 @@ export class KettlerRacerMockBinding extends MockPortBinding {
     prevCommand: Buffer
     simulator: KettlerRacerSimulator;
     handlers: Map<string,(payload:string)=>void>
+    // readonly port: MockPortInternal 
+    // isOpen: boolean
+    // writeOperation: null | Promise<void>
+    //private pendingRead: null | ((err: null | Error) => void)
 
 
     constructor(parent:MockPortBinding) {
@@ -214,6 +218,19 @@ export class KettlerRacerMockBinding extends MockPortBinding {
 
     }
 
+    // emitData(data: Buffer | string) {
+    //     if (!this.isOpen || !this.port) {
+    //     throw new Error('Port must be open to pretend to receive data')
+    //     }
+    //     const bufferData = Buffer.isBuffer(data) ? data : Buffer.from(data)
+    
+    //     this.port.data = Buffer.concat([this.port.data, bufferData])
+    //     if (this.pendingRead) {
+    //     process.nextTick(this.pendingRead)
+    //     this.pendingRead = null
+    //     }
+    // }    
+
     onSetComputerMode(_payload:string) {
         this.sendResponse('ACK')
     }
@@ -267,7 +284,6 @@ export class KettlerRacerMockBinding extends MockPortBinding {
     sendResponse(msg:string) {
         this.emitData(msg+CRLF)
     }
-
     
 
 }

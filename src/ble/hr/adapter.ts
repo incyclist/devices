@@ -1,10 +1,10 @@
 import { EventLogger } from 'gd-eventlog';
-import BleAdapter from '../base/adapter';
-import BleHrmDevice from './sensor';
-import { IncyclistAdapterData,IncyclistCapability,IAdapter,DeviceProperties } from '../../types';
-import { BleDeviceSettings, IBlePeripheral } from '../types';
-import { HrmData } from './types';
-import { LegacyProfile } from '../../antv2/types';
+import BleAdapter from '../base/adapter.js';
+import BleHrmDevice from './sensor.js';
+import { IncyclistAdapterData,IncyclistCapability,IAdapter,DeviceProperties } from '../../types/index.js';
+import { BleDeviceSettings, IBlePeripheral } from '../types.js';
+import { HrmData } from './types.js';
+import { LegacyProfile } from '../../antv2/types.js';
 
 
 export default class HrmAdapter extends BleAdapter<HrmData,BleHrmDevice>{

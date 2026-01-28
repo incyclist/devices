@@ -1,8 +1,7 @@
 /* istanbul ignore file */
 
-import { CadenceSensor, ISensor, Profile, SpeedCadenceSensor, SpeedSensor } from "incyclist-ant-plus";
-
-import {BicyclePowerSensor, HeartRateSensor, FitnessEquipmentSensor} from "incyclist-ant-plus";
+import { CadenceSensor, ISensor, Profile, SpeedCadenceSensor, SpeedSensor, 
+         BicyclePowerSensor, HeartRateSensor, FitnessEquipmentSensor} from "incyclist-ant-plus";
 
 const profiles = [
     {profile: 'PWR', Class: BicyclePowerSensor}, 

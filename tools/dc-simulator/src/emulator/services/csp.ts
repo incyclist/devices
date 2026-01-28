@@ -1,7 +1,7 @@
-import { StaticReadCharacteristic } from '../characteristics/read-characteristic';
-import {CyclingPowerMeasurementCharacteristic} from '../characteristics/cycling-power-measurement-characteristic';
-import { CyclingPowerWahooCharacteristicExtension } from '../characteristics/cycling-power-wahoo-extension-characteristic';
-import { Service } from "./service";
+import { StaticReadCharacteristic } from '../characteristics/read-characteristic.js';
+import {CyclingPowerMeasurementCharacteristic} from '../characteristics/cycling-power-measurement-characteristic.js';
+import { CyclingPowerWahooCharacteristicExtension } from '../characteristics/cycling-power-wahoo-extension-characteristic.js';
+import { Service } from "./service.js";
 
 // https://developer.bluetooth.org/gatt/services/Pages/ServiceViewer.aspx?u=org.bluetooth.service.cycling_power.xml
 class CyclingPowerService extends Service {

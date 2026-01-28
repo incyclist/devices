@@ -1,10 +1,10 @@
 import { EventLogger } from "gd-eventlog";
-import ICyclingMode, { CyclingModeProperyType, Settings, UpdateRequest } from "./types";
-import { IncyclistBikeData } from "../types";
-import calc from '../utils/calculations'
-import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../serial/daum/classic/utils";
-import { CyclingModeBase } from "./base";
-import { IncyclistDeviceAdapter } from "../base/adpater";
+import ICyclingMode, { CyclingModeProperyType, Settings, UpdateRequest } from "./types.js";
+import { IncyclistBikeData } from "../types/index.js";
+import calc from '../utils/calculations.js'
+import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../serial/daum/classic/utils.js";
+import { CyclingModeBase } from "./base.js";
+import { IncyclistDeviceAdapter } from "../base/adpater.js";
 
 const SEC_DELAY = 3;
 

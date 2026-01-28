@@ -1,10 +1,10 @@
-import BleAdapter from "../base/adapter";
-import { BleDeviceSettings, BleProtocol} from "../types";
-import { DeviceProperties } from "../../types";
-import { fullUUID, mapLegacyProfile } from "../utils";
-import { BleDeviceData } from "../base/types";
-import { TBleSensor } from "../base/sensor";
-import { BleAdapterInfo, TBleAdapterFactory } from "./types";
+import BleAdapter from "../base/adapter.js";
+import { BleDeviceSettings, BleProtocol} from "../types.js";
+import { DeviceProperties } from "../../types/index.js";
+import { fullUUID, mapLegacyProfile } from "../utils.js";
+import { BleDeviceData } from "../base/types.js";
+import { TBleSensor } from "../base/sensor.js";
+import { BleAdapterInfo, TBleAdapterFactory } from "./types.js";
 
 export class BleAdapterFactory<T extends TBleSensor> implements TBleAdapterFactory<T> {
     static readonly _instances:Record<string, BleAdapterFactory<any>> = {};

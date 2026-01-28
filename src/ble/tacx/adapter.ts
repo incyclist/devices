@@ -1,10 +1,10 @@
 import {EventLogger} from 'gd-eventlog';
-import { BleFmAdapter} from '../fm';
-import TacxAdvancedFitnessMachineDevice from './sensor';
-import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/consts";
-import { BleDeviceSettings, BleStartProperties, IBlePeripheral } from '../types';
-import { DeviceProperties,IncyclistCapability,IAdapter } from '../../types';
-import { LegacyProfile } from '../../antv2/types';
+import { BleFmAdapter} from '../fm/index.js';
+import TacxAdvancedFitnessMachineDevice from './sensor.js';
+import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/consts.js";
+import { BleDeviceSettings, BleStartProperties, IBlePeripheral } from '../types.js';
+import { DeviceProperties,IncyclistCapability,IAdapter } from '../../types/index.js';
+import { LegacyProfile } from '../../antv2/types.js';
 
 
 

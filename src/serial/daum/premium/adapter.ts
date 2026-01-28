@@ -1,16 +1,16 @@
 import { EventLogger } from 'gd-eventlog';
-import SerialInterface from '../../base/serial-interface';
-import {runWithRetries, sleep} from '../../../utils/utils';
-import DaumAdapter from '../DaumAdapter'
-import Daum8i from './comms';
+import SerialInterface from '../../base/serial-interface.js';
+import {runWithRetries, sleep} from '../../../utils/utils.js';
+import DaumAdapter from '../DaumAdapter.js'
+import Daum8i from './comms.js';
 
-import { DaumPremiumDeviceProperties } from './types';
-import { SerialDeviceSettings,SerialInterfaceType,SerialCommProps } from "../../types";
-import { User,INTERFACE,ControllerConfig,IncyclistBikeData } from '../../../types';
+import { DaumPremiumDeviceProperties } from './types.js';
+import { SerialDeviceSettings,SerialInterfaceType,SerialCommProps } from "../../types.js";
+import { User,INTERFACE,ControllerConfig,IncyclistBikeData } from '../../../types/index.js';
 
-import DaumClassicCyclingMode from '../../../modes/daum-premium-standard';
-import ERGCyclingMode from '../../../modes/daum-erg';
-import DaumPowerMeterCyclingMode from '../../../modes/daum-power';
+import DaumClassicCyclingMode from '../../../modes/daum-premium-standard.js';
+import ERGCyclingMode from '../../../modes/daum-erg.js';
+import DaumPowerMeterCyclingMode from '../../../modes/daum-power.js';
 
 const PROTOCOL_NAME = "Daum Premium"
 const DAUM_PREMIUM_DEFAULT_PORT= 51955;

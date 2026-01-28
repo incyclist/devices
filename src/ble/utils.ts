@@ -1,6 +1,6 @@
 import { EventLogger } from "gd-eventlog";
-import { LegacyProfile } from "../antv2/types";
-import { BleCharacteristic,  BleProperty,  BleProtocol, BleRawPeripheral } from "./types";
+import { LegacyProfile } from "../antv2/types.js";
+import { BleCharacteristic,  BleProperty,  BleProtocol, BleRawPeripheral } from "./types.js";
 
 type MappingRecord = {
     profile: LegacyProfile,

@@ -1,5 +1,5 @@
-import { HeartRateMeasurementCharacteristic } from "../characteristics/heart-rate-measurement-characteristic";
-import { Service } from "./service";
+import { HeartRateMeasurementCharacteristic } from "../characteristics/heart-rate-measurement-characteristic.js";
+import { Service } from "./service.js";
 
 export class HeartRateService extends Service {
     public heartRateMeasurement

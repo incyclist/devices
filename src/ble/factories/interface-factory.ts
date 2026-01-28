@@ -1,5 +1,5 @@
-import { InterfaceFactory } from "../base/types";
-import { IBleInterface } from "../types";
+import { InterfaceFactory } from "../base/types.js";
+import { IBleInterface } from "../types.js";
 
 export class BleMultiTransportInterfaceFactory {
 

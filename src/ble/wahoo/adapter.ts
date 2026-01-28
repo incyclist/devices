@@ -1,9 +1,9 @@
 import {EventLogger} from 'gd-eventlog';
-import { BleFmAdapter} from '../fm';
-import BleWahooDevice from './sensor';
-import { BleDeviceProperties, BleDeviceSettings, IBlePeripheral } from '../types';
-import { IncyclistCapability,IAdapter } from '../../types';
-import { LegacyProfile } from '../../antv2/types';
+import { BleFmAdapter} from '../fm/index.js';
+import BleWahooDevice from './sensor.js';
+import { BleDeviceProperties, BleDeviceSettings, IBlePeripheral } from '../types.js';
+import { IncyclistCapability,IAdapter } from '../../types/index.js';
+import { LegacyProfile } from '../../antv2/types.js';
 
 
 export default class BleWahooAdapter extends BleFmAdapter {

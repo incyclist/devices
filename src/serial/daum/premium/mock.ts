@@ -1,11 +1,11 @@
 /* istanbul ignore file */
-import {MockBindingInterface, MockPortBinding,CreatePortOptions, MockBinding} from '@serialport/binding-mock'
+import {MockBindingInterface, MockPortBinding,CreatePortOptions, MockBinding,MockPortInternal} from '@serialport/binding-mock'
 import { BindingInterface } from '@serialport/bindings-interface'
-import { SerialInterface, SerialPortProvider } from '../../';
-import { Gender, User } from '../../../types';
-import { sleep,resolveNextTick } from '../../../utils/utils';
-import { bin2esc, buildMessage, checkSum, esc2bin, parsePersonData, ReservedCommands } from './utils';
-import { DS_BITS_ENDLESS_RACE } from './consts';
+import { SerialInterface, SerialPortProvider } from '../../index.js';
+import { Gender, User } from '../../../types/index.js';
+import { sleep,resolveNextTick } from '../../../utils/utils.js';
+import { bin2esc, buildMessage, checkSum, esc2bin, parsePersonData, ReservedCommands } from './utils.js';
+import { DS_BITS_ENDLESS_RACE } from './consts.js';
 
 export type MockProps = {
     interface: string;
@@ -191,6 +191,9 @@ export class Daum8iMockBinding extends MockPortBinding {
     prevCommand: Buffer
     simulator: Daum8MockSimulator;
     handlers: Map<string,(payload:Buffer)=>void>
+    // readonly port: MockPortInternal 
+    // isOpen: boolean
+    // writeOperation: null | Promise<void>
 
 
     constructor(parent:MockPortBinding) {

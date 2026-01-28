@@ -1,5 +1,5 @@
 import { Profile } from "incyclist-ant-plus"
-import { LegacyProfile } from "./types"
+import { LegacyProfile } from "./types.js"
 
 const brands = [
     'Garmin,1',

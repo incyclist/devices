@@ -1,5 +1,5 @@
-import EventEmitter from "events"
-import { BleCharacteristic, BleProperty } from "../types"
+import EventEmitter from "node:events"
+import { BleCharacteristic, BleProperty } from "../types.js"
 
 
 export type Descriptor = {

@@ -1,2 +1,2 @@
-export * from './adapter-factory'
-export * from './interface-factory'
+export * from './adapter-factory.js'
+export * from './interface-factory.js'

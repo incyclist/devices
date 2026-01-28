@@ -1,16 +1,16 @@
-import EventEmitter from "events";
+import EventEmitter from "node:events";
 import { PortInfo, BindingInterface } from "@serialport/bindings-interface";
 import { SerialPortStream } from '@serialport/stream'
-import SerialPortProvider from "./serialport";
-import { SerialDeviceSettings,SerialScannerProps, PortMapping, SerialInterfaceProps  } from "../types";
-import { DeviceSettings, IncyclistInterface } from "../../types";
+import SerialPortProvider from "./serialport.js";
+import { SerialDeviceSettings,SerialScannerProps, PortMapping, SerialInterfaceProps  } from "../types.js";
+import { DeviceSettings, IncyclistInterface } from "../../types/index.js";
 
-import { TCPBinding } from "../bindings/tcp";
+import { TCPBinding } from "../bindings/tcp.js";
 import { EventLogger } from "gd-eventlog";
-import { sleep } from "../../utils/utils";
-import SerialAdapterFactory from "../factories/adapter-factory";
+import { sleep } from "../../utils/utils.js";
+import SerialAdapterFactory from "../factories/adapter-factory.js";
 
-import { SinglePathScanner } from "./serial-scanner";
+import { SinglePathScanner } from "./serial-scanner.js";
 
 
 const DEFAULT_SCAN_TIMEOUT = 10000;

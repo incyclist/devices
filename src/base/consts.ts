@@ -1,4 +1,4 @@
-import { DeviceProperties } from "../types";
+import { DeviceProperties } from "../types/index.js";
 
 
 export const DEFAULT_BIKE_WEIGHT = 10;

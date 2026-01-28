@@ -1,2 +1,2 @@
-export * from './characteristic'
-export * from './read-characteristic'
+export * from './characteristic.js'
+export * from './read-characteristic.js'

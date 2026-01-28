@@ -1,11 +1,11 @@
 import { EventLogger } from "gd-eventlog";
-import { LegacyProfile } from "../../../antv2/types";
-import { ClickKeyPadStatus, DeviceDataEnvelope, DeviceInformationContent, DeviceSettings, DeviceSettingsSubContent, HubCommand, HubRequest, HubRidingData, Idle, PhysicalParam, PlayButtonStatus, SimulationParam, TrainerResponse } from "../../../proto/zwift_hub";
-import { TBleSensor } from "../../base/sensor";
-import { BleProtocol, IBlePeripheral  } from "../../types";
-import { beautifyUUID, fullUUID  } from "../../utils";
-import { generateKeyPairSync } from 'crypto';
-import { EventEmitter } from "events";
+import { LegacyProfile } from "../../../antv2/types.js";
+import { ClickKeyPadStatus, DeviceDataEnvelope, DeviceInformationContent, DeviceSettings, DeviceSettingsSubContent, HubCommand, HubRequest, HubRidingData, Idle, PhysicalParam, PlayButtonStatus, SimulationParam, TrainerResponse } from "../../../proto/zwift_hub.js";
+import { TBleSensor } from "../../base/sensor.js";
+import { BleProtocol, IBlePeripheral  } from "../../types.js";
+import { beautifyUUID, fullUUID  } from "../../utils.js";
+import { generateKeyPairSync } from 'node:crypto';
+import { EventEmitter } from "node:events";
 
 type ButtonState = {
     pressed: boolean
@@ -649,7 +649,7 @@ export class BleZwiftPlaySensor extends TBleSensor {
 
     }
 
-    protected createKeyPair() {
+    protected createKeyPair():any {
         // TODO implement with crypto feature
 
         return generateKeyPairSync('ec', {

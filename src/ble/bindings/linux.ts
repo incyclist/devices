@@ -1,5 +1,5 @@
 import EventEmitter from 'events';
-import { BleBinding, BleInterfaceState } from '../types';
+import { BleBinding, BleInterfaceState } from '../types.js';
 
 
 export class BleLinuxBinding extends EventEmitter implements BleBinding{ 

@@ -1,0 +1,28 @@
+{
+	"compilerOptions": {
+        "rootDir": "./src",
+        "target": "es2015",
+        "esModuleInterop": true,
+        "allowJs": true,
+        "moduleResolution": "node",
+        "strictPropertyInitialization": false,
+        "removeComments": true
+    },
+    "include": [
+        "src/**/*.js",
+        "src/**/*.ts",
+      ],
+    "exclude": [
+      "build/**/*.*",
+      "tools/**",
+      "samples/**",
+      "node_modules/**" ,
+      "src/**/*.spec.*",
+      "src/**/*.test.*",
+      "src/**/*.tests.*",
+    ],
+    "lib": [
+        "dom",
+        "esnext"
+    ]
+}

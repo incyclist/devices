@@ -1,16 +1,16 @@
-import EventEmitter from "events";
-import { DeviceSettings, InterfaceProps } from "../../types";
+import EventEmitter from "node:events";
+import { DeviceSettings, InterfaceProps } from "../../types/index.js";
 import { EventLogger } from "gd-eventlog";
-import { DirectConnectBinding, MulticastDnsAnnouncement } from "../bindings";
-import { DirectConnectScanProps } from "../types";
-import { BleDeviceSettings, BleProtocol, IBleInterface, IBlePeripheral } from '../../ble/types';
-import { InteruptableTask,  TaskState } from "../../utils/task";
-import { DirectConnectPeripheral } from "./peripheral";
-import { beautifyUUID, BleAdapterFactory } from "../../ble";
-import { TBleSensor } from "../../ble/base/sensor";
-import { InterfaceFactory } from "../../ble/base/types";
-import { CSC, CSP } from "../../ble/consts";
-import { WAHOO_ADVANCED_FTMS } from "../../ble/wahoo/consts";
+import { DirectConnectBinding, MulticastDnsAnnouncement } from "../bindings/index.js";
+import { DirectConnectScanProps } from "../types.js";
+import { BleDeviceSettings, BleProtocol, IBleInterface, IBlePeripheral } from '../../ble/types.js';
+import { InteruptableTask,  TaskState } from "../../utils/task.js";
+import { DirectConnectPeripheral } from "./peripheral.js";
+import { beautifyUUID, BleAdapterFactory } from "../../ble/index.js";
+import { TBleSensor } from "../../ble/base/sensor.js";
+import { InterfaceFactory } from "../../ble/base/types.js";
+import { CSC, CSP } from "../../ble/consts.js";
+import { WAHOO_ADVANCED_FTMS } from "../../ble/wahoo/consts.js";
 
 const DC_TYPE = 'wahoo-fitness-tnp'
 const DC_PORT = 36866
@@ -83,6 +83,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
     constructor(props:InterfaceProps) {  
         super()
 
+        console.log('# New Wifi Interface',props)
         this.props = props;       
         this.logEnabled = props.log||true
 

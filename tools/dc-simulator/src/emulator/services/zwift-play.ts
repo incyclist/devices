@@ -1,7 +1,7 @@
-import { ZwiftPlayControlPointCharacteristic } from "../characteristics/zwift-play-control-point"
-import { Service } from "./service"
-import { ZwiftPlayMeasurementCharacteristic } from "../characteristics/zwift-play-measurement"
-import { ZwiftPlayResponseCharacteristic } from "../characteristics/zwift-play-response"
+import { ZwiftPlayControlPointCharacteristic } from "../characteristics/zwift-play-control-point.js"
+import { Service } from "./service.js"
+import { ZwiftPlayMeasurementCharacteristic } from "../characteristics/zwift-play-measurement.js"
+import { ZwiftPlayResponseCharacteristic } from "../characteristics/zwift-play-response.js"
 
 export class ZwiftPlayService extends Service {
 

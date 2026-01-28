@@ -1,14 +1,14 @@
-import EventEmitter from "events";
-import { DeviceSettings, InterfaceProps } from "../../types";
+import EventEmitter from "node:events";
+import { DeviceSettings, InterfaceProps } from "../../types/index.js";
 import { EventLogger } from "gd-eventlog";
-import { BleBinding,  BleDeviceSettings,  BleInterfaceState,  BlePeripheralAnnouncement, BleRawPeripheral, BleScanProps,  IBlePeripheral  } from "../types";
-import { IBleInterface } from '../../ble/types';
-import { InteruptableTask, TaskState } from "../../utils/task";
-import { BlePeripheral } from "./peripheral";
-import { beautifyUUID, getPeripheralInfo, parseUUID } from "../utils";
-import { InterfaceFactory } from "./types";
-import { BleAdapterFactory } from "../factories";
-import { TBleSensor } from "./sensor";
+import { BleBinding,  BleDeviceSettings,  BleInterfaceState,  BlePeripheralAnnouncement, BleRawPeripheral, BleScanProps,  IBlePeripheral  } from "../types.js";
+import { IBleInterface } from '../../ble/types.js';
+import { InteruptableTask, TaskState } from "../../utils/task.js";
+import { BlePeripheral } from "./peripheral.js";
+import { beautifyUUID, getPeripheralInfo, parseUUID } from "../utils.js";
+import { InterfaceFactory } from "./types.js";
+import { BleAdapterFactory } from "../factories/index.js";
+import { TBleSensor } from "./sensor.js";
 
 const BLE_EXPIRATION_TIMEOUT = 10*1000*60 // 10min
 const BLE_DEFAULT_CONNECT_TIMEOUT = 30*1000; // 30s

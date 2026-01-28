@@ -1,34 +1,31 @@
 
 import { IChannel, ISensor, Profile } from 'incyclist-ant-plus'
-import AntInterface from './interface';
+import AntInterface from './interface.js';
 
-import IncyclistDevice from '../../base/adpater';
-import { AntDeviceProperties, AntDeviceSettings, isLegacyProfile, LegacyProfile,BaseDeviceData, AdapterStartStatus } from '../types';
-import { IAdapter,IncyclistAdapterData,IncyclistBikeData,IncyclistCapability } from '../../types';
-import { runWithTimeout, sleep } from '../../utils/utils';
-import { getBrand, mapLegacyProfile } from '../utils';
-import { DEFAULT_UPDATE_FREQUENCY } from '../consts';
-import SensorFactory from '../factories/sensor-factory';
+import IncyclistDevice from '../../base/adpater.js';
+import { AntDeviceProperties, AntDeviceSettings, isLegacyProfile, LegacyProfile,BaseDeviceData, AdapterStartStatus } from '../types.js';
+import { IAdapter,IncyclistAdapterData,IncyclistBikeData,IncyclistCapability } from '../../types/index.js';
+import { runWithTimeout, sleep } from '../../utils/utils.js';
+import { getBrand, mapLegacyProfile } from '../utils.js';
+import { DEFAULT_UPDATE_FREQUENCY } from '../consts.js';
+import SensorFactory from '../factories/sensor-factory.js';
 import { EventLogger } from 'gd-eventlog';
-import EventEmitter from 'events';
-import ICyclingMode from '../../modes/types';
+import EventEmitter from 'node:events';
+import ICyclingMode from '../../modes/types.js';
 
 const INTERFACE_NAME = 'ant'
 const MAX_RETRIES = 3;
 
 export default class AntAdapter<TDeviceData extends BaseDeviceData> extends IncyclistDevice<AntDeviceProperties> {
     sensor: ISensor;
-    data: IncyclistAdapterData;
     deviceData: TDeviceData;
-    updateFrequency: number;
     channel: IChannel;
     ant: AntInterface
     userSettings: { weight?:number};
     bikeSettings: { weight?:number};
-    onDataFn: (data: IncyclistAdapterData) => void
 
     
-    protected ivDataTimeout: NodeJS.Timeout
+    protected ivDataTimeout!: NodeJS.Timeout
     protected lastDataTS: number;
     protected dataMsgCount: number;
     protected ivWaitForData: NodeJS.Timeout

@@ -1,4 +1,4 @@
-import { IncyclistScanProps } from "../types"
+import { IncyclistScanProps } from "../types/index.js"
 
 export interface TDCMessageHeader {
     msgVersion: number

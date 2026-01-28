@@ -1,9 +1,9 @@
 import { EventLogger } from "gd-eventlog";
-import SerialInterface from "./serial-interface";
-import { SerialCommProps } from "../types";
+import SerialInterface from "./serial-interface.js";
+import { SerialCommProps } from "../types.js";
 import { SerialPortStream } from "@serialport/stream";
-import { DEBUG_LOGGER } from "../daum/premium/utils";
-import { Queue, waitWithTimeout } from "../../utils/utils";
+import { DEBUG_LOGGER } from "../daum/premium/utils.js";
+import { Queue, waitWithTimeout } from "../../utils/utils.js";
 export type ConnectionState = 'Connecting' | 'Connected' | 'Disconnected' | 'Disconnecting'
 
 export type Request = {

@@ -1,8 +1,8 @@
 import { EventLogger } from "gd-eventlog";
-import SerialInterface from "./serial-interface";
-import { SerialDeviceSettings, SerialInterfaceType, SerialScannerProps } from "../types";
-import SerialAdapterFactory from "../factories/adapter-factory";
-import { sleep } from "../../utils/utils";
+import SerialInterface from "./serial-interface.js";
+import { SerialDeviceSettings, SerialInterfaceType, SerialScannerProps } from "../types.js";
+import SerialAdapterFactory from "../factories/adapter-factory.js";
+import { sleep } from "../../utils/utils.js";
 
 export class SinglePathScanner {
     path: string;

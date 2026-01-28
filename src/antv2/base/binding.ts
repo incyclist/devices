@@ -2,7 +2,7 @@
 
 import {IAntDevice, IChannel} from 'incyclist-ant-plus'
 
-import { AntInterfaceProps } from "../types";
+import { AntInterfaceProps } from "../types.js";
 
 export default class AntDeviceBinding  implements IAntDevice {
     // eslint-disable-next-line @typescript-eslint/no-useless-constructor

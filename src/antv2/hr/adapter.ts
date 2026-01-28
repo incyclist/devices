@@ -1,7 +1,7 @@
 import { HeartRateSensorState, Profile } from "incyclist-ant-plus";
-import AntAdapter from "../base/adapter";
-import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "../types";
-import { IncyclistCapability } from "../../types";
+import AntAdapter from "../base/adapter.js";
+import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "../types.js";
+import { IncyclistCapability } from "../../types/index.js";
 
 export default class AntHrAdapter extends AntAdapter<HeartRateSensorState>{   
     protected static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Heartrate Monitor'
