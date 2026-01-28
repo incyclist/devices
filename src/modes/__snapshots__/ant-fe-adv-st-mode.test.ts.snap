@@ -1,4 +1,65 @@
-// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Adv SmartTrainer > statics 1`] = `"Sends Slope to device. Respects Limits (from workout or settings). Calculates speed based on power and slope. "`;
+
+exports[`Adv SmartTrainer > statics 2`] = `
+[
+  {
+    "default": "Race",
+    "description": "",
+    "key": "bikeType",
+    "name": "Bike Type",
+    "options": [
+      "Race",
+      "Mountain",
+      "Triathlon",
+    ],
+    "type": "SingleSelect",
+  },
+  {
+    "default": 100,
+    "description": "Percentage of slope that should be sent to the SmartTrainer. Should be used in case the slopes are feeling too hard",
+    "key": "slopeAdj",
+    "max": 200,
+    "min": 0,
+    "name": "Bike Reality Factor",
+    "type": "Integer",
+  },
+  {
+    "default": 50,
+    "description": "Percentage of slope that should be sent during downhill sections. Should be used to avoid spinning out",
+    "key": "slopeAdjDown",
+    "max": 100,
+    "min": 0,
+    "name": "Bike Reality Factor downhill",
+    "type": "Integer",
+  },
+  {
+    "default": "Disabled",
+    "description": "Enable virtual shifting",
+    "key": "virtshift",
+    "name": "Virtual Shifting",
+    "options": [
+      "Disabled",
+      {
+        "display": "Enabled",
+        "key": "Mixed",
+      },
+    ],
+    "type": "SingleSelect",
+  },
+  {
+    "condition": [Function],
+    "default": 12,
+    "description": "Initial Gear",
+    "key": "startGear",
+    "max": 24,
+    "min": 1,
+    "name": "Initial Gear",
+    "type": "Integer",
+  },
+]
+`;
 
 exports[`Adv SmartTrainer statics 1`] = `"Sends Slope to device. Respects Limits (from workout or settings). Calculates speed based on power and slope. "`;
 

@@ -1,6 +1,6 @@
 import net from 'net'
 import {scanSubNet, TCPBinding} from './tcp'
-import ByteLength from '@serialport/parser-byte-length'
+import {ByteLengthParser} from '@serialport/parser-byte-length'
 import SerialPortProvider from '../base/serialport'
 
 const TEST_PORT = 12345
@@ -129,7 +129,7 @@ describe( 'TCPPort' ,()=> {
             
             const read = (): Promise<Buffer>=> {
                 return new Promise( done => {
-                    const parser = sp.pipe(new ByteLength({length: 11}))
+                    const parser = sp.pipe(new ByteLengthParser({length: 11}))
                     parser.on('data', (data)=>{
                         done(data)
                         sp.unpipe()

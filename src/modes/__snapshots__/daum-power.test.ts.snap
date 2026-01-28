@@ -1,4 +1,9 @@
-// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`DaumPower > statics 1`] = `
+"Power and cadence are taken from device. Speed is calculated from power and current slope
+This mode will not respect maximum power and/or workout limits"
+`;
 
 exports[`DaumPower statics 1`] = `
 "Power and cadence are taken from device. Speed is calculated from power and current slope

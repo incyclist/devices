@@ -313,7 +313,7 @@ describe( 'bike',()=> {
            
             bike.send = jest.fn().mockRejectedValue( new ResponseTimeout())
             bike.getTimeoutValue = jest.fn().mockReturnValue(50)
-            await expect(async ()=> { await  bike.checkCockpit(1) }).resolves
+            await expect(bike.checkCockpit(1)).resolves
         })
 
         test('late response from bike',async ()=>{

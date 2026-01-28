@@ -2,7 +2,6 @@ import EventEmitter from 'events';
 import BleFitnessMachineDevice from './sensor';
 import { BleCharacteristic, BleProperty } from '../types';
 
-const OC = expect.objectContaining
 
 const data = (input) => {
     const view = new Uint8Array(input.length / 2)
@@ -163,7 +162,7 @@ describe('BleFitnessMachineDevice',()=>{
             ftms.logEvent = jest.fn()
             const res = ftms.parseFitnessMachineStatus( data("08"));
             expect(res).toMatchObject( {raw:'2ada:08'})
-            expect(ftms.logEvent).toHaveBeenCalledWith( OC({message:'warning', warning:'invalid message - message too short' }) )
+            expect(ftms.logEvent).toHaveBeenCalledWith( expect.objectContaining({message:'warning', warning:'invalid message - message too short' }) )
         })
 
     })

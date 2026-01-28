@@ -1,4 +1,25 @@
-// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`DaumClassic - Standard > statics 1`] = `
+"The device calculates speed and power based on slope. Incyclist will not modify any values recived from the device
+This mode will not respect maximum power and/or workout limits"
+`;
+
+exports[`DaumClassic - Standard > statics 2`] = `
+[
+  {
+    "default": "Race",
+    "description": "",
+    "key": "bikeType",
+    "name": "Bike Type",
+    "options": [
+      "Race",
+      "Mountain",
+    ],
+    "type": "SingleSelect",
+  },
+]
+`;
 
 exports[`DaumClassic - Standard statics 1`] = `
 "The device calculates speed and power based on slope. Incyclist will not modify any values recived from the device

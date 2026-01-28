@@ -3,14 +3,14 @@ import { buildSetSlopeCommand, getBikeType, getCockpit, getGender, getWeight, pa
 
 describe ('utils',()=>{
 
-    describe('getCockpit',()=>{
+    test('getCockpit',()=>{
         const res:string [] = []
         for (let i=0;i<256;i++)
             res.push( `0x${i.toString(16)}:${getCockpit(i)}` )
         expect(res).toMatchSnapshot()
     })
 
-    describe('getBikeType',()=>{
+    test('getBikeType',()=>{
         const res:string [] = []
         
         
@@ -22,7 +22,7 @@ describe ('utils',()=>{
         expect(res).toMatchSnapshot()
     })
 
-    describe('getGender',()=>{        
+    test('getGender',()=>{        
         const testSet = ['M','F','X',undefined]
         const res = testSet.map( (i) =>  `0x${i}:${getGender(i)}` )
         expect(res).toMatchSnapshot()

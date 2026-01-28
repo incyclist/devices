@@ -27,13 +27,16 @@ describe ( 'utils',()=>{
 
     describe('mapLegacyProfile',()=>{
 
-        const profiles: Array<LegacyProfile> = [
-            'Heartrate Monitor', 'Power Meter', 'Smart Trainer', 
-            'Cadence Sensor','Speed Sensor','Speed + Cadence Sensor'
-        ]
+        test('default',()=>{
+            const profiles: Array<LegacyProfile> = [
+                'Heartrate Monitor', 'Power Meter', 'Smart Trainer', 
+                'Cadence Sensor','Speed Sensor','Speed + Cadence Sensor'
+            ]
 
-        const res = profiles.map( p=>mapLegacyProfile(p) )
-        expect(res).toMatchSnapshot()
+            const res = profiles.map( p=>mapLegacyProfile(p) )
+            expect(res).toMatchSnapshot()
+
+        })
 
     })
 })
