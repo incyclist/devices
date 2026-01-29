@@ -31,7 +31,7 @@
         "@serialport/binding-mock": "^10.2.2",
         "@serialport/bindings-cpp": "^13.0.1",
         "@stoprocent/noble": "^2.3.10",
-        "@types/node": "^25.0.10",
+        "@types/node": "^25.1.0",
         "@typescript-eslint/eslint-plugin": "^8.54.0",
         "@typescript-eslint/parser": "^8.54.0",
         "@vitest/coverage-v8": "^4.0.18",
@@ -39,7 +39,7 @@
         "eslint": "^9.39.2",
         "protoc": "^33.4.0",
         "ts-node": "^10.9.2",
-        "typescript": "^5.9.2",
+        "typescript": "^5.9.3",
         "vitest": "^4.0.18"
     },
     "files": [
