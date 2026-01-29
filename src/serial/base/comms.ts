@@ -1,10 +1,12 @@
 import { EventLogger } from "gd-eventlog";
 import SerialInterface from "./serial-interface.js";
-import { SerialCommProps } from "../types.js";
-import { SerialPortStream } from "@serialport/stream";
+import { SerialCommProps, SerialPortStream } from "../types.js";
+
 import { DEBUG_LOGGER } from "../daum/premium/utils.js";
 import { Queue, waitWithTimeout } from "../../utils/utils.js";
+import { Duplex } from "node:stream";
 export type ConnectionState = 'Connecting' | 'Connected' | 'Disconnected' | 'Disconnecting'
+
 
 export type Request = {
     logString?: string
@@ -31,7 +33,7 @@ export default class SerialPortComms<T extends CommsState, C extends Request, R 
     protected props: SerialCommProps;
     protected sp: SerialPortStream;
     protected connectState: ConnectionState;
-    protected connectPromise:Promise<SerialPortStream>
+    protected connectPromise:Promise<Duplex>
     protected disconnectPromise:Promise<boolean>
     protected writePromise: Promise<void>   
     protected sendCmdPromise: Promise<R>
@@ -160,7 +162,7 @@ export default class SerialPortComms<T extends CommsState, C extends Request, R 
 
             if (port!==null) {
                 this.connectState = 'Connected';
-                this.sp = port;
+                this.sp = port as SerialPortStream
 
                 this.sp.on('close', this.onPortClose.bind(this));
                 this.sp.on('error', this.onPortError.bind(this) );    

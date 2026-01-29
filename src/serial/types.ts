@@ -1,11 +1,20 @@
 import { EventLogger } from "gd-eventlog"
 import { BindingInterface } from "@serialport/bindings-interface"
-import { SerialPortStream } from "@serialport/stream"
 
 import { DeviceSettings, IncyclistScanProps, InterfaceProps } from "../types/index.js"
 import SerialInterface from "./base/serial-interface.js"
+import { Duplex } from "node:stream"
 
 
+export interface SerialPortStream extends Duplex {
+  open(callback?: (err: Error | null) => void): void;
+  close(callback?: (err: Error | null) => void): void;
+  flush(callback?: (err: Error | null) => void): void;
+  drain(callback?: (err: Error | null) => void): void;
+  set?(options: any, callback?: (err: Error | null) => void): void;
+  update?(options: any, callback?: (err: Error | null) => void): void;
+  isOpen: boolean
+}
 export type SerialCommProps = {
     serial: SerialInterface,
     path: string,

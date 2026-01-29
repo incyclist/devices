@@ -1,6 +1,7 @@
 
 import { InterfaceBinding, InterfaceImplementation } from '../types.js';
-import { SerialPortStream } from '@serialport/stream'
+import * as _Stream from '@serialport/stream';
+const {SerialPortStream} = _Stream
 
 const DEFAULT_BAUD_RATE = 9600
 

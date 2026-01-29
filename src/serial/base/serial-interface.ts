@@ -1,17 +1,14 @@
 import EventEmitter from "node:events";
 import { PortInfo, BindingInterface } from "@serialport/bindings-interface";
-import { SerialPortStream } from '@serialport/stream'
 import SerialPortProvider from "./serialport.js";
-import { SerialDeviceSettings,SerialScannerProps, PortMapping, SerialInterfaceProps  } from "../types.js";
+import { SerialDeviceSettings,SerialScannerProps, PortMapping, SerialInterfaceProps, SerialPortStream  } from "../types.js";
 import { DeviceSettings, IncyclistInterface } from "../../types/index.js";
-
 import { TCPBinding } from "../bindings/tcp.js";
 import { EventLogger } from "gd-eventlog";
 import { sleep } from "../../utils/utils.js";
 import SerialAdapterFactory from "../factories/adapter-factory.js";
 
 import { SinglePathScanner } from "./serial-scanner.js";
-
 
 const DEFAULT_SCAN_TIMEOUT = 10000;
 const MAX_PARALLEL_SCANS = 5;
@@ -156,7 +153,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
         return true;
     }
 
-    async openPort(path:string): Promise< SerialPortStream|null> {
+    async openPort(path:string): Promise< SerialPortStream |null> {
         this.logEvent({message:'opening port',port:path})              
         const existing = this.ports.findIndex( p=> p.path===path)
         if (existing!==-1) {
