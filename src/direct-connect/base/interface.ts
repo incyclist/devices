@@ -83,7 +83,6 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
     constructor(props:InterfaceProps) {  
         super()
 
-        console.log('# New Wifi Interface',props)
         this.props = props;       
         this.logEnabled = props.log||true
 

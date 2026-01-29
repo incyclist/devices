@@ -436,7 +436,6 @@ export class DirectConnectPeripheral implements IBlePeripheral {
         try {
             const net = this.getBinding().net
 
-            console.log('# net Binding ',this.getBinding().net)
             this.socket = net.createSocket()
             return new Promise((resolve, reject) => {
                 //socket.setTimeout(options.timeout||DEFAULT_TIMEOUT)

@@ -79,8 +79,6 @@ export class IndoorBikeDataCharacteristic extends  Characteristic<IndoorBikeData
     this.value = finalbuffer
     this.data = event
 
-    console.log( '# update', event, finalbuffer.toString('hex') )
-
   }
 };
 
