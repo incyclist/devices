@@ -1,6 +1,6 @@
 {
     "name": "incyclist-devices",
-    "version": "3.0.1",
+    "version": "3.0.2",
     "scripts": {
         "lint": "eslint . --ext .ts",
         "build": "npm run build:esm && npm run build:cjs",
