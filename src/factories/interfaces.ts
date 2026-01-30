@@ -14,7 +14,6 @@ export default class InterfaceFactory {
 
     static create( ifaceName:string, props?:InterfaceProps) {
 
-        console.log('# create interface',ifaceName, props)
         switch(ifaceName) {
             case INTERFACE.SERIAL: 
             case INTERFACE.TCPIP:
