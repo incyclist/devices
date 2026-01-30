@@ -25,6 +25,9 @@ const main = async ({configFile = './config/smarttrainer.json'}) => {
     let currentCadence = 90
     let currentPower = 0
     let randomPower = true
+    let simulateGlitch = false
+    let isEmulatorStarted = false
+    let iv
 
     const {config, emulator} = await parseConfig(configFile)
 
@@ -37,10 +40,13 @@ const main = async ({configFile = './config/smarttrainer.json'}) => {
         console.log('start',a,p)
         const server = createServer( serverCallbacks);
 
-        console.log('start emulator')
-        emulator.start()
+        if (!isEmulatorStarted) {
+            console.log('start emulator')
+            emulator.start()
+            isEmulatorStarted = true;
+            setTimeout(simulate,3000)
+        }
 
-        setTimeout(simulate,3000)
         server.on('error',  (err) => { console.log('ERROR',err)})
         server.on('connection',  (conn) => { console.log('CONNECTION',conn.address())})
         server.on('listening',  () => { console.log(`listening on ${a}:${p}`) })
@@ -50,9 +56,16 @@ const main = async ({configFile = './config/smarttrainer.json'}) => {
     }
 
     const simulate = () => {   
-        setInterval(() => {
+        if (iv)
+            return
+        iv = setInterval(() => {
+            console.log('sending update ...')
             if (paused)
                 emulator.pause()
+            else if  (simulateGlitch) {
+                emulator.update({power:20, heartrate:Math.round(Math.random()*40+80), cadence:1})   
+                simulateGlitch = false
+            }
             else {
                 const power = randomPower ? Math.round(Math.random()*100+50) : currentPower
                 emulator.update({power, heartrate:Math.round(Math.random()*40+80), cadence:currentCadence})
@@ -69,31 +82,49 @@ const main = async ({configFile = './config/smarttrainer.json'}) => {
     instance.publish( config)
 
     listenKeyPresses( (key,event)=>{
+        if (key === '0')  {
+            currentCadence = 0
+            currentPower = 0
+            console.log( '\rSTOPPED PEDALLING')
+        }
         if (key === 'p')  {
             paused = true
-            console.log( 'PAUSED')
+            console.log( '\rPAUSED')
+        }
+        if (key === 'g')  {
+            simulateGlitch = true
+            console.log( '\rSIMULATE GLITCH')
         }
         else if (key === 'r')  {
+
             paused = false
             emulator.resume()
-            console.log( 'RESUMED')
+
+            console.log( '\rRESUMED')
         }
         else if (key === '#')  {            
             randomPower = !randomPower
-            console.log('randomPower',randomPower ? 'ON' : 'OFF')
+            console.log('\rrandomPower',randomPower ? 'ON' : 'OFF')
         }
         else if (key==='+' && !randomPower) {
             currentPower += 5
-            console.log('currentPower',currentPower)
+            console.log('\rcurrentPower',currentPower)
         }
         else if (key==='-' && !randomPower) {
-            currentPower -= 5
-            console.log('currentPower',currentPower)    
+            currentPower = currentPower- 5
+            if (currentPower<0)
+                currentPower = 0
+            console.log('\rcurrentPower',currentPower)    
         }
-        else if (event.name==='left') 
+        else if (event.name==='left' || key==='2') {
             currentCadence  = event.shift ? Math.max(0,currentCadence-20) : Math.max(0,currentCadence-5)
-        else if (event.name==='right') 
+            console.log('\rcurrentCadence',currentCadence)    
+
+        }
+        else if (event.name==='right' || key==='8') {
             currentCadence  = event.shift ? Math.max(0,currentCadence+20) : Math.max(0,currentCadence+5)
+            console.log('\rcurrentCadence',currentCadence)    
+        }
         
     })
 

@@ -35,6 +35,7 @@ export class IndoorBikeDataCharacteristic extends  Characteristic<IndoorBikeData
     let flags = 0;
     let offset = 0;
     const buffer = Buffer.alloc(30);
+    const data:any ={}
 
     offset += 2;
 
@@ -47,12 +48,14 @@ export class IndoorBikeDataCharacteristic extends  Characteristic<IndoorBikeData
       // cadence is in 0.5rpm resolution but is supplied in 1rpm resolution, multiply by 2 for ble.
       const cadence = event.cadence * 2
       buffer.writeUInt16LE(cadence, offset);
+      data.cadence = cadence
       offset += 2;
     }
 
     if ('resistance' in event) {
       flags |= InstantaneousResistancePresent;
       const resistance = event.resistance;
+      data.resistance = resistance
       buffer.writeUInt16LE(resistance, offset);
       offset += 2;
     }
@@ -60,6 +63,7 @@ export class IndoorBikeDataCharacteristic extends  Characteristic<IndoorBikeData
     if ('watts' in event) {
       flags |= InstantaneousPowerPresent;
       const watts = event.watts;
+      data.power = watts
       buffer.writeInt16LE(watts, offset);
       offset += 2;
     }
@@ -69,6 +73,7 @@ export class IndoorBikeDataCharacteristic extends  Characteristic<IndoorBikeData
       flags |= HeartRatePresent;
       const heart_rate = event.heart_rate;
       buffer.writeUInt16LE(heart_rate, offset);
+      data.heartrate = heart_rate
       offset += 2;
     }
 
@@ -78,6 +83,8 @@ export class IndoorBikeDataCharacteristic extends  Characteristic<IndoorBikeData
 
     this.value = finalbuffer
     this.data = event
+
+    console.log(new Date().toISOString(),'send update',{data})
 
   }
 };
