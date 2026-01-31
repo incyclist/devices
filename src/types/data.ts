@@ -15,7 +15,7 @@ export  type IncyclistAdapterData = {
 export type IncyclistBikeData = {
     isPedalling?: boolean
     power: number
-    pedalRpm: number
+    pedalRpm?: number
     speed: number           // km/h
     heartrate?: number
     distanceInternal?: number // Total Distance in meters 

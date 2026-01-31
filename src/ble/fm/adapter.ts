@@ -19,11 +19,11 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
     protected static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Smart Trainer'
 
     protected distanceInternal: number = 0;
-    protected connectPromise: Promise<boolean>
+    protected connectPromise: Promise<boolean>|undefined
     protected requestControlRetryDelay = 1000
-    protected promiseSendUpdate: Promise<UpdateRequest|void>
-    protected zwiftPlay: BleZwiftPlaySensor
-    protected virtualShiftingSupported: undefined
+    protected promiseSendUpdate: Promise<UpdateRequest|void>|undefined
+    protected zwiftPlay: BleZwiftPlaySensor|undefined
+    protected isHubInitialized: boolean = false
 
     constructor( settings:BleDeviceSettings, props?:BleDeviceProperties) {
         super(settings,props);
@@ -125,7 +125,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         data.power = deviceData?.instantaneousPower ?? data.power;
         data.pedalRpm = deviceData?.cadence ?? data.pedalRpm ;
         data.time = deviceData?.time ?? data.time;
-        data.isPedalling = data.pedalRpm>0 || (data.pedalRpm===undefined && data.power>0);
+        data.isPedalling = (data.pedalRpm??0)>0 || (data.pedalRpm===undefined && data.power>0);
         data.heartrate = deviceData.heartrate || data.heartrate
 
         const features = this.getSensor()?.features        
@@ -179,20 +179,25 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         return [wasPaused, false];
     }
         
-    protected async initVirtualShifting() {
+    protected async initVirtualShifting(initHub:boolean = false) {
 
-        this.logEvent({message:'init virtual shifting', hasSensor: this.zwiftPlay!==undefined})
+        if (!this.zwiftPlay || initHub===true)
+            this.logEvent({message:'init virtual shifting', hasSensor: this.zwiftPlay!==undefined})
+
         try {
             this.zwiftPlay = this.zwiftPlay ?? new BleZwiftPlaySensor( this.device, {logger:this.logger, isTrainer:true})
 
-            // todo: remove and only init once it is used
-            // for now: I want to get more data on what the trainers are sending
-            this.zwiftPlay.initHubService(false)
+            if ( initHub && this.zwiftPlay && !this.isHubInitialized) {
+                // todo: remove and only init once it is used
+                // for now: I want to get more data on what the trainers are sending
+                this.isHubInitialized = await this.zwiftPlay.initHubService(false)
+            }
 
         }
         catch(err) {
-            this.logEvent({message:'could not init virtual shifting', reason:err.message})    
-            delete this.zwiftPlay        
+            this.logEvent({message:'could not init virtual shifting', reason:(err as Error).message})    
+            delete this.zwiftPlay    
+            this.isHubInitialized =false    
         }
     }
 
@@ -272,7 +277,10 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
     }
 
     protected async sendInitialRequest() {
+
+
         const startRequest = this.getCyclingMode().getBikeInitRequest()
+
         await this.sendUpdate(startRequest,true);
 
     }
@@ -372,10 +380,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
                     const res: UpdateRequest = {}
                     if (update.slope!==undefined) {
                         if (update.isHub) {
-                            if (!this.zwiftPlay) {
-                                this.initVirtualShifting()                            
-                            }
-
+                            await this.initVirtualShifting(true)                            
                             if (this.zwiftPlay) {
                                 await this.zwiftPlay.setIncline(update.slope)
                             }
@@ -400,9 +405,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
                     if (update.gearRatio!==undefined ) {
 
-                        if (!this.zwiftPlay) {
-                            this.initVirtualShifting()                            
-                        }
+                        await this.initVirtualShifting(true)                            
 
                         if (this.zwiftPlay && !Number.isNaN(update.gearRatio)) {
                             const gearRatio = await this.zwiftPlay.setGearRatio( update.gearRatio)
@@ -426,7 +429,8 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
             }
 
         }
-        catch(err) {
+        catch(error) {
+            const err = error as Error
             delete this.promiseSendUpdate
             if (err.message==='not connected') {
                 this.logEvent({message:'send bike update failed', reason:'not connected'})
@@ -458,9 +462,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
                 return false
             }
         }
-        else {
-            return false
-        }
+        return false
     }
 
     protected getFeatureToggle() {
