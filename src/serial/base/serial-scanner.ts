@@ -7,16 +7,16 @@ import { sleep } from "../../utils/utils.js";
 export class SinglePathScanner {
     path: string;
     serial: SerialInterface;
-    result: SerialDeviceSettings;
+    result!: SerialDeviceSettings;
     isScanning: boolean;
     props: SerialScannerProps;
     logger: EventLogger;
     isFound: boolean;
+    protected stopPromise:Promise<boolean>|undefined
 
     constructor(path: string, serial: SerialInterface, props: SerialScannerProps) {
         this.path = path;
         this.serial = serial;
-        this.result = undefined;
         this.isScanning = false;
         this.isFound = false;
         this.props = props;
@@ -24,25 +24,29 @@ export class SinglePathScanner {
 
     }
 
-    logEvent(event) {
+    logEvent(event:any) {
         if (this.logger) {
             this.logger.logEvent(event);
         }
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const w = global.window as any;
-
-        if (w?.DEVICE_DEBUG || process.env.BLE_DEBUG|| process.env.ANT_DEBUG|| process.env.SERIAL_DEBUG) {
-            console.log('~~~ SerialScanner', event);
-        }
-
     }
 
 
-    async onStopRequest(resolve): Promise<void> {
+    async onStopRequest(resolve:(result:SerialDeviceSettings)=>void): Promise<void> {
+        if (this.stopPromise!==undefined) {
+            await this.stopPromise
+            resolve(this.result);    
+            return
+        }
+
         this.logEvent({ message: 'stopping scan', path: this.path });
-        if (!this.isFound)
-            await this.serial.closePort(this.path);
+
+        this.serial.scanEvents.removeAllListeners('timeout')
+        this.serial.scanEvents.removeAllListeners('stop')
+        if (!this.isFound) {
+            this.stopPromise = this.serial.closePort(this.path);
+            await this.stopPromise
+            this.stopPromise = undefined
+        }
         this.isScanning = false;
         resolve(this.result);
     }
@@ -96,8 +100,8 @@ export class SinglePathScanner {
                     }
                     
                 }
-                catch (err) {
-                    /* ignore*/
+                catch (error) {
+                    const err = error as Error
                     this.logEvent({ message: 'error', fn: 'scan()', error: err.message || err, stack: err.stack });
                     await sleep(2000);
                 }

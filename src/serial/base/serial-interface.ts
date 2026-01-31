@@ -190,7 +190,7 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
         })
     }
 
-    async closePort(path:string): Promise<Boolean> {
+    async closePort(path:string): Promise<boolean> {
         this.logEvent( {message:'closing port', port:path})
         const existing = this.ports.findIndex( p=> p.path===path)
         if (existing===-1)
