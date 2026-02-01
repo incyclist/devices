@@ -10,11 +10,13 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
 
     static readonly protocol: BleProtocol
     protected logger: EventLogger
-    protected stopRequested: boolean
+    protected stopRequested: boolean = false
+    protected subscribeSuccess:boolean = false
+    protected reconnectPromise: Promise<boolean>|undefined
     protected onDataHandler
 
 
-    logEvent(event, ...args) {
+    logEvent(event:any, ...args:any) {
         this.logger.logEvent(event, ...args)
     }
 
@@ -30,24 +32,24 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
     }
 
     getDetectionPriority():number {
-        const C = this.constructor as typeof TBleSensor
+        const C = this.constructor as any
         return C['detectionPriority']??0 
        
     }
 
     getProfile(): LegacyProfile {
-        const C = this.constructor as typeof TBleSensor
+        const C = this.constructor as any
         return C['profile'] 
     }
 
 
     getProtocol(): BleProtocol {
-        const C = this.constructor as typeof TBleSensor
+        const C = this.constructor as any
         return C['protocol']
     }
 
     getServiceUUids(): string[] {
-        const C = this.constructor as typeof TBleSensor
+        const C = this.constructor as any
         return C['services'] 
     }
 
@@ -102,28 +104,33 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
         return true;
     }
 
-    protected getRequiredCharacteristics():Array<string> {
+    protected getRequiredCharacteristics():Array<string>|null {
         return null
     }
 
     async subscribe():Promise<boolean> {
+
         const selected = this.getRequiredCharacteristics()
 
         if (selected===null) {
-            const res =  await this.peripheral.subscribeAll(this.onDataHandler)
+            const res =  this.peripheral?.subscribeAll ? await this.peripheral.subscribeAll(this.onDataHandler) : false
+            this.subscribeSuccess = res
             return res;
         }
 
         if (selected.length===0) {
+            this.subscribeSuccess = true
             return true;
         }
 
         const res =  await this.peripheral.subscribeSelected(selected,this.onDataHandler)
+        this.subscribeSuccess = res
         return res
     }
 
     async stopSensor(): Promise<boolean> {
 
+        this.onDisconnect()
         this.removeAllListeners()
         if (!this.peripheral)
             return true;
@@ -132,12 +139,31 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
         return await this.peripheral.disconnect()
     }
 
-    async reconnectSensor() {
+    isReconnectBusy():boolean {
+        return (this.reconnectPromise!==undefined)
+
+    }
+
+    async reconnectSensor():Promise<boolean> {
+        if (this.reconnectPromise!==undefined) {
+            return await this.reconnectPromise
+        }
+        this.reconnectPromise = this.doReconnectSensor()
+        const res = await this.reconnectPromise
+        delete this.reconnectPromise
+
+        return res;
+    }
+
+    async doReconnectSensor():Promise<boolean> {
+        this.onDisconnect()
+
         this.logEvent({message:'reconnect sensor'})
         let connected = false;
         let subscribed = false;
 
         let success = false
+        
         do {
             if (!connected) {
                 connected = await this.startSensor(true)
@@ -145,6 +171,7 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
 
             if (connected && !subscribed) {
                 subscribed = await this.subscribe()
+                
             }
 
             success = connected && subscribed        
@@ -152,6 +179,9 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
                 await sleep(1000)
             }
         } while (!success || this.stopRequested)
+
+        this.logEvent({message:'reconnect sensor completed',success, stopRequested:this.stopRequested})
+        return success
 
     }
 
@@ -162,6 +192,16 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
     isConnected():boolean   {
         return this.peripheral?.isConnected()
     }
+
+    isSubscribed(): boolean {
+        return this.subscribeSuccess
+    }
+
+    protected onDisconnect() {
+        this.subscribeSuccess = false
+    }
+
+
     read(characteristicUUID: string): Promise<Buffer> { 
         if (!this.isConnected()) {
             return Promise.reject(new Error('not connected'))

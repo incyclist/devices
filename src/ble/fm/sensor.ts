@@ -110,11 +110,18 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     setWindSpeed(windSpeed:number) {this.windSpeed = windSpeed}
     getWindSpeed():number { return this.windSpeed}
 
+    protected onDisconnect(): void {
+        this.hasControl = false
+    }
+
     async requestControl(): Promise<boolean> {
 
         if (this.hasControl) {
             return true;
         }
+
+        if (!this.isSubscribed())
+            return false
 
         // If we know from features flag that setPower and setSlope are not supported, just ignore
         if (this.features?.setPower===false && this.features?.setSlope===false && this.features?.setResistance===false) {
@@ -139,6 +146,10 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     }
 
     async setTargetPower( power: number): Promise<boolean> {
+        if (!this.isSubscribed())
+            return false
+
+
         this.logEvent( {message:'setTargetPower', device:this.getName(),power, skip:(this.data.targetPower!==undefined && this.data.targetPower===power)})
 
         // avoid repeating the same value
@@ -164,6 +175,10 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     }
 
     async setTargetResistanceLevel( resistanceLevel: number): Promise<boolean> {
+
+        if (!this.isSubscribed())
+            return false
+
         this.logEvent( {message:'setTargetResistanceLevel', device:this.getName(), resistanceLevel, skip:(this.data.resistanceLevel!==undefined && this.data.resistanceLevel===resistanceLevel)})
 
         // avoid repeating the same value
@@ -190,7 +205,10 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         return ( res===OpCodeResult.Success)
     }
 
-    async setSlope(slope) {
+    async setSlope(slope:number) {
+        if (!this.isSubscribed())
+            return false
+
         this.logEvent( {message:'setSlope',  device:this.getName(), slope})
 
         const {windSpeed,crr, cw} = this;
