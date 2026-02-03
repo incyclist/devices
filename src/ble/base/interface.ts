@@ -1,4 +1,4 @@
-import EventEmitter from "node:events";
+import { EventEmitter }from "node:events";
 import { DeviceSettings, InterfaceProps } from "../../types/index.js";
 import { EventLogger } from "gd-eventlog";
 import { BleBinding,  BleDeviceSettings,  BleInterfaceState,  BlePeripheralAnnouncement, BleRawPeripheral, BleScanProps,  IBlePeripheral  } from "../types.js";

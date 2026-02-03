@@ -1,4 +1,4 @@
-import EventEmitter from "node:events";
+import { EventEmitter } from "node:events";
 import { PortInfo, BindingInterface } from "@serialport/bindings-interface";
 import SerialPortProvider from "./serialport.js";
 import { SerialDeviceSettings,SerialScannerProps, PortMapping, SerialInterfaceProps, SerialPortStream  } from "../types.js";

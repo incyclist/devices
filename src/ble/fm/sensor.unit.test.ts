@@ -1,4 +1,4 @@
-import EventEmitter from 'events';
+import { EventEmitter } from 'events';
 import BleFitnessMachineDevice from './sensor';
 import { BleCharacteristic, BleProperty } from '../types';
 

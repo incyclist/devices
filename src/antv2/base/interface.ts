@@ -1,4 +1,4 @@
-import EventEmitter from "node:events";
+import { EventEmitter } from "node:events";
 import { EventLogger } from "gd-eventlog";
 import { Channel, IAntDevice, IChannel, ISensor } from "incyclist-ant-plus";
 import { AntDeviceSettings, AntScanProps,AntInterfaceProps  } from "../types.js";

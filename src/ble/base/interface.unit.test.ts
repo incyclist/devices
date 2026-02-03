@@ -3,7 +3,7 @@ import { BleInterface } from "./interface"
 import { BleBinding,  BleInterfaceState, BlePeripheralAnnouncement, BlePeripheralInfo, BleRawPeripheral } from "../types"
 
 import { resolveNextTick } from "../../utils/utils"
-import EventEmitter from "events"
+import { EventEmitter } from "events"
 import { beautifyUUID } from "../utils"
 
 const logger:Partial<EventLogger>= {logEvent:jest.fn(),getName:()=>'Ble'} 

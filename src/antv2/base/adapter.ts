@@ -10,7 +10,7 @@ import { getBrand, mapLegacyProfile } from '../utils.js';
 import { DEFAULT_UPDATE_FREQUENCY } from '../consts.js';
 import SensorFactory from '../factories/sensor-factory.js';
 import { EventLogger } from 'gd-eventlog';
-import EventEmitter from 'node:events';
+import { EventEmitter } from 'node:events';
 import ICyclingMode from '../../modes/types.js';
 
 const INTERFACE_NAME = 'ant'
@@ -464,25 +464,31 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
     protected async initSensor(props: any):Promise<boolean> {
         this.startStatus.sensorStarted = this.sensorConnected
         if (this.startStatus.sensorStarted) 
-            return;
+            return true;
 
-        this.logEvent({ message: 'start sensor', device:this.getName(), props });
+        const logProps = structuredClone(props??{})
+        logProps.routeName = logProps?.route?.title
+        logProps.routeId   = logProps?.route?.id
+        delete logProps.route
+        this.logEvent({ message: 'start sensor', device:this.getName(), props:logProps });
 
         try {
             this.sensorConnected = await this.startSensor();
 
             if (this.sensorConnected) {
-                this.logEvent({ message: 'sensor started', device:this.getName(),channel:this.sensor?.getChannel()?.getChannelNo(), props });
+                this.logEvent({ message: 'sensor started', device:this.getName(),channel:this.sensor?.getChannel()?.getChannelNo(), props:logProps });
                 this.startStatus.sensorStarted = true;
+                return true
             }
             else {
-                this.logEvent({ message: 'start sensor failed', device:this.getName(), reason:'unknown', props });    
+                this.logEvent({ message: 'start sensor failed', device:this.getName(), reason:'unknown', props:logProps });    
             }
     
         }
         catch (err) {
-            this.logEvent({ message: 'start sensor failed', device:this.getName(), reason:err.message, props });
+            this.logEvent({ message: 'start sensor failed', device:this.getName(), reason:(err as Error).message, props:logProps });
         }       
+        return false
     }
 
     getLogProps(startProps?: AntDeviceProperties): AntDeviceProperties {

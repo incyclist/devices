@@ -3,7 +3,7 @@ import { DirectConnectBinding, MulticastDnsAnnouncement, Socket } from "../bindi
 import { InteruptableTask, TaskState } from "../../utils/task.js";
 import DirectConnectInterface from "./interface.js";
 import { CharacteristicNotificationMessage, DiscoverCharacteristicsMessage, DiscoverServiceMessage, EnableCharacteristicNotificationsMessage, parseHeader, RC, ReadCharacteristicMessage, WriteCharacteristicMessage } from "../messages/index.js";
-import EventEmitter from "node:events";
+import { EventEmitter } from "node:events";
 import { DC_MESSAGE_CHARACTERISTIC_NOTIFICATION, DC_RC_REQUEST_COMPLETED_SUCCESSFULLY } from "../consts.js";
 import {  beautifyUUID, parseUUID } from "../../ble/utils.js";
 

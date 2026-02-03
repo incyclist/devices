@@ -1,4 +1,4 @@
-import EventEmitter from 'events';
+import { EventEmitter } from 'events';
 import { sleep } from '../../utils/utils.js';
 import { BleBinding,  BleInterfaceState, BleRawPeripheral, BleService } from '../types.js';
 import { MockCharacteristic, PrimaryService } from './types.js';

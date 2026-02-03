@@ -1,4 +1,4 @@
-import EventEmitter from "node:events";
+import { EventEmitter } from "node:events";
 import { EventLogger } from "gd-eventlog";
 import { IncyclistScanProps, DeviceSettings } from "./device.js";
 

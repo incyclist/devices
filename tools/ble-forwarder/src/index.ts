@@ -1,7 +1,7 @@
 import noble, { Characteristic, Peripheral, Service } from '@stoprocent/noble';
 import bleno  from "@stoprocent/bleno";
 
-import EventEmitter from 'events';
+import { EventEmitter }from 'events';
 import { parseArgs } from './parseArgs';
 
 

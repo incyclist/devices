@@ -1,4 +1,4 @@
-import EventEmitter from "node:events";
+import { EventEmitter } from "node:events";
 import { DeviceSettings, InterfaceProps } from "../../types/index.js";
 import { EventLogger } from "gd-eventlog";
 import { DirectConnectBinding, MulticastDnsAnnouncement } from "../bindings/index.js";

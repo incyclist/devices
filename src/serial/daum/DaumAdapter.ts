@@ -9,7 +9,7 @@ import SerialInterface from '../base/serial-interface.js';
 
 import SmartTrainerCyclingMode from '../../modes/daum-smarttrainer.js';
 import DaumPowerMeterCyclingMode from '../../modes/daum-power.js';
-import EventEmitter from 'node:events';
+import {EventEmitter} from 'node:events';
 import ICyclingMode, { UpdateRequest } from '../../modes/types.js';
 
 export default class DaumAdapter<S extends SerialDeviceSettings, P extends DeviceProperties, C extends DaumSerialComms> extends SerialIncyclistDevice<P>  {

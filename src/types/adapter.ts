@@ -1,4 +1,4 @@
-import EventEmitter from "node:events";
+import { EventEmitter } from "node:events";
 import ICyclingMode, { CyclingMode, UpdateRequest } from "../modes/types.js"
 import { IncyclistCapability } from "./capabilities.js";
 import { IncyclistAdapterData } from "./data.js";

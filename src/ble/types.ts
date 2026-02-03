@@ -1,4 +1,4 @@
-import EventEmitter from "events";
+import { EventEmitter } from "events";
 import { EventLogger } from "gd-eventlog";
 import { DeviceProperties, DeviceSettings, DeviceStartProperties, IncyclistInterface, IncyclistScanProps,InterfaceProps } from "../types/index.js";
 

@@ -1,7 +1,7 @@
 import { EventLogger } from "gd-eventlog";
 import { hexstr, Queue } from "../../utils/utils.js";
 import { Command } from "./types.js";
-import EventEmitter from "node:events";
+import { EventEmitter } from "node:events";
 import { SerialInterface } from "../index.js";
 import { ReadlineParser } from '@serialport/parser-readline'
 
