@@ -6,7 +6,7 @@ import { Gender } from '../../../types';
 import { DaumClassicResponse } from './types';
 import { sleep } from '../../../utils/utils';
 import { ResponseTimeout } from '../types';
-import SerialPortProvider from '../../base/serialport';
+import SerialPortProvider from '../../base/serial-provider';
 import SerialInterface from '../../base/serial-interface';
 
 if ( process.env.DEBUG===undefined)

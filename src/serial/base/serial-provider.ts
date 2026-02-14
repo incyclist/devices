@@ -38,7 +38,7 @@ export default class SerialPortProvider {
             return existing.binding
     }
 
-    getSerialPort( ifaceName:string, props) {
+    getSerialPort( ifaceName:string, props:any) {
         const binding = this.getBinding(ifaceName)
         if (binding) {
             props.binding = binding;

@@ -1,4 +1,4 @@
-import { CadenceSensor } from 'incyclist-ant-plus'
+import type { CadenceSensor } from 'incyclist-ant-plus'
 import { LegacyProfile } from './types'
 import { getBrand, mapLegacyProfile } from './utils'
 

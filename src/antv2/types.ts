@@ -1,4 +1,4 @@
-import { Profile } from 'incyclist-ant-plus';
+import type { Profile } from 'incyclist-ant-plus';
 import {IAdapter, DeviceProperties, DeviceSettings, IncyclistScanProps, InterfaceProps} from '../types/index.js'
 import AntAdapter from './base/adapter.js';
 

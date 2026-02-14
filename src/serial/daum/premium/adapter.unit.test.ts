@@ -2,7 +2,7 @@ import { EventLogger } from 'gd-eventlog';
 import DaumPremiumAdapter from './adapter'
 import { MockBinding } from '@serialport/binding-mock';
 import DaumClassicCyclingMode from '../../../modes/daum-classic-standard';
-import SerialPortProvider from '../../base/serialport';
+import SerialPortProvider from '../../base/serial-provider';
 import SerialInterface from '../../base/serial-interface';
 import { sleep } from '../../../utils/utils';
 

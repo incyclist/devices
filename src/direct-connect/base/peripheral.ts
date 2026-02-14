@@ -7,6 +7,8 @@ import { EventEmitter } from "node:events";
 import { DC_MESSAGE_CHARACTERISTIC_NOTIFICATION, DC_RC_REQUEST_COMPLETED_SUCCESSFULLY } from "../consts.js";
 import {  beautifyUUID, parseUUID } from "../../ble/utils.js";
 
+let IDS = 0;
+
 export class DirectConnectPeripheral implements IBlePeripheral {
 
     static readonly instances: Record<string, DirectConnectPeripheral> ={}
@@ -32,9 +34,10 @@ export class DirectConnectPeripheral implements IBlePeripheral {
     protected subscribed: Array<string> = [] 
     protected onDisconnectHandler: ()=>void;
     protected discoveredServiceUUIds: Array<string>
+    public id:number
 
     constructor( protected announcement:MulticastDnsAnnouncement) { 
-        
+        this.id = ++IDS;
     }
 
     getInfo(): BleDeviceIdentifier {
@@ -60,11 +63,18 @@ export class DirectConnectPeripheral implements IBlePeripheral {
     }
 
     async connect(): Promise<boolean> {
+
         if (this.isConnected())
             return true;
 
         if (this.isConnecting())
             await this.connectTask.getPromise()
+
+         
+        const keys = Object.keys(DirectConnectPeripheral.instances)
+        const instances = []
+        for (const key of keys)
+            instances.push(DirectConnectPeripheral.instances[key])
 
         this.connectTask = new InteruptableTask(this.startConnection(),{
             timeout:1000,
@@ -73,11 +83,12 @@ export class DirectConnectPeripheral implements IBlePeripheral {
     }
 
     async disconnect(connectionLost:boolean=false): Promise<boolean> {
+
         try {
 
             await this.connectTask.stop()
             await this.stopConnection(connectionLost)
-            
+
             delete this.socket
 
         }
@@ -437,6 +448,8 @@ export class DirectConnectPeripheral implements IBlePeripheral {
             const net = this.getBinding().net
 
             this.socket = net.createSocket()
+
+
             return new Promise((resolve, reject) => {
                 //socket.setTimeout(options.timeout||DEFAULT_TIMEOUT)
 
@@ -450,6 +463,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
                     //reject(err)
                 })
                 this.socket.once('connect',()=>{ 
+
                     this.socket.on('data', this.onDataHandler)
                     this.socket.on('error',this.onPortErrorHandler )
                     this.socket.on('close',this.onPortCloseHandler)
@@ -473,7 +487,10 @@ export class DirectConnectPeripheral implements IBlePeripheral {
 
     }
 
-    protected async onPortClose() {       
+    protected async onPortClose() {     
+        if (this.isConnecting())
+            return
+
         this.socket.removeAllListeners();
         this.socket.on('error',()=>{}) // ignore port errors
         this.logEvent({message:'port closed', path:this.getPath()}) 
@@ -495,10 +512,15 @@ export class DirectConnectPeripheral implements IBlePeripheral {
 
 
     protected async stopConnection(connectionLost:boolean=false):Promise<boolean> {
-        this.eventEmitter.removeAllListeners()
 
-        if (!this.isConnected())
+        this.eventEmitter.removeAllListeners()
+        if (!this.isConnected()) {
+            this.socket.removeAllListeners()
+            this.socket.destroy()
+            delete this.socket
             return true;
+        }
+
 
         
         await this.unsubscribeAll(connectionLost)
@@ -533,7 +555,8 @@ export class DirectConnectPeripheral implements IBlePeripheral {
         this.msgSeqNo = (this.msgSeqNo+1) % 256
         return this.msgSeqNo
     }
-    protected async send(seqNo:number, data:Buffer):Promise<Buffer> {        
+    protected async send(seqNo:number, data:Buffer):Promise<Buffer> {    
+        await this.connect()
         this.socket.write(data)
 
         return new Promise( done  => {
@@ -585,8 +608,6 @@ export class DirectConnectPeripheral implements IBlePeripheral {
     }
 
     protected async onData(data:Buffer) {
-
-
         const incoming = this.getNextMessage(data)
 
         if (incoming===null)

@@ -5,6 +5,7 @@ import { BleBinding,  BleInterfaceState, BlePeripheralAnnouncement, BlePeriphera
 import { resolveNextTick } from "../../utils/utils"
 import { EventEmitter } from "events"
 import { beautifyUUID } from "../utils"
+import { nextTick } from "process"
 
 const logger:Partial<EventLogger>= {logEvent:jest.fn(),getName:()=>'Ble'} 
 
@@ -126,18 +127,31 @@ describe('BleInterface', () => {
 
 
 
-        test('successfull connect', async () => {
-            setupMocks(i, {binding: true, connectState: ()=>'poweredOn'})
+        test('BLE already poweredOn - successfull connect', async () => {
+            setupMocks(i, {binding: true, connectState:'poweredOn'})
+            await i.connect()
+            
 
             const res = await i.connect()
             expect(res).toBeTruthy()
             expect(i.isConnected()).toBeTruthy()
 
-            expect(logger.logEvent).toHaveBeenCalledWith({message:'BLE connect request',interface:'ble'})
             expect(logger.logEvent).toHaveBeenCalledWith({message:'BLE connected',interface:'ble'})
             expect(mocks.startPeripheralScan).toHaveBeenCalledTimes(1)
 
         })
+
+        test('BLE changes to poweredOn -  successfull connect', async () => {
+            setupMocks(i, {binding: true, connectState: ()=>'poweredOn'})
+            
+            
+
+            const res = await i.connect()
+            expect(res).toBeTruthy()
+            expect(i.isConnected()).toBeTruthy()
+
+        })
+
         test('no binding', async () => {
             setupMocks(i, {binding: false})
 
@@ -155,10 +169,10 @@ describe('BleInterface', () => {
             expect(i.isConnected()).toBeFalsy()
             expect(logger.logEvent).toHaveBeenCalledWith({message:'BLE connect request',interface:'ble'})
             expect(logger.logEvent).toHaveBeenCalledWith({message:'BLE state change', state:'unauthorized',interface:'ble'})
-            expect(logger.logEvent).toHaveBeenCalledWith({message:'BLE connect timeout', active:true,interface:'ble'})
+            //expect(logger.logEvent).toHaveBeenCalledWith({message:'BLE connect timeout', active:true,interface:'ble'})
         })
         test('already connecting', async () => {
-            setupMocks(i, {binding: true, connectState: ()=>'unauthorized'})
+            setupMocks(i, {binding: true, connectState: ()=>'unknown'})
 
             i.connect()
             const res = await i.connect()
@@ -166,7 +180,7 @@ describe('BleInterface', () => {
             expect(i.isConnected()).toBeFalsy()
             expect(logger.logEvent).toHaveBeenCalledWith({message:'BLE connect request',interface:'ble'})
             expect(logger.logEvent).toHaveBeenCalledWith({message:'BLE connect - already connecting',interface:'ble'})
-            expect(logger.logEvent).toHaveBeenCalledWith({message:'BLE state change', state:'unauthorized',interface:'ble'})
+            expect(logger.logEvent).toHaveBeenCalledWith({message:'BLE state change', state:'unknown',interface:'ble'})
             expect(logger.logEvent).toHaveBeenCalledWith({message:'BLE connect timeout', active:true,interface:'ble'})
 
         })

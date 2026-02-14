@@ -1,6 +1,6 @@
 /* istanbul ignore file */
 
-import {IAntDevice, IChannel} from 'incyclist-ant-plus'
+import type {IAntDevice, IChannel} from 'incyclist-ant-plus'
 
 import { AntInterfaceProps } from "../types.js";
 

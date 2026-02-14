@@ -1,5 +1,5 @@
 /* istanbul ignore file */
-import SerialPortProvider,{useSerialPortProvider} from './base/serialport.js';
+import SerialPortProvider,{useSerialPortProvider} from './base/serial-provider.js';
 import SerialInterface  from './base/serial-interface.js';
 import SerialAdapterFactory from './factories/adapter-factory.js';
 

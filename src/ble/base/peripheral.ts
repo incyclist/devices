@@ -78,6 +78,10 @@ export class BlePeripheral implements IBlePeripheral {
                 done()
     
             })
+            .catch( ()=> {
+                this.connected = false
+                done()
+            })
         })
 
         await this.connectPromise
@@ -86,12 +90,13 @@ export class BlePeripheral implements IBlePeripheral {
         return this.connected
     }
     async disconnect(connectionLost:boolean=false): Promise<boolean> {
+
         this.disconnecting = true
-        if (!this.isConnected()) {            
-            return true;
+
+        if (this.isConnected()) {            
+            await this.unsubscribeAll(connectionLost)
         }
 
-        await this.unsubscribeAll(connectionLost)
         Object.keys(this.characteristics).forEach( uuid=> { 
             const c = this.characteristics[uuid] 
             c.removeAllListeners()
@@ -118,6 +123,7 @@ export class BlePeripheral implements IBlePeripheral {
                 }
     
                 await this.getPeripheral().disconnectAsync()
+                    .catch( ()=>{})
             }
     
             peripheral.removeAllListeners()            
@@ -155,7 +161,8 @@ export class BlePeripheral implements IBlePeripheral {
             return
 
         this.disconnectedSignalled = true
-        
+        this.getPeripheral().removeAllListeners()
+
         // ensure that this is logged
         this.ble.resumeLogging()
 
@@ -185,7 +192,8 @@ export class BlePeripheral implements IBlePeripheral {
             
             let services:BleService[] = []
             if (peripheral?.discoverServicesAsync) {
-                services = await peripheral.discoverServicesAsync([]) 
+                services = await peripheral.discoverServicesAsync([])
+                    .catch( ()=>[]) 
             }
             
 
@@ -210,7 +218,8 @@ export class BlePeripheral implements IBlePeripheral {
             return []
 
         this.logEvent({message:'discover services and characteristics',service:serviceUUID, address:this.getPeripheral().address})
-        const res = await this.getPeripheral().discoverSomeServicesAndCharacteristicsAsync([serviceUUID],[])                
+        const res = await this.getPeripheral().discoverSomeServicesAndCharacteristicsAsync([serviceUUID],[])
+            .catch( ()=> ({services:[], characteristics:[]}))                
         res.characteristics.forEach( c => this.characteristics[beautifyUUID(c.uuid)] = c)
 
         return res.characteristics.map( c => {
@@ -245,7 +254,7 @@ export class BlePeripheral implements IBlePeripheral {
                 return true
             }
 
-            let c = await this.queryRawCharacteristic(characteristicUUID)
+            let c = await this.queryRawCharacteristic(characteristicUUID).catch( ()=>null)
             if (!c) {
                 return false
             }

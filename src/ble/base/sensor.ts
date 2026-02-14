@@ -14,6 +14,7 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
     protected subscribeSuccess:boolean = false
     protected reconnectPromise: Promise<boolean>|undefined
     protected onDataHandler
+    
 
 
     logEvent(event:any, ...args:any) {
@@ -163,21 +164,35 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
         let subscribed = false;
 
         let success = false
-        
+
+
+        // TODO: remove these hard coded sleeps to event based logic 
+        // -------------------------------------------------
+        await sleep(500)
+
         do {
-            if (!connected) {
-                connected = await this.startSensor(true)
+            try {
+                if (!connected) {
+                    connected = await this.startSensor(true)
+                }
+
+                if (connected && !subscribed) {
+                    subscribed = await this.subscribe()
+                    
+                }
+            }
+            catch  { 
+                // ignore
             }
 
-            if (connected && !subscribed) {
-                subscribed = await this.subscribe()
-                
-            }
 
             success = connected && subscribed        
             if (!success) {
                 await sleep(1000)
             }
+            if (!this.stopRequested)
+                this.logEvent({message:'reconnect sensor retry'})
+
         } while (!success || this.stopRequested)
 
         this.logEvent({message:'reconnect sensor completed',success, stopRequested:this.stopRequested})

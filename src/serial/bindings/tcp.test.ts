@@ -1,7 +1,7 @@
 import net from 'net'
 import {scanSubNet, TCPBinding} from './tcp'
 import {ByteLengthParser} from '@serialport/parser-byte-length'
-import SerialPortProvider from '../base/serialport'
+import SerialPortProvider from '../base/serial-provider'
 
 const TEST_PORT = 12345
 const TEST_PATH = `localhost:${TEST_PORT}`

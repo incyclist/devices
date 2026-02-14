@@ -1,7 +1,7 @@
 import { EventLogger } from 'gd-eventlog';
 import DaumClassicAdapter from './adapter';
 import { MockBinding } from '@serialport/binding-mock';
-import SerialPortProvider from '../../base/serialport';
+import SerialPortProvider from '../../base/serial-provider';
 import { sleep } from '../../../utils/utils';
 
 if ( process.env.DEBUG===undefined)

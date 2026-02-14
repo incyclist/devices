@@ -232,11 +232,11 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
             if (!reconnect)
                 this.logEvent({message:'starting multicast DNS scan ..'})
 
-            
             this.getBinding().mdns.find( null,( service:MulticastDnsAnnouncement )=>{
                 this.addService( service,'unfiltered' )  
 
             } )
+
             this.getBinding().mdns.find( {type:DC_TYPE},( service:MulticastDnsAnnouncement )=>{
                 this.addService( service, DC_TYPE )  
 
@@ -250,6 +250,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         }
 
         this.connected = true;
+        this.emit('connected')
         return true;
 
     }
@@ -459,7 +460,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
     }
 
 
-    public logEvent(event) {
+    public logEvent(event:any) {
 
         if (this.logDisabled && event.message!=='Error')    
             return;

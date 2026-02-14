@@ -1,4 +1,4 @@
-import SerialPortProvider from "./serialport"
+import SerialPortProvider from "./serial-provider"
 import { autoDetect } from '@serialport/bindings-cpp'
 import { MockBinding } from '@serialport/binding-mock'
 

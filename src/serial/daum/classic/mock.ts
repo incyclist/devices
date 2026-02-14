@@ -3,7 +3,7 @@ import {MockBindingInterface, MockPortBinding,CreatePortOptions, MockBinding, Mo
 import { BindingInterface,BindingPortInterface } from '@serialport/bindings-interface'
 import { resolveNextTick, sleep } from '../../../utils/utils.js';
 import calc from '../../../utils/calculations.js'
-import SerialPortProvider from '../../base/serialport.js';
+import SerialPortProvider from '../../base/serial-provider.js';
 import SerialInterface from '../../base/serial-interface.js';
 
 export type MockProps = {

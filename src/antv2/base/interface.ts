@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { EventLogger } from "gd-eventlog";
-import { Channel, IAntDevice, IChannel, ISensor } from "incyclist-ant-plus";
+import type { Channel, IAntDevice, IChannel, ISensor } from "incyclist-ant-plus";
 import { AntDeviceSettings, AntScanProps,AntInterfaceProps  } from "../types.js";
 import { DeviceSettings, IncyclistInterface } from "../../types/index.js";
 import AntDeviceBinding from "./binding.js";
@@ -13,6 +13,7 @@ interface ChannelInfo  {
     channel: Channel
     usage: ChannelUsage
 }
+
 
 export default class AntInterface   extends EventEmitter implements IncyclistInterface {
 
@@ -457,7 +458,7 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
                 channel.off('data',onData)
             }
 
-            this.logEvent( {message:'sensor started', channel:sensor.getChannel()?.getChannelNo(), profile:sensor.getProfile(), deviceID:sensor.getDeviceID()})
+            this.logEvent( {message:'sensor started', channelNo:sensor.getChannel()?.getChannelNo(), profile:sensor.getProfile(), deviceID:sensor.getDeviceID()})
             return started
 
         } 

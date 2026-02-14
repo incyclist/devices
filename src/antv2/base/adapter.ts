@@ -1,5 +1,5 @@
 
-import { IChannel, ISensor, Profile } from 'incyclist-ant-plus'
+import type { IChannel, ISensor, Profile } from 'incyclist-ant-plus'
 import AntInterface from './interface.js';
 
 import IncyclistDevice from '../../base/adpater.js';
@@ -476,7 +476,7 @@ export default class AntAdapter<TDeviceData extends BaseDeviceData> extends Incy
             this.sensorConnected = await this.startSensor();
 
             if (this.sensorConnected) {
-                this.logEvent({ message: 'sensor started', device:this.getName(),channel:this.sensor?.getChannel()?.getChannelNo(), props:logProps });
+                this.logEvent({ message: 'sensor started', device:this.getName(),channelNo:this.sensor?.getChannel()?.getChannelNo(), props:logProps });
                 this.startStatus.sensorStarted = true;
                 return true
             }
