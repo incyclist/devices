@@ -494,7 +494,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
             this.tsStart = Date.now();
         }
         if (this.gear===undefined && this.tsStart && data.power>0 && (Date.now() - this.tsStart > 3000)) { 
-            this.gear = Number(this.getSetting('startGear'))??0
+            this.gear = Number(this.getSetting('startGear')??0)
             data.gearStr = this.getGearString()
         }
         return data
