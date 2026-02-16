@@ -30,6 +30,7 @@ describe('BleFmAdapter',()=>{
             once:jest.fn(),
             pauseLogging: jest.fn(),
             resumeLogging: jest.fn(),
+            removeListener:jest.fn(),
             connect: jest.fn().mockResolvedValue(true),
             createPeripheralFromSettings: jest.fn(),
             waitForPeripheral: jest.fn().mockResolvedValue({})

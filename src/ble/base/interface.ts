@@ -63,6 +63,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     protected emitted: BlePeripheralAnnouncement[] = []
     protected confirmedBleState: BleInterfaceState
     protected currentBleState: BleInterfaceState
+    protected isAutoStart: boolean = false
 
     protected stateChangeEventHandler:TStateChangeHandler|null = null
     
@@ -169,13 +170,16 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     }
 
     protected async autoConnect() {
-
+        this.isAutoStart = true
         await this.connectInternal()
     }
 
 
     async connect(reconnect?:boolean): Promise<boolean> { 
-        return this.isConnected()
+        if (this.isAutoStart)
+            return this.isConnected()
+        else 
+            return this.connectInternal(reconnect)
     }
 
     
