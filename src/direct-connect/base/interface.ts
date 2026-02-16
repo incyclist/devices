@@ -268,8 +268,12 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         this.getBinding()?.mdns?.disconnect()
         this.internalEvents.removeAllListeners()
         this.connected =  false
-        return !this.isConnected()
 
+        const disconnected = !this.isConnected()
+
+        if (disconnected)
+            this.emit('disconnect')
+        return disconnected
     }
 
     /**

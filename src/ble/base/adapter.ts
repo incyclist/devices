@@ -19,6 +19,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     protected device: TDevice
     protected onDeviceDataHandler = this.onDeviceData.bind(this)
     protected onDeviceDisconnectHandler = this.emit.bind(this)
+    protected onDisconnectDoneHandler = this.onDisconnectDone.bind(this)
     protected startTask: InteruptableTask<TaskState,boolean>;
     constructor( settings:BleDeviceSettings, props?:DeviceProperties) {
         super(settings,props)
@@ -280,7 +281,9 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         }
 
         const ble = this.getBle()
-        ble.once('disconnect-done',this.onDisconnectDone.bind(this))
+        
+        
+        ble.once('disconnect-done',this.onDisconnectDoneHandler)
 
         this.startTask = new InteruptableTask( this.startAdapter(startProps), {
             timeout: startProps?.timeout,
@@ -290,6 +293,10 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         })
 
         const res = await this.startTask.run()
+
+        if (!res) {
+            ble.removeListener('disconnect-done',this.onDisconnectDoneHandler)
+        }
         return res;
     }
 
@@ -422,7 +429,9 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         catch(err) {
             this.logEvent({message: 'start result: error', error: err.message,device:this.getName(),interface:this.getInterface(), protocol:this.getProtocolName()})
             this.started = false;
-            this.stopped = true;        
+            this.stopped = true;      
+            const ble = this.getBle()
+            ble.removeListener('disconnect-done',this.onDisconnectDoneHandler)
             return false
         }
     }
@@ -526,6 +535,8 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         sensor.off('data',this.onDeviceDataHandler) 
         sensor.off('disconnected', this.onDeviceDisconnectHandler)
         sensor.off('error',console.log) 
+        const ble = this.getBle()
+        ble.removeListener('disconnect-done',this.onDisconnectDoneHandler)
 
         sensor.reset();
         this.resetData()        

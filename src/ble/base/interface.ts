@@ -170,16 +170,22 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
     protected async autoConnect() {
 
-        await this.connect()
+        await this.connectInternal()
     }
 
+
+    async connect(reconnect?:boolean): Promise<boolean> { 
+        return this.isConnected()
+    }
+
+    
     /**
      * Connects to the interface.
      * @param {boolean} [reconnect=false] - Whether the connection is originated from a reconnect
      * 
      * @returns {Promise<boolean>} Whether the connection was successful.
      */
-    async connect(reconnect?:boolean): Promise<boolean> {
+    async connectInternal(reconnect?:boolean): Promise<boolean> {
 
         if (this.isConnected())
             return true;
@@ -211,6 +217,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
             log: this.logEvent.bind(this),
         })
 
+        
         const success = await  this.connectTask.run().catch(()=>false)
         this.removeAllListeners('ble-state-change')
 
@@ -282,6 +289,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
             this.logEvent({message:'interface disconnected', interface:'BLE'})
             this.confirmedBleState = 'poweredOff'
+            this.emit('disconnect')
             return true        
     
         }
@@ -480,7 +488,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         
         this.logEvent({message:'reconnecting interface', stack:error.stack})    
         await this.disconnect()
-        await this.connect(true)
+        await this.connectInternal(true)
     }
 
     protected async startPeripheralScan(retry:boolean=false):Promise<void> {
@@ -875,12 +883,13 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
     protected async connectBle():Promise<boolean> {
 
-        this.currentBleState = this.getBinding()?.state
-        if(this.currentBleState === 'poweredOn' ) {
+        const prev = this.currentBleState
+        this.currentBleState = this.currentBleState ?? this.getBinding()?.state
+        if(this.currentBleState === 'poweredOn' && prev!=='poweredOn') {
             this.onConnected()
             return true;
         }
-        else if (this.currentBleState==='unauthorized' || this.currentBleState==='unsupported') {
+        else if (this.currentBleState==='unauthorized' || this.currentBleState==='unsupported' ) {
             return false
         }
 
@@ -898,14 +907,18 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
             
             this.on('ble-state-change', (state:BleInterfaceState) => {
                 try {
+                    this.currentBleState = state
 
                     if(state === 'poweredOn'){
                         this.onConnected();
                         this.removeAllListeners('ble-state-change')
+
+                        this.currentBleState = state
                         return done(true);
                     }  
                     if (state==='unauthorized') {
                         this.removeAllListeners('ble-state-change')
+                        this.currentBleState = state
                         return done(false)
                     }
 
@@ -976,7 +989,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
             if ( this.isDisconnecting()) {
                 await this.disconnectTask.getPromise()        
             }
-            this.connect()
+            this.connectInternal()
   
         }
     }
