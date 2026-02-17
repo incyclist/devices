@@ -51,10 +51,11 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
     protected logDisabled: boolean
     protected internalEvents: EventEmitter
     protected services: Announcement[] = []
-    protected scanTask: InteruptableTask<TaskState,DeviceSettings[]>;
+    protected scanTask: InteruptableTask<TaskState,DeviceSettings[]>|undefined;
     protected matching?:Array<string> = []
     protected instance:number
     protected connected: boolean = false;
+    
 
     static getInstance(props:InterfaceProps={}): DirectConnectInterface {
         if (DirectConnectInterface._instance===undefined)
@@ -244,7 +245,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
 
 
         }
-        catch (err) {
+        catch (err:any) {
             this.logError(err, 'connect')
             return false
         }
@@ -265,6 +266,13 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         this.logEvent({message:'Disconnecting from Direct Connect'})
 
         await this.stopScan()
+        return true
+    }
+
+
+    async terminate():Promise<void> {
+        await this.disconnect()
+
         this.getBinding()?.mdns?.disconnect()
         this.internalEvents.removeAllListeners()
         this.connected =  false
@@ -273,8 +281,9 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
 
         if (disconnected)
             this.emit('disconnect')
-        return disconnected
+
     }
+
 
     /**
     * Checks if the interface is connected.
@@ -297,7 +306,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
 
         if (this.isScanning()) {
             this.logEvent({message:'starting scan - already scanning'})
-            await this.scanTask.getPromise()
+            await this.scanTask?.getPromise()
         }
 
         this.logEvent({message:'starting scan ..'})
@@ -323,7 +332,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
                 return true
 
         this.logEvent({message:'stopping scan ...', interface:'wifi'})
-        const res = await this.scanTask.stop()
+        const res = await this.scanTask?.stop()
         delete this.scanTask
         return (res===true)
     }
@@ -446,7 +455,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
                 
             }
         }
-        catch(err) {
+        catch(err:any) {
             this.logError(err, 'addService')
         }
         

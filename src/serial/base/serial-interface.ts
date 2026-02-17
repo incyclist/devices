@@ -153,6 +153,10 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
         return true;
     }
 
+    async terminate(): Promise<void> {
+        await this.disconnect()
+    }
+
     async openPort(path:string): Promise< SerialPortStream |null> {
         this.logEvent({message:'opening port',port:path})              
         const existing = this.ports.findIndex( p=> p.path===path)

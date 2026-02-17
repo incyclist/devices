@@ -16,6 +16,7 @@ export interface IncyclistInterface extends EventEmitter{
     setBinding(binding: any): void;
     connect(): Promise<boolean>;
     disconnect(): Promise<boolean>;
+    terminate(): Promise<void>;
     isConnected(): boolean;
     scan(props: IncyclistScanProps): Promise<DeviceSettings[]>;
     stopScan(): Promise<boolean>

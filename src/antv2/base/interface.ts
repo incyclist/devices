@@ -200,6 +200,9 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         this.connected = false;
         return closed;          
     }
+    async terminate():Promise<void> {
+        await this.disconnect()
+    }
 
     onError( profile,error) {
         this.logEvent( {message:'ANT+ERROR:', profile, error})

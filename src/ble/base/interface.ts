@@ -207,7 +207,6 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         }
 
         if (this.isConnecting()) {
-            this.logEvent({message:'BLE connect - already connecting'})
             return this.connectTask.getPromise()
         }
 
@@ -313,6 +312,11 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         const success = await  this.disconnectTask.run().catch(()=>false)        
         return success
     }
+
+    async terminate():Promise<void> {
+        await this.disconnect()
+    }
+
 
     /**
     * Checks if the interface is connected.
@@ -936,8 +940,11 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         })
     }
 
-    protected onError(err:Error) {
-        this.logError(err,'BLE connect')
+    protected onError(err:Error|string) {
+        if (typeof err ==='string') {
+            this.logError( new Error(err),'BLE connect')
+        }
+        this.logError(err as Error,'BLE connect')
     }
 
     protected async onConnected() {
