@@ -630,7 +630,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
     protected checkForWahooEnhancement(announcement:BlePeripheralAnnouncement):boolean {
 
-        if (announcement.name.includes('KICKR')) {
+        if (announcement.name.includes('KICKR') || announcement.name.includes('Zwift')) {
             const supported = announcement.serviceUUIDs.map( s=> beautifyUUID(s))
             if (supported.length===1 && (supported[0]==='1818' || supported[0]==='FC82')) {
                 return true            
