@@ -41,3 +41,4 @@ nohup.out
 
 build
 tools/dc-simulator/build
+.npmrc
