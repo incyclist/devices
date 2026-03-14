@@ -4,8 +4,9 @@ import { ClickKeyPadStatus, DeviceDataEnvelope, DeviceInformationContent, Device
 import { TBleSensor } from "../../base/sensor.js";
 import { BleProtocol, IBlePeripheral  } from "../../types.js";
 import { beautifyUUID, fullUUID  } from "../../utils.js";
-import { generateKeyPairSync } from 'node:crypto';
 import { EventEmitter } from "node:events";
+import { BindingsFactory } from "../../../bindings/index.js";
+import { ICryptoBinding } from "../../../bindings/crypto/types.js";
 
 type ButtonState = {
     pressed: boolean
@@ -641,18 +642,25 @@ export class BleZwiftPlaySensor extends TBleSensor {
         // 
     }
 
+    protected getCrypto():ICryptoBinding {
+        let crypto =  BindingsFactory.getInstance()?.getBinding()?.crypto
+        if (!crypto) 
+            crypto = require('node:crypto')
+        return crypto as ICryptoBinding
+    }
+
 
     protected encryptedSupported():boolean {
         // TODO implement with crypto feature
-
-        return generateKeyPairSync!==undefined && typeof (generateKeyPairSync)==='function'
-
+        const crypto = this.getCrypto() as any
+        return crypto?.generateKeyPairSync!==undefined && typeof (crypto?.generateKeyPairSync)==='function'
     }
 
     protected createKeyPair():any {
         // TODO implement with crypto feature
 
-        return generateKeyPairSync('ec', {
+        const crypto = this.getCrypto()
+        return crypto.generateKeyPairSync('ec', {
                             namedCurve: 'prime256v1',
                             publicKeyEncoding: { type: 'spki', format: 'der' },
                             privateKeyEncoding: { type: 'pkcs8', format: 'der' }

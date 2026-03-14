@@ -24,6 +24,7 @@ export * from './antv2/index.js'
 export * from './direct-connect/index.js'
 export * from './features/index.js'
 export * from './proto/zwift_hub.js'
+export * from './bindings/index.js'
 
 
 export {
