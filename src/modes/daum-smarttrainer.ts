@@ -56,7 +56,8 @@ export default class SmartTrainerCyclingMode  extends CyclingModeBase implements
         super(adapter,props);
         if (adapter)
             this.logger = adapter.getLogger() 
-        else    
+        
+        if (!this.logger)
             this.initLogger('SmartTrainer')  
         this.data = { speed: 0 , power:0,  distanceInternal:0, pedalRpm:0, isPedalling:false, heartrate:0}
     
