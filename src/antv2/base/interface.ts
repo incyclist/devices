@@ -18,7 +18,7 @@ interface ChannelInfo  {
 export default class AntInterface   extends EventEmitter implements IncyclistInterface {
 
     // statics
-    static _instance:AntInterface = undefined;
+    static _instance:AntInterface|undefined = undefined;
     static INTERFACE_NAME = 'ant'
 
     static getInstance(props:AntInterfaceProps={}): AntInterface {
@@ -33,15 +33,16 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
     }
 
 
-    protected logger: EventLogger
-    protected device: IAntDevice
-    protected Binding: typeof AntDeviceBinding
+    protected logger: EventLogger|undefined
+    protected device: IAntDevice|undefined
+    protected Binding: typeof AntDeviceBinding|undefined
     protected connected: boolean
-    protected connectPromise: Promise<boolean>
-    protected scanPromise: Promise<AntDeviceSettings[]>
-    protected activeScan: { emitter:EventEmitter, channel?: IChannel}
+    protected connectPromise: Promise<boolean>|null
+    protected scanPromise: Promise<AntDeviceSettings[]>|null
+    protected activeScan: { emitter:EventEmitter, channel?: IChannel}|undefined
     protected props: AntInterfaceProps
     protected logEnabled: boolean
+    protected logPaused: boolean = false
     protected channelsInUse: Array<ChannelInfo> 
     
 
@@ -52,6 +53,7 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         this.device = undefined;
         this.connected = false
         this.connectPromise = null
+        this.scanPromise = null
         this.channelsInUse = [];
         this.logEnabled = props.log||true
         const {binding} = props;
@@ -67,11 +69,19 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
     }
 
     getBinding(): typeof AntDeviceBinding {
-        return this.Binding;
+        return this.Binding!;
     }
 
     setBinding( binding: typeof AntDeviceBinding) {
         this.Binding = binding
+    }
+
+    pauseLogging(): void {
+        this.logPaused = true
+    }
+
+    resumeLogging(): void {
+        this.logPaused = false
     }
 
     getLogger() {
@@ -91,8 +101,8 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         
     }
 
-    logEvent(event) {
-        if (!this.logEnabled || !this.logger)
+    logEvent(event:any) {
+        if (!this.logEnabled || !this.logger || this.logPaused)
             return;
 
         this.logger.logEvent(event)
@@ -110,6 +120,10 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
     }
 
     async connect():Promise<boolean> {
+
+        if (!this.Binding)
+            return false
+
         if (this.isConnected())
             return true;
     
@@ -122,7 +136,8 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
             try {
                 this.logEvent({message:'ANT+ connecting ...'})
 
-                const device = new this.Binding( {...this.props, logger:this.logger} );
+                
+                const device = new this.Binding!( {...this.props, logger:this.logger} );
 
                 const opened = await device.open();
                 if (!opened) {
@@ -137,7 +152,7 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
 
                 return true
             }
-            catch (err) {
+            catch (err:any) {
                 this.logEvent({message:'error', fn:'connect', error:err.message, stack:err.stack})
                 this.connected = false;            
                 return false;
@@ -154,7 +169,7 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         let closed = false;
 
         try {
-            let promises = []
+            let promises:Array<Promise<any>> = []
             if (this.channelsInUse.length>0) {
                 this.channelsInUse.forEach(c=>{
                     if (c.usage==='scan')
@@ -188,7 +203,7 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
     
     
         }
-        catch(err) {
+        catch(err:any) {
             this.logEvent( {message:'Error', fn:'', error:err.message, stack:err.stack})
             closed = false;
         }
@@ -204,11 +219,11 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         await this.disconnect()
     }
 
-    onError( profile,error) {
+    onError( profile,error:any) {
         this.logEvent( {message:'ANT+ERROR:', profile, error})
     }
 
-    onData( profile,id, data,tag) {
+    onData( profile,id:string, data,tag) {
         this.emit( 'data', profile, id, data,tag)
     }
 

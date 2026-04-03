@@ -21,5 +21,7 @@ export interface IncyclistInterface extends EventEmitter{
     scan(props: IncyclistScanProps): Promise<DeviceSettings[]>;
     stopScan(): Promise<boolean>
     addKnownDevice?(settings: DeviceSettings): void 
+    pauseLogging():void
+    resumeLogging():void
 
 }

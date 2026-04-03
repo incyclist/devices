@@ -46,7 +46,7 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
             const {pedalRpm,slope, power,speed} = this.data;
             return {pedalRpm,slope, power,speed} 
         }
-        this.logger.logEvent( {message:"processing update request",request,prev:this.prevRequest,data:getData()} );        
+        this.logEvent( {message:"processing update request",request,prev:this.prevRequest,data:getData()} );        
 
         let newRequest:UpdateRequest = {}
         try {
@@ -116,7 +116,7 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
         }
         
         catch ( err)  /* istanbul ignore next */ {
-            this.logger.logEvent( {message:"error",fn:'sendBikeUpdate()',error:err.message||err,stack:err.stack} );
+            this.logEvent( {message:"error",fn:'sendBikeUpdate()',error:err.message||err,stack:err.stack} );
 
         }
         
@@ -166,10 +166,10 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
     
         }
         catch (err) /* istanbul ignore next */ {
-            this.logger.logEvent({message:'error',fn:'updateData()',error:err.message||err})
+            this.logEvent({message:'error',fn:'updateData()',error:err.message||err})
         }
 
-        this.logger.logEvent( {message:"updateData result",data,bikeData,prevRequest,prevSpeed} );
+        this.logEvent( {message:"updateData result",data,bikeData,prevRequest,prevSpeed} );
 
         this.data = data;
         return data;

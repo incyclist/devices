@@ -26,8 +26,11 @@ export default class DaumClassicCyclingMode extends SmartTrainerCyclingMode impl
 
     constructor(adapter: IncyclistDeviceAdapter, props?: Settings) {
         super(adapter,props);
-        this.logger = adapter ? adapter.getLogger() : undefined;
-        if (!this.logger) this.logger = new EventLogger('DaumClassic')      
+        if (adapter)
+            this.logger = adapter.getLogger() 
+        else 
+            this.initLogger('DaumClassicCyclingMode')
+        
         this.setConfig(config)
         this.event = {noData:true,initialCall:true,slopeUpdate:false}
     }

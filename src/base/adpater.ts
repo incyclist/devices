@@ -29,6 +29,7 @@ export default class IncyclistDevice<P extends DeviceProperties>
     protected user:User
     protected data:IncyclistAdapterData
     protected debugLogEnabled: boolean
+    protected logPaused
 
 
 
@@ -70,9 +71,21 @@ export default class IncyclistDevice<P extends DeviceProperties>
         return false;
     }
 
-    logEvent( event) {
+    pauseLogging():void {
+        this.logPaused = true
+    }
 
-        if (!this.logger || this.paused)
+    resumeLogging(): void {
+        this.logPaused = false
+    }
+
+    isLogPaused():boolean {
+        return this.logPaused
+    }
+
+    logEvent( event:any) {
+
+        if (!this.logger || this.paused || this.logPaused)
             return;
 
         if (this.isDebugEnabled() && !this.debugLogEnabled)

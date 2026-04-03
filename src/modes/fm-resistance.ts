@@ -32,7 +32,7 @@ export default class FMResistanceMode extends PowerBasedCyclingModeBase implemen
 
     sendBikeUpdate(incoming: UpdateRequest): UpdateRequest {
         if (this.logger)
-            this.logger.logEvent( {message:"processing update request",request:incoming,prev:this.prevRequest,data:this.getData()} );        
+            this.logEvent( {message:"processing update request",request:incoming,prev:this.prevRequest,data:this.getData()} );        
 
         let newRequest:UpdateRequest = {}
         const request = {...incoming}
@@ -61,7 +61,7 @@ export default class FMResistanceMode extends PowerBasedCyclingModeBase implemen
         catch ( err)  /* istanbul ignore next */ {
             // I'm not expecting any error here, but just in case, if we catch anything we'll log
             if (this.logger)
-                this.logger.logEvent( {message:"error",fn:'sendBikeUpdate()',error:err.message,stack:err.stack} );
+                this.logEvent( {message:"error",fn:'sendBikeUpdate()',error:err.message,stack:err.stack} );
         }
 
         if (newRequest.targetResistance!==undefined) { 

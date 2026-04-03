@@ -642,7 +642,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
     }
 
 
-    protected getInterface (): DirectConnectInterface {
+    getInterface (): DirectConnectInterface {
         return DirectConnectInterface.getInstance()
     }
 

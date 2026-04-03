@@ -44,7 +44,7 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
             const {gear,pedalRpm,slope, power,speed} = this.data;
             return {gear,pedalRpm,slope, power,speed} 
         }
-        this.logger.logEvent( {message:"processing update request",request,prev:this.prevRequest,data:getData(),event:this.event} );        
+        this.logEvent( {message:"processing update request",request,prev:this.prevRequest,data:getData(),event:this.event} );        
 
         let newRequest:UpdateRequest = {}
         let isRefreshOnly = request && request.refresh && Object.keys(request).length===1;
@@ -156,7 +156,7 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
         }
         
         catch ( err)  /* istanbul ignore next */ {
-            this.logger.logEvent( {message:"error",fn:'sendBikeUpdate()',error:err.message||err,stack:err.stack} );
+            this.logEvent( {message:"error",fn:'sendBikeUpdate()',error:err.message||err,stack:err.stack} );
 
         }
 
@@ -194,7 +194,7 @@ export default class ERGCyclingMode extends PowerBasedCyclingModeBase implements
             return data;               
         }
         catch (err) /* istanbul ignore next */ {
-            this.logger.logEvent({message:'error',fn:'updateData()',error:err.message, stack:err.stack})
+            this.logEvent({message:'error',fn:'updateData()',error:err.message, stack:err.stack})
             return this.getData() as IncyclistBikeData
         }
     }

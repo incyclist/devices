@@ -66,7 +66,7 @@ export interface IAdapter extends EventEmitter, IBike, ISensor{
     onScanStop():void
 
     createMode(ModeClass:typeof CyclingMode):ICyclingMode
-
+    isLogPaused():boolean 
 
     //@deprecate  ( use on('data) instead)
     onData( callback: OnDeviceDataCallback ) 

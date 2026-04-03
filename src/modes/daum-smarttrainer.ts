@@ -32,12 +32,11 @@ interface STEvent {
 
 export default class SmartTrainerCyclingMode  extends CyclingModeBase implements ICyclingMode {
 
-    logger: EventLogger;
     data?: IncyclistBikeData;
     prevRequest?: STUpdateRequest;
     prevUpdateTS: number = 0;
-    chain: number[];
-    cassette: number[];
+    chain!: number[];
+    cassette!: number[];
     event: STEvent = {}
 
     protected static config = {
@@ -55,8 +54,10 @@ export default class SmartTrainerCyclingMode  extends CyclingModeBase implements
 
     constructor(adapter: IncyclistDeviceAdapter, props?: Settings) {
         super(adapter,props);
-        this.logger = adapter ? adapter.getLogger() : undefined;
-        if (!this.logger) this.logger = new EventLogger('SmartTrainer')  
+        if (adapter)
+            this.logger = adapter.getLogger() 
+        else    
+            this.initLogger('SmartTrainer')  
         this.data = { speed: 0 , power:0,  distanceInternal:0, pedalRpm:0, isPedalling:false, heartrate:0}
     
     }
@@ -121,7 +122,7 @@ export default class SmartTrainerCyclingMode  extends CyclingModeBase implements
         const slope = request.slope===undefined? request.slope : Number.parseFloat(request.slope.toFixed(1));
         if (slope!==undefined && (event.noData || Math.abs(slope-this.data.slope)>=0.1 )) event.slopeUpdate = true;
         if (this.prevRequest===undefined) event.initialCall = true;
-        this.logger.logEvent( {message:"processing update request",request,prev:this.prevRequest,data:getData(),event} );
+        this.logEvent( {message:"processing update request",request,prev:this.prevRequest,data:getData(),event} );
 
         const minPower = this.getSetting('minPower');
         let newRequest:STUpdateRequest = {};
@@ -280,7 +281,7 @@ export default class SmartTrainerCyclingMode  extends CyclingModeBase implements
         }
         
         catch ( err)  /* istanbul ignore next */ {
-            this.logger.logEvent( {message:"error",fn:'sendBikeUpdate()',request,error:err.message||err,stack:err.stack} );
+            this.logEvent( {message:"error",fn:'sendBikeUpdate()',request,error:err.message||err,stack:err.stack} );
 
         }
         return newRequest;
@@ -356,10 +357,10 @@ export default class SmartTrainerCyclingMode  extends CyclingModeBase implements
 
         }
         catch (err) /* istanbul ignore next */ {
-            this.logger.logEvent({message:'error',fn:'updateData()',error:err.message||err})
+            this.logEvent({message:'error',fn:'updateData()',error:err.message||err})
         }
 
-        this.logger.logEvent( {message:"updateData result",data,bikeData,prevRequest,prevSpeed,gearSimulation,event:this.event,speedProps:fromPower} );
+        this.logEvent( {message:"updateData result",data,bikeData,prevRequest,prevSpeed,gearSimulation,event:this.event,speedProps:fromPower} );
 
         this.data = data;
         this.prevUpdateTS = Date.now()
@@ -458,7 +459,7 @@ export default class SmartTrainerCyclingMode  extends CyclingModeBase implements
             }
 
             if (!speed)
-                this.logger.logEvent({message:'request:targetPower', info:{prev:prevData.power||0, calculated:calculatedPower, required:power, delta: powerDelta, target, belowMin }})
+                this.logEvent({message:'request:targetPower', info:{prev:prevData.power||0, calculated:calculatedPower, required:power, delta: powerDelta, target, belowMin }})
             request.targetPower = target;
             request.calculatedPower = power;
             request.delta = powerDelta;

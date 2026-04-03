@@ -1,4 +1,4 @@
-import { BleCharacteristic, BleDeviceIdentifier, BlePeripheralAnnouncement, BleRawCharacteristic, BleRawPeripheral, BleService, BleWriteProps, IBlePeripheral } from "../types.js";
+import { BleCharacteristic, BleDeviceIdentifier, BlePeripheralAnnouncement, BleRawCharacteristic, BleRawPeripheral, BleService, BleWriteProps, IBleInterface, IBlePeripheral } from "../types.js";
 import { beautifyUUID, fullUUID } from "../utils.js";
 import { BleInterface } from "./interface.js";
 
@@ -26,6 +26,10 @@ export class BlePeripheral implements IBlePeripheral {
 
     getPeripheral():BleRawPeripheral {
         return this.announcement.peripheral
+    }
+
+    getInterface():IBleInterface<any> {
+        return this.ble
     }
 
     getAnnouncedServices(): string[] {

@@ -12,7 +12,6 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
 
     data: IncyclistBikeData;
     prevUpdateTS: number = 0;
-    logger: EventLogger;
     prevRequest: UpdateRequest|undefined;
     protected static config:CyclingModeConfig={name:'',description:'',properties:[]}
 
@@ -29,15 +28,6 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
     getSlope():number {
         const {slope} = this.data
         return slope||0;
-    }
-
-    initLogger(defaultLogName) {
-        /*
-        const a = this.adapter as IncyclistDeviceAdapter
-        this.logger =  a.getLogger() 
-        if (!this.logger) 
-        */
-        this.logger = new EventLogger(defaultLogName)
     }
 
     getWeight() {
@@ -298,7 +288,7 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
 
     sendBikeUpdate(incoming: UpdateRequest): UpdateRequest {
         if (this.logger)
-            this.logger.logEvent( {message:"processing update request",request:incoming,prev:this.prevRequest,data:this.getData()} );        
+            this.logEvent( {message:"processing update request",request:incoming,prev:this.prevRequest,data:this.getData()} );        
 
         let newRequest:UpdateRequest = {}
         const request = {...incoming}
@@ -330,7 +320,7 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
         catch ( err)  /* istanbul ignore next */ {
             // I'm not expecting any error here, but just in case, if we catch anything we'll log
             if (this.logger)
-                this.logger.logEvent( {message:"error",fn:'sendBikeUpdate()',error:err.message,stack:err.stack} );
+                this.logEvent( {message:"error",fn:'sendBikeUpdate()',error:err.message,stack:err.stack} );
         }
         
         return newRequest;        
@@ -346,7 +336,7 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
             data.time = (data.speed>0) ?  data.time+t : data.time
 
             if(log && this.logger)
-                this.logger.logEvent( {message:"updateData result",mode:this.getName(),data,bikeData} );
+                this.logEvent( {message:"updateData result",mode:this.getName(),data,bikeData} );
 
             this.data = data;
             this.prevUpdateTS = Date.now()
@@ -356,7 +346,7 @@ export default  class PowerBasedCyclingModeBase extends CyclingModeBase  {
         }
         catch (err) /* istanbul ignore next */ {
             if (this.logger)
-                this.logger.logEvent({message:'error',fn:'updateData()',error:err.message||err})
+                this.logEvent({message:'error',fn:'updateData()',error:err.message||err})
             return this.getData() as IncyclistBikeData
         }
 

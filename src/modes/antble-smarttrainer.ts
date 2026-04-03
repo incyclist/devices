@@ -194,7 +194,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
 
         if (request.slope===undefined ) {
             // console.log('# set simulated power (same slope):', {simPower:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope, cadence:this.data.pedalRpm, power:this.data.power})                    
-            // this.logger.logEvent({message:'set simulated power (same slope)', simPower:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope, cadence:this.data.pedalRpm, power:this.data.power})                    
+            // this.logEvent({message:'set simulated power (same slope)', simPower:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope, cadence:this.data.pedalRpm, power:this.data.power})                    
         }
         else {
             const prev = this.data.slope??0
@@ -256,7 +256,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         }
 
         if (this.data?.pedalRpm!==this.prevData?.pedalRpm) {
-            this.logger.logEvent({message:'cadence changed', cadence:this.data?.pedalRpm, prevCadence:this.prevData?.pedalRpm})            
+            this.logEvent({message:'cadence changed', cadence:this.data?.pedalRpm, prevCadence:this.prevData?.pedalRpm})            
             //this.calculateSimulatedPower('cadence')
             request.slope = request.slope??this.data.slope
         }
@@ -288,21 +288,21 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                 this.simPower = prev+delta/2 // 2 seconds to adjust
                 this.simPower = Math.max(newPower, prevPower);
                 this.prevEkin = m * v*v/2
-                this.logger.logEvent({message:'set simulated power (starting)', target:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope,prevTarget:this.prevSimPower,  actualPower:prevPower, newPower})
+                this.logEvent({message:'set simulated power (starting)', target:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope,prevTarget:this.prevSimPower,  actualPower:prevPower, newPower})
             }
             else if (changed==='gear') {
                 this.simPower = prev+delta // immediate adjustment
                 this.prevEkin = m * v*v/2
-                this.logger.logEvent({message:'set simulated power (gear change)', target:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope,prevTarget:this.prevSimPower,  actualPower:prevPower, newPower})
+                this.logEvent({message:'set simulated power (gear change)', target:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope,prevTarget:this.prevSimPower,  actualPower:prevPower, newPower})
 
             }
             else if (changed==='slope' || changed==='cadence') {
                 const adjustTime = this.simSlope < 0 ? 5 : 3
                 this.simPower = prev+delta/adjustTime // 3 seconds to adapt
-                this.logger.logEvent({message:`set simulated power (${changed} change)`, target:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope,prevTarget:this.prevSimPower,  actualPower:prevPower, newPower})
+                this.logEvent({message:`set simulated power (${changed} change)`, target:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope,prevTarget:this.prevSimPower,  actualPower:prevPower, newPower})
             }
             else { // nothing changed
-                this.logger.logEvent({message:`set simulated power (mothing changed)`, target:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope,prevTarget:this.prevSimPower,  actualPower:prevPower, newPower})
+                this.logEvent({message:`set simulated power (mothing changed)`, target:this.simPower, gear:this.gear, simSlope:this.simSlope, routeSlope:this.data.slope,prevTarget:this.prevSimPower,  actualPower:prevPower, newPower})
             }
             
         }
@@ -348,7 +348,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                     }
                     delete request.gearDelta
 
-                    this.logger.logEvent( {message:'gear changed', gear:this.gear, oldGear})
+                    this.logEvent( {message:'gear changed', gear:this.gear, oldGear})
                     this.data.gearStr = this.getGearString()
                     this.calculateSimulatedPower('gear')
                     if (this.simPower!==undefined) {                        
@@ -376,7 +376,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                             }
                         }
                         this.gear = closestIndex+1;
-                        this.logger.logEvent( {message:'gear changed', gear:this.gear, gearRatio:newRequest.gearRatio, oldGear})                        
+                        this.logEvent( {message:'gear changed', gear:this.gear, gearRatio:newRequest.gearRatio, oldGear})                        
                     }
 
                 }
@@ -397,7 +397,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                     }
                     delete request.gearDelta
                     newRequest.gearRatio = this.gearRatios[this.gear]
-                    this.logger.logEvent( {message:'gear changed', gear:this.gear, gearRatio:newRequest.gearRatio, oldGear})                        
+                    this.logEvent( {message:'gear changed', gear:this.gear, gearRatio:newRequest.gearRatio, oldGear})                        
 
 
 
@@ -409,7 +409,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                     }
 
                     newRequest.gearRatio = this.gearRatios[this.gear]
-                    this.logger.logEvent( {message:'gear initialized', gear:this.gear, gearRatio:newRequest.gearRatio})                        
+                    this.logEvent( {message:'gear initialized', gear:this.gear, gearRatio:newRequest.gearRatio})                        
                 }
 
 
@@ -471,7 +471,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
             }
         }
         catch(err) {
-            this.logger.logEvent({message:'error', fn:'getVirtualShiftMode', error:err.message,  stack:err.stack})
+            this.logEvent({message:'error', fn:'getVirtualShiftMode', error:err.message,  stack:err.stack})
         }
         return 'Disabled'
     }
@@ -517,7 +517,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
     }
 
     sendBikeUpdate(incoming: UpdateRequest): UpdateRequest {
-        this.logger.logEvent( {message:"processing update request",request:incoming,prev:this.prevRequest,data:this.getData()} );        
+        this.logEvent( {message:"processing update request",request:incoming,prev:this.prevRequest,data:this.getData()} );        
 
         let newRequest:UpdateRequest = {}
         const request = {...incoming}
@@ -543,7 +543,7 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
                 
         catch ( err)  /* istanbul ignore next */ {
             // I'm not expecting any error here, but just in case, if we catch anything we'll log
-            this.logger.logEvent( {message:"error",fn:'sendBikeUpdate()',error:err.message,stack:err.stack} );
+            this.logEvent( {message:"error",fn:'sendBikeUpdate()',error:err.message,stack:err.stack} );
         }
 
         if (newRequest.targetPower && this.simPower) {

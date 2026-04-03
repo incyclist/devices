@@ -1,15 +1,18 @@
+import { EventLogger } from "gd-eventlog";
 import { IncyclistBikeData, IAdapter } from "../types/index.js";
 import ICyclingMode, { CyclingMode, CyclingModeConfig, CyclingModeProperty, Settings, UpdateRequest } from "./types.js";
 
 export abstract class CyclingModeBase extends CyclingMode implements ICyclingMode {
-    adapter: IAdapter
+    adapter!: IAdapter
     settings: Settings = {}
     properties: Settings = {};
-    localConfig: CyclingModeConfig;
+    localConfig!: CyclingModeConfig;
     protected static config:CyclingModeConfig={name:'',description:'',properties:[]}
     protected static isERG:boolean
-    protected prevUpdate:UpdateRequest
-    protected prevConfirmed:UpdateRequest
+    protected prevUpdate!:UpdateRequest
+    protected prevConfirmed!:UpdateRequest
+    protected logger!: EventLogger;
+
 
     static supportsERGMode():boolean  {
         //let cm = this.constructor as typeof CyclingModeBase
@@ -50,7 +53,7 @@ export abstract class CyclingModeBase extends CyclingMode implements ICyclingMod
         return this.getConfig().properties;
     }
     getProperty(name: string): CyclingModeProperty {
-        return this.getConfig().properties.find(p => p.name===name);
+        return this.getConfig().properties.find(p => p.name===name)!;
     }
 
 
@@ -94,6 +97,23 @@ export abstract class CyclingModeBase extends CyclingMode implements ICyclingMod
             return prop.default;
         return undefined;
     }
+
+    initLogger(defaultLogName:string) {
+        /*
+        const a = this.adapter as IncyclistDeviceAdapter
+        this.logger =  a.getLogger() 
+        if (!this.logger) 
+        */
+        this.logger = new EventLogger(defaultLogName)
+    }
+
+    logEvent(event:any) {
+        if (!this.logger || this.adapter?.isLogPaused())
+            return
+        this.logger.logEvent(event)
+    }
+
+
 
     protected updateRequired(request: UpdateRequest={}): boolean {
         const prevRequest = {...this.prevUpdate}

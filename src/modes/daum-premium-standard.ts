@@ -7,8 +7,8 @@ import { IncyclistDeviceAdapter } from "../base/adpater.js";
 
 export default class DaumClassicCyclingMode extends PowerMeterCyclingMode implements ICyclingMode {
 
-    prevInternalDistance: number
-    distanceOffset: number
+    prevInternalDistance!: number
+    distanceOffset!: number
     
 
     protected static config = {
@@ -21,8 +21,11 @@ export default class DaumClassicCyclingMode extends PowerMeterCyclingMode implem
 
     constructor(adapter: IncyclistDeviceAdapter, props?: Settings) {
         super(adapter,props);
-        this.logger = adapter ? adapter.getLogger() : undefined;
-        if (!this.logger) this.logger = new EventLogger('DaumClassic')      
+        if (adapter)
+            this.logger = adapter.getLogger() 
+        else 
+            this.initLogger('DaumClassic')
+        
 
         this.setModeProperty('eppSupport',true)
         this.setModeProperty('setPersonSupport',true)
@@ -59,7 +62,7 @@ export default class DaumClassicCyclingMode extends PowerMeterCyclingMode implem
             }
 
             if (distanceBike<distancePrev) /* overflow*/  {
-                this.logger.logEvent( {message:'distance overflow', distanceBike, distancePrev} )   
+                this.logEvent( {message:'distance overflow', distanceBike, distancePrev} )   
                 // calculate speed and distance
                 let v = speed/3.6;
 
@@ -75,7 +78,7 @@ export default class DaumClassicCyclingMode extends PowerMeterCyclingMode implem
             data.slope = slope;
             data.time = speed>0 ? time+t : time;
 
-            this.logger.logEvent( {message:"updateData result",data,bikeData,prevRequest:{},prevSpeed:prevData.speed} );
+            this.logEvent( {message:"updateData result",data,bikeData,prevRequest:{},prevSpeed:prevData.speed} );
 
             this.data = JSON.parse(JSON.stringify(data));
 
@@ -83,8 +86,8 @@ export default class DaumClassicCyclingMode extends PowerMeterCyclingMode implem
             this.prevInternalDistance = distanceBike
     
         }
-        catch (err) /* istanbul ignore next */ {
-            this.logger.logEvent({message:'error',fn:'updateData()',error:err.message||err})
+        catch (err:any) /* istanbul ignore next */ {
+            this.logEvent({message:'error',fn:'updateData()',error:err.message||err})
         }
 
         return data;

@@ -53,7 +53,7 @@ export default class AntAdvSimCyclingMode extends SmartTrainerCyclingMode {
 
     sendBikeUpdate(incoming: UpdateRequest): UpdateRequest { 
 
-        this.logger.logEvent( {message:"processing update request",request:incoming,prev:this.prevRequest,data:this.getData()} );        
+        this.logEvent( {message:"processing update request",request:incoming,prev:this.prevRequest,data:this.getData()} );        
 
         let newRequest:UpdateRequest = {}
         const request = Object.assign({},incoming)
@@ -97,9 +97,9 @@ export default class AntAdvSimCyclingMode extends SmartTrainerCyclingMode {
 
             this.prevRequest = JSON.parse(JSON.stringify(newRequest));
         }
-        catch ( err)  /* istanbul ignore next */ {
+        catch ( err:any)  /* istanbul ignore next */ {
             // I'm not expecting any error here, but just in case, if we catch anything we'll log
-            this.logger.logEvent( {message:"error",fn:'sendBikeUpdate()',error:err.message,stack:err.stack} );
+            this.logEvent( {message:"error",fn:'sendBikeUpdate()',error:err.message,stack:err.stack} );
         }
     
         return newRequest

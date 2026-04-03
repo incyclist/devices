@@ -23,7 +23,7 @@ export default class PowerMeterCyclingMode extends PowerBasedCyclingModeBase imp
     }    
 
     sendBikeUpdate(request: UpdateRequest = {}): UpdateRequest {
-        this.logger.logEvent( {message:"processing update request",request} );
+        this.logEvent( {message:"processing update request",request} );
 
         const prevData = this.data;
         const prevSlope = prevData.slope; 

@@ -187,10 +187,10 @@ export type BleDeviceInfo = {
 }
 export interface IBleInterface<T extends PeripheralAnnouncement> extends IncyclistInterface {
     pauseLogging(debugOnly?: boolean): void;
-    resumeLogging();
+    resumeLogging():void;
     isLoggingPaused():boolean
-    logEvent(event);
-    logError(err: Error, fn: string, args?);
+    logEvent(event:any):void;
+    logError(err: Error, fn: string, args?:any):void;
 
     createPeripheral(announcement: T):IBlePeripheral
     createPeripheralFromSettings(settings:DeviceSettings):IBlePeripheral
@@ -227,6 +227,8 @@ export interface IBlePeripheral {
     getInfo():BleDeviceIdentifier
     getAnnouncedServices(): string[]
     getDiscoveredServices(): string[]
+
+    getInterface():IBleInterface<any>
 
 }
 

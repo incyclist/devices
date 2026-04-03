@@ -18,6 +18,9 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
 
 
     logEvent(event:any, ...args:any) {
+        if (this.getPeripheral()?.getInterface()?.isLoggingPaused())
+            return;
+
         this.logger.logEvent(event, ...args)
     }
 

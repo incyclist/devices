@@ -24,8 +24,9 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
     logger: EventLogger;
     toScan: NodeJS.Timeout;
     connected: boolean
-
     inUse: string[]     // Ports already in use
+    protected logPaused: boolean = false
+
     
 
     static _instances: SerialInterface[] = []    
@@ -78,18 +79,18 @@ export default class SerialInterface  extends EventEmitter implements IncyclistI
         SerialInterface._add(this)
     }
 
-    logEvent(event) {
-        if ( this.logger) {
-            this.logger.logEvent(event)
-        }
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const w = global.window as any
+    logEvent(event:any) {
+        if (this.logPaused || !this.logger)
+            return
+        this.logger.logEvent(event)
+    }
     
-        if (w?.DEVICE_DEBUG||process.env.SERIAL_DEBUG||process.env.ANT_DEBUG||process.env.BLE_DEBUG) {
-            console.log( '~~~ Serial', event)
-        }
+    pauseLogging(): void {
+        this.logPaused = true
+    }
 
+    resumeLogging(): void {
+        this.logPaused = false
     }
 
     setBinding(binding: BindingInterface):void {
