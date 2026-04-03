@@ -1,11 +1,13 @@
 import { LegacyProfile } from "../../antv2/types.js";
-import { BleProtocol, BleWriteProps  } from "../types.js";
-import { IndoorBikeData, IndoorBikeFeatures } from "./types.js";
-import { FTMS, FTMS_CP, FTMS_STATUS, INDOOR_BIKE_DATA } from "../consts.js";
+import { BleProtocol, BleWriteProps, IBlePeripheral  } from "../types.js";
+import { FtmsServiceData, IndoorBikeData, IndoorBikeFeatures } from "./types.js";
+import { FTMS, FTMS_CP, FTMS_STATUS, INDOOR_BIKE_DATA, ROWER_DATA, TREADMILL_DATA } from "../consts.js";
 import { TBleSensor } from "../base/sensor.js";
-import { beautifyUUID, matches } from "../utils.js";
+import { beautifyUUID, bit, matches } from "../utils.js";
 import { IndoorBikeDataFlag, FitnessMachineStatusOpCode, FitnessMachineFeatureFlag, TargetSettingFeatureFlag, OpCode, OpCodeResut as OpCodeResult, ZWIFT_PLAY_UUID } from "./consts.js";
 import { InteruptableTask, TaskState } from "../../utils/task.js";
+import { BlePeripheral } from "../base/peripheral.js";
+import { Sport } from "../../types/sport.js";
 
 
 const BLE_COMMAND_TIMEOUT = 800;  // ms
@@ -17,8 +19,8 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     static readonly characteristics =  [ '2acc', INDOOR_BIKE_DATA, '2ad6', '2ad8', FTMS_CP, FTMS_STATUS ];
     static readonly detectionPriority:number = 100;
 
-    protected data: IndoorBikeData
-    protected _features: IndoorBikeFeatures = undefined
+    protected data!: IndoorBikeData
+    protected _features: IndoorBikeFeatures|undefined = undefined
     protected hasControl: boolean = false
     protected isCheckingControl: boolean = false;
     protected isCPSubscribed: boolean = false;
@@ -27,8 +29,9 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     protected cw: number = 0.6;
     protected windSpeed = 0;
     protected wheelSize = 2100;
+    protected ftmsServiceData!: FtmsServiceData
 
-    constructor (peripheral, props?) {
+    constructor (peripheral:IBlePeripheral, props?:any) {
         super(peripheral,props)
 
         this.reset()
@@ -36,7 +39,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     }
 
     public get features(): IndoorBikeFeatures {
-        return this._features
+        return this._features!
     }
     reset() {
         this.data = {}
@@ -44,8 +47,13 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     }
 
     protected getRequiredCharacteristics():Array<string> {
+
+        this.parseServiceData()
+        if (this.ftmsServiceData?.rower)
+            return [ROWER_DATA,'2a37',FTMS_STATUS ]
         return [INDOOR_BIKE_DATA,'2a37',FTMS_STATUS ]
-    }
+        
+    } 
 
     onData(characteristic:string,characteristicData: Buffer):boolean {       
         const data = Buffer.from(characteristicData);
@@ -65,6 +73,11 @@ export default class BleFitnessMachineDevice extends TBleSensor {
                 case INDOOR_BIKE_DATA:    //  name: 'Indoor Bike Data',
                     res = this.parseIndoorBikeData(data)
                     break;
+                case ROWER_DATA:    //  name: 'Indoor Bike Data',
+                    res = this.parseRowerData(data)
+                    break;
+                case TREADMILL_DATA:
+                    res = this.parseTreadmillData(data)
                 case '2a37':     //  name: 'Heart Rate Measurement',
                     res = this.parseHrm(data)
                     break;
@@ -94,7 +107,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
             return true;
     
         }
-        catch(err) {
+        catch(err:any) {
             this.logEvent({message:'Error',fn:'onData',error:err.message, stack:err.stack})
             return false
         }
@@ -109,6 +122,23 @@ export default class BleFitnessMachineDevice extends TBleSensor {
 
     setWindSpeed(windSpeed:number) {this.windSpeed = windSpeed}
     getWindSpeed():number { return this.windSpeed}
+
+    getSupportedSports():Array<Sport> {
+        this.parseServiceData()
+
+        if (!this.ftmsServiceData)
+            return ['cycling']
+
+        const sports:Array<Sport> = []
+        if (this.ftmsServiceData?.indoorBike)
+            sports.push('cycling')
+        if (this.ftmsServiceData?.rower)
+            sports.push('rowing')
+        if (this.ftmsServiceData?.treadmill)
+            sports.push('running')
+
+        return sports
+    }
 
     protected onDisconnect(): void {
         this.hasControl = false
@@ -230,11 +260,142 @@ export default class BleFitnessMachineDevice extends TBleSensor {
                 this.data.heartrate = data.readUInt16LE(1);
             }
         }
-        catch (err) { 
+        catch (err:any) { 
             this.logEvent({message:'error',fn:'parseHrm()',error:err.message|err, stack:err.stack})
 
         }
         return { ...this.data, raw:`2a37:${data.toString('hex')}`};
+    }
+
+    protected parseTreadmillData(_data: Uint8Array):IndoorBikeData {
+        const data: Buffer = Buffer.from(_data);
+        let offset = 2;
+
+        if (data.length > 2) {
+            try {
+                const flags = data.readUInt16LE(0);
+
+                // Bit 0: More Data — when NOT set, instantaneous speed is present
+                if ((flags & 0x0001) === 0) {
+                    this.data.speed = data.readUInt16LE(offset) / 100; offset += 2;
+                }
+                if (flags & 0x0002) { // Average Speed
+                    this.data.averageSpeed = data.readUInt16LE(offset) / 100; offset += 2;
+                }
+                if (flags & 0x0004) { // Total Distance (uint24)
+                    const dvLow  = data.readUInt8(offset); offset += 1;
+                    const dvHigh = data.readUInt16LE(offset); offset += 2;
+                    this.data.totalDistance = (dvHigh << 8) + dvLow;
+                }
+                if (flags & 0x0008) { // Inclination + Ramp Angle Setting
+                    this.data.targetInclination = data.readInt16LE(offset) / 10; offset += 2;
+                    offset += 2; // ramp angle (int16) — no matching field in IndoorBikeData
+                }
+                if (flags & 0x0010) { // Positive + Negative Elevation Gain
+                    offset += 2; // positive elevation gain (uint16) — no matching field
+                    offset += 2; // negative elevation gain (uint16) — no matching field
+                }
+                if (flags & 0x0020) { // Instantaneous Pace (min/km, uint8) → speed (km/h)
+                    const pace = data.readUInt8(offset); offset += 1;
+                    this.data.speed = pace > 0 ? Math.round(60 / pace * 100) / 100 : 0;
+                }
+                if (flags & 0x0040) { // Average Pace (min/km, uint8) → averageSpeed (km/h)
+                    const avgPace = data.readUInt8(offset); offset += 1;
+                    this.data.averageSpeed = avgPace > 0 ? Math.round(60 / avgPace * 100) / 100 : 0;
+                }
+                if (flags & 0x0080) { // Expended Energy
+                    this.data.totalEnergy     = data.readUInt16LE(offset); offset += 2;
+                    this.data.energyPerHour   = data.readUInt16LE(offset); offset += 2;
+                    this.data.energyPerMinute = data.readUInt8(offset);    offset += 1;
+                }
+                if (flags & 0x0100) { // Heart Rate
+                    this.data.heartrate = data.readUInt8(offset); offset += 1;
+                }
+                if (flags & 0x0200) { // Metabolic Equivalent
+                    this.data.metabolicEquivalent = data.readUInt8(offset) / 10; offset += 1;
+                }
+                if (flags & 0x0400) { // Elapsed Time
+                    this.data.time = data.readUInt16LE(offset); offset += 2;
+                }
+                if (flags & 0x0800) { // Remaining Time
+                    this.data.remainingTime = data.readUInt16LE(offset);
+                }
+                // Bit 12: Force on Belt + Power Output — no matching fields in IndoorBikeData
+            }
+            catch (err: any) {
+                this.logEvent({ message: 'error', fn: 'parseTreadmillData()', device: this.getName(), data: data.toString('hex'), offset, error: err.message, stack: err.stack });
+            }
+        }
+
+        return { ...this.data, raw: `2acd:${data.toString('hex')}` };
+    }
+
+    protected parseRowerData(_data: Uint8Array):IndoorBikeData {
+        const data: Buffer = Buffer.from(_data);
+        let offset = 2;
+
+        if (data.length > 2) {
+            try {
+                const flags = data.readUInt16LE(0);
+
+                // Bit 0: More Data — when NOT set, stroke rate + stroke count are present
+                if ((flags & 0x0001) === 0) {
+                    this.data.cadence = data.readUInt8(offset) / 2; offset += 1;
+                    offset += 2; // stroke count (uint16) — no matching field in IndoorBikeData
+                }
+                if (flags & 0x0002) { // Average Stroke Rate
+                    this.data.averageCadence = data.readUInt8(offset) / 2; offset += 1;
+                }
+                if (flags & 0x0004) { // Total Distance (uint24)
+                    const dvLow  = data.readUInt8(offset); offset += 1;
+                    const dvHigh = data.readUInt16LE(offset); offset += 2;
+                    this.data.totalDistance = (dvHigh << 8) + dvLow;
+                }
+                if (flags & 0x0008) { // Instantaneous Pace (s/500m) → speed (km/h)
+                    const pace = data.readUInt16LE(offset); offset += 2;
+                    this.data.speed = pace > 0 ? Math.round(1800 / pace * 100) / 100 : 0;
+                }
+                if (flags & 0x0010) { // Average Pace (s/500m) → average speed (km/h)
+                    const avgPace = data.readUInt16LE(offset); offset += 2;
+                    this.data.averageSpeed = avgPace > 0 ? Math.round(1800 / avgPace * 100) / 100 : 0;
+                }
+                if (flags & 0x0020) { // Instantaneous Power
+                    this.data.instantaneousPower = data.readInt16LE(offset); offset += 2;
+                }
+                if (flags & 0x0040) { // Average Power
+                    this.data.averagePower = data.readInt16LE(offset); offset += 2;
+
+                    // also overwrite the instantaneousPower. This seems to be the power at the point of measurement
+                    // and this varies a lot during a rowing stroke
+                    this.data.instantaneousPower = data.readInt16LE(offset); offset += 2;
+                }
+                if (flags & 0x0080) { // Resistance Level
+                    this.data.resistanceLevel = data.readInt16LE(offset); offset += 2;
+                }
+                if (flags & 0x0100) { // Expended Energy
+                    this.data.totalEnergy    = data.readUInt16LE(offset); offset += 2;
+                    this.data.energyPerHour  = data.readUInt16LE(offset); offset += 2;
+                    this.data.energyPerMinute = data.readUInt8(offset);   offset += 1;
+                }
+                if (flags & 0x0200) { // Heart Rate
+                    this.data.heartrate = data.readUInt8(offset); offset += 1;
+                }
+                if (flags & 0x0400) { // Metabolic Equivalent
+                    this.data.metabolicEquivalent = data.readUInt8(offset) / 10; offset += 1;
+                }
+                if (flags & 0x0800) { // Elapsed Time
+                    this.data.time = data.readUInt16LE(offset); offset += 2;
+                }
+                if (flags & 0x1000) { // Remaining Time
+                    this.data.remainingTime = data.readUInt16LE(offset);
+                }
+            }
+            catch (err: any) {
+                this.logEvent({ message: 'error', fn: 'parseRowerData()', device: this.getName(), data: data.toString('hex'), offset, error: err.message, stack: err.stack });
+            }
+        }
+
+        return { ...this.data, raw: `2ad1:${data.toString('hex')}` };
     }
 
     protected parseIndoorBikeData(_data: Uint8Array):IndoorBikeData { 
@@ -293,7 +454,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
                 }
         
             }
-            catch(err) {
+            catch(err:any) {
                 this.logEvent({message:'error',fn:'parseIndoorBikeData()', device:this.getName(), data:data.toString('hex'),offset, error:err.message, stack:err.stack})
             }
         }
@@ -345,17 +506,65 @@ export default class BleFitnessMachineDevice extends TBleSensor {
                 }
     
         }
-        catch(err) {
+        catch(err:any) {
             this.logEvent({message:'error',fn:'parseFitnessMachineStatus()', error:err.message,device:this.getName(), data:data.toString('hex'), stack:err.stack})
         }
 
         return { ...this.data, raw:`2ada:${data.toString('hex')}`};
     }
 
+    protected parseServiceData():FtmsServiceData|undefined {
+        if (this.ftmsServiceData)
+            return this.ftmsServiceData
+
+        try {
+            const peripheral = this.peripheral as BlePeripheral
+            if (!peripheral.getServiceData)
+                return
+
+
+            const bitSet = ( value:number, bitNo:number) => (value & bit(bitNo))>0
+
+            const data = peripheral.getServiceData(FTMS)
+            const dataLength = data?.length??0
+            if (dataLength>=2) {
+                const flags = data!.readUInt8(0)
+                const fmType = dataLength===3 ? data!.readUInt16LE(1) : data!.readUInt8(1)
+
+                const available = bitSet(flags,0)
+
+                const treadmill     = bitSet(fmType,0)
+                const crossTrainer  = bitSet(fmType,1)
+                const stepClimber   = bitSet(fmType,2)
+                const stairClimber  = bitSet(fmType,3)
+                const rower         = bitSet(fmType,4)
+                const indoorBike    = bitSet(fmType,5)
+
+                const raw = data?.toString('hex')!
+                const serviceData: FtmsServiceData = {available, treadmill, crossTrainer, stepClimber,stairClimber,rower,indoorBike, raw}
+                this.logEvent( {message:'service data',device:this.getName(),...serviceData})
+                this.ftmsServiceData = serviceData
+                return serviceData
+                
+            }
+            else {
+                this.logEvent({message:'could not parse service data', reason:'not enough data', raw:data?.toString('hex')})
+            }
+        }
+        catch(err:any) {
+            this.logEvent({message:'could not parse service data', reason:err.message, stack:err.stack})
+        }
+    }
     
     async getFitnessMachineFeatures():Promise<IndoorBikeFeatures|undefined> {
+
+    
         if (this._features)
             return this._features;
+
+        if (this.getName().startsWith('MRK-')) {
+            return {fitnessMachine:0, targetSettings:0, setPower:true,power:true, heartrate:true}
+        }
         
         try {
             const data = await this.read('2acc')  // Fitness Machine Feature
@@ -365,10 +574,10 @@ export default class BleFitnessMachineDevice extends TBleSensor {
             const services = this.peripheral?.services || []
             let power = services.some( s => matches(s.uuid,'1818'))  // Cycling Power
             let heartrate = services.some( s => matches(s.uuid,'180d'))  // Heart Rate
-
-            if (buffer?.length>=8) {
-                const fitnessMachine = buffer.readUInt32LE(0)
-                const targetSettings = buffer.readUInt32LE(4)
+            const dataLength = buffer?.length??0
+            if (dataLength>=8) {
+                const fitnessMachine = buffer!.readUInt32LE(0)
+                const targetSettings = buffer!.readUInt32LE(4)
                 power = power || (fitnessMachine & FitnessMachineFeatureFlag.PowerMeasurementSupported) !== 0
                 heartrate = heartrate || (fitnessMachine & FitnessMachineFeatureFlag.HeartRateMeasurementSupported) !==0
                 const cadence = (fitnessMachine & FitnessMachineFeatureFlag.CadenceSupported)!==0
@@ -391,12 +600,12 @@ export default class BleFitnessMachineDevice extends TBleSensor {
                 return this._features
             }
             else {
-                return {fitnessMachine:undefined, targetSettings:undefined, power, heartrate}
+                return {fitnessMachine:0, targetSettings:0, power, heartrate}
             }
             
     
         }
-        catch(err) {
+        catch(err:any) {
             this.logEvent({message:'could not read FitnessMachineFeatures', error:err.message, stack: err.stack,device:this.getName()})
             return undefined
         }
@@ -409,9 +618,12 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     }
 
 
-    protected buildFitnessMachineInfo(fitnessMachine:number):string[] { 
+    protected buildFitnessMachineInfo(fitnessMachine:number):string[]|undefined { 
+        if (this.getName().startsWith('MRK-')) {
+            return ['avgSpeed', 'cadence','power', 'pace']
+        }
 
-        const info = [];
+        const info:Array<string> = [];
 
         const check = (flag:number, name:string):void => {
             if (fitnessMachine & flag) 
@@ -437,7 +649,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
             check( FitnessMachineFeatureFlag.ForceOnBeltAndPowerOutputSupported, 'force');
             check( FitnessMachineFeatureFlag.UserDataRetentionSupported, 'userDataRetention');
         }
-        catch(err) {
+        catch(err:any) {
             this.logEvent({message:'could not read FitnessMachineInfo', error:err.message, stack: err.stack,device:this.getName()})
             return undefined
         }
@@ -445,8 +657,8 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     }
 
 
-    protected buildTargetSettingsInfo(targetSettings:number):string[] { 
-        const info = [];
+    protected buildTargetSettingsInfo(targetSettings:number):string[]|undefined { 
+        const info:Array<string> = [];
 
         const check = (flag:number, name:string):void => {
             if (targetSettings & flag) 
@@ -476,7 +688,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
                 info.push('virtualShifting')
             }
         }
-        catch(err) {
+        catch(err:any) {
             this.logEvent({message:'could not read TargetSettingsInfo', error:err.message, stack: err.stack,device:this.getName()})
             return undefined
         }
@@ -486,7 +698,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
 
 
 
-    protected async writeFtmsMessage(requestedOpCode, data, props?:BleWriteProps) {
+    protected async writeFtmsMessage(requestedOpCode:number, data:Buffer, props?:BleWriteProps) {
         
         try {
             this.logEvent({message:'fmts:write', device:this.getName(), data:data.toString('hex')})
@@ -518,7 +730,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
 
             return result
         }
-        catch(err) {
+        catch(err:any) {
             this.logEvent({message:'fmts:write failed', device:this.getName(), opCode: requestedOpCode, reason: err.message})
             return OpCodeResult.OperationFailed
         } 

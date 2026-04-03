@@ -4,6 +4,7 @@ import { IncyclistCapability } from "./capabilities.js";
 import { IncyclistAdapterData } from "./data.js";
 import { DeviceProperties, DeviceSettings } from "./device.js"
 import { User } from "./user.js"
+import { Sport } from "./sport.js";
 
 export type OnDeviceDataCallback = ( data:IncyclistAdapterData ) => void;
 
@@ -12,7 +13,11 @@ export type ControllerConfig = {
     default?: typeof CyclingMode
 }
 
-export interface IBike {
+export type UpdateRequestInput = UpdateRequest & {
+    enforced? : boolean
+}
+
+export interface ITrainer {
     setCyclingMode(mode: ICyclingMode|string, settings?:any,sendInitCommands?:boolean):void
     getSupportedCyclingModes() : Array<typeof CyclingMode>      
     getCyclingMode(): ICyclingMode
@@ -21,11 +26,15 @@ export interface IBike {
 
     // send Init Commands after cycle mode has changed
     sendInitCommands():Promise<boolean>
-    sendUpdate(request):Promise<UpdateRequest|void>  
+    sendUpdate(request:UpdateRequestInput):Promise<UpdateRequest|void>  
 
     setUser(user:User): void  
     getWeight():number
     getUser():User
+
+    getSupportedSports?():Array<Sport>
+
+
 }
 
 export interface ISensor {
@@ -33,13 +42,13 @@ export interface ISensor {
     getCapabilities(): IncyclistCapability[]
     hasCapability(capability:IncyclistCapability):boolean
     addCapability(capability:IncyclistCapability):void
-    getMaxUpdateFrequency()
-    setMaxUpdateFrequency(value: number) 
-    update() 
+    getMaxUpdateFrequency():number
+    setMaxUpdateFrequency(value: number):void
+    update():void
 }
 
 
-export interface IAdapter extends EventEmitter, IBike, ISensor{
+export interface IAdapter extends EventEmitter, ITrainer, ISensor{
     getName(): string    
     getID(): string
     getUniqueName(): string
@@ -67,8 +76,5 @@ export interface IAdapter extends EventEmitter, IBike, ISensor{
 
     createMode(ModeClass:typeof CyclingMode):ICyclingMode
     isLogPaused():boolean 
-
-    //@deprecate  ( use on('data) instead)
-    onData( callback: OnDeviceDataCallback ) 
 }
 

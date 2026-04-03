@@ -662,6 +662,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
             name:peripheral.advertisement.localName,
             manufacturerData:peripheral.advertisement?.manufacturerData ? Buffer.from(peripheral.advertisement.manufacturerData) : undefined,
             serviceUUIDs:peripheral.advertisement.serviceUuids??[],
+            serviceData:peripheral.advertisement.serviceData,
             peripheral,
             transport: this.getName()
         }

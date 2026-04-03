@@ -1,5 +1,5 @@
 import ICyclingMode,{ CyclingMode, UpdateRequest } from "../modes/types.js";
-import { DeviceProperties, DeviceSettings,ControllerConfig, IAdapter, OnDeviceDataCallback,IncyclistCapability,IncyclistAdapterData,User  } from "../types/index.js";
+import { DeviceProperties, DeviceSettings,ControllerConfig, IAdapter, OnDeviceDataCallback,IncyclistCapability,IncyclistAdapterData,User, UpdateRequestInput  } from "../types/index.js";
 import { EventLogger } from "gd-eventlog";
 import { EventEmitter } from "node:events";
 import { DEFAULT_PROPS, DEFAULT_USER_WEIGHT, DEFAULT_BIKE_WEIGHT } from "./consts.js";
@@ -310,7 +310,7 @@ export default class IncyclistDevice<P extends DeviceProperties>
         return false;
     }
 
-    async sendUpdate(request: any):Promise<UpdateRequest|void> { 
+    async sendUpdate(request: UpdateRequestInput):Promise<UpdateRequest|void> { 
         if (!this.isControllable())
             return;
 

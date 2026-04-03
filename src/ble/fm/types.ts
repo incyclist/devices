@@ -36,4 +36,17 @@ export type IndoorBikeFeatures = {
     tsInfo?: string[]
 }
 
+export type FtmsServiceData = {
+    available: boolean,
+    treadmill:boolean,
+    crossTrainer: boolean,
+    stepClimber: boolean,
+    stairClimber: boolean,
+    rower: boolean,
+    indoorBike: boolean,
+    raw:string
+}
+
+
+
 

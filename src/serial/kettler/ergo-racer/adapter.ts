@@ -8,8 +8,9 @@ import PowerMeterCyclingMode from "../../../modes/power-meter.js";
 import ERGCyclingMode from "../../../modes/kettler-erg.js";
 import { SerialIncyclistDevice } from "../../base/adapter.js";
 import SerialInterface from "../../base/serial-interface.js";
-import { IncyclistBikeData, IncyclistCapability,ControllerConfig, IAdapter,IncyclistAdapterData,DeviceProperties } from "../../../types/index.js";
+import { IncyclistBikeData, IncyclistCapability,ControllerConfig, IAdapter,IncyclistAdapterData,DeviceProperties, ITrainer } from "../../../types/index.js";
 import { UpdateRequest } from "../../../modes/types.js";
+import { Sport } from "../../../types/sport.js";
 
 export interface KettlerRacerCommand extends Command  {
     
@@ -34,7 +35,7 @@ export interface KettlerBikeData {
 
 const PROTOCOL_NAME = 'Kettler Racer'
 
-export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceProperties>   {
+export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceProperties> implements ITrainer  {
     private id: string;
     private iv : { sync: NodeJS.Timeout, update: NodeJS.Timeout };
     private readonly requests: Array<any> = []
@@ -102,6 +103,9 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceP
     getSerialInterface():SerialInterface {
         if (this.comms)
             return this.comms.getSerialInterface()
+    }
+    getSupportedSports(): Array<Sport> {
+        return ['cycling']
     }
 
 

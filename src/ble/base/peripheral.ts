@@ -1,5 +1,5 @@
 import { BleCharacteristic, BleDeviceIdentifier, BlePeripheralAnnouncement, BleRawCharacteristic, BleRawPeripheral, BleService, BleWriteProps, IBleInterface, IBlePeripheral } from "../types.js";
-import { beautifyUUID, fullUUID } from "../utils.js";
+import { beautifyUUID, fullUUID, matches } from "../utils.js";
 import { BleInterface } from "./interface.js";
 
 export class BlePeripheral implements IBlePeripheral {
@@ -156,6 +156,18 @@ export class BlePeripheral implements IBlePeripheral {
 
     getManufacturerData() {
         return this.announcement?.manufacturerData
+    }
+
+    getServiceData(uuid:string): Buffer|undefined {
+        const serviceData = this.announcement?.serviceData
+
+        if (!serviceData)
+            return;
+
+        const data = serviceData.find( sd=> matches(sd.uuid,uuid))?.data
+        if (data)
+            return Buffer.from(data)
+        return data
     }
 
     protected async onPeripheralDisconnect() {

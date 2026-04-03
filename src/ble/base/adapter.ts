@@ -426,8 +426,8 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             this.logEvent({message: 'start result: success', device:this.getName(),interface:this.getInterface(), protocol:this.getProtocolName()})            
             return true;
         }
-        catch(err) {
-            this.logEvent({message: 'start result: error', error: err.message,device:this.getName(),interface:this.getInterface(), protocol:this.getProtocolName()})
+        catch(err:any) {
+            this.logEvent({message: 'start result: error', error: err.message,stack:err.stack,device:this.getName(),interface:this.getInterface(), protocol:this.getProtocolName()})
             this.started = false;
             this.stopped = true;      
             const ble = this.getBle()

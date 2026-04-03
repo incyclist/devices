@@ -8,14 +8,16 @@ import ICyclingMode, { CyclingMode, UpdateRequest } from '../../modes/types.js';
 import { IndoorBikeData, IndoorBikeFeatures } from './types.js';
 import { cRR, cwABike } from './consts.js';
 import { BleDeviceProperties, BleDeviceSettings, BleStartProperties, IBlePeripheral } from '../types.js';
-import { IAdapter,IncyclistCapability,IncyclistAdapterData,IncyclistBikeData } from '../../types/index.js';
+import { IAdapter,IncyclistCapability,IncyclistAdapterData,IncyclistBikeData, ITrainer } from '../../types/index.js';
 import { LegacyProfile } from '../../antv2/types.js';
 import { sleep } from '../../utils/utils.js';
 import { BleZwiftPlaySensor } from '../zwift/play/index.js';
 import { useFeatureToggle } from '../../features/index.js';
 import FMResistanceMode from '../../modes/fm-resistance.js';
+import { Sport } from '../../types/sport.js';
+import RowerMode from '../../modes/rower.js';
 
-export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMachineDevice> {
+export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMachineDevice> implements ITrainer{
     protected static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Smart Trainer'
 
     protected distanceInternal: number = 0;
@@ -37,6 +39,9 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
     }
 
+    getSupportedSports(): Array<Sport> {
+        return this.device?.getSupportedSports()??['cycling']
+    }
 
     updateSensor(peripheral:IBlePeripheral) {
         this.device = new BleFitnessMachineDevice( peripheral, {logger:this.logger})
@@ -66,6 +71,11 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         if (this.props?.capabilities  && this.props.capabilities.indexOf(IncyclistCapability.Control)===-1)
             return modes
 
+        const sports = this.getSupportedSports()
+        if (sports.length===1 && sports[0]==='rowing') {
+            return [RowerMode]
+        }
+
         const features = this.getSensor()?.features
         if (!features)
             return [PowerMeterCyclingMode, FtmsCyclingMode,BleERGCyclingMode] 
@@ -88,6 +98,12 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
         if (this.props?.capabilities  && this.props.capabilities.indexOf(IncyclistCapability.Control)===-1)            
             return this.createMode(PowerMeterCyclingMode);
+        
+        const sports = this.getSupportedSports()
+        if (sports.length===1 && sports[0]==='rowing') {
+            return this.createMode(RowerMode)
+        }
+
 
         const features = this.getSensor()?.features        
         if (!features) {

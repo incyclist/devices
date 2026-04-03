@@ -1,7 +1,7 @@
 import ERGCyclingMode from '../../modes/daum-erg.js';
 import {intVal} from '../../utils/utils.js'
 
-import { IncyclistCapability,IncyclistAdapterData,ControllerConfig, IAdapter,DeviceProperties,IncyclistBikeData  } from '../../types/index.js';
+import { IncyclistCapability,IncyclistAdapterData,ControllerConfig, IAdapter,DeviceProperties,IncyclistBikeData, ITrainer  } from '../../types/index.js';
 import { SerialDeviceSettings } from "../types.js";
 import { DaumSerialComms}  from './types.js';
 import { SerialIncyclistDevice } from '../base/adapter.js';
@@ -11,8 +11,9 @@ import SmartTrainerCyclingMode from '../../modes/daum-smarttrainer.js';
 import DaumPowerMeterCyclingMode from '../../modes/daum-power.js';
 import {EventEmitter} from 'node:events';
 import ICyclingMode, { UpdateRequest } from '../../modes/types.js';
+import { Sport } from '../../types/sport.js';
 
-export default class DaumAdapter<S extends SerialDeviceSettings, P extends DeviceProperties, C extends DaumSerialComms> extends SerialIncyclistDevice<P>  {
+export default class DaumAdapter<S extends SerialDeviceSettings, P extends DeviceProperties, C extends DaumSerialComms> extends SerialIncyclistDevice<P>  implements ITrainer{
 
     protected static controllers: ControllerConfig = {
         modes: [ERGCyclingMode,SmartTrainerCyclingMode,DaumPowerMeterCyclingMode],
@@ -77,6 +78,9 @@ export default class DaumAdapter<S extends SerialDeviceSettings, P extends Devic
             return this.createMode(DaumPowerMeterCyclingMode);
 
         return super.getDefaultCyclingMode();
+    }
+    getSupportedSports(): Array<Sport> {
+        return ['cycling']
     }
 
     

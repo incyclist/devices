@@ -3,12 +3,13 @@ import { FitnessEquipmentSensor, FitnessEquipmentSensorState, Profile } from "in
 import  AntAdapter from "../base/adapter.js";
 import ICyclingMode, {  CyclingMode, UpdateRequest } from '../../modes/types.js';
 import { AntDeviceProperties, AntDeviceSettings, LegacyProfile } from "../types.js";
-import { IncyclistAdapterData, IncyclistBikeData,IncyclistCapability,ControllerConfig } from "../../types/index.js";
+import { IncyclistAdapterData, IncyclistBikeData,IncyclistCapability,ControllerConfig, ITrainer } from "../../types/index.js";
 import AntAdvSimCyclingMode from "../../modes/ant-fe-adv-st-mode.js";
 import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/consts.js";
 import ERGCyclingMode from "../../modes/antble-erg.js";
 import SmartTrainerCyclingMode from "../../modes/antble-smarttrainer.js";
 import PowerMeterCyclingMode from "../../modes/power-meter.js";
+import { Sport } from "../../types/sport.js";
 
 const DEFAULT_BIKE_WEIGHT_MOUNTAIN = 14.5;
 
@@ -18,7 +19,7 @@ interface AntFEStartDeviceProperties extends AntDeviceProperties {
     reconnectTimeout?: number
 }
 
-export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState>{
+export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState> implements ITrainer{
     
     protected static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Smart Trainer'
     protected static ANT_PROFILE_NAME:Profile = 'FE'
@@ -44,6 +45,10 @@ export default class AntFEAdapter extends AntAdapter<FitnessEquipmentSensorState
         ]
     }
 
+    
+    getSupportedSports(): Array<Sport> {
+        return ['cycling']
+    }
     getDisplayName() {
         const {InstantaneousPower} = this.deviceData;
         const pwrStr = InstantaneousPower ? ` (${InstantaneousPower})` : '';

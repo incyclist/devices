@@ -60,9 +60,15 @@ export interface PeripheralAnnouncement {
     transport:    string  
 }
 
+export interface ServiceData  {
+    uuid: string,
+    data: Buffer
+}
+
 export interface BlePeripheralAnnouncement extends PeripheralAnnouncement { 
     advertisement: any;
     manufacturerData?: Buffer;
+    serviceData?: Array<ServiceData>
     peripheral: BleRawPeripheral
 }
 
