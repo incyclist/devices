@@ -338,6 +338,8 @@ export default class BleFitnessMachineDevice extends TBleSensor {
             try {
                 const flags = data.readUInt16LE(0);
 
+
+
                 // Bit 0: More Data — when NOT set, stroke rate + stroke count are present
                 if ((flags & 0x0001) === 0) {
                     this.data.cadence = data.readUInt8(offset) / 2; offset += 1;
@@ -367,7 +369,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
 
                     // also overwrite the instantaneousPower. This seems to be the power at the point of measurement
                     // and this varies a lot during a rowing stroke
-                    this.data.instantaneousPower = data.readInt16LE(offset); offset += 2;
+                    this.data.instantaneousPower = this.data.averagePower
                 }
                 if (flags & 0x0080) { // Resistance Level
                     this.data.resistanceLevel = data.readInt16LE(offset); offset += 2;
