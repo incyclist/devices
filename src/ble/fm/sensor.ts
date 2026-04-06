@@ -31,6 +31,9 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     protected wheelSize = 2100;
     protected ftmsServiceData!: FtmsServiceData
 
+    protected rowerDataTS: number|undefined
+    protected rowerMaxPower: number|undefined
+
     constructor (peripheral:IBlePeripheral, props?:any) {
         super(peripheral,props)
 
@@ -333,6 +336,13 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     protected parseRowerData(_data: Uint8Array):IndoorBikeData {
         const data: Buffer = Buffer.from(_data);
         let offset = 2;
+        let maxPower:number|undefined
+
+        if (!this.rowerDataTS || this.rowerDataTS+1000<Date.now()) {
+            this.rowerDataTS = Date.now()
+            maxPower = this.rowerMaxPower;
+            delete this.rowerMaxPower
+        }
 
         if (data.length > 2) {
             try {
@@ -363,13 +373,14 @@ export default class BleFitnessMachineDevice extends TBleSensor {
                 }
                 if (flags & 0x0020) { // Instantaneous Power
                     this.data.instantaneousPower = data.readInt16LE(offset); offset += 2;
+                    this.rowerMaxPower = Math.max( this.rowerMaxPower??0, this.data.instantaneousPower)
                 }
                 if (flags & 0x0040) { // Average Power
                     this.data.averagePower = data.readInt16LE(offset); offset += 2;
 
                     // also overwrite the instantaneousPower. This seems to be the power at the point of measurement
                     // and this varies a lot during a rowing stroke
-                    this.data.instantaneousPower = this.data.averagePower
+                    // this.data.instantaneousPower = this.data.averagePower
                 }
                 if (flags & 0x0080) { // Resistance Level
                     this.data.resistanceLevel = data.readInt16LE(offset); offset += 2;
@@ -391,6 +402,12 @@ export default class BleFitnessMachineDevice extends TBleSensor {
                 if (flags & 0x1000) { // Remaining Time
                     this.data.remainingTime = data.readUInt16LE(offset);
                 }
+
+                this.logEvent( {message:'rower data', device:this.getName(), raw: data.toString('hex'), data: structuredClone(this.data), maxPower:this.rowerMaxPower})
+
+                this.data.instantaneousPower = this.rowerMaxPower
+
+
             }
             catch (err: any) {
                 this.logEvent({ message: 'error', fn: 'parseRowerData()', device: this.getName(), data: data.toString('hex'), offset, error: err.message, stack: err.stack });
@@ -519,11 +536,11 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         if (this.ftmsServiceData)
             return this.ftmsServiceData
 
+
         try {
             const peripheral = this.peripheral as BlePeripheral
-            if (!peripheral.getServiceData)
+            if (peripheral?.getServiceData===undefined)
                 return
-
 
             const bitSet = ( value:number, bitNo:number) => (value & bit(bitNo))>0
 
