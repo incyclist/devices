@@ -5,10 +5,13 @@
     "homepage": "./",
     "dependencies": {
         "chrome-native-messaging": "^0.2.0",
-        "debug": "^4.3.4",
-        "gd-eventlog": "^0.1.22",
+        "debug": "^4.4.3",
+        "gd-eventlog": "^0.1.27",
         "incyclist-devices": "file:../..",
         "noble": "npm:@abandonware/noble@^1.9.2-15"
+    },
+    "overrides": {
+        "tar" :"^7.5.10"
     },
     "scripts": {
         "start": "node index.js"
