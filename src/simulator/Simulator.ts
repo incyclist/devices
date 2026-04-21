@@ -1,8 +1,9 @@
 import {EventLogger} from 'gd-eventlog'
 import SimulatorCyclingMode from '../modes/simulator.js';
 import IncyclistDevice from '../base/adpater.js';
-import { IAdapter,IncyclistBikeData,DeviceProperties, DeviceSettings,IncyclistCapability,IncyclistAdapterData } from '../types/index.js';
+import { IAdapter,IncyclistBikeData,DeviceProperties, DeviceSettings,IncyclistCapability,IncyclistAdapterData, ITrainer } from '../types/index.js';
 import { UpdateRequest } from '../modes/types.js';
+import { Sport } from '../types/sport.js';
 
 const DEFAULT_PROPS = {isBot:false }
 
@@ -12,7 +13,7 @@ interface SimulatorProperties extends DeviceProperties {
     activity?: any
 }
 
-export class Simulator extends IncyclistDevice<SimulatorProperties> {
+export class Simulator extends IncyclistDevice<SimulatorProperties>  implements ITrainer{
 
     static NAME = 'Simulator';
     protected static controllers = {
@@ -255,5 +256,10 @@ export class Simulator extends IncyclistDevice<SimulatorProperties> {
 
         return this.getCyclingMode().buildUpdate(request)
     }
+
+    getSupportedSports(): Array<Sport> {
+        return ['cycling']
+    }
+    
 
 }

@@ -26,6 +26,7 @@ export * from './features/index.js'
 export * from './proto/zwift_hub.js'
 export * from './bindings/index.js'
 
+export type * from './types/index.js'
 
 export {
     IAdapter,IncyclistDevice,IncyclistDeviceAdapter,DeviceSettings,DeviceProperties,

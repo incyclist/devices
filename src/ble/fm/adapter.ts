@@ -156,7 +156,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
     transformData( bikeData:IncyclistBikeData): IncyclistAdapterData {
         
         if ( bikeData===undefined)
-            return;
+            return {};
     
         let distance=0;
         if ( this.distanceInternal!==undefined && bikeData.distanceInternal!==undefined ) {
@@ -366,7 +366,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         }
     }
  
-    async sendUpdate(request, enforced=false):Promise<UpdateRequest|void> {
+    async sendUpdate(request:UpdateRequest, enforced=false):Promise<UpdateRequest|void> {
 
         if (this.promiseSendUpdate!==undefined  ) {
             await this.promiseSendUpdate

@@ -377,10 +377,6 @@ export default class BleFitnessMachineDevice extends TBleSensor {
                 }
                 if (flags & 0x0040) { // Average Power
                     this.data.averagePower = data.readInt16LE(offset); offset += 2;
-
-                    // also overwrite the instantaneousPower. This seems to be the power at the point of measurement
-                    // and this varies a lot during a rowing stroke
-                    // this.data.instantaneousPower = this.data.averagePower
                 }
                 if (flags & 0x0080) { // Resistance Level
                     this.data.resistanceLevel = data.readInt16LE(offset); offset += 2;
