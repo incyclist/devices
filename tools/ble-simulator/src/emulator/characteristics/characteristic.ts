@@ -1,5 +1,5 @@
 import { EventEmitter } from "stream";
-import { BleProperty } from "../../../../../lib/ble/types";
+import { BleProperty } from "incyclist-devices"
 import { Descriptor, ICharacteristic, ICharacteristicDefinition } from "../types";
 import bleno from "@stoprocent/bleno";
 
@@ -29,17 +29,17 @@ export class Characteristic<T> implements ICharacteristic<T>{
 
         })
 
-        this.bleno.onReadRequest = (_offset,callback) => {
+        this.bleno.onReadRequest = (_connection, _offset,callback) => {
             callback( this.bleno.RESULT_SUCCESS, Buffer.from(this.value))
         }
 
-        this.bleno.onWriteRequest = (data, offset, withoutResponse, callback)=> {
+        this.bleno.onWriteRequest = (_connection,data, offset, withoutResponse, callback)=> {
             this.write(data,offset,withoutResponse, (success:boolean)=> {
                 callback( success ? this.bleno.RESULT_SUCCESS : this.bleno.RESULT_UNLIKELY_ERROR)
             })
         }
 
-        this.bleno.onSubscribe = (_maxValueSize, updateValueCallback) => {
+        this.bleno.onSubscribe = (_connection,_maxValueSize, updateValueCallback) => {
             this.subscribe(updateValueCallback)
         }
 

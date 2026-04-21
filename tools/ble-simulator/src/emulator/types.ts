@@ -1,4 +1,4 @@
-import { BleProperty } from "../../../../lib/ble/types"
+import { BleProperty } from "incyclist-devices"
 
 export interface Descriptor  {
     uuid: string,

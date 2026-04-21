@@ -11,9 +11,16 @@ const parseArgs = ()=> {
 const main = async ({profile}) => {
 
 
+
+
     if (profile==='wahoo') {
+        console.log('wahoo simulator')
         wahoo()
     }
+    else {
+        console.log ( 'usage: ble-simulator <profile>')
+    }
+
 
 }
 
