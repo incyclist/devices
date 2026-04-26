@@ -1,3 +1,4 @@
+import { sleep } from "../../utils/utils.js";
 import { BleCharacteristic, BleDeviceIdentifier, BlePeripheralAnnouncement, BleRawCharacteristic, BleRawPeripheral, BleService, BleWriteProps, IBleInterface, IBlePeripheral } from "../types.js";
 import { beautifyUUID, fullUUID, matches } from "../utils.js";
 import { BleInterface } from "./interface.js";
@@ -13,6 +14,9 @@ export class BlePeripheral implements IBlePeripheral {
     protected disconnecting: boolean = false
     protected disconnectedSignalled: boolean = false
     protected discoveredServiceUUIds: Array<string>|undefined
+
+    protected discoverServicesPromise: Promise<string[]>|undefined
+    protected discoverCharacteristicsPromise: Record<string,Promise<BleCharacteristic[]>|undefined> = {}
 
     protected onErrorHandler = this.onPeripheralError.bind(this)
 
@@ -199,6 +203,18 @@ export class BlePeripheral implements IBlePeripheral {
 
     async discoverServices(): Promise<string[]> {
 
+        // shield this function from parallel calls
+        this.discoverServicesPromise = this.discoverServicesPromise ?? this._discoverServices()
+        const promise = this.discoverServicesPromise
+        
+        const res = await promise
+        sleep(0).then(()=> { delete this.discoverServicesPromise} )
+        return res
+
+    }
+
+    protected async _discoverServices(): Promise<string[]> {
+
         if (!this.getPeripheral())
             return []
         
@@ -230,6 +246,16 @@ export class BlePeripheral implements IBlePeripheral {
     }
 
     async discoverCharacteristics(serviceUUID: string): Promise<BleCharacteristic[]> {
+
+        // shield this function from parallel calls
+        this.discoverCharacteristicsPromise[serviceUUID] = this.discoverCharacteristicsPromise[serviceUUID] ?? this._discoverCharacteristics(serviceUUID)
+        const promise = this.discoverCharacteristicsPromise[serviceUUID]
+        const res = await promise
+        sleep(0).then(()=> { delete this.discoverCharacteristicsPromise[serviceUUID]} )
+        return res
+    }
+
+    protected async _discoverCharacteristics(serviceUUID: string): Promise<BleCharacteristic[]> {
         if (!this.getPeripheral())
             return []
 
