@@ -176,10 +176,10 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
 
     async connect(reconnect?:boolean): Promise<boolean> { 
-        if (this.isAutoStart)
+        if (this.isAutoStart && !reconnect)
             return this.isConnected()
         else 
-            return this.connectInternal(reconnect)
+            return await this.connectInternal(reconnect)
     }
 
     

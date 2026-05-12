@@ -14,7 +14,7 @@ export type InterfaceProps = {
 export interface IncyclistInterface extends EventEmitter{
     getName(): string;
     setBinding(binding: any): void;
-    connect(): Promise<boolean>;
+    connect(reconnect?:boolean): Promise<boolean>;
     disconnect(): Promise<boolean>;
     terminate(): Promise<void>;
     isConnected(): boolean;
