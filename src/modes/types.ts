@@ -58,7 +58,7 @@ export default interface ICyclingMode {
     updateData( data:IncyclistBikeData ): IncyclistBikeData;
 
 
-    setSettings(settings: any);
+    setSettings(settings: any):void;
     setSetting(name: string, value: any):void;
     getSetting(name:string):any;
     getSettings():Settings;
@@ -151,6 +151,10 @@ export class CyclingMode implements ICyclingMode {
     }
     confirmed(request: UpdateRequest): void {
         // no-op by default
+    }
+
+    onAdapterCapabilitiesChanged(): void {
+        // no-op by default        
     }
 
 }

@@ -122,7 +122,7 @@ message RideAnalogKeyGroup {
 // The command code prepending this message is 0x23
 message RideKeyPadStatus {
 	optional uint32 ButtonMap = 1;
-	optional RideAnalogKeyGroup AnalogButtons = 2;
+	repeated RideAnalogKeyPress AnalogButtons = 3;
 }
 
 

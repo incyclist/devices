@@ -230,9 +230,9 @@ export interface RideKeyPadStatus {
      */
     buttonMap?: number;
     /**
-     * @generated from protobuf field: optional org.cagnulen.qdomyoszwift.RideAnalogKeyGroup AnalogButtons = 2
+     * @generated from protobuf field: repeated org.cagnulen.qdomyoszwift.RideAnalogKeyPress AnalogButtons = 3
      */
-    analogButtons?: RideAnalogKeyGroup;
+    analogButtons: RideAnalogKeyPress[];
 }
 /**
  * ------------------ Zwift Hub message after sending rideOn
@@ -1242,11 +1242,12 @@ class RideKeyPadStatus$Type extends MessageType<RideKeyPadStatus> {
     constructor() {
         super("org.cagnulen.qdomyoszwift.RideKeyPadStatus", [
             { no: 1, name: "ButtonMap", kind: "scalar", jsonName: "ButtonMap", opt: true, T: 13 /*ScalarType.UINT32*/ },
-            { no: 2, name: "AnalogButtons", kind: "message", jsonName: "AnalogButtons", T: () => RideAnalogKeyGroup }
+            { no: 3, name: "AnalogButtons", kind: "message", jsonName: "AnalogButtons", repeat: 2 /*RepeatType.UNPACKED*/, T: () => RideAnalogKeyPress }
         ]);
     }
     create(value?: PartialMessage<RideKeyPadStatus>): RideKeyPadStatus {
         const message = globalThis.Object.create((this.messagePrototype!));
+        message.analogButtons = [];
         if (value !== undefined)
             reflectionMergePartial<RideKeyPadStatus>(this, message, value);
         return message;
@@ -1259,8 +1260,8 @@ class RideKeyPadStatus$Type extends MessageType<RideKeyPadStatus> {
                 case /* optional uint32 ButtonMap */ 1:
                     message.buttonMap = reader.uint32();
                     break;
-                case /* optional org.cagnulen.qdomyoszwift.RideAnalogKeyGroup AnalogButtons */ 2:
-                    message.analogButtons = RideAnalogKeyGroup.internalBinaryRead(reader, reader.uint32(), options, message.analogButtons);
+                case /* repeated org.cagnulen.qdomyoszwift.RideAnalogKeyPress AnalogButtons */ 3:
+                    message.analogButtons.push(RideAnalogKeyPress.internalBinaryRead(reader, reader.uint32(), options));
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -1277,9 +1278,9 @@ class RideKeyPadStatus$Type extends MessageType<RideKeyPadStatus> {
         /* optional uint32 ButtonMap = 1; */
         if (message.buttonMap !== undefined)
             writer.tag(1, WireType.Varint).uint32(message.buttonMap);
-        /* optional org.cagnulen.qdomyoszwift.RideAnalogKeyGroup AnalogButtons = 2; */
-        if (message.analogButtons)
-            RideAnalogKeyGroup.internalBinaryWrite(message.analogButtons, writer.tag(2, WireType.LengthDelimited).fork(), options).join();
+        /* repeated org.cagnulen.qdomyoszwift.RideAnalogKeyPress AnalogButtons = 3; */
+        for (let i = 0; i < message.analogButtons.length; i++)
+            RideAnalogKeyPress.internalBinaryWrite(message.analogButtons[i], writer.tag(3, WireType.LengthDelimited).fork(), options).join();
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);

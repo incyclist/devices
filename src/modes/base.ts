@@ -6,7 +6,7 @@ export abstract class CyclingModeBase extends CyclingMode implements ICyclingMod
     adapter!: IAdapter
     settings: Settings = {}
     properties: Settings = {};
-    localConfig!: CyclingModeConfig;
+    localConfig?: CyclingModeConfig;
     protected static config:CyclingModeConfig={name:'',description:'',properties:[]}
     protected static isERG:boolean
     protected prevUpdate!:UpdateRequest

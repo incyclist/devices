@@ -1,6 +1,6 @@
 import { EventLogger } from "gd-eventlog";
 import { LegacyProfile } from "../../../antv2/types.js";
-import { ClickKeyPadStatus, DeviceDataEnvelope, DeviceInformationContent, DeviceSettings, DeviceSettingsSubContent, HubCommand, HubRequest, HubRidingData, Idle, PhysicalParam, PlayButtonStatus, SimulationParam, TrainerResponse } from "../../../proto/zwift_hub.js";
+import { ClickKeyPadStatus, DeviceDataEnvelope, DeviceInformationContent, DeviceSettings, DeviceSettingsSubContent, HubCommand, HubRequest, HubRidingData, Idle, PhysicalParam, PlayButtonStatus, RideKeyPadStatus, SimulationParam, TrainerResponse } from "../../../proto/zwift_hub.js";
 import { TBleSensor } from "../../base/sensor.js";
 import { BleProtocol, IBlePeripheral  } from "../../types.js";
 import { beautifyUUID, fullUUID  } from "../../utils.js";
@@ -37,6 +37,7 @@ export class BleZwiftPlaySensor extends TBleSensor {
     protected prevClickMessage: string
     protected upState:  ButtonState
     protected downState: ButtonState
+    protected rideKeyPadStates: Map<number, ButtonState>
     protected deviceType: DeviceType
     protected publicKey: Buffer
     protected privateKey: Buffer
@@ -237,6 +238,9 @@ export class BleZwiftPlaySensor extends TBleSensor {
         else if (type===0x03) {
             this.onRidingData(message)
         }
+        else if (type===0x23) {
+            this.onRideKeyPadStatus(message)
+        }
         else if (type===0x2A) {  
             this.onTrainerResponse(message)
         }
@@ -393,6 +397,62 @@ export class BleZwiftPlaySensor extends TBleSensor {
         }
         catch(err) {
             this.logEvent( {message:'Error', fn:'onRidingData', error:err.message, stack:err.stack})
+        }
+    }
+
+    protected onRideKeyPadStatus(m:Buffer) {
+        try {
+            const data = RideKeyPadStatus.fromBinary(m)
+            const buttonNames = new Map<number, string>([
+                [0x10, 'a'],             // bit 4
+                [0x20, 'b'],             // bit 5
+                [0x40, 'y'],             // bit 6
+                [0x80, 'z'],             // bit 7
+                [0x1000, 'r-shift-up'],  // bit 12
+                [0x2000, 'r-shift-down'],// bit 13
+                [0x4000, 'ride-on'],     // bit 14
+                [0x8000, 'r-power']      // bit 15
+            ])
+
+            const buttonMap = data.buttonMap ?? 0
+            const currentPresses = new Set<number>()
+
+            // Check each button bit (0 = pressed, 1 = released)
+            buttonNames.forEach((name, bit) => {
+                const isPressed = (buttonMap & bit) === 0
+
+                if (isPressed) {
+                    currentPresses.add(bit)
+                    const prevState = this.rideKeyPadStates.get(bit)
+                    if (!prevState || !prevState.pressed) {
+                        this.rideKeyPadStates.set(bit, {pressed: true, timestamp: Date.now()})
+                    }
+                }
+            })
+
+            // Detect releases
+            this.rideKeyPadStates.forEach((state, bit) => {
+                if (!currentPresses.has(bit) && state.pressed) {
+                    const keyName = buttonNames.get(bit)
+                    const duration = Date.now() - state.timestamp
+                    this.emit('key-pressed', {key: keyName, duration, deviceType: this.deviceType})
+                    this.rideKeyPadStates.set(bit, {pressed: false, timestamp: Date.now()})
+                }
+            })
+
+            const pressedButtons = Array.from(currentPresses).map(bit => ({
+                bit: `0x${bit.toString(16).padStart(8, '0')}`,
+                name: buttonNames.get(bit)
+            }))
+
+            this.logEvent({
+                message: 'ride keypad status received',
+                buttonMap: `0x${buttonMap.toString(16)}`,
+                buttons: pressedButtons
+            })
+        }
+        catch(err) {
+            this.logEvent({message: 'Error', fn: 'onRideKeyPadStatus', error: (err as Error).message, stack: (err as Error).stack})
         }
     }
 
@@ -680,6 +740,7 @@ export class BleZwiftPlaySensor extends TBleSensor {
         this.isHubServiceActive = false
         delete this.initHubServicePromise
         delete this.prevHubSettings
+        this.rideKeyPadStates = new Map()
 
     }
 

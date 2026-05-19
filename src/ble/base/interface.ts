@@ -5,10 +5,11 @@ import { BleBinding,  BleDeviceSettings,  BleInterfaceState,  BlePeripheralAnnou
 import { IBleInterface } from '../../ble/types.js';
 import { InteruptableTask, TaskState } from "../../utils/task.js";
 import { BlePeripheral } from "./peripheral.js";
-import { beautifyUUID, getPeripheralInfo, parseUUID } from "../utils.js";
+import { beautifyUUID, getPeripheralInfo, matches, parseUUID } from "../utils.js";
 import { InterfaceFactory } from "./types.js";
 import { BleAdapterFactory } from "../factories/index.js";
 import { TBleSensor } from "./sensor.js";
+import { BleZwiftPlaySensor } from "../zwift/play/sensor.js";
 
 const BLE_EXPIRATION_TIMEOUT = 10*1000*60 // 10min
 const BLE_DEFAULT_CONNECT_TIMEOUT = 30*1000; // 30s
@@ -477,6 +478,12 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         // I found some scans (on Mac) where address was not set
         if (peripheral.address===undefined || peripheral.address==='')
             peripheral.address = peripheral.id || peripheral.name;
+
+        if (service.name==='Zwift Ride' && service.serviceUUIDs.some(  uuid=> matches(uuid,'FC82'))) {
+            const protocol = 'zwift-play'
+            const {id,name,address} = getPeripheralInfo(peripheral)
+            return {interface:BleInterface.INTERFACE_NAME, protocol, id,name,address}    
+        }
         
         const protocol = this.getAdapterFactory().getProtocol(service.serviceUUIDs)
         const {id,name,address} = getPeripheralInfo(peripheral)
@@ -863,6 +870,9 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
         const found = service.serviceUUIDs.map(parseUUID)
         const expected = this.expectedServices.map(parseUUID)
+
+        if (service.name.startsWith('Zwift'))
+            return true
 
         const supported = found.filter( uuid => expected.includes(uuid) )??[]
 
