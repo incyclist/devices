@@ -21,7 +21,7 @@ type BleZwiftPlaySensorProps =
 }    
 
 
-type DeviceType = 'left' | 'right' | 'click' | 'hub'
+type DeviceType = 'left' | 'right' | 'click' | 'hub' | 'ride-left' | 'ride-right'
 
 export class BleZwiftPlaySensor extends TBleSensor {
     static readonly profile:LegacyProfile  = 'Controller'   
@@ -96,6 +96,53 @@ export class BleZwiftPlaySensor extends TBleSensor {
 
     protected getRequiredCharacteristics():Array<string> {
         return ['00000002-19ca-4651-86e5-fa29dcdd09d1','00000004-19ca-4651-86e5-fa29dcdd09d1']
+    }
+
+    getDeviceType():DeviceType {
+        if (this.deviceType) return this.deviceType
+
+
+        if (this.isFM) {
+            this.deviceType = 'hub'
+        }
+        else if (this.peripheral?.getManufacturerData) {
+            const manufacturerData = this.getManufacturerData()
+
+            if (manufacturerData?.startsWith('4a09')) {
+                const typeVal = Number('0x'+manufacturerData.substring(2,4))
+                
+                if (typeVal===9) {
+                    this.deviceType = 'click'
+                    this.encrypted = false
+                }
+                else if (typeVal===2) { 
+                    this.deviceType = 'right'
+                }
+                else if (typeVal===3) { 
+                    this.deviceType = 'left'
+                }
+                else if (typeVal===7) { 
+                    this.deviceType = 'ride-right'
+                }
+                else if (typeVal===8) { 
+                    this.deviceType = 'ride-left'
+                }
+            }
+            
+        }
+        
+        console.log('# [ZwiftPlay] device type ', this.deviceType, this.peripheral?.getInfo().name,this.peripheral?.getInfo().address  )
+
+
+        if ( !this.deviceType && !this.encryptedSupported()) {
+            this.deviceType = 'click'
+            this.encrypted = false
+        }
+
+        // fallback to 'click if we could not identify a device yet
+        this.deviceType = this.deviceType ?? 'click'
+        return this.deviceType
+
     }
 
 
@@ -217,7 +264,6 @@ export class BleZwiftPlaySensor extends TBleSensor {
     protected onMeasurement(d: Buffer): boolean {
         const data = Buffer.from(d)
 
-        this.logEvent({message:'got hub notification', raw:data.toString('hex')})
 
         if (data?.length<1) {
             console.log('Invalid click measurement data', data.toString('hex'))
@@ -229,7 +275,7 @@ export class BleZwiftPlaySensor extends TBleSensor {
         if (type===0x37) {
             this.onClickButtonMessage(message)
         }
-        else if (type===0x19) {
+        else if (type===0x19 ) {
             this.onPingMessage(message)
         }
         else if (type===0x42) { 
@@ -247,10 +293,13 @@ export class BleZwiftPlaySensor extends TBleSensor {
         else if (type===0x3c) {
             this.onDeviceInformation(message)
         }
+        else if (type===0x15) { 
+            // empty message, seem to signal that device is pairing
+        }
 
         else {
-            console.log('Unknown click measurement type', type, message.toString('hex'))
-            this.emit('data', { raw: data.toString('hex')})
+            this.logEvent({message:'got hub notification', raw:data.toString('hex')})
+            //this.emit('data', { raw: data.toString('hex')})
 
         }
 
@@ -404,18 +453,32 @@ export class BleZwiftPlaySensor extends TBleSensor {
         try {
             const data = RideKeyPadStatus.fromBinary(m)
             const buttonNames = new Map<number, string>([
-                [0x10, 'a'],             // bit 4
-                [0x20, 'b'],             // bit 5
-                [0x40, 'y'],             // bit 6
-                [0x80, 'z'],             // bit 7
-                [0x1000, 'r-shift-up'],  // bit 12
-                [0x2000, 'r-shift-down'],// bit 13
-                [0x4000, 'ride-on'],     // bit 14
-                [0x8000, 'r-power']      // bit 15
+                [0x01,'left'],
+                [0x02,'up'],
+                [0x04,'right'],
+                [0x08,'down'],
+
+                [0x10, 'a'],             
+                [0x20, 'b'],             
+                [0x40, 'y'],             
+                [0x80, 'z'],             
+
+                [0x0100, 'l-shift-up'],  
+                [0x0200, 'l-shift-down'],
+                [0x1000, 'r-shift-up'],  
+                [0x2000, 'r-shift-down'],
+
+                [0x0400, 'l-power-up'],
+                [0x4000, 'r-power-up'],
+                [0x0800, 'l-power'],
+                [0x8000, 'r-power'],      
             ])
 
             const buttonMap = data.buttonMap ?? 0
             const currentPresses = new Set<number>()
+            const address = this.peripheral?.getInfo()?.address
+            const name = this.peripheral?.getInfo()?.name
+
 
             // Check each button bit (0 = pressed, 1 = released)
             buttonNames.forEach((name, bit) => {
@@ -435,21 +498,12 @@ export class BleZwiftPlaySensor extends TBleSensor {
                 if (!currentPresses.has(bit) && state.pressed) {
                     const keyName = buttonNames.get(bit)
                     const duration = Date.now() - state.timestamp
+                    this.logEvent({message:'key pressed',key: keyName, name,address, duration, deviceType:this.deviceType})
                     this.emit('key-pressed', {key: keyName, duration, deviceType: this.deviceType})
                     this.rideKeyPadStates.set(bit, {pressed: false, timestamp: Date.now()})
                 }
             })
 
-            const pressedButtons = Array.from(currentPresses).map(bit => ({
-                bit: `0x${bit.toString(16).padStart(8, '0')}`,
-                name: buttonNames.get(bit)
-            }))
-
-            this.logEvent({
-                message: 'ride keypad status received',
-                buttonMap: `0x${buttonMap.toString(16)}`,
-                buttons: pressedButtons
-            })
         }
         catch(err) {
             this.logEvent({message: 'Error', fn: 'onRideKeyPadStatus', error: (err as Error).message, stack: (err as Error).stack})
@@ -485,7 +539,10 @@ export class BleZwiftPlaySensor extends TBleSensor {
     }
 
     onClickButtonMessage(d:Buffer) {
+
         try {
+            const address = this.peripheral?.getInfo()?.address
+            const name = this.peripheral?.getInfo()?.name
             const message = Buffer.from(d)
             const messageStr = message.toString('hex')
 
@@ -498,6 +555,7 @@ export class BleZwiftPlaySensor extends TBleSensor {
                 const prev = {...this.upState}
                 this.upState = { pressed: false, timestamp: Date.now() }
                 if (prev.pressed) {
+                    this.logEvent({message:'key pressed',key: 'up', name,address, duration:this.upState.timestamp-prev.timestamp, deviceType:this.deviceType})
                     this.emit( 'key-pressed',{key: 'up', duration:this.upState.timestamp-prev.timestamp, deviceType:this.deviceType})
                 }
             }
@@ -510,6 +568,7 @@ export class BleZwiftPlaySensor extends TBleSensor {
                 const prev = {...this.downState}
                 this.downState = { pressed: false, timestamp: Date.now() }
                 if (prev.pressed) {
+                    this.logEvent({message:'key pressed',key: 'down', name,address, duration:this.downState.timestamp-prev.timestamp, deviceType:this.deviceType})                    
                     this.emit( 'key-pressed',{key: 'down', duration:this.downState.timestamp-prev.timestamp, deviceType:this.deviceType})
                 }
 
@@ -627,17 +686,16 @@ export class BleZwiftPlaySensor extends TBleSensor {
 
         let manufacturerData:string
         try {
-
+           
             if (this.isFM) {
                 this.deviceType = 'hub'
                 this.encrypted = false
             }
-            else if (this.peripheral.getManufacturerData) {
+            else if (this.peripheral?.getManufacturerData) {
                 manufacturerData = this.getManufacturerData()
 
                 if (manufacturerData?.startsWith('4a09')) {
                     const typeVal = Number('0x'+manufacturerData.substring(2,4))
-                    
                     if (typeVal===9) {
                         this.deviceType = 'click'
                         this.encrypted = false
@@ -647,6 +705,12 @@ export class BleZwiftPlaySensor extends TBleSensor {
                     }
                     else if (typeVal===3) { 
                         this.deviceType = 'left'
+                    }
+                    else if (typeVal===7) { 
+                        this.deviceType = 'ride-right'
+                    }
+                    else if (typeVal===8) { 
+                        this.deviceType = 'ride-left'
                     }
                 }
                 
@@ -660,9 +724,9 @@ export class BleZwiftPlaySensor extends TBleSensor {
 
             // fallback to 'click if we could not identify a device yet
             this.deviceType = this.deviceType ?? 'click'
-            
 
-            this.logEvent({message:'Play protocol pairing info', deviceType:this.deviceType, encrypted:this.encrypted, manufacturerData})
+
+            this.logEvent({message:'Play protocol pairing info', deviceType:this.deviceType, encrypted:this.encrypted, manufacturerData:this.getManufacturerData()})
 
             let message;
 
@@ -688,7 +752,7 @@ export class BleZwiftPlaySensor extends TBleSensor {
                          {withoutResponse:true} )
             this.isHubServicePaired = true
 
-            this.logEvent({message: 'pairing done', deviceType:this.deviceType, encrypted:this.encrypted, manufacturerData})
+            this.logEvent({message: 'pairing done', deviceType:this.deviceType, encrypted:this.encrypted, manufacturerData:this.getManufacturerData()})
             return true
         } catch (err) {
 
@@ -700,6 +764,18 @@ export class BleZwiftPlaySensor extends TBleSensor {
 
     reset(): void {
         // 
+    }
+
+    getManufacturerData() : string {
+        const data = this.peripheral?.getManufacturerData?.()
+
+        if (typeof data === 'string')
+            return data
+
+        if (Buffer.isBuffer(data)){
+            return data.toString('hex')
+        }
+        return undefined
     }
 
     protected getCrypto():ICryptoBinding {
@@ -744,17 +820,6 @@ export class BleZwiftPlaySensor extends TBleSensor {
 
     }
 
-    protected getManufacturerData() : string {
-        const data = this.peripheral.getManufacturerData()
-
-        if (typeof data === 'string')
-            return data
-
-        if (Buffer.isBuffer(data)){
-            return data.toString('hex')
-        }
-        return undefined
-    }
 
     
 
