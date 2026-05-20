@@ -315,12 +315,11 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
     protected async checkCapabilities() {
         const before = this.capabilities.join(',')
         const sensor = this.getSensor()
-        let updateRequired = false
 
         if (!sensor.features) {
             try {
                 await sensor.getFitnessMachineFeatures()
-                updateRequired = true
+                //updateRequired = true
             }
             catch(err) {
                 this.logEvent( {message:'error getting fitness machine features', device:this.getName(), interface:this.getInterface(), error:err})    
@@ -337,13 +336,8 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         if (before !== after) {
             this.logEvent({message:'device capabilities updated', name:this.getSettings().name, interface:this.getSettings().interface,capabilities: this.capabilities})    
             this.emit('device-info', this.getSettings(), {capabilities:this.capabilities})
-            updateRequired = true
-
         }
 
-        if (updateRequired ) {
-            this.updateCyclingModeConfig()
-        }
     }
 
     protected updateCapabilitiesFromFeatures(features: IndoorBikeFeatures) {

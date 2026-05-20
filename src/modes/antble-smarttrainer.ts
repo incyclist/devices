@@ -82,45 +82,50 @@ export default class SmartTrainerCyclingMode extends PowerBasedCyclingModeBase i
         if (startGearIdx!==-1) {
             config.properties.splice(startGearIdx,1)
         }
+
+        try {
+            const device = this.adapter?.getName()
+            this.logger.logEvent({message:'reset config', device})
+        }
+        catch  {}
+
         
     }
 
     getConfig(): CyclingModeConfig {
         const config  = super.getConfig();
 
-        const virtShiftEnabled =this.getFeatureToogle().has('VirtualShifting')
-
-
         let virtshift = config.properties.find(p => p.key==='virtshift');
         let startGear = config.properties.find(p => p.key==='startGear');
 
-        if (!virtshift && !this.adapter?.supportsVirtualShifting()) {
-            // add virtual shifting info
-            const options= virtShiftEnabled ? [
-                'Disabled',
-                { key:'Incyclist', display:'App only (beta)' },
-                { key: 'Mixed', display: 'App + Bike' }
-            ] :
-            [
-                'Disabled',
-                { key: 'Mixed', display: 'Enabled' }
+        if (!virtshift) {
+            const device = this.adapter?.getName()
+            const supportsZwift = this.adapter?.supportsVirtualShifting()
+            this.logger.logEvent({message:'prepare gear settings config', device,supportsZwift })
 
-            ]
+            if (supportsZwift) {            
+                const options = [
+                    'Disabled',
+                    { key: 'Incyclist', display:'App only (beta)' },
+                    { key: 'Mixed', display: 'App + Bike' },
+                    { key:'SmartTrainer', display: 'SmartTreiner (beta)' }
+                ]            
 
-            virtshift = {key:'virtshift', name: 'Virtual Shifting', description: 'Enable virtual shifting', type: CyclingModeProperyType.SingleSelect, options, default: 'Disabled'}
-            config.properties.push( virtshift )
-        }
+                virtshift = {key:'virtshift', name: 'Virtual Shifting', description: 'Enable virtual shifting', type: CyclingModeProperyType.SingleSelect, options, default: 'Mixed'}
+                config.properties.push( virtshift )
+            }
+           
+            else {
+                const options= [
+                    'Disabled',
+                    { key:'Incyclist', display:'App only (beta)' },
+                    { key: 'Mixed', display: 'App + Bike' }
+                ] 
+                virtshift = {key:'virtshift', name: 'Virtual Shifting', description: 'Enable virtual shifting', type: CyclingModeProperyType.SingleSelect, options, default: 'Disabled'}
+                config.properties.push( virtshift )
+            }
+            this.logger.logEvent({message:'gear settings config', config:config.properties })
         
-        if (!virtshift && virtShiftEnabled && this.adapter?.supportsVirtualShifting()) {            
-            const options = [
-                'Disabled',
-                { key: 'Incyclist', display:'App only (beta)' },
-                { key: 'Mixed', display: 'App + Bike' },
-                { key:'SmartTrainer', display: 'SmartTreiner (beta)' }
-            ]            
-
-            virtshift = {key:'virtshift', name: 'Virtual Shifting', description: 'Enable virtual shifting', type: CyclingModeProperyType.SingleSelect, options, default: 'Mixed'}
-            config.properties.push( virtshift )
         }
 
         if (virtshift && !startGear) {
