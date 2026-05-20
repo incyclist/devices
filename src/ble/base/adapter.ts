@@ -38,7 +38,10 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         if (settings.name?.match(/\d/g) || settings.address===undefined)      
             return this.getName()
         else {
-            const addressHash = settings.id?.slice(-4)?.toUpperCase() ?? (settings.address?.substring(0,2)??'') + (settings.address?.slice(-2)??'')
+            const id = (settings.id ?? settings.address ?? '').replace(/[:\-]/g, '')
+
+
+            const addressHash = id.length > 4 ? id.slice(-4).toUpperCase() : id.toUpperCase() 
             return `${this.getName()} ${addressHash}`
         }
     }

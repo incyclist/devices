@@ -9,7 +9,7 @@ describe('BLE Hr Adapter',()=>{
 
             expect(a.getProfile()).toBe('Heartrate Monitor')
             expect(a.getName()).toBe('HRM-Mock')
-            expect(a.getUniqueName()).toBe('HRM-Mock 4461')   
+            expect(a.getUniqueName()).toBe('HRM-Mock 4061')   
         })
     })
 

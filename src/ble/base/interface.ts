@@ -432,7 +432,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         return new BlePeripheral(announcement)
     }
     createPeripheralFromSettings(settings: BleDeviceSettings): IBlePeripheral {
-        const info = this.getAll().find(a=>a.service?.name === settings.name || a.service?.peripheral?.address===settings.address)
+        const info = this.getAll().find(a => a.service?.peripheral?.address===settings.address)
 
         if (!info?.service)
             return null;
@@ -453,7 +453,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
                 this.startPeripheralScan()
 
             const onDevice = (device:BleDeviceSettings)=>{
-                if (device.name===settings.name || device.address===settings.address) {
+                if (device.address===settings.address) {
                     const peripheral =  this.createPeripheralFromSettings(device)
 
                     if (peripheral) {
@@ -886,7 +886,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     }
 
     protected find(service:BlePeripheralAnnouncement) {
-        return  this.services.find( a=> a.service.name===service.name && a.ts>Date.now()-BLE_EXPIRATION_TIMEOUT )
+        return  this.services.find( a=> a.service.name===service.name && a.service?.peripheral?.address  && a.ts>Date.now()-BLE_EXPIRATION_TIMEOUT )
     }
     protected getAll() {
         return this.services.filter( a=> a.ts>Date.now()-BLE_EXPIRATION_TIMEOUT )

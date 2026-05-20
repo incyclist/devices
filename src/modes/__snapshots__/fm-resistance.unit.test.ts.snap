@@ -1,5 +1,3 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`BleFMResistanceMode > getDescription > should match description from config 1`] = `"Resistance levels are set by the app based on selected gear. Calculates speed based on power and slope."`;
-
-exports[`BleFMResistanceMode getDescription should match description from config 1`] = `"Resistance levels are set by the app based on selected gear. Calculates speed based on power and slope."`;

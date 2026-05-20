@@ -17,7 +17,7 @@ describe('BLE Pwr Adapter',()=>{
 
             expect(a.getProfile()).toBe('Power Meter')
             expect(a.getName()).toBe('CP-Mock')
-            expect(a.getUniqueName()).toBe('CP-Mock 4461')  
+            expect(a.getUniqueName()).toBe('CP-Mock 4061')  
             expect(a.getInterface()).toBe('ble') 
             expect(a.getSettings()).toEqual({interface:'ble', protocol:'cp',name:'CP-Mock',address:'44:0d:ec:12:40:61'})
             expect(a.isEqual({interface:'ble', protocol:'cp',name:'CP-Mock',address:'44:0d:ec:12:40:61'})).toBe(true)
