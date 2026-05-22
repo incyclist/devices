@@ -30,6 +30,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     protected windSpeed = 0;
     protected wheelSize = 2100;
     protected ftmsServiceData!: FtmsServiceData
+    protected ftmsServiceDataAttempts: number = 0
 
     protected rowerDataTS: number|undefined
     protected rowerMaxPower: number|undefined
@@ -145,6 +146,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
 
     protected onDisconnect(): void {
         this.hasControl = false
+        this.ftmsServiceDataAttempts = 0
     }
 
     async requestControl(): Promise<boolean> {
@@ -532,6 +534,8 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         if (this.ftmsServiceData)
             return this.ftmsServiceData
 
+        if (this.ftmsServiceDataAttempts>3)
+            return this.ftmsServiceData
 
         try {
             const peripheral = this.peripheral as BlePeripheral
@@ -540,6 +544,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
 
             const bitSet = ( value:number, bitNo:number) => (value & bit(bitNo))>0
 
+            this.ftmsServiceDataAttempts++;
             const data = peripheral.getServiceData(FTMS)
             const dataLength = data?.length??0
             if (dataLength>=2) {

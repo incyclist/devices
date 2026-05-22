@@ -498,7 +498,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         // is the sensore already reconnecting (due to disconnect signal)
         let connected = false
         if (sensor.isReconnectBusy()) {
-            connected = await sensor.reconnectSensor()
+            connected = await sensor.reconnectSensor(false)
         }
 
         if (connected) {

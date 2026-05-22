@@ -150,21 +150,23 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
 
     }
 
-    async reconnectSensor():Promise<boolean> {
+    async reconnectSensor(connectionLost:boolean = true):Promise<boolean> {
         if (this.reconnectPromise!==undefined) {
             return await this.reconnectPromise
         }
-        this.reconnectPromise = this.doReconnectSensor()
+        this.reconnectPromise = this.doReconnectSensor(connectionLost)
         const res = await this.reconnectPromise
         delete this.reconnectPromise
 
         return res;
     }
 
-    async doReconnectSensor():Promise<boolean> {
+    async doReconnectSensor(connectionLost:boolean = true):Promise<boolean> {
         this.onDisconnect()
 
-        this.logEvent({message:'reconnect sensor'})
+        const {name,address} = this.peripheral?.getInfo()??{}
+        
+        this.logEvent({message:'reconnect sensor', name,address,connectionLost})
         let connected = false;
         let subscribed = false;
 
@@ -195,8 +197,8 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
             if (!success) {
                 await sleep(1000)
             }
-            if (!this.stopRequested)
-                this.logEvent({message:'reconnect sensor retry'})
+            if (!this.stopRequested && !success)
+                this.logEvent({message:'reconnect sensor retry', name,address})
 
         } while (!success || this.stopRequested)
 
