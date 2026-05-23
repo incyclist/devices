@@ -628,7 +628,15 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         // to do so, we need to stop the scan, request the services and restart scan
         const isWahoo = this.checkForWahooEnhancement(announcement)
         if (isWahoo) {
-            this.processWahooAnnouncement(announcement)
+            this.processEnrichedAnnouncement(announcement)
+            return
+        }
+
+        // some older tacx devices (e.g. Bushido) only announce CP, CSC and a Tacx proprietory service
+        // but actually also do support "Tacx ANT FE over BLE"
+        const isTacx = this.checkForTacxEnhancement(announcement)
+        if (isTacx) {
+            this.processEnrichedAnnouncement(announcement)
             return
         }
 
@@ -646,7 +654,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         return false
     }
 
-    protected processWahooAnnouncement(announcement:BlePeripheralAnnouncement) {
+    protected processEnrichedAnnouncement(announcement:BlePeripheralAnnouncement) {
 
         if (this.isCompleting(announcement)) {
             return  
@@ -660,6 +668,21 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         })
 
         
+    }
+
+    protected checkForTacxEnhancement(announcement:BlePeripheralAnnouncement):boolean {
+        const name = announcement?.name?.toUpperCase()
+
+        if (name.startsWith('TACX') ) {
+            const supported = announcement.serviceUUIDs.map( s=> beautifyUUID(s))
+            const tacxService = beautifyUUID('6E40FEC1-B5A3-F393-E0A9-E50E24DCCA9E')
+            const cp = beautifyUUID('1818')
+            const fe = beautifyUUID('1826')
+            if (supported.includes(cp) && !supported.includes(fe)&& !supported.includes(tacxService)) {
+                return true            
+            }
+        }
+        return false
     }
 
 

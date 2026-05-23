@@ -225,9 +225,11 @@ export class BlePeripheral implements IBlePeripheral {
 
         if (!this.getPeripheral())
             return []
+
+        const {name,address} = this.getInfo()
         
         if (this.getPeripheral().discoverServicesAsync) {
-            this.logEvent({message:'discover services', address:this.getPeripheral().address})
+            this.logEvent({message:'discover services', name,address})
             const peripheral = this.getPeripheral()
             
             let services:BleService[] = []
@@ -238,16 +240,16 @@ export class BlePeripheral implements IBlePeripheral {
             
 
             this.discoveredServiceUUIds = services.map(s=>beautifyUUID(s.uuid))
-            this.logEvent({message:'discover services result', address:this.getPeripheral().address, services:this.discoveredServiceUUIds})
+            this.logEvent({message:'discover services result', name,address, services:this.discoveredServiceUUIds})
             
             return services.map(s=>s.uuid)    
         }
         else {
-            this.logEvent({message:'discover services and characteristics', address:this.getPeripheral().address})
+            this.logEvent({message:'discover services and characteristics', name,address})
             const res = await this.getPeripheral().discoverSomeServicesAndCharacteristicsAsync([],[])    
             
             this.discoveredServiceUUIds = res.services.map(s=>beautifyUUID(s.uuid))
-            this.logEvent({message:'discover services result', address:this.getPeripheral().address, services:this.discoveredServiceUUIds})
+            this.logEvent({message:'discover services result', name,address, services:this.discoveredServiceUUIds})
 
             return res.services.map(s=>s.uuid)
         }
@@ -267,10 +269,14 @@ export class BlePeripheral implements IBlePeripheral {
         if (!this.getPeripheral())
             return []
 
-        this.logEvent({message:'discover services and characteristics',service:serviceUUID, address:this.getPeripheral().address})
+        const {name,address} = this.getInfo()
+
+        this.logEvent({message:'discover services and characteristics',name,address, service:serviceUUID})
         const res = await this.getPeripheral().discoverSomeServicesAndCharacteristicsAsync([serviceUUID],[])
             .catch( ()=> ({services:[], characteristics:[]}))                
         res.characteristics.forEach( c => this.characteristics[beautifyUUID(c.uuid)] = c)
+
+        this.logEvent({message:'discover services and characteristics result',name,address, service:serviceUUID})
 
         return res.characteristics.map( c => {
             const  {uuid,properties,name,_serviceUuid} = c
@@ -421,6 +427,15 @@ export class BlePeripheral implements IBlePeripheral {
                     if (!success)
                         retry.push(c)
                 }
+                else {
+                    const uuid =  beautifyUUID(element)
+                    if (c?.properties) {
+                        this.logEvent({message:'cannot subscribe',uuid, reason:'invalid type', properties:c.properties.join('|')})
+                    }
+                    else {
+                        this.logEvent({message:'cannot subscribe',uuid, reason:'not found'})
+                    }
+                }
             }
     
             for (const element of retry) {
@@ -438,13 +453,24 @@ export class BlePeripheral implements IBlePeripheral {
 
     async discoverAllCharacteristics():Promise<string[]> {   
         try {     
+            const {name,address} = this.getInfo()
+
+            this.logEvent({message:'discover all characteristics',name,address})
+
+
             const res = await this.getPeripheral().discoverSomeServicesAndCharacteristicsAsync([],[])                
 
-            const found = []
+            const found:string[] = []
+            const uuids:string[] = []
+            
             res.characteristics.forEach(c => {
                 this.characteristics[beautifyUUID(c.uuid)] = c
                 found.push(c.uuid)
+                uuids.push(beautifyUUID(c.uuid))
             });
+
+            this.logEvent({message:'discover all characteristics result',name,address,uuids:uuids.join('|')})
+
 
             return found        
         }

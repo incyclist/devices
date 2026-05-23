@@ -29,6 +29,13 @@ const HRPeripheral: Partial<BleRawPeripheral>  = { ...FTMSPeripheral,
 const TacxPeripheral: Partial<BleRawPeripheral>  = { ...FTMSPeripheral,
     advertisement: {localName: "Tacx", serviceUuids: ['00001818-0000-1000-8000-00805f9b34fb','6E40FEC1-B5A3-F393-E0A9-E50E24DCCA9E']},
 }
+const TacxBushidoPeripheral: Partial<BleRawPeripheral>  = { ...FTMSPeripheral,
+    advertisement: {localName: "Tacx Bushido", serviceUuids: [
+        '00001818-0000-1000-8000-00805f9b34fb',
+        '00001816-0000-1000-8000-00805f9b34fb',
+        '669AA405-0C08-969E-E211-86AD5062675F'
+    ]},
+}
 const NoNamePeripheral: Partial<BleRawPeripheral>  = { ...FTMSPeripheral,
     advertisement: { serviceUuids: ['00001818-0000-1000-8000-00805f9b34fb']},
 }
@@ -221,7 +228,7 @@ describe('BleInterface', () => {
         interface Mocks {
             binding?:Partial<BleBinding>
             discoverServices?
-            processWahooAnnouncement?
+            processEnrichedAnnouncement?
             addService?
         }
 
@@ -255,7 +262,7 @@ describe('BleInterface', () => {
             mocks.binding.pauseLogging = jest.fn()
             mocks.binding.resumeLogging = jest.fn()
             mocks.binding.state = connected ? 'poweredOn' : 'poweredOff'
-            mocks.processWahooAnnouncement = jest.spyOn(iface,'processWahooAnnouncement')
+            mocks.processEnrichedAnnouncement = jest.spyOn(iface,'processEnrichedAnnouncement')
             mocks.addService = jest.spyOn(iface,'addService')
                             
             iface.getBinding = jest.fn().mockReturnValue(mocks.binding)
@@ -363,29 +370,40 @@ describe('BleInterface', () => {
 
             expect(device).toMatchObject({interface:'ble',protocol:'wahoo',id:'c08248a35c70',name:'KICKR SNAP 8616',address:'cb:ae:55:05:bc:99' })
             expect(mocks.discoverServices).toHaveBeenCalled()
-            expect(mocks.processWahooAnnouncement).toHaveBeenCalled()
+            expect(mocks.processEnrichedAnnouncement).toHaveBeenCalled()
             expect(logger.logEvent).toHaveBeenCalledWith({message:'starting peripheral discovery ...',interface:'ble'})
         })
         
         test('CP device announced', async () => {
             setupMocks(i,{peripheral:CPPeripheral, protocol:'cp'})
 
-            const {device} = await waitForDevice()??{}
+            const {device,service} = await waitForDevice()??{}
 
             expect(device).toMatchObject({interface:'ble',protocol:'cp',id:'c08248a35c70',name:'Favero',address:'cb:ae:55:05:bc:99' })
             expect(mocks.discoverServices).not.toHaveBeenCalled()
-            expect(mocks.processWahooAnnouncement).not.toHaveBeenCalled()
+            expect(mocks.processEnrichedAnnouncement).not.toHaveBeenCalled()
             expect(logger.logEvent).toHaveBeenCalledWith({message:'starting peripheral discovery ...',interface:'ble'})
         })
 
-        test('TACX device announced', async () => {
+        test('TACX ANT over BLE device announced', async () => {
             setupMocks(i,{peripheral:TacxPeripheral, protocol:'tacx'})
 
             const {device} = await waitForDevice()??{}
 
             expect(device).toMatchObject({interface:'ble',protocol:'tacx',id:'c08248a35c70',name:'Tacx',address:'cb:ae:55:05:bc:99' })
             expect(mocks.discoverServices).not.toHaveBeenCalled()
-            expect(mocks.processWahooAnnouncement).not.toHaveBeenCalled()
+            expect(mocks.processEnrichedAnnouncement).not.toHaveBeenCalled()
+            expect(logger.logEvent).toHaveBeenCalledWith({message:'starting peripheral discovery ...',interface:'ble'})
+        })
+        test('TACX device announced', async () => {
+            setupMocks(i,{peripheral:TacxBushidoPeripheral, protocol:'tacx'})
+            mocks.discoverServices.mockResolvedValue(['0x1818','6E40FEC1-B5A3-F393-E0A9-E50E24DCCA9E','669AA405-0C08-969E-E211-86AD5062675F'])
+
+            const {device} = await waitForDevice()??{}
+
+            expect(device).toMatchObject({interface:'ble',protocol:'tacx',id:'c08248a35c70',name:'Tacx Bushido',address:'cb:ae:55:05:bc:99' })
+            expect(mocks.discoverServices).toHaveBeenCalled()
+            expect(mocks.processEnrichedAnnouncement).toHaveBeenCalled()
             expect(logger.logEvent).toHaveBeenCalledWith({message:'starting peripheral discovery ...',interface:'ble'})
         })
 
@@ -396,7 +414,7 @@ describe('BleInterface', () => {
 
             expect(device).toMatchObject({interface:'ble',protocol:'hr',id:'c08248a35c70',name:'HR',address:'cb:ae:55:05:bc:99' })
             expect(mocks.discoverServices).not.toHaveBeenCalled()
-            expect(mocks.processWahooAnnouncement).not.toHaveBeenCalled()
+            expect(mocks.processEnrichedAnnouncement).not.toHaveBeenCalled()
             expect(logger.logEvent).toHaveBeenCalledWith({message:'starting peripheral discovery ...',interface:'ble'})
         })
         test('announced with no name', async () => {
