@@ -498,21 +498,17 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         // is the sensore already reconnecting (due to disconnect signal)
         let connected = false
         if (sensor.isReconnectBusy()) {
-            connected = await sensor.reconnectSensor(false)
+            connected = await sensor.reconnectSensor(true)
+            if (connected) {
+                sensor.on('data',this.onDeviceDataHandler) 
+            }
+            return connected
         }
 
-        if (connected) {
-            sensor.on('data',this.onDeviceDataHandler) 
-            return true
-        }
 
         // make sure that the sensor is unregistering all subscriptions (otherwise it might re-use)
         await sensor.getPeripheral().disconnect()
         const success = await super.restart(pause)
-        if (success) {
-            sensor.on('data',this.onDeviceDataHandler) 
-        }
-
         return success;
 
     }

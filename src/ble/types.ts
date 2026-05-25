@@ -244,6 +244,7 @@ export interface IBleSensor extends EventEmitter  {
 
     reset():void
     isConnected():boolean
+    isReady():boolean
     read(characteristicUUID: string): Promise<Buffer>;
     write(characteristicUUID: string, data: Buffer, options?: BleWriteProps): Promise<Buffer>;
 }

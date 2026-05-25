@@ -13,9 +13,8 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
     protected stopRequested: boolean = false
     protected subscribeSuccess:boolean = false
     protected reconnectPromise: Promise<boolean>|undefined
+    protected connectPromise: Promise<boolean>|undefined
     protected onDataHandler
-    
-
 
     logEvent(event:any, ...args:any) {
         try { 
@@ -100,7 +99,9 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
             return false
         }
 
-        const connected = await this.peripheral.connect()
+        this.connectPromise = this.connectPromise ?? this.peripheral.connect()
+
+        const connected = await this.connectPromise
         if (!connected)
             return false
 
@@ -171,6 +172,9 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
         let subscribed = false;
 
         let success = false
+        if (connectionLost) {
+            this.emit('connctionLost')
+        }
 
 
         // TODO: remove these hard coded sleeps to event based logic 
@@ -202,6 +206,11 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
 
         } while (!success || this.stopRequested)
 
+        if (connectionLost && success) {
+            this.emit('connctionRecovered')
+        }
+
+
         this.logEvent({message:'reconnect sensor completed',success, stopRequested:this.stopRequested})
         return success
 
@@ -213,6 +222,9 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
     }
     isConnected():boolean   {
         return this.peripheral?.isConnected()
+    }
+    isReady():boolean {
+        return this.isConnected() && this.connectPromise===undefined && this.reconnectPromise===undefined
     }
 
     isSubscribed(): boolean {

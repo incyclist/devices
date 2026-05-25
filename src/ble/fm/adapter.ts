@@ -444,6 +444,10 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
             }
 
+            if (!device.isReady()) {
+                this.logEvent({message:'send bike update failed', reason:'not connected'})
+            }
+
         }
         catch(error) {
             const err = error as Error
