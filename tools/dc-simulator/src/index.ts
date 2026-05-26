@@ -68,7 +68,8 @@ const main = async ({configFile = './config/smarttrainer.json'}) => {
             }
             else {
                 const power = randomPower ? Math.round(Math.random()*100+50) : currentPower
-                emulator.update({power, heartrate:Math.round(Math.random()*40+80), cadence:currentCadence})
+                const speed = 20
+                emulator.update({power, speed, heartrate:Math.round(Math.random()*40+80), cadence:currentCadence})
             }
         }, 1000)        
     }

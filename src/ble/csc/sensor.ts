@@ -6,9 +6,10 @@ import { TBleSensor } from '../base/sensor.js';
 import { CharacteristicParser } from '../characteristics/types.js';
 import { CscMeasurement, CyclingCadenceAndSpeed } from '../characteristics/csc/measurement.js';
 import { BleCSCFeatures, CscFeatures } from '../characteristics/csc/features.js';
+import { ISpeedSensor } from '../../types/sensor.js';
 
 
-export class BleCyclingSpeedCadenceDevice extends TBleSensor {
+export class BleCyclingSpeedCadenceDevice extends TBleSensor implements ISpeedSensor{
     static readonly profile: LegacyProfile = 'Speed + Cadence Sensor'
     static readonly protocol:BleProtocol = 'csc'
     static readonly services =  [CSC];
@@ -18,14 +19,14 @@ export class BleCyclingSpeedCadenceDevice extends TBleSensor {
     protected data : CyclingCadenceAndSpeed
     protected parsers: Record<string, CharacteristicParser<any>> = {}
     protected featureParser: CscFeatures
+    protected measurement:CscMeasurement = new CscMeasurement()
 
     constructor (peripheral, props?) {
         super(peripheral,props)
         this.data = {}
 
-        const measurement = new CscMeasurement()
         this.featureParser = new CscFeatures()
-        this.parsers[ beautifyUUID(CSC_MEASUREMENT)] = measurement 
+        this.parsers[ beautifyUUID(CSC_MEASUREMENT)] = this.measurement 
     }
    
 
@@ -41,8 +42,9 @@ export class BleCyclingSpeedCadenceDevice extends TBleSensor {
             return features
 
         }
-        catch( err) {
+        catch( err:any) {
             this.logEvent({message:'read failed',characteristic: CSC_FEATURE, reason:err.message})
+            return {}
         }
     }
 
@@ -70,5 +72,11 @@ export class BleCyclingSpeedCadenceDevice extends TBleSensor {
         this.data = {}
     }
 
+    async setWheelCircumference(wheelCircumference: number): Promise<void> {        
+        this.measurement.setWheelCircumference(wheelCircumference)
+    }
+    getWheelCircumference(): number {
+        return this.measurement.getWheelCircumference()
+    }
 }
 

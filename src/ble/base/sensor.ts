@@ -116,7 +116,7 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
     }
 
     async subscribe():Promise<boolean> {
-
+        
         const selected = this.getRequiredCharacteristics()
 
         if (selected===null) {

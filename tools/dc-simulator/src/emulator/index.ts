@@ -8,6 +8,7 @@ import { Service } from "./services/service.js";
 import { FitnessMachineService } from './services/ftms.js';
 import { HeartRateService } from './services/hrs.js';
 import { ZwiftPlayService } from './services/zwift-play.js';
+import { CyclingSpeedCadenceService } from './services/csc.js';
 
 const DEFAULT_FREQUENCY = 250;  // 250ms = 4Hz
 
@@ -28,6 +29,7 @@ interface DataUpdate  {
 export class Emulator extends EventEmitter {
   name: string;
   csp: CyclingPowerService;
+  csc: CyclingSpeedCadenceService;
   ftms: FitnessMachineService;
   play: ZwiftPlayService
   hrs: HeartRateService;
@@ -43,7 +45,11 @@ export class Emulator extends EventEmitter {
   public speed = 0;
   public cadence = 0;
   public heartrate = 0;
+  public wheel_revolutions = 0;
+  protected wheel_revolutions_frac = 0;
+  public wheel_event_time = 0;
   frequency = DEFAULT_FREQUENCY;
+  wheelCircumference = 2.096; // meters, default 700c wheel
 
   mode: 'ERG' | 'SIM' | 'RES'
 
@@ -58,6 +64,7 @@ export class Emulator extends EventEmitter {
 
     this.hrs = uuids.includes('180D') ? new HeartRateService() : null;
     this.csp = uuids.includes('1818') ? new CyclingPowerService() : null;
+    this.csc = uuids.includes('1816') ? new CyclingSpeedCadenceService() : null;
     this.ftms = uuids.includes('1826') ? new FitnessMachineService() : null;
     this.play = uuids.includes('00000001-19CA-4651-86E5-FA29DCDD09D1') ? new ZwiftPlayService() : null
 
@@ -73,7 +80,7 @@ export class Emulator extends EventEmitter {
 
 
   getServices():Service[] {
-    const services = [this.ftms, this.csp, this.hrs, this.play].filter(s => s !== null);
+    const services = [this.ftms, this.csp, this.csc, this.hrs, this.play].filter(s => s !== null);
     console.log('Emulator services',services.map(s=>s.constructor?.name))
     return services
   }
@@ -101,6 +108,9 @@ export class Emulator extends EventEmitter {
     this.cadence = 0
     this.power = 0
     this.speed = 0
+    this.wheel_revolutions = 0
+    this.wheel_revolutions_frac = 0
+    this.wheel_event_time = 0
     this.paused = true
 
     this.updateServices()
@@ -127,13 +137,37 @@ export class Emulator extends EventEmitter {
     if ('power' in DataUpdate && this.mode!=='ERG') {
         this.power = this.targetPower??DataUpdate.power;
     }
-    if ('speed' in DataUpdate) 
+    if ('speed' in DataUpdate) {
         this.speed = DataUpdate.speed;
-
+        // Calculate wheel revolutions from speed
+        if (this.speed > 0) {
+          // speed is in km/h, convert to m/s and calculate distance
+          const speedMs = (this.speed * 1000) / 3600;
+          const distanceMeters = speedMs * (t / 1000);
+          const wheelRevsDelta = distanceMeters / this.wheelCircumference;
+          this.wheel_revolutions_frac += wheelRevsDelta;
+          // Only increment integer revolutions when a full revolution completes
+          const intPart = Math.floor(this.wheel_revolutions_frac);
+          this.wheel_revolutions += intPart;
+          this.wheel_revolutions_frac -= intPart;
+          // wheel_event_time is in 1/1024 second units (Bluetooth standard)
+          const timeDelta1024Units = (t / 1000) * 1024;
+          this.wheel_event_time = (this.wheel_event_time + timeDelta1024Units) % 65536;
+        } else {
+          // Even when speed is 0, increment wheel_event_time to keep it in sync
+          const timeDelta1024Units = (t / 1000) * 1024;
+          this.wheel_event_time = (this.wheel_event_time + timeDelta1024Units) % 65536;
+        }
+    } else {
+      // Increment wheel_event_time even when speed update isn't in DataUpdate
+      const timeDelta1024Units = (t / 1000) * 1024;
+      this.wheel_event_time = (this.wheel_event_time + timeDelta1024Units) % 65536;
+    }
     if ('heartrate' in DataUpdate) {
-        this.heartrate = DataUpdate.heartrate;        
+        this.heartrate = DataUpdate.heartrate;
     }
 
+    this.last_timestamp = Date.now();
     this.updateServices()
 
   }
@@ -144,6 +178,18 @@ export class Emulator extends EventEmitter {
         heartrate:this.heartrate,
         rev_count: this.rev_count
     })
+
+    if (this.csc) {
+        const wheel_revolutions= this.wheel_revolutions % 4294967296 // uint32
+        const wheel_event_time = Math.round(this.wheel_event_time) % 65536 // uint16
+        this.csc.cscMeasurement.update({
+            wheel_revolutions,
+            wheel_event_time
+            
+        })
+        console.log( new Date().toISOString(),'CSC ',{wheel_revolutions,wheel_event_time})
+    }
+
 
     this.ftms?.indoorBikeData.update({
         watts: this.power,

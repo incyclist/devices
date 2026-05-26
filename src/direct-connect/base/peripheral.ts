@@ -297,7 +297,6 @@ export class DirectConnectPeripheral implements IBlePeripheral {
 
     async subscribeSelected(characteristics:string[], callback: (characteristicUuid: string, data: Buffer) => void): Promise<boolean> {
 
-
         let services = []
         let supported  = []
         try {

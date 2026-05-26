@@ -1,3 +1,4 @@
+import { DEFAULT_WHEEL_CIRCUMFERENCE } from "../../../base/consts.js";
 import { CrankData } from "../../cp/index.js";
 import { CharacteristicParser, Feature } from "../types.js";
 
@@ -14,13 +15,18 @@ export class CscMeasurement implements CharacteristicParser<CyclingCadenceAndSpe
     protected currentWheelData: CrankData = undefined
 
     protected timeOffset: number = 0
-    protected cw: number = 2.1
+    protected cw: number = DEFAULT_WHEEL_CIRCUMFERENCE
 
     constructor(protected data: CyclingCadenceAndSpeed={}) {}
 
-    setWheelCircumference(wheelCircumference) {
+    setWheelCircumference(wheelCircumference):void {
         this.cw = wheelCircumference 
     }
+
+    getWheelCircumference():number {
+        return this.cw
+    }
+
 
     parse(buffer: Buffer, features?: Feature): CyclingCadenceAndSpeed {
         const data:Buffer = Buffer.from(buffer);
@@ -114,8 +120,7 @@ export class CscMeasurement implements CharacteristicParser<CyclingCadenceAndSpe
             const seconds = time/1024
             
             const rps = revs/seconds
-            speed = rps * this.cw   // m/s
-
+            speed = rps * this.cw  *3.6  // km/h
         }
         else if ( p.cntUpdateMissing<0 || p.cntUpdateMissing>2) {
             speed = 0;            

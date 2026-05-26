@@ -18,12 +18,16 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
     prevCrankData: CrankData = undefined
     currentCrankData: CrankData = undefined
     timeOffset: number = 0
-    tsPrevWrite = undefined;  
+    tsPrevWrite = undefined;
     prevSlope = undefined;
     wahooCP:string;
     isSimMode: boolean;
     isRequestControlBusy: boolean = false;
     weight: number = DEFAULT_BIKE_WEIGHT+DEFAULT_USER_WEIGHT;
+
+    prevWheelRevolutions: number | undefined = undefined;
+    prevWheelEventTime: number | undefined = undefined;
+    wheelCircumference: number = 2.096; // meters (700c wheel)
 
     simModeSettings: { 
         weight:number, 
@@ -213,36 +217,69 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
 
     protected parsePower( _data:Buffer):IndoorBikeData {
         const data:Buffer = Buffer.from(_data);
+        let balance;
+        let accTorque;
+        let speed;
+        let wheelRevolutions, wheelEventTime;
+
         try {
             let offset = 4;
             const flags = data.readUInt16LE(0)
 
             this.data.instantaneousPower = data.readUInt16LE(2)
-            
-            if ( flags&0x1)  
-                data.readUInt8(offset++);
+
+            if ( flags&0x1)
+                balance = data.readUInt8(offset++);
+
             if ( flags&0x4)  {
-                offset+=2;
+                accTorque = data.readUInt16LE(offset);
+                offset += 2;
             }
+
             if ( flags&0x10)  {
-                offset+=6;
+                wheelRevolutions = data.readUInt32LE(offset);
+                wheelEventTime = data.readUInt16LE(offset+4);
+                offset += 6;
+
+                // Calculate speed from wheel revolutions
+                if (this.prevWheelRevolutions !== undefined && this.prevWheelEventTime !== undefined) {
+                    const wheelRevDelta = wheelRevolutions - this.prevWheelRevolutions;
+                    // Handle wheelEventTime overflow (uint16 wraps at 65536, handles multiple wraps)
+                    const wheelTimeDelta = (wheelEventTime - this.prevWheelEventTime + 65536) % 65536;
+                    const timeSeconds = (wheelTimeDelta / 1024);
+
+                    // Only update speed if event time has changed (new measurement)
+                    if (timeSeconds > 0 && wheelRevDelta >= 0) {
+                        const distance = wheelRevDelta * this.wheelCircumference; // meters
+                        speed = distance / timeSeconds *3.6; // km/h
+                        this.data.speed = speed;
+                    } else if (timeSeconds > 0 && wheelRevDelta === 0) {
+                        // Time advanced but no wheel rotation: speed is 0
+                        speed = 0;
+                        this.data.speed = speed;
+                    }
+                    // else: wheelTimeDelta === 0 (no update), preserve previous speed
+                }
+                this.prevWheelRevolutions = wheelRevolutions;
+                this.prevWheelEventTime = wheelEventTime;
             }
+
             if ( flags&0x20)  {
-                const crankData = { 
+                const crankData = {
                     revolutions: data.readUInt16LE(offset),
                     time: data.readUInt16LE(offset+2)
                 }
-                const {rpm,time} = this.parseCrankData(crankData)                
+                const {rpm,time} = this.parseCrankData(crankData)
                 this.data.cadence = rpm;
                 this.data.time = time;
             }
-            
+
         }
-        catch (err) { 
+        catch (err:any) {
             this.logEvent({message:'error', fn:'parsePower', error:err.message, stack:err.stack})
         }
-        const {instantaneousPower, cadence,time} = this.data
-        return {instantaneousPower, cadence,time,raw:data.toString('hex')}
+        const {instantaneousPower, cadence, speed: dataSpeed, time} = this.data
+        return {instantaneousPower, speed: dataSpeed , cadence, time, raw:'2a63:'+data.toString('hex')}
 
     }
 
@@ -434,13 +471,19 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
             const res = await this.writeWahooFtmsMessage(OpCode.setSimWindSpeed, data )
             return res;            
         }
-        catch(err) {
+        catch(err:any) {
             this.logEvent({message:'error',fn:'setSimWindSpeed', error:err.message||err, stack:err.stack})
             return false;
         }
 
     }
 
+    async setWheelCircumference(wheelCircumference: number): Promise<void> {        
+        this.wheelCircumference = wheelCircumference
+    }
+    getWheelCircumference(): number {
+        return this.wheelCircumference
+    }
 
 
 

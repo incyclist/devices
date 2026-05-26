@@ -81,7 +81,7 @@ describe ( 'WahooAdvancedFmAdapter',()=>{
             const data = Buffer.from( '14000000000000000000d503','hex') 
             c.onData('0x2a63',data)
 
-            expect(dataSpy).toHaveBeenCalledWith({instantaneousPower:0,raw:'14000000000000000000d503'})            
+            expect(dataSpy).toHaveBeenCalledWith({instantaneousPower:0,raw:'2a63:14000000000000000000d503'})            
 
         })
     })

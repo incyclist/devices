@@ -190,6 +190,7 @@ export class BlePeripheral implements IBlePeripheral {
 
         this.disconnectedSignalled = true
         this.getPeripheral().removeAllListeners()
+        
 
         // ensure that this is logged
         this.ble.resumeLogging()

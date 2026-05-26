@@ -3,6 +3,7 @@ import { DeviceProperties } from "../types/index.js";
 
 export const DEFAULT_BIKE_WEIGHT = 10;
 export const DEFAULT_USER_WEIGHT = 75;
+export const DEFAULT_WHEEL_CIRCUMFERENCE = 2.118; // 700c wheel circumference in meters
 
 export const DEFAULT_PROPS: DeviceProperties = {
     userWeight: DEFAULT_USER_WEIGHT,
