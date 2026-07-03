@@ -1,12 +1,18 @@
-import { SpeedCadenceSensorState, Profile } from "incyclist-ant-plus";
+import { SpeedCadenceSensorState, Profile, SpeedCadenceSensor } from "incyclist-ant-plus";
 import AntAdapter from "../base/adapter.js";
 import { LegacyProfile } from "../types.js";
-import { IncyclistCapability } from "../../types/index.js";
+import { ControllerConfig, IncyclistAdapterData, IncyclistBikeData, IncyclistCapability } from "../../types/index.js";
+import SpeedCyclingMode from "../../modes/speed.js";
+import ICyclingMode from "../../modes/types.js";
 
 export default class AntSpdAdapter extends AntAdapter<SpeedCadenceSensorState>{   
     protected static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Speed + Cadence Sensor'
     protected static ANT_PROFILE_NAME:Profile = 'SC'
     protected static CAPABILITIES:IncyclistCapability[] = [ IncyclistCapability.Speed, IncyclistCapability.Cadence]
+    protected static controllers: ControllerConfig = {
+        modes: [SpeedCyclingMode],
+        default: SpeedCyclingMode
+    }
    
     mapToAdapterData(deviceData:SpeedCadenceSensorState) {
         if (deviceData.CalculatedSpeed!==undefined) {
@@ -25,9 +31,64 @@ export default class AntSpdAdapter extends AntAdapter<SpeedCadenceSensorState>{
 
     }
 
+
+    mapData( deviceData:SpeedCadenceSensorState): IncyclistBikeData {
+
+        // update data based on information received from ANT+SC sensor
+        const data:IncyclistBikeData = {
+            isPedalling: false,
+            power: 0,
+            pedalRpm: 0,
+            speed: 0
+        }
+
+        data.pedalRpm = (deviceData.CalculatedCadence!==undefined? deviceData.CalculatedCadence :data.pedalRpm) ;
+        data.speed    = (deviceData.CalculatedSpeed!==undefined? deviceData.CalculatedSpeed*3.6 :data.speed) ;
+        data.time = (deviceData.SpeedEventTime!==undefined? deviceData.SpeedEventTime :data.time);
+
+        data.isPedalling = (data.pedalRpm??0)>0 || data.speed>0
+        return data;
+    }
+
+    transformData( bikeData:IncyclistBikeData): IncyclistAdapterData {
+      
+        if ( bikeData===undefined)
+            return {};
+   
+        
+        let data =  {
+            speed: bikeData.speed,
+            power: bikeData.power,
+            cadence: bikeData.pedalRpm,
+            timestamp: Date.now()
+        } as IncyclistAdapterData;
+
+        if (bikeData.time)
+            data.deviceTime = bikeData.time
+
+        this.data = data
+        return data;
+    }
+
+
+
     hasData():boolean {
         return ( (this.deviceData.CalculatedSpeed!==undefined && this.deviceData.CalculatedSpeed!==null) || 
             (this.deviceData.CalculatedCadence!==undefined && this.deviceData.CalculatedCadence!==null))
     }
+
+    setCyclingMode(mode: string | ICyclingMode, settings?: any, sendInitCommands?: boolean): void { 
+        super.setCyclingMode(mode,settings,sendInitCommands)        
+
+
+        // set wheel circumference (in m)
+        try { 
+            const sensor = this.sensor as SpeedCadenceSensor
+            const wc = this.getCyclingMode().getSetting('wc')  // setting is in mm
+            sensor.setWheelCircumference( wc / 1000)
+        }
+        catch { /*ignore */}
+    }
+    
 
 }

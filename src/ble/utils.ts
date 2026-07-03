@@ -62,6 +62,9 @@ export function getCharachteristicsInfo(c:BleCharacteristic) {
 
 
 export const parseUUID = (str:string):string => {
+    if (!str)
+        return str
+
     const uuid = str.toUpperCase()
 
     if (str.startsWith('0x')) { 
@@ -125,7 +128,9 @@ export const beautifyUUID = (str:string, withX:boolean = false ):string => {
 
 }
 
-export const fullUUID = (str:string):string => {   
+export const fullUUID = (str:string):string => { 
+    if (!str)  
+        return str
 
     const uuid = parseUUID(str)
     

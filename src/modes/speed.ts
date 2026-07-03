@@ -1,6 +1,6 @@
-import { IAdapter, IncyclistBikeData } from "../types";
-import { CyclingModeBase } from "./base";
-import ICyclingMode, { CyclingModeConfig, CyclingModeProperty, CyclingModeProperyType, Settings, UpdateRequest } from "./types";
+import { IAdapter, IncyclistBikeData } from "../types/index.js";
+import { CyclingModeBase } from "./base.js";
+import ICyclingMode, { CyclingModeConfig, CyclingModeProperty, CyclingModeProperyType, Settings, UpdateRequest } from "./types.js";
 import calc from '../utils/calculations.js'
 import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT, DEFAULT_WHEEL_CIRCUMFERENCE } from "../base/consts.js";
 

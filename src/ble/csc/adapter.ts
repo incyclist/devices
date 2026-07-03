@@ -78,7 +78,7 @@ export class BleCSCAdapter extends BleAdapter<CSCData,BleCyclingSpeedCadenceDevi
     transformData( bikeData:IncyclistBikeData): IncyclistAdapterData {
       
         if ( bikeData===undefined)
-            return;
+            return {};
    
         
         let data =  {
