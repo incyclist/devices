@@ -19,7 +19,7 @@ const listenKeyPresses = (onKeyPress) => {
 
 const main = async ({configFile = './config/smarttrainer.json'}) => {
 
-    console.log('configFile',configFile)
+    console.log('configFile',configFile, '\n')
 
     let paused = false
     let currentCadence = 90
@@ -37,7 +37,7 @@ const main = async ({configFile = './config/smarttrainer.json'}) => {
     }
 
     const start = (a,p) => {
-        console.log('start',a,p)
+        console.log('START: ',a,p,'\n\n')
         const server = createServer( serverCallbacks);
 
         if (!isEmulatorStarted) {

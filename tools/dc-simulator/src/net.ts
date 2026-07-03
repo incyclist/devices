@@ -12,7 +12,7 @@ export const getAddress  = ():NetworkInterfaceInfo => {
     const found:NetworkInterfaceInfo[] = []
     
     keys.forEach( key => {
-        const ni = nets[key].filter( n => n.family === 'IPv4' && !n.internal)[0]
+        const ni = nets[key].filter( n => n.family === 'IPv4' && !n.internal && n.address.startsWith('192'))[0]
         if (ni)
             found.push(ni)
     })
@@ -26,12 +26,13 @@ export const getAddresses  = ():NetworkInterfaceInfo[] => {
     const keys = Object.keys(nets)
     const found:NetworkInterfaceInfo[] = []
     
+
     keys.forEach( key => {
-        const ni = nets[key].filter( n => n.family === 'IPv4' && !n.internal)[0]
+        const ni = nets[key].filter( n => n.family === 'IPv4' && !n.internal && n.address.startsWith('192'))[0]
         if (ni)
             found.push(ni)
     })
-    
+
     return found
     
 }
