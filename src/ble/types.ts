@@ -17,6 +17,16 @@ export interface BleBinding extends EventEmitter {
     _bindings: any;
     state: BleInterfaceState;
     on(eventName: string | symbol, listener: (...args: any[]) => void):this
+
+    /**
+     * Optional: announces the full set of BLE service UUIDs supported by this library.
+     *
+     * Bindings that must know the supported services upfront implement this —
+     * e.g. the WebBluetooth binding (Linux desktop), which has to pass them as
+     * `optionalServices` when requesting device access. Noble bindings do not
+     * implement it; callers must feature-detect (`binding.setSupportedServices?.(...)`).
+     */
+    setSupportedServices?(serviceUUIDs: string[]): void
 }
 
 

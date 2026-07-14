@@ -343,6 +343,18 @@ describe('BleInterface', () => {
             expect(logger.logEvent).toHaveBeenCalledWith({message:'starting peripheral discovery ...',interface:'ble'})
         })
 
+        test('binding with setSupportedServices gets the supported services announced before scanning', async () => {
+            setupMocks(i)
+            mocks.binding.setSupportedServices = jest.fn()
+
+            await waitForDevice(10)
+
+            expect(mocks.binding.setSupportedServices).toHaveBeenCalledWith(['0x1818','0x1826','0x180D','6E40FEC1-B5A3-F393-E0A9-E50E24DCCA9E'])
+            const announced = (mocks.binding.setSupportedServices as jest.Mock).mock.invocationCallOrder[0]
+            const scanned = (mocks.binding.startScanning as jest.Mock).mock.invocationCallOrder[0]
+            expect(announced).toBeLessThan(scanned)
+        })
+
         test('FTMS announced', async () => {
             setupMocks(i,{peripheral:FTMSPeripheral})
             const {device} = await waitForDevice()??{}

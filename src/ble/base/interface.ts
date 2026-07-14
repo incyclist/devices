@@ -579,7 +579,15 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
         return new Promise( done =>{
             const ble = this.getBinding()
-            
+
+            // announce the supported services to bindings that need them upfront
+            // (e.g. WebBluetooth on Linux); noble bindings don't implement this
+            ble.setSupportedServices?.(this.expectedServices)
+            if (ble.setSupportedServices) {
+                const expectedServices = this.expectedServices??[]
+                const expected = expectedServices.join('|')
+                this.logEvent({message:'announce expected services',expected })
+            }
 
             ble.startScanning([], true,(err)=>{
                 if(err) {
