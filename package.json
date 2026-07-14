@@ -8,7 +8,7 @@
         "build:cjs": "tsc -p tsconfig.cjs.json",
         "test": "vitest run",
         "test:unit": "vitest run --coverage",
-        "test:ci": "vitest run--coverage --forceExit",
+        "test:ci": "vitest run--coverage",
         "dev": "tsc -p tsconfig.esm.json --watch",
         "postversion": "git push && git push --tags",
         "protogen": "protoc --ts_out src/proto --proto_path protos protos/*.proto "
