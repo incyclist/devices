@@ -337,8 +337,8 @@ export class DirectConnectPeripheral implements IBlePeripheral {
         }
 
         for (const element of retry) {
-            const c = element
-            await this.subscribe(c.uuid, callback)
+            const uuid = element
+            await this.subscribe(uuid, callback)
         }
         return true
     }
