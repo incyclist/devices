@@ -38,4 +38,45 @@ describe('DirectConnect Peripheral',()=>{
         })
 
     })
+
+    describe('subscribeSelected',()=>{
+
+        const announcement:MulticastDnsAnnouncement = {
+            type:'wahoo-fitness-tnp',
+            name:'TEST',
+            address:'192.168.1.1',
+            protocol:'tcp',
+            port:36866,
+            serialNo:'1234567',
+            serviceUUIDs:['0x1826'],
+            transport:'wifi'}
+
+        test('retries with the plain uuid string, not an object, when the initial subscribe fails',async ()=>{
+
+            const p = new DirectConnectPeripheral(announcement)
+
+            p.discoverServices = jest.fn(async ()=>['1826'])
+            p.discoverCharacteristics = jest.fn(async ()=>([
+                {uuid:'2AD2', properties:['notify']},
+                {uuid:'2ADA', properties:['notify']},
+            ]))
+
+            let firstAttemptDone = false
+            p.subscribe = jest.fn(async (uuid:string)=>{
+                if (uuid==='2ADA' && !firstAttemptDone) {
+                    firstAttemptDone = true
+                    return false // simulate a failed/unconfirmed first attempt
+                }
+                return true
+            })
+
+            const result = await p.subscribeSelected(['2AD2','2ADA'],()=>{})
+
+            expect(result).toBe(true)
+            // regression guard: retry must pass the uuid string itself, never undefined
+            expect(p.subscribe).toHaveBeenCalledWith('2ADA', expect.any(Function))
+            expect(p.subscribe).not.toHaveBeenCalledWith(undefined, expect.any(Function))
+        })
+
+    })
 })
