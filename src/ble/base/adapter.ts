@@ -74,10 +74,16 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         try {
             const info = peripheral.getInfo()
             const settings:BleDeviceSettings = {...this.settings} as BleDeviceSettings
-            
+
             settings.id = settings.id ?? info.id
-            settings.address = settings.address ??info.address 
-            settings.name = settings.name ?? info.name 
+            // by the time we get here, waitForPeripheral() has already established that this
+            // peripheral IS the device identified by `settings` (matched by name/id) - so a freshly
+            // observed address is always more trustworthy than a persisted one, which may be stale
+            // (e.g. a wifi/mDNS device's IP changed since it was last paired - see FIXES_BACKLOG #14).
+            // Previously this used `settings.address ?? info.address`, which meant that once an
+            // address was recorded (even a stale one), a fresh observation could never overwrite it.
+            settings.address = info.address ?? settings.address
+            settings.name = settings.name ?? info.name
             this.settings = settings
         }
         catch {}
@@ -108,13 +114,25 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         if (as.profile || settings.profile)  { // legacy
             return (as.protocol===settings.protocol && as.profile===settings.profile && as.name===settings.name)
         }
-        else {
-            return (as.protocol===settings.protocol && (
-                (as.name && settings.name && as.name===settings.name) || 
-                (as.address && settings.address && as.address===settings.address) || 
-                (as.id && settings.id && as.id===settings.id))  ) 
-        }
 
+        if (as.protocol!==settings.protocol)
+            return false
+
+        // a stable id (e.g. derived from an mDNS serialNo) is the strongest identity signal
+        if (as.id && settings.id)
+            return as.id===settings.id
+
+        // if both sides carry an address, it alone decides equality - once we have two
+        // independently observed addresses, a shared/generic name (e.g. two "Volt" trainers) must
+        // no longer be treated as sufficient to consider them the same device (see FIXES_BACKLOG #14 -
+        // previously this was an OR across name/address/id, so a name-only match was enough to
+        // incorrectly merge two distinct physical devices into one)
+        if (as.address && settings.address)
+            return as.address===settings.address
+
+        // neither side has a comparable address/id - fall back to name (e.g. before a wifi device's
+        // first mDNS announcement has been observed, or for protocols with no stable address)
+        return !!(as.name && settings.name && as.name===settings.name)
     }
     isSame( adapter: IAdapter):boolean {
         return this.isEqual( adapter.getSettings() as BleDeviceSettings)

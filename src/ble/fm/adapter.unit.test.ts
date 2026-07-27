@@ -19,9 +19,62 @@ describe('BleFmAdapter',()=>{
             const A = new BleFmAdapter({interface:'ble', name:'1',address:'1111', protocol:'fm'})
             const res = A.isEqual({interface:'ble', name:'2',address:'1111', protocol:'fm'})
             expect(res).toBeTruthy()
-        }) 
-    
-    })    
+        })
+
+        // FIXES_BACKLOG #14: two wifi devices sharing the same (generic) name must not be treated
+        // as equal just because the name matches - once both sides carry an address, it alone decides
+        test('same name, different address - not equal (name-only match is no longer sufficient)',()=>{
+            const A = new BleFmAdapter({interface:'wifi', name:'Volt',address:'10.0.0.5', protocol:'fm'})
+            const res = A.isEqual({interface:'wifi', name:'Volt',address:'10.0.0.9', protocol:'fm'})
+            expect(res).toBeFalsy()
+        })
+
+        // Regression check: unlike wifi addresses (IPs, which can change e.g. on a DHCP lease
+        // renewal), BLE addresses are stable MAC addresses - two different BLE addresses are
+        // *always* two different physical devices, never the "same device, address changed" case.
+        // This adapter is shared between ble and wifi (see FIXES_BACKLOG #14), so isEqual() must
+        // apply the same "address alone decides, once both sides have one" rule to both interfaces -
+        // confirmed explicitly here for interface:'ble', not just interface:'wifi' above.
+        test('BLE: same name, different address - not equal (a physical BLE device cannot change its MAC address)',()=>{
+            const A = new BleFmAdapter({interface:'ble', name:'HRM-Dual',address:'AA:BB:CC:DD:EE:01', protocol:'fm'})
+            const res = A.isEqual({interface:'ble', name:'HRM-Dual',address:'AA:BB:CC:DD:EE:02', protocol:'fm'})
+            expect(res).toBeFalsy()
+        })
+
+        test('id present on both sides is decisive, even if address differs',()=>{
+            const A = new BleFmAdapter({interface:'wifi', name:'Volt',address:'10.0.0.5',id:'SN-1', protocol:'fm'})
+            const res = A.isEqual({interface:'wifi', name:'Volt',address:'10.0.0.9',id:'SN-1', protocol:'fm'})
+            expect(res).toBeTruthy()
+        })
+
+        test('different protocol is never equal, regardless of name/address/id',()=>{
+            const A = new BleFmAdapter({interface:'wifi', name:'Volt',address:'10.0.0.5', protocol:'fm'})
+            const res = A.isEqual({interface:'wifi', name:'Volt',address:'10.0.0.5', protocol:'wahoo'} as any)
+            expect(res).toBeFalsy()
+        })
+
+    })
+
+    describe('updateSettings (FIXES_BACKLOG #14)',()=>{
+
+        test('a freshly observed address always overwrites a stale persisted one',()=>{
+            const A = new BleFmAdapter({interface:'wifi', name:'Volt',address:'10.0.0.5', protocol:'fm'})
+            const peripheral: any = { getInfo: jest.fn().mockReturnValue({ id:'10005', address:'10.0.0.9', name:'Volt'}) }
+
+            ;(A as any).updateSettings(peripheral)
+
+            expect(A.getSettings()).toMatchObject({address:'10.0.0.9'})
+        })
+
+        test('keeps the existing address when the peripheral reports none',()=>{
+            const A = new BleFmAdapter({interface:'wifi', name:'Volt',address:'10.0.0.5', protocol:'fm'})
+            const peripheral: any = { getInfo: jest.fn().mockReturnValue({ id:undefined, address:undefined, name:'Volt'}) }
+
+            ;(A as any).updateSettings(peripheral)
+
+            expect(A.getSettings()).toMatchObject({address:'10.0.0.5'})
+        })
+    })
 
     describe('start',()=>{
 

@@ -118,8 +118,11 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
             const protocol = this.getProtocol(service)
             const address = service.address
             const services = service.serviceUUIDs?.map(uuid=> beautifyUUID(uuid,false))?.join(',')
+            // opportunistically use the announcement's own serialNo (when present) as a stable id -
+            // this fully resolves same-name ambiguity for devices that provide it (see FIXES_BACKLOG #14)
+            const id = service.serialNo || undefined
 
-            return {interface:DirectConnectInterface.INTERFACE_NAME, name, protocol,address, services }
+            return {interface:DirectConnectInterface.INTERFACE_NAME, name, protocol,address, services, ...(id?{id}:{}) }
         }
         catch {
             return null
@@ -127,7 +130,14 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
     }
 
     createPeripheralFromSettings(settings: DeviceSettings): IBlePeripheral {
-        const info = this.getAll().find(a=>a.service.name === settings.name)
+        const bleSettings = settings as BleDeviceSettings
+        const all = this.getAll()
+
+        // prefer an exact name+address match when the settings carry an address - this matters once
+        // two devices share the same name (see FIXES_BACKLOG #14): a name-only lookup could otherwise
+        // resolve to the wrong physical device
+        const info = (bleSettings.address && all.find(a=>a.service.name===settings.name && a.service.address===bleSettings.address))
+            ?? all.find(a=>a.service.name === settings.name)
 
         if (!info?.service)
             return null;
@@ -423,49 +433,142 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
 
 
 
+    /**
+     * Adds/refreshes a discovered (or known-device placeholder) announcement in the session
+     * discovery cache.
+     *
+     * Wifi/mDNS devices are identified essentially by name (see `BleDeviceSettings` - there is no
+     * dedicated wifi identity type), which creates two related problems this method resolves with
+     * a session-scoped heuristic (see FIXES_BACKLOG #14):
+     *
+     * (a) If two announcements with the *same name* but *different addresses* are observed within
+     *     one session, that is proof of two physical devices (one device can't emit two addresses
+     *     at once) - both are surfaced as distinct, separately addressable cache entries instead of
+     *     one clobbering the other.
+     * (b) If only a *single* address has ever been seen for a name and a new announcement for that
+     *     name arrives with a different address, it is treated as an IP change (e.g. a DHCP lease
+     *     reassignment) and the existing slot's address is updated in place, silently. This is a
+     *     deliberate, optimistic heuristic: right for the common case, and even in the rare wrong
+     *     case (a second, currently-offline device with the same name) it degrades gracefully - the
+     *     second device takes over the first's slot until a session where both announce together,
+     *     at which point rule (a) splits them apart again. No data is destroyed.
+     *
+     * A 'known-device' sourced announcement (built from persisted, possibly stale settings - see
+     * `addKnownDevice()`) is never allowed to clobber an address we already have a live/real
+     * ('mdns') observation for this session - that was the actual stale-IP bug: a later re-add of
+     * known devices silently re-clobbering a cache entry a concurrent real mDNS announcement had
+     * just corrected.
+     */
     protected addService(service:MulticastDnsAnnouncement, source?:string):void {
         const src = source==='known-device' ? 'known-device' :  'mdns';
 
         try {
             service.transport = this.getName();
-            
-            const existing = this.find(service)
-            if (existing)  {
-                const idx = this.services.indexOf(existing)
-                this.services[idx]= {ts:Date.now(),service}
-                if (src!=='known-device' && existing.source==='known-device') { 
-                    this.services[idx].source = src
-                    this.logEvent({message:'device re-announced',device:service.name, announcement:service, source})
-                    this.emitDevice(service)                    
-                }
-                
 
+            // exact match (same name AND same address): a refresh/heartbeat of an entry we already
+            // track, not a new device
+            const sameAddress = this.findByNameAndAddress(service.name, service.address)
+            if (sameAddress) {
+                this.refreshSameAddressEntry(sameAddress, service, src, source)
+                return
             }
-            else {
-                this.services.push( {ts:Date.now(),service,source:src} )
-                if ( !service.serviceUUIDs?.length)
-                    return;
 
-                this.logEvent({message:'device announced',device:service.name, announcement:service, source})               
-                this.emitDevice(service)                    
-                this.matching?.push(service.name)
-                
-                
+            const sameName = this.findAllByName(service.name)
 
-                
+            // never let a stale known-device placeholder clobber a name we already have a live
+            // observation for (at a different address)
+            if (src==='known-device' && sameName.some( a=> a.source!=='known-device')) {
+                return
             }
+
+            if (sameName.length===0) {
+                // first time we see this name this session
+                this.announceNewEntry(service, src, source, 'device announced')
+                return
+            }
+
+            const realEntries = sameName.filter( a=> a.source!=='known-device')
+
+            if (src!=='known-device' && realEntries.length>=1) {
+                // rule (a): a 2nd (or further) independently, really observed address for this name
+                // this session - proof of a 2nd physical device sharing the same (generic) name
+                this.announceNewEntry(service, src, source, 'device announced (name collision, distinct address)')
+                return
+            }
+
+            // rule (b): exactly one entry on file for this name (a known-device placeholder, or an
+            // earlier real observation) and no independent 2nd address has been seen this session -
+            // treat this as the same physical device re-announcing under a new address, update the
+            // slot in place, silently
+            this.reannounceExistingEntry(sameName[0], service, src, source)
         }
         catch(err:any) {
             this.logError(err, 'addService')
         }
-        
+
     }
 
-    protected find(service:MulticastDnsAnnouncement) {
-        return this.services.find( a=> a.service.name===service.name && a.ts>Date.now()-DC_EXPIRATION_TIMEOUT )
+    // Refreshes an entry we already track at this exact name+address (a heartbeat, not a new
+    // device). A known-device placeholder that now gets confirmed by a real observation is
+    // upgraded in place - see addService()'s doc comment for the source/placeholder rules.
+    private refreshSameAddressEntry(sameAddress:Announcement, service:MulticastDnsAnnouncement, src:string, source?:string) {
+        const idx = this.services.indexOf(sameAddress)
+        const wasKnownDevicePlaceholder = sameAddress.source==='known-device'
+        const nextSource = (wasKnownDevicePlaceholder && src!=='known-device') ? src : sameAddress.source
+        this.services[idx] = {ts:Date.now(),service,source:nextSource}
+
+        if (src!=='known-device' && wasKnownDevicePlaceholder) {
+            this.logEvent({message:'device re-announced',device:service.name, announcement:service, source})
+            this.emitDevice(service)
+        }
     }
+
+    // Records a brand new cache entry (first sighting of this name this session, or a 2nd distinct
+    // address proving a 2nd physical device - see addService()'s doc comment, rules (a)).
+    private announceNewEntry(service:MulticastDnsAnnouncement, src:string, source:string|undefined, message:string) {
+        this.services.push( {ts:Date.now(),service,source:src} )
+        if ( !service.serviceUUIDs?.length)
+            return;
+
+        this.logEvent({message,device:service.name, announcement:service, source})
+        this.emitDevice(service)
+        this.matching?.push(service.name)
+    }
+
+    // Updates an existing entry in place under a new address - the "same device, address changed"
+    // heuristic, rule (b) in addService()'s doc comment.
+    private reannounceExistingEntry(existing:Announcement, service:MulticastDnsAnnouncement, src:string, source?:string) {
+        const idx = this.services.indexOf(existing)
+        this.services[idx] = {ts:Date.now(),service,source:src}
+
+        if (src!=='known-device') {
+            this.logEvent({message:'device re-announced',device:service.name, announcement:service, source})
+            this.emitDevice(service)
+        }
+    }
+
+    protected findByNameAndAddress(name:string,address:string) {
+        return this.services.find( a=> a.service.name===name && a.service.address===address && a.ts>Date.now()-DC_EXPIRATION_TIMEOUT )
+    }
+
+    protected findAllByName(name:string) {
+        return this.services.filter( a=> a.service.name===name && a.ts>Date.now()-DC_EXPIRATION_TIMEOUT )
+    }
+
     protected getAll() {
         return this.services.filter( a=> a.ts>Date.now()-DC_EXPIRATION_TIMEOUT )
+    }
+
+    /**
+     * Returns whether, within the current discovery session, more than one distinct address has
+     * been observed for devices announcing under the given name.
+     *
+     * Used by consumers (see incyclist-services `DeviceConfigurationService.add()`) to tell a
+     * genuine second physical device apart from a simple address change of an already-known device
+     * sharing the same name. See FIXES_BACKLOG #14.
+     */
+    public hasNameCollision(name:string):boolean {
+        return this.findAllByName(name).length>1
     }
 
     setDebug(enabled:boolean) {
