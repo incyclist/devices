@@ -79,8 +79,15 @@ const main = async ({configFile = './config/smarttrainer.json'}) => {
         start(n.address,config.port)
     })
 
-    const instance = new Bonjour()
+    const _interface = config.referer?.address??config.addresses?.[0]??config.host
+    const instance = new Bonjour({interface:_interface} as any)
+
+    //config.host = config.referer?.address??config.addresses?.[0]??config.host
+    //config.host = 'dcsim.local'
+    // delete config.host
+    // console.log('# Bonjour.publish:',JSON.stringify(config,null,2))
     instance.publish( config)
+    
 
     listenKeyPresses( (key,event)=>{
         if (key === '0')  {

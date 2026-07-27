@@ -16,7 +16,7 @@
 	},
 	"dependencies": {
 		"@protobuf-ts/runtime": "^2.11.1",
-		"bonjour-service": "^1.3.0",
+		"bonjour-service": "^1.4.3",
 		"dotenv": "^17.4.2",
 		"incyclist-devices": "file:../.."
 	},
