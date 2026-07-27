@@ -469,15 +469,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
             // track, not a new device
             const sameAddress = this.findByNameAndAddress(service.name, service.address)
             if (sameAddress) {
-                const idx = this.services.indexOf(sameAddress)
-                const wasKnownDevicePlaceholder = sameAddress.source==='known-device'
-                const nextSource = (wasKnownDevicePlaceholder && src!=='known-device') ? src : sameAddress.source
-                this.services[idx] = {ts:Date.now(),service,source:nextSource}
-
-                if (src!=='known-device' && wasKnownDevicePlaceholder) {
-                    this.logEvent({message:'device re-announced',device:service.name, announcement:service, source})
-                    this.emitDevice(service)
-                }
+                this.refreshSameAddressEntry(sameAddress, service, src, source)
                 return
             }
 
@@ -491,13 +483,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
 
             if (sameName.length===0) {
                 // first time we see this name this session
-                this.services.push( {ts:Date.now(),service,source:src} )
-                if ( !service.serviceUUIDs?.length)
-                    return;
-
-                this.logEvent({message:'device announced',device:service.name, announcement:service, source})
-                this.emitDevice(service)
-                this.matching?.push(service.name)
+                this.announceNewEntry(service, src, source, 'device announced')
                 return
             }
 
@@ -506,13 +492,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
             if (src!=='known-device' && realEntries.length>=1) {
                 // rule (a): a 2nd (or further) independently, really observed address for this name
                 // this session - proof of a 2nd physical device sharing the same (generic) name
-                this.services.push( {ts:Date.now(),service,source:src} )
-                if ( !service.serviceUUIDs?.length)
-                    return;
-
-                this.logEvent({message:'device announced (name collision, distinct address)',device:service.name, announcement:service, source})
-                this.emitDevice(service)
-                this.matching?.push(service.name)
+                this.announceNewEntry(service, src, source, 'device announced (name collision, distinct address)')
                 return
             }
 
@@ -520,18 +500,51 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
             // earlier real observation) and no independent 2nd address has been seen this session -
             // treat this as the same physical device re-announcing under a new address, update the
             // slot in place, silently
-            const idx = this.services.indexOf(sameName[0])
-            this.services[idx] = {ts:Date.now(),service,source:src}
-
-            if (src!=='known-device') {
-                this.logEvent({message:'device re-announced',device:service.name, announcement:service, source})
-                this.emitDevice(service)
-            }
+            this.reannounceExistingEntry(sameName[0], service, src, source)
         }
         catch(err:any) {
             this.logError(err, 'addService')
         }
 
+    }
+
+    // Refreshes an entry we already track at this exact name+address (a heartbeat, not a new
+    // device). A known-device placeholder that now gets confirmed by a real observation is
+    // upgraded in place - see addService()'s doc comment for the source/placeholder rules.
+    private refreshSameAddressEntry(sameAddress:Announcement, service:MulticastDnsAnnouncement, src:string, source?:string) {
+        const idx = this.services.indexOf(sameAddress)
+        const wasKnownDevicePlaceholder = sameAddress.source==='known-device'
+        const nextSource = (wasKnownDevicePlaceholder && src!=='known-device') ? src : sameAddress.source
+        this.services[idx] = {ts:Date.now(),service,source:nextSource}
+
+        if (src!=='known-device' && wasKnownDevicePlaceholder) {
+            this.logEvent({message:'device re-announced',device:service.name, announcement:service, source})
+            this.emitDevice(service)
+        }
+    }
+
+    // Records a brand new cache entry (first sighting of this name this session, or a 2nd distinct
+    // address proving a 2nd physical device - see addService()'s doc comment, rules (a)).
+    private announceNewEntry(service:MulticastDnsAnnouncement, src:string, source:string|undefined, message:string) {
+        this.services.push( {ts:Date.now(),service,source:src} )
+        if ( !service.serviceUUIDs?.length)
+            return;
+
+        this.logEvent({message,device:service.name, announcement:service, source})
+        this.emitDevice(service)
+        this.matching?.push(service.name)
+    }
+
+    // Updates an existing entry in place under a new address - the "same device, address changed"
+    // heuristic, rule (b) in addService()'s doc comment.
+    private reannounceExistingEntry(existing:Announcement, service:MulticastDnsAnnouncement, src:string, source?:string) {
+        const idx = this.services.indexOf(existing)
+        this.services[idx] = {ts:Date.now(),service,source:src}
+
+        if (src!=='known-device') {
+            this.logEvent({message:'device re-announced',device:service.name, announcement:service, source})
+            this.emitDevice(service)
+        }
     }
 
     protected findByNameAndAddress(name:string,address:string) {
