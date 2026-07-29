@@ -11,6 +11,7 @@ import { BleDeviceProperties, BleDeviceSettings, BleStartProperties, IBlePeriphe
 import { IAdapter,IncyclistCapability,IncyclistAdapterData,IncyclistBikeData, ITrainer } from '../../types/index.js';
 import { LegacyProfile } from '../../antv2/types.js';
 import { sleep } from '../../utils/utils.js';
+import { InteruptableTask, TaskState } from '../../utils/task.js';
 import { BleZwiftPlaySensor } from '../zwift/play/index.js';
 import { useFeatureToggle } from '../../features/index.js';
 import FMResistanceMode from '../../modes/fm-resistance.js';
@@ -23,6 +24,11 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
     protected distanceInternal: number = 0;
     protected connectPromise: Promise<boolean>|undefined
     protected requestControlRetryDelay = 1000
+    // FIXES_BACKLOG #22: dedicated bound for the RequestControl handshake, so a trainer that rejects
+    // or never answers RequestControl fails pairing fast, instead of silently burning the whole
+    // (much longer) shared pairing timeout - restores the ~10s bound removed as a side effect of
+    // commit b6fa461 (2024-12-21)
+    protected requestControlTimeout = 10000
     protected promiseSendUpdate: Promise<UpdateRequest|void>|undefined
     protected zwiftPlay: BleZwiftPlaySensor|undefined
     protected isHubInitialized: boolean = false
@@ -227,11 +233,60 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
         // In some cases, the device does not support fitness machine features, which might have been detected in checkCapabilities()
         // therefore we need to check if we still have control capabilties
-        if (!this.hasCapability(IncyclistCapability.Control)) 
+        if (!this.hasCapability(IncyclistCapability.Control))
             return;
 
-        await this.establishControl();        
-        await this.sendInitialRequest()        
+        // RequestControl is the only step that gates pairing success: a controllable trainer that
+        // rejects/never answers it fails fast (establishControl() throws, bounded by
+        // requestControlTimeout - FIXES_BACKLOG #22).
+        await this.establishControl();
+
+        // StartOrResume ("start session") is required by some FTMS firmwares before they start
+        // streaming Indoor Bike Data notifications at all - but its outcome must never fail pairing,
+        // only RequestControl does (FIXES_BACKLOG #22).
+        await this.attemptStartRequest()
+
+        await this.sendInitialRequest()
+    }
+
+    /**
+     * Best-effort counterpart of initControl(), used for devices that have already been downgraded to
+     * Power Meter (checkCapabilities() found no settable power/slope/resistance target). Some FTMS
+     * firmwares still require the RequestControl/StartOrResume handshake before they start streaming
+     * Indoor Bike Data at all, even though they have nothing controllable to offer - so we still attempt
+     * it, but any outcome (success, rejection, or no response) is only logged, never fatal:
+     * waitForInitialData() remains the sole arbiter of pairing success for these devices
+     * (FIXES_BACKLOG #22).
+     */
+    protected async initControlBestEffort(_startProps?:BleStartProperties) {
+        if (!this.isStarting())
+            return;
+
+        this.setConstants();
+
+        try {
+            const hasControl = await this.getSensor().requestControl()
+            if (hasControl) {
+                this.logEvent({message:'control granted (downgraded device)', device:this.getName(), interface:this.getInterface()})
+                await this.attemptStartRequest()
+            }
+            else {
+                this.logEvent({message:'could not establish control (downgraded device, non-fatal)', device:this.getName(), interface:this.getInterface()})
+            }
+        }
+        catch(err) {
+            this.logEvent({message:'could not establish control (downgraded device, non-fatal)', device:this.getName(), interface:this.getInterface(), error:(err as Error).message})
+        }
+    }
+
+    protected async attemptStartRequest() {
+        try {
+            const started = await this.getSensor().startRequest()
+            this.logEvent({message: started ? 'start request acknowledged' : 'start request not acknowledged (non-fatal)', device:this.getName(), interface:this.getInterface()})
+        }
+        catch(err) {
+            this.logEvent({message:'start request failed (non-fatal)', device:this.getName(), interface:this.getInterface(), error:(err as Error).message})
+        }
     }
 
     protected setConstants() {
@@ -250,16 +305,16 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         }
     }
 
-    protected async establishControl() {
+    protected async establishControl():Promise<boolean> {
         if (!this.isStarting())
             return false
 
         let hasControl = false
         let tryCnt = 0;
-        
+
         const sensor = this.getSensor();
 
-        return new Promise<boolean>( (resolve) =>{
+        const controlPromise = new Promise<boolean>( (resolve) =>{
 
 
             this.startTask.notifyOnStop(() => {
@@ -276,8 +331,8 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
                     if (tryCnt++ === 0) {
                         this.logEvent( {message:'requesting control', device:this.getName(), interface:this.getInterface()})
                     }
-                    hasControl = await sensor.requestControl();    
-                    if (hasControl) {                        
+                    hasControl = await sensor.requestControl();
+                    if (hasControl) {
                         this.logEvent( {message:'control granted', device:this.getName(), interface:this.getInterface()})
                         resolve( this.isStarting() )
                     }
@@ -285,11 +340,30 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
                         await sleep(this.requestControlRetryDelay)
                     }
                 }
-    
+
             }
-            waitUntilControl()                
+            waitUntilControl()
         })
 
+        // FIXES_BACKLOG #22: bound the RequestControl handshake with its own dedicated timeout, instead
+        // of relying entirely on the (much longer) shared outer pairing timeout to ever stop it. If it
+        // is still starting (i.e. this isn't just an ordinary stop/interrupt) and control was never
+        // granted within that window, fail fast with an explicit error.
+        const waitTask = new InteruptableTask<TaskState,boolean>( controlPromise, {
+            timeout: this.requestControlTimeout,
+            name: 'establishControl',
+            errorOnTimeout: false,
+            log: this.logEvent.bind(this)
+        })
+
+        const granted = await waitTask.run()
+
+        if (!granted && this.isStarting()) {
+            this.logEvent({message:'could not establish control', device:this.getName(), interface:this.getInterface()})
+            throw new Error('could not establish control')
+        }
+
+        return granted
     }
 
     protected async sendInitialRequest() {
