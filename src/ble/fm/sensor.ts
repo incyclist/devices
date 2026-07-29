@@ -158,10 +158,13 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         if (!this.isSubscribed())
             return false
 
-        // If we know from features flag that setPower and setSlope are not supported, just ignore
-        if (this.features?.setPower===false && this.features?.setSlope===false && this.features?.setResistance===false) {
-            return true;
-        }
+        // Note: previously, devices whose features flag reported setPower/setSlope/setResistance all
+        // false (i.e. no controllable resistance) short-circuited here, returning true without ever
+        // writing to the Control Point. Some FTMS firmwares require a RequestControl (and StartOrResume)
+        // handshake before they start streaming Indoor Bike Data at all, independent of whether the
+        // device has settable targets - so the write is now always attempted. Callers that only need
+        // this best-effort for such devices (see BleFmAdapter.initControlBestEffort) are responsible for
+        // treating a false/failed outcome as non-fatal (FIXES_BACKLOG #22).
 
         this.logEvent( {message:'requestControl'})
         this.isCheckingControl = true;

@@ -2,6 +2,7 @@ import { sleep } from '../../utils/utils'
 import { IBleInterface } from '../types'
 import BleFmAdapter from './adapter'
 import BleFitnessMachineDevice from './sensor'
+import { IncyclistCapability } from '../../types/index'
 describe('BleFmAdapter',()=>{
     describe('isEqual',()=>{
 
@@ -100,14 +101,20 @@ describe('BleFmAdapter',()=>{
         sensor.stopSensor= jest.fn().mockReturnValue(true)
         sensor.setSlope = jest.fn().mockReturnValue(true)
         sensor.setTargetPower = jest.fn().mockResolvedValue(true)
+        sensor.startRequest = jest.fn().mockResolvedValue(true)
 
         let adapter: BleFmAdapter
         let iv
 
         const setupMocks= (a)=>{
-            a.getSensor = jest.fn( ()=> { return sensor})            
+            a.getSensor = jest.fn( ()=> { return sensor})
             a.getBle = jest.fn().mockReturnValue(ble)
             a.requestControlRetryDelay = 10;
+            // keep the dedicated RequestControl timeout short in tests (FIXES_BACKLOG #22), so a
+            // scenario where control is never granted doesn't leave a real 10s timer running in the
+            // background after the test has already finished (the outer/shared pairing timeout used in
+            // most of these tests is much shorter and will still win the race where relevant)
+            a.requestControlTimeout = 300;
             if (process.env.DEBUG) {
                 a.logger = {logEvent:(message)=>console.log( new Date().toISOString(),{...message})}
                 sensor.logEvent = a.logger.logEvent
@@ -184,10 +191,140 @@ describe('BleFmAdapter',()=>{
 
             expect(adapter.started).toBeFalsy()
             expect(waitForData).toHaveBeenCalled()
-            expect(establishControl).not.toHaveBeenCalled()
-            
+            // FIXES_BACKLOG #22: checkCapabilities()/initControl() now run *before* waitForInitialData(),
+            // so establishControl() is reached (and starts retrying RequestControl) before the stop()
+            // call interrupts it - unlike before the reorder, where a stop during the (then-first)
+            // data-wait meant establishControl() was never reached at all. It must still resolve
+            // gracefully (no throw, no control granted) once stopped, rather than fail pairing.
+            expect(establishControl).toHaveBeenCalled()
         })
 
+
+    })
+
+    describe('start - FTMS Control Point handshake (FIXES_BACKLOG #22)',()=>{
+
+        let sensor: BleFitnessMachineDevice
+        let ble: Partial<IBleInterface<any>>
+        let adapter: BleFmAdapter
+        let iv
+
+        const setupMocks = (a) => {
+            a.getSensor = jest.fn( ()=> sensor)
+            a.getBle = jest.fn().mockReturnValue(ble)
+            a.requestControlRetryDelay = 10
+        }
+
+        const emitDataContinuously = () => {
+            iv = setInterval( ()=> { sensor.emit('data',{power:0}) }, 10)
+        }
+
+        beforeEach( ()=>{
+            sensor = new BleFitnessMachineDevice(null)
+            sensor.subscribe = jest.fn().mockResolvedValue(true)
+            sensor.setCrr = jest.fn()
+            sensor.setCw = jest.fn()
+            sensor.hasPeripheral = jest.fn().mockReturnValue(true)
+            sensor.reset = jest.fn()
+            sensor.startSensor = jest.fn().mockReturnValue(true)
+            sensor.stopSensor = jest.fn().mockReturnValue(true)
+            sensor.setSlope = jest.fn().mockReturnValue(true)
+            sensor.setTargetPower = jest.fn().mockResolvedValue(true)
+
+            ble = {
+                once: jest.fn(),
+                pauseLogging: jest.fn(),
+                resumeLogging: jest.fn(),
+                removeListener: jest.fn(),
+                connect: jest.fn().mockResolvedValue(true),
+                createPeripheralFromSettings: jest.fn(),
+                waitForPeripheral: jest.fn().mockResolvedValue({})
+            }
+
+            adapter = new BleFmAdapter({interface:'ble', name:'1', address:'1111', protocol:'fm'})
+        })
+
+        afterEach( async ()=>{
+            if (iv)
+                clearInterval(iv)
+            await adapter.stop()
+        })
+
+        test('controllable device: RequestControl never granted fails pairing fast, bounded by the dedicated control timeout - not the (much larger) default data-wait timeout',async ()=>{
+            sensor['_features'] = {fitnessMachine:0, targetSettings:0}   // no downgrade info -> stays controllable
+            sensor.requestControl = jest.fn().mockResolvedValue(false)
+            sensor.startRequest = jest.fn().mockResolvedValue(true)
+            setupMocks(adapter)
+            ;(adapter as any).requestControlTimeout = 100   // dedicated control timeout, kept short for the test
+            emitDataContinuously()
+
+            const tsStart = Date.now()
+            // no startProps.timeout given -> outer pairing timeout falls back to getDefaultStartupTimeout() (30s);
+            // if the failure were still bounded by that (the pre-fix bug), this test would need to wait 30s
+            const result = await adapter.start()
+            const duration = Date.now() - tsStart
+
+            expect(result).toBe(false)
+            expect(adapter.started).toBeFalsy()
+            expect(duration).toBeLessThan(2000)
+
+            // must fail fast, before ever attempting the non-fatal StartOrResume handshake or the
+            // existing target-setting write
+            expect(sensor.startRequest).not.toHaveBeenCalled()
+            expect(sensor.setSlope).not.toHaveBeenCalled()
+        })
+
+        test('controllable device: RequestControl succeeds but StartOrResume fails - not fatal, pairing proceeds normally',async ()=>{
+            sensor['_features'] = {fitnessMachine:0, targetSettings:0}
+            sensor.requestControl = jest.fn().mockResolvedValue(true)
+            sensor.startRequest = jest.fn().mockRejectedValue(new Error('write failed'))
+            setupMocks(adapter)
+            emitDataContinuously()
+
+            const result = await adapter.start({timeout:2000})
+
+            expect(result).toBe(true)
+            expect(adapter.started).toBeTruthy()
+            expect(sensor.requestControl).toHaveBeenCalled()
+            expect(sensor.startRequest).toHaveBeenCalled()
+        })
+
+        test('downgraded (power-meter-only) device: RequestControl rejected/never granted is only logged, never fails pairing',async ()=>{
+            // features explicitly report no settable target -> checkCapabilities() downgrades to Power Meter
+            sensor['_features'] = {fitnessMachine:0, targetSettings:0, setPower:false, setSlope:false, setResistance:false}
+            sensor.requestControl = jest.fn().mockRejectedValue(new Error('control not permitted'))
+            sensor.startRequest = jest.fn()
+            setupMocks(adapter)
+            emitDataContinuously()
+
+            const result = await adapter.start({timeout:2000})
+
+            expect(result).toBe(true)
+            expect(adapter.started).toBeTruthy()
+            expect(adapter.hasCapability(IncyclistCapability.Control)).toBeFalsy()  // sanity check: genuinely downgraded
+
+            expect(sensor.requestControl).toHaveBeenCalled()
+            // best-effort only: a rejected RequestControl must never block/fail waitForInitialData,
+            // and (since RequestControl itself failed) StartOrResume is not attempted either
+            expect(sensor.startRequest).not.toHaveBeenCalled()
+        })
+
+        test('checkCapabilities() runs before waitForInitialData() in the overall start sequence',async ()=>{
+            sensor['_features'] = {fitnessMachine:0, targetSettings:0}
+            sensor.requestControl = jest.fn().mockResolvedValue(true)
+            sensor.startRequest = jest.fn().mockResolvedValue(true)
+            setupMocks(adapter)
+            emitDataContinuously()
+
+            const checkCapabilities = jest.spyOn(adapter as any,'checkCapabilities')
+            const waitForData = jest.spyOn(adapter as any,'waitForInitialData')
+
+            await adapter.start({timeout:2000})
+
+            expect(checkCapabilities).toHaveBeenCalled()
+            expect(waitForData).toHaveBeenCalled()
+            expect(checkCapabilities.mock.invocationCallOrder[0]).toBeLessThan(waitForData.mock.invocationCallOrder[0])
+        })
 
     })
 })

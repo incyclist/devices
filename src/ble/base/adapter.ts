@@ -371,8 +371,14 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         // to be implemeted by controllable adapters
     }
 
-    protected async initControl(_props?:BleStartProperties):Promise<void> {        
+    protected async initControl(_props?:BleStartProperties):Promise<void> {
         // to be implemeted by controllable adapters
+    }
+
+    protected async initControlBestEffort(_props?:BleStartProperties):Promise<void> {
+        // to be implemented by controllable adapters that support a best-effort control handshake
+        // for devices that have been downgraded (e.g. FTMS Power Meter-only devices - see
+        // BleFmAdapter.initControlBestEffort, FIXES_BACKLOG #22)
     }
 
     protected getStartLogProps(props:BleStartProperties):BleStartProperties {
@@ -424,12 +430,30 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
                 return false
             }
 
-            await this.waitForInitialData(timeout)
-            await this.checkCapabilities()        
+            // FIXES_BACKLOG #22: checkCapabilities() (a GATT read, not dependent on notification data)
+            // must run before waitForInitialData(), so the FTMS Control Point handshake
+            // (RequestControl/StartOrResume) can be attempted *before* the data-wait timeout, not only
+            // after it - some FTMS firmwares won't start streaming Indoor Bike Data notifications at all
+            // until that handshake has happened.
+            await this.checkCapabilities()
             const skipControl = this.props.capabilities && !this.props.capabilities.includes(IncyclistCapability.Control);
-            if ( this.hasCapability( IncyclistCapability.Control)  && !skipControl)
+            const isControllable = this.hasCapability( IncyclistCapability.Control) && !skipControl
+
+            if (isControllable) {
+                // controllable devices: RequestControl gates pairing success - initControl() is
+                // expected to throw if control could not be established within its own dedicated
+                // timeout, failing pairing fast (caught below) rather than silently exhausting the
+                // whole data-wait timeout.
                 await this.initControl(startProps)
-                   
+            }
+            else {
+                // devices without a settable target (already downgraded, e.g. FTMS Power Meter-only):
+                // attempt the same handshake best-effort - any outcome is only logged, never fatal.
+                // waitForInitialData() below remains the sole arbiter of pairing success for these.
+                await this.initControlBestEffort(startProps)
+            }
+
+            await this.waitForInitialData(timeout)
 
             this.stopped = false;    
             this.started = true;
