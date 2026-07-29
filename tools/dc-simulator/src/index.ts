@@ -83,7 +83,7 @@ const main = async ({configFile = './config/smarttrainer.json'}) => {
     const instance = new Bonjour({interface:_interface} as any)
 
     //config.host = config.referer?.address??config.addresses?.[0]??config.host
-    //config.host = 'dcsim.local'
+    config.host = 'dcsim.local'
     // delete config.host
     // console.log('# Bonjour.publish:',JSON.stringify(config,null,2))
     instance.publish( config)
