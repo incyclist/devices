@@ -21,6 +21,11 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     protected onDeviceDisconnectHandler = this.emit.bind(this)
     protected onDisconnectDoneHandler = this.onDisconnectDone.bind(this)
     protected startTask: InteruptableTask<TaskState,boolean>;
+    // FIXES_BACKLOG #23: tracks an in-flight start()/stop() call so concurrent invocations on the
+    // same adapter instance can converge on (dedupe against) the one already running, instead of
+    // each launching their own duplicate startAdapter()/teardown run.
+    protected startPromise?: Promise<boolean>;
+    protected stopPromise?: Promise<boolean>;
     constructor( settings:BleDeviceSettings, props?:DeviceProperties) {
         super(settings,props)
 
@@ -295,15 +300,27 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         return 'connected'
     }
 
-    async start( startProps?: BleStartProperties ): Promise<boolean> { 
+    async start( startProps?: BleStartProperties ): Promise<boolean> {
 
-        if (this.isStarting()) {
-            await this.stop()
+        // FIXES_BACKLOG #23: if a stop() is currently in flight for this adapter, wait for its
+        // *real* completion (i.e. the previous run's underlying startAdapter() promise has
+        // genuinely settled - see stop() below) before deciding what to do. Loop rather than a
+        // single await: once we resume, another concurrent start()/stop() may already have moved
+        // the state further along (e.g. kicked off a fresh stop of its own).
+        while (this.stopPromise) {
+            await this.stopPromise
+        }
+
+        // a start is already in flight and no stop is pending - don't force a stop+restart (that
+        // was the bug): converge concurrent start() calls onto the one already running instead of
+        // launching a duplicate startAdapter() run.
+        if (this.isStarting() && this.startPromise) {
+            return this.startPromise
         }
 
         const ble = this.getBle()
-        
-        
+
+
         ble.once('disconnect-done',this.onDisconnectDoneHandler)
 
         this.startTask = new InteruptableTask( this.startAdapter(startProps), {
@@ -313,12 +330,22 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             log: this.logEvent.bind(this)
         })
 
-        const res = await this.startTask.run()
+        this.startPromise = this.runStartTask(ble)
+        return this.startPromise
+    }
 
-        if (!res) {
-            ble.removeListener('disconnect-done',this.onDisconnectDoneHandler)
+    protected async runStartTask(ble:IBleInterface<any>): Promise<boolean> {
+        try {
+            const res = await this.startTask.run()
+
+            if (!res) {
+                ble.removeListener('disconnect-done',this.onDisconnectDoneHandler)
+            }
+            return res;
         }
-        return res;
+        finally {
+            this.startPromise = undefined
+        }
     }
 
     protected isStarting():boolean {
@@ -555,36 +582,68 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
 
     }
 
-    async stop(): Promise<boolean> { 
+    async stop(): Promise<boolean> {
+
+        // FIXES_BACKLOG #23: dedupe concurrent stop() calls on the same adapter instance - share
+        // one in-flight stop rather than running the teardown logic (sensor.reset(), listener
+        // removal, etc.) a second time.
+        if (this.stopPromise) {
+            return this.stopPromise
+        }
+
+        this.stopPromise = this.runStop()
+        try {
+            return await this.stopPromise
+        }
+        finally {
+            this.stopPromise = undefined
+        }
+    }
+
+    protected async runStop(): Promise<boolean> {
         this.logEvent( {message:'stopping device', device:this.getName(),interface:this.getInterface()})
 
         if (this.isStarting()) {
-            await this.startTask.stop()
+            const task = this.startTask
+
+            // signal the in-flight start to stop: this flips InteruptableTask's internal
+            // isRunning flag and resolves its wrapper promise, so isStarting() correctly becomes
+            // false and the in-flight startAdapter() sees (via its own isStarting() checks) that
+            // it has been interrupted once it reaches them.
+            await task.stop()
+
+            // FIXES_BACKLOG #23: the flag flip above does NOT mean the actual startAdapter() work
+            // (e.g. an already-dispatched BLE GATT write still awaiting its response) has finished
+            // - await the raw wrapped promise too, so stop() itself doesn't resolve until the
+            // prior run has genuinely settled (completed, errored, or hit its own timeout). Without
+            // this, a subsequent start() could begin while the previous run's GATT operations were
+            // still physically in flight, colliding with them.
+            await task.getUnderlyingPromise()?.catch(()=>{})
         }
 
         // make sure that we restart upon next start() call, even if the stop fails
         this.started = false;
         this.resetData()
-        
+
         if (!this.getSensor()) {
-            this.logEvent( {message:'device stopped - not started yet', device:this.getName(),interface:this.getInterface()})    
+            this.logEvent( {message:'device stopped - not started yet', device:this.getName(),interface:this.getInterface()})
             return true;
         }
         const sensor = this.getSensor();
 
 
-        sensor.off('data',this.onDeviceDataHandler) 
+        sensor.off('data',this.onDeviceDataHandler)
         sensor.off('disconnected', this.onDeviceDisconnectHandler)
-        sensor.off('error',console.log) 
+        sensor.off('error',console.log)
         const ble = this.getBle()
         ble.removeListener('disconnect-done',this.onDisconnectDoneHandler)
 
         sensor.reset();
-        this.resetData()        
+        this.resetData()
         this.stopped = true
         this.started = false
 
-        this.logEvent( {message:'device stopped', device:this.getName(),interface:this.getInterface()})    
+        this.logEvent( {message:'device stopped', device:this.getName(),interface:this.getInterface()})
         return this.stopped
     }
 
