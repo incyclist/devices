@@ -314,10 +314,27 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
         const sensor = this.getSensor();
 
+        // FIXES_BACKLOG #25: `cancelled`/`controlAbort` let every "give up" path (the dedicated
+        // timeout below, or the adapter itself being stopped) both (a) stop the retry loop from
+        // iterating again, immediately - not just eventually, once `isStarting()` catches up - and
+        // (b) genuinely cancel whatever `sensor.requestControl()` call is currently in flight,
+        // instead of abandoning it to keep running (and holding its 'data' listener on the shared
+        // Control Point characteristic) on its own, much longer, internal timeline. `abandon()` is
+        // idempotent so it is safe to call from more than one of these paths.
+        let cancelled = false
+        const controlAbort = new AbortController()
+        const abandon = () => {
+            if (cancelled)
+                return
+            cancelled = true
+            controlAbort.abort()
+        }
+
         const controlPromise = new Promise<boolean>( (resolve) =>{
 
 
             this.startTask.notifyOnStop(() => {
+                abandon()
                 resolve(false)
             })
 
@@ -327,16 +344,16 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
                 }
 
 
-                while (!hasControl && this.isStarting()) {
+                while (!hasControl && !cancelled && this.isStarting()) {
                     if (tryCnt++ === 0) {
                         this.logEvent( {message:'requesting control', device:this.getName(), interface:this.getInterface()})
                     }
-                    hasControl = await sensor.requestControl();
+                    hasControl = await sensor.requestControl(controlAbort.signal);
                     if (hasControl) {
                         this.logEvent( {message:'control granted', device:this.getName(), interface:this.getInterface()})
                         resolve( this.isStarting() )
                     }
-                    else {
+                    else if (!cancelled) {
                         await sleep(this.requestControlRetryDelay)
                     }
                 }
@@ -349,16 +366,22 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         // of relying entirely on the (much longer) shared outer pairing timeout to ever stop it. If it
         // is still starting (i.e. this isn't just an ordinary stop/interrupt) and control was never
         // granted within that window, fail fast with an explicit error.
+        //
+        // FIXES_BACKLOG #25: `onCancel` fires synchronously the moment this timeout (or an explicit
+        // stop of this task) gives up on `controlPromise` - used to abandon() the still in-flight
+        // requestControl() call above, so nothing from this generation keeps running afterward.
         const waitTask = new InteruptableTask<TaskState,boolean>( controlPromise, {
             timeout: this.requestControlTimeout,
             name: 'establishControl',
             errorOnTimeout: false,
-            log: this.logEvent.bind(this)
+            log: this.logEvent.bind(this),
+            onCancel: abandon
         })
 
         const granted = await waitTask.run()
 
         if (!granted && this.isStarting()) {
+            abandon()
             this.logEvent({message:'could not establish control', device:this.getName(), interface:this.getInterface()})
             throw new Error('could not establish control')
         }

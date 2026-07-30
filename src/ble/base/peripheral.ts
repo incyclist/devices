@@ -569,38 +569,84 @@ export class BlePeripheral implements IBlePeripheral {
             }
         }
 
+        const signal = options?.signal
 
         return new Promise( (resolve,reject) => {
 
+            // FIXES_BACKLOG #25: a write that is abandoned (timed out or explicitly cancelled via
+            // `signal`) must not leave its 'data' listener attached to `c` forever - `c` is the same,
+            // reused characteristic object across adapter generations, so a leaked listener here
+            // survives long past this call and can steal a later, unrelated write's real response.
+            // `onData` holds the *specific* listener reference this call attached, so cleanup only
+            // ever removes its own listener - never a concurrent/later write's.
+            let settled = false
+            let onData: ((data:Buffer)=>void)|undefined
+
+            const cleanup = () => {
+                if (onData) {
+                    c.off('data', onData)
+                    onData = undefined
+                }
+                signal?.removeEventListener('abort', onAbort)
+            }
+
+            const settleResolve = (result:Buffer) => {
+                if (settled) return
+                settled = true
+                cleanup()
+                resolve(result)
+            }
+
+            const settleReject = (err:Error) => {
+                if (settled) return
+                settled = true
+                cleanup()
+                reject(err)
+            }
+
+            const onAbort = () => {
+                settleReject(new Error('aborted'))
+            }
+
+            if (signal) {
+                if (signal.aborted) {
+                    settleReject(new Error('aborted'))
+                    return
+                }
+                signal.addEventListener('abort', onAbort, {once:true})
+            }
+
             const write = () => {
-                if (this.disconnecting || !this.connected)
-                    return Promise.resolve(Buffer.from([]))
-        
-                c.on('data', (data)=>{
-                    c.removeAllListeners('data')
-                    resolve(data)
-                })
+                if (this.disconnecting || !this.connected) {
+                    settleResolve(Buffer.from([]))
+                    return
+                }
+
+                onData = (responseData:Buffer) => {
+                    settleResolve(responseData)
+                }
+                c.on('data', onData)
 
                 this.logEvent({message:'write request', characteristic:uuid, data:data.toString('hex'), withoutResponse:options?.withoutResponse===true})
-    
+
                 c.write( data, options?.withoutResponse===true,(err) =>{
-                    if (err) 
-                        reject(err)
+                    if (err)
+                        settleReject(err)
                 })
 
                 if (options?.withoutResponse) {
-                    resolve(Buffer.from([]))
-                }   
+                    settleResolve(Buffer.from([]))
+                }
 
             }
 
             if ( !options?.withoutResponse ) {
-                this.subscribe(characteristicUUID,null).then( success => {
+                this.subscribe(characteristicUUID,null).then( () => {
                     write()
                 })
             }
             else {
-                write() 
+                write()
             }
 
         })

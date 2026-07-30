@@ -183,6 +183,13 @@ export type BleCommsConnectProps = {
 export interface BleWriteProps {
     withoutResponse?: boolean;
     timeout?: number
+    /**
+     * Optional cancellation signal (FIXES_BACKLOG #25). When aborted while a write() is still
+     * waiting for its response, the in-flight write settles immediately and cleans up its own
+     * 'data' listener on the characteristic, instead of being abandoned until its own timeout
+     * (or forever, if none was given).
+     */
+    signal?: AbortSignal
 }
 
 
