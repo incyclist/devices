@@ -32,6 +32,7 @@ export interface TaskProps<T,P> {
 interface InternalTaskState<P> {
     tsStart?:number
     tsTimeout?:number
+    timeoutDuration?:number // duration (in ms) of timeout
     isRunning:boolean
     timeout?: NodeJS.Timeout
     promise?:Promise<P>
@@ -106,6 +107,7 @@ export class InteruptableTask<T extends TaskState, P > {
             const {timeout} = this.props
             if (timeout) {
                 this.internalState.tsTimeout = this.internalState.tsStart + timeout
+                this.internalState.timeoutDuration = timeout
                 this.internalState.onTimeout = this.onTimeout.bind(this)
                 this.internalState.timeout = setTimeout( ()=>{ this.internalEvents.emit('timeout')}, timeout)
                 this.internalEvents.on('timeout',this.internalState.onTimeout)
@@ -192,7 +194,7 @@ export class InteruptableTask<T extends TaskState, P > {
             return;
      
         const message = this.props.name? `${this.props.name} timeout` : 'timeout';
-        this.logEvent({message,active:this.isRunning()})
+        this.logEvent({message,active:this.isRunning(), duration:this.internalState?.timeoutDuration })
         this.clearTimeout()
 
         this.notifyCancel()

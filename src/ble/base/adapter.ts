@@ -277,6 +277,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
 
     /* istanbul ignore next */
     getDefaultStartupTimeout():number {
+        
         return 30000 // 30s
     }
 

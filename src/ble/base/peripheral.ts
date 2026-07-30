@@ -166,8 +166,8 @@ export class BlePeripheral implements IBlePeripheral {
         this.onDisconnectHandler = callback
     }
 
-    getManufacturerData() {
-        return this.announcement?.manufacturerData
+    getManufacturerData():Buffer {
+        return this.announcement?.manufacturerData as Buffer
     }
 
     getServiceData(uuid:string): Buffer|undefined {
@@ -218,8 +218,29 @@ export class BlePeripheral implements IBlePeripheral {
         
         const res = await promise
         sleep(0).then(()=> { delete this.discoverServicesPromise} )
+
+        const isComplete = this.checkAnnouncedServices(res)
+        if (!isComplete) {
+            this.logEvent({message:'service data incomplete - disconnecting'})
+            //this.getPeripheral().emit('disconnect')
+            
+        }
+        
         return res
 
+    }
+
+    protected checkAnnouncedServices(discovered:string[]) {
+        const announced = this.getAnnouncedServices().map(x=>beautifyUUID(x))
+        const toBeChecked = discovered.map(x=>beautifyUUID(x))
+
+        const cntAnnounced = announced.length;
+        let cntVerified  = 0;
+        for ( const s of announced) {
+            if ( toBeChecked.includes(s) )
+                cntVerified++
+        }
+        return cntAnnounced===cntVerified
     }
 
     protected async _discoverServices(): Promise<string[]> {
@@ -286,7 +307,7 @@ export class BlePeripheral implements IBlePeripheral {
     }
 
 
-    async subscribe(characteristicUUID: string, callback: (characteristicUuid: string, data: Buffer, isNotify?) => void): Promise<boolean> {
+    async subscribe(characteristicUUID: string, callback: (characteristicUuid: string, data: Buffer, isNotify?:boolean) => void): Promise<boolean> {
 
         try {
             if (this.disconnecting || !this.connected) {
