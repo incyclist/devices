@@ -307,14 +307,14 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         // genuinely settled - see stop() below) before deciding what to do. Loop rather than a
         // single await: once we resume, another concurrent start()/stop() may already have moved
         // the state further along (e.g. kicked off a fresh stop of its own).
-        while (this.stopPromise) {
+        while (this.stopPromise !== undefined) {
             await this.stopPromise
         }
 
         // a start is already in flight and no stop is pending - don't force a stop+restart (that
         // was the bug): converge concurrent start() calls onto the one already running instead of
         // launching a duplicate startAdapter() run.
-        if (this.isStarting() && this.startPromise) {
+        if (this.isStarting() && this.startPromise !== undefined) {
             return this.startPromise
         }
 
@@ -587,7 +587,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         // FIXES_BACKLOG #23: dedupe concurrent stop() calls on the same adapter instance - share
         // one in-flight stop rather than running the teardown logic (sensor.reset(), listener
         // removal, etc.) a second time.
-        if (this.stopPromise) {
+        if (this.stopPromise !== undefined) {
             return this.stopPromise
         }
 
