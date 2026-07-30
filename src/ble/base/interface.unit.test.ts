@@ -187,7 +187,7 @@ describe('BleInterface', () => {
             expect(i.isConnected()).toBeFalsy()
             expect(logger.logEvent).toHaveBeenCalledWith({message:'BLE connect request',interface:'ble'})
             expect(logger.logEvent).toHaveBeenCalledWith({message:'BLE state change', state:'unknown',interface:'ble'})
-            expect(logger.logEvent).toHaveBeenCalledWith({message:'BLE connect timeout', active:true,interface:'ble'})
+            expect(logger.logEvent).toHaveBeenCalledWith({message:'BLE connect timeout', active:true,duration:100,interface:'ble'})
 
         })
 
