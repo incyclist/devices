@@ -584,7 +584,7 @@ export class BlePeripheral implements IBlePeripheral {
 
             const cleanup = () => {
                 if (onData) {
-                    c.removeListener('data', onData)
+                    c.off('data', onData)
                     onData = undefined
                 }
                 signal?.removeEventListener('abort', onAbort)
