@@ -151,6 +151,41 @@ describe('BleFitnessMachineDevice',()=>{
             expect(capturedSignal?.aborted).toBe(true)
         })
 
+        // FIXES_BACKLOG (follow-up to #25): AbortSignal.any() is not implemented on React Native's
+        // Hermes engine - confirmed via real-device (mobile) testing, where it threw
+        // "AbortSignal.any is not a function" synchronously, before the underlying write() was ever
+        // even invoked. Merging the externally-supplied and internal timeout signals must not depend
+        // on that static method.
+        test('merges an externally supplied signal with the internal timeout signal without using AbortSignal.any()',async ()=>{
+            const originalAny = AbortSignal.any
+            // @ts-expect-error - simulate a JS engine (e.g. Hermes/React Native) that doesn't implement
+            // the static AbortSignal.any() method at all
+            delete AbortSignal.any
+
+            try {
+                let capturedSignal: AbortSignal|undefined
+                ftms.write = jest.fn().mockImplementation( (_uuid:string,_data:Buffer,options:any) => {
+                    capturedSignal = options?.signal
+                    return new Promise<Buffer>( (_resolve,reject) => {
+                        options?.signal?.addEventListener('abort', ()=>reject(new Error('aborted')), {once:true})
+                    })
+                })
+
+                const external = new AbortController()
+                const data = Buffer.alloc(1)
+                const promise = ftms.writeFtmsMessage(0x00, data, {timeout:5000, signal:external.signal})
+
+                external.abort()
+
+                const result = await promise
+                expect(result).toBe(0x04)   // OpCodeResut.OperationFailed
+                expect(capturedSignal?.aborted).toBe(true)
+            }
+            finally {
+                AbortSignal.any = originalAny
+            }
+        })
+
         test('requestControl() forwards an external cancellation signal down to the underlying write()',async ()=>{
             let capturedSignal: AbortSignal|undefined
             ftms.write = jest.fn().mockImplementation( (_uuid:string,_data:Buffer,options:any) => {

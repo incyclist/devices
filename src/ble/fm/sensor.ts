@@ -730,6 +730,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
             this.logEvent({message:'fmts:write', device:this.getName(), data:data.toString('hex')})
             let res:Buffer
             let tsStart  = Date.now()
+
             if (props?.timeout) {
                 // FIXES_BACKLOG #25: bound the underlying write() with its own AbortController, so
                 // that if this dedicated timeout fires, the in-flight write is genuinely cancelled
@@ -738,8 +739,16 @@ export default class BleFitnessMachineDevice extends TBleSensor {
                 // (much later, or non-existent) settlement. Merged with any externally supplied
                 // signal (e.g. from BleFmAdapter.establishControl()'s own dedicated timeout), so
                 // either giving up aborts this specific write.
+                //
+                // FIXES_BACKLOG (follow-up): AbortSignal.any() is not implemented on React Native's
+                // Hermes engine (confirmed via real-device testing - "AbortSignal.any is not a
+                // function"), so the two signals are merged manually instead of relying on that
+                // static method.
                 const internalAbort = new AbortController()
-                const signal = props.signal ? AbortSignal.any([props.signal, internalAbort.signal]) : internalAbort.signal
+                const combined = new AbortController()
+                props.signal?.addEventListener('abort', () => combined.abort(), {once:true})
+                internalAbort.signal.addEventListener('abort', () => combined.abort(), {once:true})
+                const signal = combined.signal
 
                 res = await new InteruptableTask<TaskState,Buffer>(
                     this.write( FTMS_CP, data, {...props, signal} ),
@@ -753,6 +762,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
             else {
                 res = await this.write( FTMS_CP, data, props )
             }
+
             const responseData = Buffer.from(res)
 
             const opCode = responseData.readUInt8(0)
