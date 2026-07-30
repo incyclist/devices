@@ -327,4 +327,136 @@ describe('BleFmAdapter',()=>{
         })
 
     })
+
+    // FIXES_BACKLOG #23: BleAdapter.start()/stop() must genuinely serialize concurrent calls on the
+    // same adapter instance - real-device validation against a controllable FTMS trainer ("Volt")
+    // showed the entire checkCapabilities()/establishControl()/requestControl() sequence firing
+    // twice, ~4ms apart, producing two concurrent RequestControl BLE writes that collided at the
+    // GATT layer.
+    describe('start/stop concurrency (FIXES_BACKLOG #23)',()=>{
+
+        let sensor: BleFitnessMachineDevice
+        let ble: Partial<IBleInterface<any>>
+        let adapter: BleFmAdapter
+        let iv
+
+        const setupMocks = (a) => {
+            a.getSensor = jest.fn( ()=> sensor)
+            a.getBle = jest.fn().mockReturnValue(ble)
+            a.requestControlRetryDelay = 10
+        }
+
+        const emitDataContinuously = () => {
+            iv = setInterval( ()=> { sensor.emit('data',{power:0}) }, 10)
+        }
+
+        beforeEach( ()=>{
+            sensor = new BleFitnessMachineDevice(null)
+            sensor['_features'] = {fitnessMachine:0, targetSettings:0}
+            sensor.subscribe = jest.fn().mockResolvedValue(true)
+            sensor.setCrr = jest.fn()
+            sensor.setCw = jest.fn()
+            sensor.hasPeripheral = jest.fn().mockReturnValue(true)
+            sensor.reset = jest.fn()
+            sensor.startSensor = jest.fn().mockReturnValue(true)
+            sensor.stopSensor = jest.fn().mockReturnValue(true)
+            sensor.setSlope = jest.fn().mockReturnValue(true)
+            sensor.setTargetPower = jest.fn().mockResolvedValue(true)
+            sensor.requestControl = jest.fn().mockResolvedValue(true)
+            sensor.startRequest = jest.fn().mockResolvedValue(true)
+
+            ble = {
+                once: jest.fn(),
+                pauseLogging: jest.fn(),
+                resumeLogging: jest.fn(),
+                removeListener: jest.fn(),
+                connect: jest.fn().mockResolvedValue(true),
+                createPeripheralFromSettings: jest.fn(),
+                waitForPeripheral: jest.fn().mockResolvedValue({})
+            }
+
+            adapter = new BleFmAdapter({interface:'ble', name:'1', address:'1111', protocol:'fm'})
+        })
+
+        afterEach( async ()=>{
+            if (iv)
+                clearInterval(iv)
+            await adapter.stop()
+        })
+
+        test('overlapping start() calls converge on one result - no duplicate startAdapter()/GATT work',async ()=>{
+            setupMocks(adapter)
+            emitDataContinuously()
+
+            const p1 = adapter.start({timeout:2000})
+            const p2 = adapter.start({timeout:2000})
+
+            const [r1,r2] = await Promise.all([p1,p2])
+
+            expect(r1).toBe(true)
+            expect(r2).toBe(true)
+            // the second start() must have converged onto the first's in-flight run, rather than
+            // launching its own duplicate startAdapter() - so every GATT-level operation below
+            // must only have happened once
+            expect(ble.connect).toHaveBeenCalledTimes(1)
+            expect(sensor.startSensor).toHaveBeenCalledTimes(1)
+            expect(sensor.requestControl).toHaveBeenCalledTimes(1)
+        })
+
+        test('start() called while a stop() is in flight waits for the REAL completion of that stop (not just an internal flag flip) before proceeding',async ()=>{
+            setupMocks(adapter)
+            emitDataContinuously()
+
+            let resolveConnect: (v:boolean)=>void
+            const connectDeferred = new Promise<boolean>( resolve => { resolveConnect = resolve })
+            let connectCallCount = 0
+            ble.connect = jest.fn().mockImplementation( ()=> {
+                connectCallCount++
+                return connectCallCount===1 ? connectDeferred : Promise.resolve(true)
+            })
+
+            // p1 gets stuck mid-flight, awaiting connect() - simulates a still in-flight GATT
+            // operation (e.g. an already-dispatched RequestControl write awaiting its response)
+            const p1 = adapter.start({timeout:5000})
+            await sleep(20)
+            expect(connectCallCount).toBe(1)
+
+            // stop() while p1 is still genuinely running underneath
+            const stopPromise = adapter.stop()
+            await sleep(20)
+
+            // InteruptableTask's internal isRunning flag has already flipped to false by now (it
+            // does so synchronously) - but the real work (still awaiting connectDeferred) has not
+            // finished. A second start() must wait for stop()'s genuine completion, not this flag.
+            const p2 = adapter.start({timeout:5000})
+            await sleep(30)
+
+            expect(connectCallCount).toBe(1)   // p2 must NOT have proceeded to a fresh connect() yet
+
+            // let the first run's connect() (and the whole chain depending on it) finally settle
+            resolveConnect(true)
+
+            await stopPromise
+            await Promise.all([p1,p2])
+
+            expect(connectCallCount).toBeGreaterThanOrEqual(2)   // p2 eventually did proceed
+        })
+
+        test('concurrent stop() calls dedupe - teardown logic only runs once',async ()=>{
+            setupMocks(adapter)
+            emitDataContinuously()
+
+            await adapter.start({timeout:2000})
+            expect(adapter.started).toBeTruthy()
+
+            const s1 = adapter.stop()
+            const s2 = adapter.stop()
+
+            const [r1,r2] = await Promise.all([s1,s2])
+
+            expect(r1).toBe(r2)
+            expect(sensor.reset).toHaveBeenCalledTimes(1)
+        })
+
+    })
 })

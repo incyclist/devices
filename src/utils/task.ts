@@ -49,8 +49,24 @@ export class InteruptableTask<T extends TaskState, P > {
         this.start()
     }
 
-    getPromise():Promise<P> {    
+    getPromise():Promise<P> {
         return this.internalState.promise;
+    }
+
+    /**
+     * Returns the raw promise this task was constructed with (e.g. the actual async operation -
+     * such as `startAdapter()` - still executing underneath).
+     *
+     * Unlike `getPromise()`/`run()`, which settle as soon as the task is told to stop or hits its
+     * timeout (i.e. they only reflect that the caller no longer wants to keep waiting), this
+     * promise only settles once the wrapped work has genuinely finished executing - completed,
+     * thrown, or otherwise done. Callers that need to know the underlying work has *truly*
+     * finished (not just been signalled to stop) should await this instead (see
+     * FIXES_BACKLOG #23 - `BleAdapter.stop()` uses this to avoid resolving before a still in-flight
+     * `startAdapter()` run has actually settled).
+     */
+    getUnderlyingPromise():Promise<any>|undefined {
+        return this.promise;
     }
 
     getState():T {
