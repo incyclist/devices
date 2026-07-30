@@ -99,6 +99,109 @@ describe('BleFitnessMachineDevice',()=>{
     
 
 
+    // FIXES_BACKLOG #25: writeFtmsMessage()'s dedicated per-write timeout must genuinely cancel the
+    // underlying write() call it wraps, instead of abandoning it to keep running - and holding its
+    // 'data' listener on the shared characteristic - on its own (much longer, or non-existent) timeline.
+    describe('writeFtmsMessage / requestControl cancellation (FIXES_BACKLOG #25)',()=>{
+
+        let ftms:any
+
+        beforeEach( ()=>{
+            ftms = new BleFitnessMachineDevice(null,{id:'test'})
+            ftms.logEvent = jest.fn()
+            ftms.isSubscribed = jest.fn().mockReturnValue(true)
+        })
+
+        test('a dedicated write timeout aborts the underlying write() call, and resolves to OperationFailed (0x04)',async ()=>{
+            let capturedSignal: AbortSignal|undefined
+            ftms.write = jest.fn().mockImplementation( (_uuid:string,_data:Buffer,options:any) => {
+                capturedSignal = options?.signal
+                return new Promise<Buffer>( ()=>{} )   // never settles on its own - simulates a stuck GATT write
+            })
+
+            const data = Buffer.alloc(1)
+            const result = await ftms.writeFtmsMessage(0x00, data, {timeout:20})
+
+            expect(result).toBe(0x04)   // OpCodeResut.OperationFailed
+            expect(capturedSignal).toBeInstanceOf(AbortSignal)
+            expect(capturedSignal!.aborted).toBe(true)
+        })
+
+        test('an externally supplied signal (e.g. from establishControl()) also aborts the underlying write(), independent of the internal timeout',async ()=>{
+            let capturedSignal: AbortSignal|undefined
+            // mimics the real BlePeripheral.write(), which reacts to `options.signal` itself and
+            // rejects once it fires - here we only need to verify writeFtmsMessage() correctly
+            // forwards (merges) the externally supplied signal down into the call, not re-test
+            // write()'s own abort handling (already covered in peripheral.unit.test.ts)
+            ftms.write = jest.fn().mockImplementation( (_uuid:string,_data:Buffer,options:any) => {
+                capturedSignal = options?.signal
+                return new Promise<Buffer>( (_resolve,reject) => {
+                    options?.signal?.addEventListener('abort', ()=>reject(new Error('aborted')), {once:true})
+                })
+            })
+
+            const external = new AbortController()
+            const data = Buffer.alloc(1)
+            const promise = ftms.writeFtmsMessage(0x00, data, {timeout:5000, signal:external.signal})
+
+            external.abort()
+
+            const result = await promise
+            expect(result).toBe(0x04)   // OpCodeResut.OperationFailed
+            expect(capturedSignal?.aborted).toBe(true)
+        })
+
+        test('requestControl() forwards an external cancellation signal down to the underlying write()',async ()=>{
+            let capturedSignal: AbortSignal|undefined
+            ftms.write = jest.fn().mockImplementation( (_uuid:string,_data:Buffer,options:any) => {
+                capturedSignal = options?.signal
+                return new Promise<Buffer>( (_resolve,reject) => {
+                    options?.signal?.addEventListener('abort', ()=>reject(new Error('aborted')), {once:true})
+                })
+            })
+
+            const external = new AbortController()
+            const promise = ftms.requestControl(external.signal)
+
+            external.abort()
+
+            const hasControl = await promise
+            expect(hasControl).toBe(false)
+            expect(capturedSignal?.aborted).toBe(true)
+        })
+
+        test('setTargetPower() still resolves normally - unaffected by the listener-cleanup/cancellation changes',async ()=>{
+            ftms.hasControl = true   // control already granted -> requestControl() short-circuits to true
+            ftms.write = jest.fn().mockImplementation( (_uuid:string,_data:Buffer,_options:any) => {
+                const res = Buffer.alloc(3)
+                res.writeUInt8(0x80,0)          // ResponseCode
+                res.writeUInt8(0x05,1)          // request: SetTargetPower
+                res.writeUInt8(0x01,2)          // result: Success
+                return Promise.resolve(res)
+            })
+
+            const result = await ftms.setTargetPower(150)
+
+            expect(result).toBe(true)
+        })
+
+        test('startRequest() still resolves normally - unaffected by the listener-cleanup/cancellation changes',async ()=>{
+            ftms.hasControl = true
+            ftms.write = jest.fn().mockImplementation( (_uuid:string,_data:Buffer,_options:any) => {
+                const res = Buffer.alloc(3)
+                res.writeUInt8(0x80,0)          // ResponseCode
+                res.writeUInt8(0x07,1)          // request: StartOrResume
+                res.writeUInt8(0x01,2)          // result: Success
+                return Promise.resolve(res)
+            })
+
+            const result = await ftms.startRequest()
+
+            expect(result).toBe(true)
+        })
+
+    })
+
     describe('onDisconnect',()=>{})
 
     describe('parseHrm',()=>{})

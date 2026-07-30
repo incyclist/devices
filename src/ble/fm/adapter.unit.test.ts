@@ -146,7 +146,10 @@ describe('BleFmAdapter',()=>{
             expect(sensor.startSensor).toHaveBeenCalledWith()
             expect(sensor.setCrr).toHaveBeenCalledWith(0.0036)
             expect(sensor.setCw).toHaveBeenCalledWith(0.35)
-            expect(sensor.requestControl).toHaveBeenCalledWith()
+            // FIXES_BACKLOG #25: establishControl() now passes its own cancellation signal into
+            // requestControl(), so its dedicated timeout can genuinely cancel this in-flight call
+            // instead of abandoning it - hence an AbortSignal argument, not a bare call.
+            expect(sensor.requestControl).toHaveBeenCalledWith(expect.any(AbortSignal))
             expect(sensor.setSlope).toHaveBeenCalledWith(0)
 
             // expected calls to interface
@@ -324,6 +327,123 @@ describe('BleFmAdapter',()=>{
             expect(checkCapabilities).toHaveBeenCalled()
             expect(waitForData).toHaveBeenCalled()
             expect(checkCapabilities.mock.invocationCallOrder[0]).toBeLessThan(waitForData.mock.invocationCallOrder[0])
+        })
+
+    })
+
+    // FIXES_BACKLOG #25: establishControl()'s own dedicated timeout must genuinely cancel the
+    // currently in-flight sensor.requestControl() call when it gives up, instead of just stopping
+    // its retry loop from iterating again - the in-flight call (and its underlying write) was
+    // previously left running in the background, on its own much longer internal timeline, and
+    // could outlive the entire adapter generation that spawned it (real-device log evidence: a
+    // RequestControl write issued before an establishControl timeout/adapter teardown only reported
+    // its own failure a full second after a brand new adapter cycle had already started).
+    describe('establishControl() cancels the in-flight requestControl() call on timeout (FIXES_BACKLOG #25)',()=>{
+
+        let sensor: BleFitnessMachineDevice
+        let ble: Partial<IBleInterface<any>>
+        let adapter: BleFmAdapter
+        let iv
+
+        const setupMocks = (a) => {
+            a.getSensor = jest.fn( ()=> sensor)
+            a.getBle = jest.fn().mockReturnValue(ble)
+            a.requestControlRetryDelay = 10
+        }
+
+        const emitDataContinuously = () => {
+            iv = setInterval( ()=> { sensor.emit('data',{power:0}) }, 10)
+        }
+
+        beforeEach( ()=>{
+            sensor = new BleFitnessMachineDevice(null)
+            sensor.subscribe = jest.fn().mockResolvedValue(true)
+            sensor.setCrr = jest.fn()
+            sensor.setCw = jest.fn()
+            sensor.hasPeripheral = jest.fn().mockReturnValue(true)
+            sensor.reset = jest.fn()
+            sensor.startSensor = jest.fn().mockReturnValue(true)
+            sensor.stopSensor = jest.fn().mockReturnValue(true)
+            sensor.setSlope = jest.fn().mockReturnValue(true)
+            sensor.setTargetPower = jest.fn().mockResolvedValue(true)
+
+            ble = {
+                once: jest.fn(),
+                pauseLogging: jest.fn(),
+                resumeLogging: jest.fn(),
+                removeListener: jest.fn(),
+                connect: jest.fn().mockResolvedValue(true),
+                createPeripheralFromSettings: jest.fn(),
+                waitForPeripheral: jest.fn().mockResolvedValue({})
+            }
+
+            adapter = new BleFmAdapter({interface:'ble', name:'1', address:'1111', protocol:'fm'})
+        })
+
+        afterEach( async ()=>{
+            if (iv)
+                clearInterval(iv)
+            await adapter.stop()
+        })
+
+        test('a still in-flight requestControl() call is genuinely aborted, not abandoned, once the dedicated timeout fires',async ()=>{
+            sensor['_features'] = {fitnessMachine:0, targetSettings:0}   // stays controllable
+
+            let capturedSignal: AbortSignal|undefined
+            let abortObserved = false
+
+            // simulates a write that is genuinely stuck waiting for a GATT response that never
+            // arrives (e.g. a contended device that never answers RequestControl) - it only ever
+            // settles if/when it is told to abort, exactly like the real write()/writeFtmsMessage()
+            // chain now behaves (FIXES_BACKLOG #25)
+            sensor.requestControl = jest.fn().mockImplementation((signal?:AbortSignal) => {
+                capturedSignal = signal
+                return new Promise<boolean>( resolve => {
+                    signal?.addEventListener('abort', () => {
+                        abortObserved = true
+                        resolve(false)
+                    }, {once:true})
+                })
+            })
+            sensor.startRequest = jest.fn().mockResolvedValue(true)
+            setupMocks(adapter)
+            ;(adapter as any).requestControlTimeout = 50   // dedicated control timeout, kept short for the test
+            emitDataContinuously()
+
+            const result = await adapter.start({timeout:2000})
+
+            expect(result).toBe(false)
+            expect(adapter.started).toBeFalsy()
+
+            // the in-flight call must have genuinely been told to stop - not just left running
+            expect(capturedSignal).toBeInstanceOf(AbortSignal)
+            expect(capturedSignal!.aborted).toBe(true)
+            expect(abortObserved).toBe(true)
+        })
+
+        test('the retry loop does not issue a further requestControl() call once the dedicated timeout has fired',async ()=>{
+            sensor['_features'] = {fitnessMachine:0, targetSettings:0}
+
+            sensor.requestControl = jest.fn().mockImplementation((signal?:AbortSignal) => {
+                return new Promise<boolean>( resolve => {
+                    signal?.addEventListener('abort', () => resolve(false), {once:true})
+                })
+            })
+            sensor.startRequest = jest.fn().mockResolvedValue(true)
+            setupMocks(adapter)
+            ;(adapter as any).requestControlTimeout = 50
+            ;(adapter as any).requestControlRetryDelay = 10
+            emitDataContinuously()
+
+            await adapter.start({timeout:2000})
+
+            const callsAtGiveUp = (sensor.requestControl as any).mock.calls.length
+            expect(callsAtGiveUp).toBeGreaterThan(0)
+
+            // let plenty more time pass than the retry delay would need for another iteration -
+            // no further call should ever happen once establishControl() has given up
+            await sleep(100)
+            expect((sensor.requestControl as any).mock.calls.length).toBe(callsAtGiveUp)
         })
 
     })

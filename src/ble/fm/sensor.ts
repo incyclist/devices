@@ -149,7 +149,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         this.ftmsServiceDataAttempts = 0
     }
 
-    async requestControl(): Promise<boolean> {
+    async requestControl(signal?:AbortSignal): Promise<boolean> {
 
         if (this.hasControl) {
             return true;
@@ -171,7 +171,10 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         const data = Buffer.alloc(1)
         data.writeUInt8(OpCode.RequestControl,0)
 
-        const res = await this.writeFtmsMessage(OpCode.RequestControl, data , {timeout:5000})
+        // FIXES_BACKLOG #25: an optional external cancellation signal - passed down by
+        // BleFmAdapter.establishControl() so its own dedicated timeout can genuinely cancel this
+        // specific in-flight write, instead of just abandoning it once establishControl() gives up.
+        const res = await this.writeFtmsMessage(OpCode.RequestControl, data , {timeout:5000, signal})
         if (res===OpCodeResult.Success) {
             this.hasControl = true
         }
@@ -722,17 +725,28 @@ export default class BleFitnessMachineDevice extends TBleSensor {
 
 
     protected async writeFtmsMessage(requestedOpCode:number, data:Buffer, props?:BleWriteProps) {
-        
+
         try {
             this.logEvent({message:'fmts:write', device:this.getName(), data:data.toString('hex')})
             let res:Buffer
             let tsStart  = Date.now()
             if (props?.timeout) {
+                // FIXES_BACKLOG #25: bound the underlying write() with its own AbortController, so
+                // that if this dedicated timeout fires, the in-flight write is genuinely cancelled
+                // (its 'data' listener removed, its promise settled) instead of being abandoned to
+                // run - and hold a listener on the shared characteristic - until its own eventual
+                // (much later, or non-existent) settlement. Merged with any externally supplied
+                // signal (e.g. from BleFmAdapter.establishControl()'s own dedicated timeout), so
+                // either giving up aborts this specific write.
+                const internalAbort = new AbortController()
+                const signal = props.signal ? AbortSignal.any([props.signal, internalAbort.signal]) : internalAbort.signal
+
                 res = await new InteruptableTask<TaskState,Buffer>(
-                    this.write( FTMS_CP, data, props ),
+                    this.write( FTMS_CP, data, {...props, signal} ),
                     {
                         timeout: props.timeout??800,
-                        errorOnTimeout: true
+                        errorOnTimeout: true,
+                        onCancel: () => internalAbort.abort()
                     }
                 ).run()
             }

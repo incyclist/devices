@@ -75,4 +75,58 @@ describe('InteruptableTask', ()=>{
 
     })
 
+    describe('onCancel (FIXES_BACKLOG #25)', ()=>{
+
+        // FIXES_BACKLOG #25: onCancel is the hook callers use to signal cancellation (e.g. abort an
+        // AbortController) to whatever is still genuinely running underneath, the moment this task
+        // itself gives up - either via its own timeout, or an explicit stop(). It must never fire on
+        // natural completion/error of the wrapped promise.
+
+        test('fires when the task times out', async ()=>{
+            const raw = new Promise<boolean>( ()=>{} )   // never settles on its own
+            const onCancel = vi.fn()
+
+            const task = new InteruptableTask<any,boolean>(raw, { timeout:10, errorOnTimeout:false, onCancel })
+
+            await task.run()
+
+            expect(onCancel).toHaveBeenCalledTimes(1)
+        })
+
+        test('fires when explicitly stopped', async ()=>{
+            const raw = new Promise<boolean>( ()=>{} )   // never settles on its own
+            const onCancel = vi.fn()
+
+            const task = new InteruptableTask<any,boolean>(raw, { errorOnTimeout:false, onCancel })
+
+            await task.stop()
+
+            expect(onCancel).toHaveBeenCalledTimes(1)
+        })
+
+        test('does not fire when the wrapped promise completes naturally', async ()=>{
+            const raw = Promise.resolve(true)
+            const onCancel = vi.fn()
+
+            const task = new InteruptableTask<any,boolean>(raw, { errorOnTimeout:false, onCancel })
+
+            await task.run()
+
+            expect(onCancel).not.toHaveBeenCalled()
+        })
+
+        test('does not fire a second time when stop() is called after a timeout already fired', async ()=>{
+            const raw = new Promise<boolean>( ()=>{} )
+            const onCancel = vi.fn()
+
+            const task = new InteruptableTask<any,boolean>(raw, { timeout:10, errorOnTimeout:false, onCancel })
+
+            await task.run()
+            await task.stop()
+
+            expect(onCancel).toHaveBeenCalledTimes(1)
+        })
+
+    })
+
 })

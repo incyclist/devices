@@ -17,6 +17,16 @@ export interface TaskProps<T,P> {
     errorOnTimeout?:boolean
     log?: (event:any) => void
     onDone?: (state:T) => P
+
+    /**
+     * Side-effect hook invoked synchronously whenever this task gives up on the wrapped promise -
+     * either because its own timeout fired, or because it was explicitly stop()'d (never on natural
+     * completion/error of the wrapped promise itself). Unlike `onDone`, its return value is ignored;
+     * it exists purely so callers can signal cancellation (e.g. abort an AbortController) to whatever
+     * async work is still genuinely running underneath, instead of just abandoning it (FIXES_BACKLOG
+     * #25 - the same class of bug fixed for Adapter.start()/stop() in #23, applied one layer deeper).
+     */
+    onCancel?: () => void
 }
 
 interface InternalTaskState<P> {
@@ -39,6 +49,7 @@ export class InteruptableTask<T extends TaskState, P > {
     protected internalEvents = new EventEmitter()
     protected promise?:Promise<P>
     protected onStopNotifiers: Array<()=>void> = []
+    protected cancelNotified = false
 
     constructor(promise:Promise<any>, props?:TaskProps<T,P>   ) { 
         this.state = (props?.state??{}) as T;
@@ -112,9 +123,10 @@ export class InteruptableTask<T extends TaskState, P > {
 
                 this.sendStopNotification()
 
-                if (this.getState().result==='completed' || this.getState().result==='error') 
+                if (this.getState().result==='completed' || this.getState().result==='error')
                     return;
 
+                this.notifyCancel()
 
                 this.getState().result = 'stopped'
 
@@ -179,9 +191,11 @@ export class InteruptableTask<T extends TaskState, P > {
         if (!this.internalState.timeout) 
             return;
      
-        const message = this.props.name? `${this.props.name} timeout` : 'timeout';    
+        const message = this.props.name? `${this.props.name} timeout` : 'timeout';
         this.logEvent({message,active:this.isRunning()})
         this.clearTimeout()
+
+        this.notifyCancel()
 
         this.getState().result = 'timeout'
         const resolve = this.internalState.onDone
@@ -198,6 +212,18 @@ export class InteruptableTask<T extends TaskState, P > {
         else 
             resolve(null)
 
+    }
+
+    /**
+     * Invokes `onCancel` at most once per task, however many of timeout/explicit-stop paths reach
+     * it (e.g. an explicit stop() called after the timeout already fired independently) - so callers
+     * can rely on "cancelled at most once" without having to make their own handler idempotent.
+     */
+    protected notifyCancel() {
+        if (this.cancelNotified)
+            return
+        this.cancelNotified = true
+        this.props.onCancel?.()
     }
 
     protected sendStopNotification() {
