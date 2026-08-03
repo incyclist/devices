@@ -473,18 +473,30 @@ export class BlePeripheral implements IBlePeripheral {
         }
     }
 
-    async discoverAllCharacteristics():Promise<string[]> {   
-        try {     
+    async discoverAllCharacteristics():Promise<string[]> {
+        try {
             const {name,address} = this.getInfo()
 
             this.logEvent({message:'discover all characteristics',name,address})
 
 
-            const res = await this.getPeripheral().discoverSomeServicesAndCharacteristicsAsync([],[])                
+            const res = await this.getPeripheral().discoverSomeServicesAndCharacteristicsAsync([],[])
 
             const found:string[] = []
             const uuids:string[] = []
-            
+
+            // FIXES_BACKLOG #30: this call queries ALL characteristics on the device, so its result
+            // is a complete, authoritative picture of what the live GATT connection currently exposes.
+            // A UUID that was cached from an earlier round but is not reconfirmed here is stale (the
+            // device/adapter no longer serves it on this connection) and must be dropped - otherwise
+            // subscribe()/read()/write() would keep handing out a dead characteristic reference instead
+            // of falling through to their existing "not found" handling.
+            const freshUuids = new Set(res.characteristics.map(c => beautifyUUID(c.uuid)))
+            Object.keys(this.characteristics).forEach( existing => {
+                if (!freshUuids.has(existing))
+                    delete this.characteristics[existing]
+            })
+
             res.characteristics.forEach(c => {
                 this.characteristics[beautifyUUID(c.uuid)] = c
                 found.push(c.uuid)
@@ -494,7 +506,7 @@ export class BlePeripheral implements IBlePeripheral {
             this.logEvent({message:'discover all characteristics result',name,address,uuids:uuids.join('|')})
 
 
-            return found        
+            return found
         }
         catch(err) {
             this.logEvent( {message:'Error', fn:'discoverAllCharacteristics', error:err.message, stack:err.stack})
@@ -502,17 +514,28 @@ export class BlePeripheral implements IBlePeripheral {
         }
     }
 
-    async discoverSomeCharacteristics(characteristics:string[]):Promise<string[]> {   
-        try {     
+    async discoverSomeCharacteristics(characteristics:string[]):Promise<string[]> {
+        try {
             const target = characteristics.map(c=> fullUUID(c))
-            const res = await this.getPeripheral().discoverSomeServicesAndCharacteristicsAsync([],target)                
+            const res = await this.getPeripheral().discoverSomeServicesAndCharacteristicsAsync([],target)
 
             const found = []
+
+            // FIXES_BACKLOG #30: this call targets a specific set of UUIDs - any of the requested
+            // UUIDs not reconfirmed by this fresh, targeted discovery is stale and must be removed
+            // from the cache, rather than continuing to serve a dead reference from an earlier round.
+            const freshUuids = new Set(res.characteristics.map(c => beautifyUUID(c.uuid)))
+            characteristics.forEach( requested => {
+                const requestedUuid = beautifyUUID(requested)
+                if (!freshUuids.has(requestedUuid))
+                    delete this.characteristics[requestedUuid]
+            })
+
             res.characteristics.forEach(c => {
                 this.characteristics[beautifyUUID(c.uuid)] = c
                 found.push(c.uuid)
             });
-            return found        
+            return found
         }
         catch(err) {
             this.logEvent( {message:'Error', fn:'discoverAllCharacteristics', error:err.message, stack:err.stack})

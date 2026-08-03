@@ -151,4 +151,150 @@ describe('BlePeripheral', () => {
 
     })
 
+    describe('discoverAllCharacteristics/discoverSomeCharacteristics cache invalidation (FIXES_BACKLOG #30)', () => {
+
+        const IBD = '2AD2'   // FTMS Indoor Bike Data
+        const FMS = '2ADA'   // FTMS FM Status
+        const CP2 = '2AD9'   // FTMS Control Point - never found in any round in the real repro
+
+        const setup = () => {
+            const announcement: any = { peripheral: { id: 'p1', address: 'AA:BB:CC:DD:EE:FF' }, serviceUUIDs: [] }
+            const p: any = new BlePeripheral(announcement)
+            p.connected = true
+            p.logEvent = () => {}
+
+            const peripheral = {
+                id: 'p1',
+                address: 'AA:BB:CC:DD:EE:FF',
+                discoverSomeServicesAndCharacteristicsAsync: vi.fn(),
+            }
+            p.getPeripheral = () => peripheral
+
+            return { p, peripheral }
+        }
+
+        test('discoverAllCharacteristics: a characteristic present in an earlier round and absent from a later one is dropped from the cache', async () => {
+            const { p, peripheral } = setup()
+
+            const ibd = new MockChar(IBD)
+            const fms = new MockChar(FMS)
+
+            // round 1: both found, get cached
+            peripheral.discoverSomeServicesAndCharacteristicsAsync.mockResolvedValueOnce({ services: [], characteristics: [ibd, fms] })
+            await p.discoverAllCharacteristics()
+            expect(p.getRawCharacteristic(IBD)).toBe(ibd)
+            expect(p.getRawCharacteristic(FMS)).toBe(fms)
+
+            // round 2, same live connection: only IBD reconfirmed, FMS is no longer returned
+            peripheral.discoverSomeServicesAndCharacteristicsAsync.mockResolvedValueOnce({ services: [], characteristics: [ibd] })
+            await p.discoverAllCharacteristics()
+
+            expect(p.getRawCharacteristic(IBD)).toBe(ibd)
+            expect(p.getRawCharacteristic(FMS)).toBeUndefined()
+        })
+
+        test('discoverAllCharacteristics: a characteristic that stays present across rounds is unaffected', async () => {
+            const { p, peripheral } = setup()
+
+            const ibd = new MockChar(IBD)
+
+            peripheral.discoverSomeServicesAndCharacteristicsAsync.mockResolvedValueOnce({ services: [], characteristics: [ibd] })
+            await p.discoverAllCharacteristics()
+
+            peripheral.discoverSomeServicesAndCharacteristicsAsync.mockResolvedValueOnce({ services: [], characteristics: [ibd] })
+            await p.discoverAllCharacteristics()
+
+            expect(p.getRawCharacteristic(IBD)).toBe(ibd)
+        })
+
+        test('discoverAllCharacteristics: a first-ever discovery still populates the cache normally', async () => {
+            const { p, peripheral } = setup()
+
+            const ibd = new MockChar(IBD)
+            const fms = new MockChar(FMS)
+            peripheral.discoverSomeServicesAndCharacteristicsAsync.mockResolvedValueOnce({ services: [], characteristics: [ibd, fms] })
+
+            expect(p.getRawCharacteristic(IBD)).toBeUndefined()
+
+            const found = await p.discoverAllCharacteristics()
+
+            expect(found).toEqual([IBD, FMS])
+            expect(p.getRawCharacteristic(IBD)).toBe(ibd)
+            expect(p.getRawCharacteristic(FMS)).toBe(fms)
+        })
+
+        test('discoverAllCharacteristics: reproduces the real repro - a characteristic never found in any round (Control Point) stays absent, while a reconfirmed-then-dropped one (FM Status) is removed', async () => {
+            const { p, peripheral } = setup()
+
+            const ibd = new MockChar(IBD)
+            const fms = new MockChar(FMS)
+
+            // round 1: empty
+            peripheral.discoverSomeServicesAndCharacteristicsAsync.mockResolvedValueOnce({ services: [], characteristics: [] })
+            await p.discoverAllCharacteristics()
+
+            // round 2: real characteristics found and cached, CP2 still absent
+            peripheral.discoverSomeServicesAndCharacteristicsAsync.mockResolvedValueOnce({ services: [], characteristics: [ibd, fms] })
+            await p.discoverAllCharacteristics()
+            expect(p.getRawCharacteristic(IBD)).toBe(ibd)
+            expect(p.getRawCharacteristic(FMS)).toBe(fms)
+
+            // round 3 (lazily triggered by write() looking for CP2): empty again
+            peripheral.discoverSomeServicesAndCharacteristicsAsync.mockResolvedValueOnce({ services: [], characteristics: [] })
+            await p.discoverAllCharacteristics()
+
+            expect(p.getRawCharacteristic(IBD)).toBeUndefined()
+            expect(p.getRawCharacteristic(FMS)).toBeUndefined()
+            expect(p.getRawCharacteristic(CP2)).toBeUndefined()
+        })
+
+        test('discoverSomeCharacteristics: a requested characteristic absent from a fresh targeted discovery is dropped from the cache', async () => {
+            const { p, peripheral } = setup()
+
+            const ibd = new MockChar(IBD)
+            const fms = new MockChar(FMS)
+
+            peripheral.discoverSomeServicesAndCharacteristicsAsync.mockResolvedValueOnce({ services: [], characteristics: [ibd, fms] })
+            await p.discoverSomeCharacteristics([IBD, FMS])
+            expect(p.getRawCharacteristic(IBD)).toBe(ibd)
+            expect(p.getRawCharacteristic(FMS)).toBe(fms)
+
+            // same connection, later targeted re-discovery of the same two UUIDs: FMS no longer found
+            peripheral.discoverSomeServicesAndCharacteristicsAsync.mockResolvedValueOnce({ services: [], characteristics: [ibd] })
+            await p.discoverSomeCharacteristics([IBD, FMS])
+
+            expect(p.getRawCharacteristic(IBD)).toBe(ibd)
+            expect(p.getRawCharacteristic(FMS)).toBeUndefined()
+        })
+
+        test('discoverSomeCharacteristics: a characteristic that stays present across rounds is unaffected', async () => {
+            const { p, peripheral } = setup()
+
+            const ibd = new MockChar(IBD)
+
+            peripheral.discoverSomeServicesAndCharacteristicsAsync.mockResolvedValueOnce({ services: [], characteristics: [ibd] })
+            await p.discoverSomeCharacteristics([IBD])
+
+            peripheral.discoverSomeServicesAndCharacteristicsAsync.mockResolvedValueOnce({ services: [], characteristics: [ibd] })
+            await p.discoverSomeCharacteristics([IBD])
+
+            expect(p.getRawCharacteristic(IBD)).toBe(ibd)
+        })
+
+        test('discoverSomeCharacteristics: a first-ever discovery still populates the cache normally', async () => {
+            const { p, peripheral } = setup()
+
+            const ibd = new MockChar(IBD)
+            peripheral.discoverSomeServicesAndCharacteristicsAsync.mockResolvedValueOnce({ services: [], characteristics: [ibd] })
+
+            expect(p.getRawCharacteristic(IBD)).toBeUndefined()
+
+            const found = await p.discoverSomeCharacteristics([IBD])
+
+            expect(found).toEqual([IBD])
+            expect(p.getRawCharacteristic(IBD)).toBe(ibd)
+        })
+
+    })
+
 })
