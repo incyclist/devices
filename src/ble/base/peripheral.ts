@@ -15,6 +15,14 @@ export class BlePeripheral implements IBlePeripheral {
     protected disconnectedSignalled: boolean = false
     protected discoveredServiceUUIds: Array<string>|undefined
 
+    // FIXES_BACKLOG #26: set by discoverServices() whenever a service the peripheral advertised
+    // (BlePeripheralAnnouncement.serviceUUIDs, captured at scan time) is missing from the live
+    // discoverServicesAsync() result - a self-powered device that has *just* powered back on can
+    // advertise before its GATT server has actually finished registering the Fitness Machine
+    // Service. subscribeSelected() consults this flag to fail the connection attempt cleanly
+    // instead of proceeding against an incomplete characteristic table.
+    protected serviceDiscoveryIncomplete: boolean = false
+
     protected discoverServicesPromise: Promise<string[]>|undefined
     protected discoverCharacteristicsPromise: Record<string,Promise<BleCharacteristic[]>|undefined> = {}
 
@@ -220,12 +228,13 @@ export class BlePeripheral implements IBlePeripheral {
         sleep(0).then(()=> { delete this.discoverServicesPromise} )
 
         const isComplete = this.checkAnnouncedServices(res)
+        this.serviceDiscoveryIncomplete = !isComplete
         if (!isComplete) {
-            this.logEvent({message:'service data incomplete - disconnecting'})
-            //this.getPeripheral().emit('disconnect')
-            
+            const {name,address} = this.getInfo()
+            this.logEvent({message:'service data incomplete - disconnecting', name, address,
+                announced:this.getAnnouncedServices(), discovered:this.getDiscoveredServices()})
         }
-        
+
         return res
 
     }
@@ -435,7 +444,24 @@ export class BlePeripheral implements IBlePeripheral {
             catch {}
         }
 
-        
+        // FIXES_BACKLOG #26: an advertised service that didn't show up in discovery means the
+        // peripheral's GATT server (most likely) hasn't finished initializing yet - proceeding to
+        // discoverAllCharacteristics()/subscribe() here would only ever find a partial (or empty)
+        // characteristic table for it. Fail this connection attempt cleanly instead: disconnect (so
+        // the physical BLE connection is genuinely torn down, not left half-subscribed) and reset the
+        // cached discovery state, so the *next* connection attempt performs a real, fresh discovery
+        // rather than reusing this incomplete result or re-hitting a live-connection GATT cache.
+        if (this.serviceDiscoveryIncomplete) {
+            this.logEvent({message:'peripheral subscribe selected failed', uuids, reason:'service discovery incomplete',
+                announced:this.getAnnouncedServices(), discovered:this.getDiscoveredServices()})
+
+            this.discoveredServiceUUIds = undefined
+            this.serviceDiscoveryIncomplete = false
+
+            await this.disconnect().catch(()=>{})
+            return false
+        }
+
         try {
             if (Object.keys(this.characteristics).length===0) {
                 await this.discoverAllCharacteristics();
