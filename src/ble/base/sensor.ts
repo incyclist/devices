@@ -102,6 +102,15 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
         this.connectPromise = this.connectPromise ?? this.peripheral.connect()
 
         const connected = await this.connectPromise
+
+        // FIXES_BACKLOG #26: clear the cached promise once it has settled (mirrors
+        // BlePeripheral.connect()'s own pattern). This field only exists to dedupe *concurrent*
+        // calls into startSensor() - leaving it set forever after the first call would mean a later,
+        // separate startSensor() call (e.g. a retry after this peripheral was deliberately
+        // disconnected because service discovery came back incomplete) never re-invokes
+        // peripheral.connect() at all, so a genuinely fresh reconnect attempt could never happen.
+        delete this.connectPromise
+
         if (!connected)
             return false
 

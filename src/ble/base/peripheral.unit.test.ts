@@ -31,6 +31,45 @@ class MockChar extends EventEmitter implements BleCharacteristic {
 
 const CP = '2AD9'   // FTMS Control Point - the shared characteristic at the centre of FIXES_BACKLOG #25
 
+// FTMS UUIDs at the centre of FIXES_BACKLOG #26 - a rower advertises the Fitness Machine Service
+// (1826) but, if it just powered back on, its GATT server may not have finished registering it yet.
+const FTMS = '1826'
+const ROWER_DATA = '2AD1'
+const CONTROL_POINT = '2AD9'
+const FM_STATUS = '2ADA'
+
+// Minimal noble-style raw peripheral mock - a plain EventEmitter, matching
+// `BleRawPeripheral extends EventEmitter` (src/ble/types.ts). `discovered` drives what
+// discoverServicesAsync()/discoverSomeServicesAndCharacteristicsAsync() report back, independent of
+// what the peripheral advertised (captured separately in the announcement passed to BlePeripheral).
+class MockRawPeripheral extends EventEmitter {
+    id: string
+    address: string
+    services: any[] = []
+    advertisement: any = {}
+    state = 'connected'
+    discovered: Array<{ uuid: string }> = []
+
+    constructor(id = 'p1', address = 'AA:BB:CC:DD:EE:FF') {
+        super()
+        this.id = id
+        this.address = address
+    }
+
+    async connectAsync(): Promise<void> {}
+    async disconnectAsync(): Promise<void> {}
+    disconnect(cb: (err?: Error) => void): Promise<void> {
+        cb()
+        return Promise.resolve()
+    }
+    async discoverServicesAsync(_serviceUUIDs: string[]) {
+        return this.discovered
+    }
+    async discoverSomeServicesAndCharacteristicsAsync(_serviceUUIDs: string[], _characteristicUUIDs: string[]) {
+        return { services: this.discovered, characteristics: [] }
+    }
+}
+
 describe('BlePeripheral', () => {
 
     describe('write (FIXES_BACKLOG #25)', () => {
@@ -147,6 +186,81 @@ describe('BlePeripheral', () => {
             // B must resolve with the real response - not be silently discarded by A's cleanup
             await expect(writeB).resolves.toEqual(realResponse)
             expect(c.listenerCount('data')).toBe(0)
+        })
+
+    })
+
+    describe('subscribeSelected - service discovery vs advertisement mismatch (FIXES_BACKLOG #26)', () => {
+
+        // e.g. a rower that just powered back on: it advertises 1826 (Fitness Machine Service),
+        // but its GATT server hasn't finished registering it yet by the time discovery runs.
+        const setup = (announcedServices: string[], discoveredServices: string[]) => {
+            const raw = new MockRawPeripheral()
+            raw.discovered = discoveredServices.map(uuid => ({ uuid }))
+
+            const announcement: any = { peripheral: raw, serviceUUIDs: announcedServices, advertisement: {} }
+            const p: any = new BlePeripheral(announcement)
+            p.connected = true
+            p.logEvent = () => {}
+
+            // pre-populate characteristics so subscribeSelected() skips discoverAllCharacteristics()
+            // and has real notify-capable characteristics available to (attempt to) subscribe to
+            const chars = [ROWER_DATA, CONTROL_POINT, FM_STATUS].map(uuid => new MockChar(uuid))
+            p.characteristics = Object.fromEntries(chars.map(c => [beautifyUUID(c.uuid), c]))
+
+            return { p, raw, chars }
+        }
+
+        test('a discovered service list missing an advertised service fails the connection attempt instead of subscribing', async () => {
+            const { p } = setup([FTMS], [])   // advertised FTMS, but discovery came back without it
+
+            const subscribeSpy = vi.spyOn(p, 'subscribe')
+
+            const result = await p.subscribeSelected([ROWER_DATA, CONTROL_POINT, FM_STATUS], () => {})
+
+            expect(result).toBe(false)
+            expect(subscribeSpy).not.toHaveBeenCalled()
+
+            // the peripheral must be torn down, not left half-subscribed, so the next connection
+            // attempt performs a genuinely fresh discovery rather than reusing this incomplete result
+            expect(p.isConnected()).toBe(false)
+        })
+
+        test('a discovered service list that also contains unrelated/extra services still fails when the advertised one is missing', async () => {
+            const { p } = setup([FTMS], ['180A'])  // some other, unrelated service was found - still no FTMS
+
+            const subscribeSpy = vi.spyOn(p, 'subscribe')
+
+            const result = await p.subscribeSelected([ROWER_DATA, CONTROL_POINT, FM_STATUS], () => {})
+
+            expect(result).toBe(false)
+            expect(subscribeSpy).not.toHaveBeenCalled()
+        })
+
+        test('a discovered service list matching the advertisement proceeds to subscribe as today', async () => {
+            const { p } = setup([FTMS], [FTMS])
+
+            const subscribeSpy = vi.spyOn(p, 'subscribe').mockResolvedValue(true)
+
+            const result = await p.subscribeSelected([ROWER_DATA, CONTROL_POINT, FM_STATUS], () => {})
+
+            expect(result).toBe(true)
+            expect(subscribeSpy).toHaveBeenCalledTimes(3)
+            expect(p.isConnected()).toBe(true)
+        })
+
+        test('an advertisement with no announced services (advertisement-less) proceeds to subscribe as today', async () => {
+            // some devices (e.g. older Tacx) don't advertise their service UUIDs at all - nothing to
+            // verify discovery against, so this must never be treated as a mismatch
+            const { p, raw } = setup([], [])
+            raw.discovered = [{ uuid: FTMS }]   // discovery still finds the real GATT table
+
+            const subscribeSpy = vi.spyOn(p, 'subscribe').mockResolvedValue(true)
+
+            const result = await p.subscribeSelected([ROWER_DATA, CONTROL_POINT, FM_STATUS], () => {})
+
+            expect(result).toBe(true)
+            expect(subscribeSpy).toHaveBeenCalledTimes(3)
         })
 
     })

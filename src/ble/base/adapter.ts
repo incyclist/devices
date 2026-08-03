@@ -521,7 +521,19 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         const sensor = this.getSensor();
         let connected = await sensor.startSensor()
 
-        await sensor.subscribe()
+        const subscribed = await sensor.subscribe()
+
+        // FIXES_BACKLOG #26: subscribe() can come back false even though the physical BLE connect
+        // just succeeded - e.g. BlePeripheral.subscribeSelected() detected that a service the
+        // peripheral advertised didn't show up in discovery (self-powered device still finishing
+        // GATT server init after just powering back on) and cleanly failed/disconnected instead of
+        // subscribing against an incomplete characteristic table. Treat that the same as a failed
+        // connection attempt: don't wire up data/disconnect listeners or attempt pair()/RequestControl
+        // against a device we know is incompletely discovered - let startAdapter() report this as a
+        // clean connection failure so the outer retry loop performs a genuinely fresh reconnect.
+        if (connected && !subscribed) {
+            connected = false
+        }
 
         if(connected) {
             sensor.on('data',this.onDeviceDataHandler) 
