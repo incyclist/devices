@@ -7,6 +7,14 @@ import { IndoorBikeData } from "../fm/index.js";
 import BleFitnessMachineDevice from "../fm/sensor.js";
 import { BleProtocol, BleWriteProps  } from "../types.js";
 import { beautifyUUID} from "../utils.js";
+import { InteruptableTask, TaskState } from "../../utils/task.js";
+
+// Wahoo-CP writes (e.g. setSimMode/0x43) don't reliably trigger a GATT notify response on every
+// firmware (confirmed on the KICKR SNAP) - unlike unlock/requestControl, which uses its own longer
+// (10s) budget for the initial handshake. Bound every other Wahoo-CP write to this shorter duration
+// so a missing notify fails just that single write (non-fatal to callers) instead of hanging the
+// whole pairing flow indefinitely.
+const WAHOO_CP_WRITE_TIMEOUT = 800; // ms
 
 export default class BleWahooDevice extends BleFitnessMachineDevice {
     static readonly profile: LegacyProfile = 'Smart Trainer'
@@ -298,28 +306,54 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
     }
 
     protected async writeWahooFtmsMessage(requestedOpCode:number, data:Buffer,props?:BleWriteProps) {
-        
+
         try {
 
             const opcode = Buffer.alloc(1)
             opcode.writeUInt8(requestedOpCode,0)
             const message = Buffer.concat( [opcode,data])
             this.logEvent({message:'wahoo cp:write', data:message.toString('hex')})
-           
-            const res = await this.write( this.wahooCP, message,props )
 
+            let res:Buffer
+
+            if (props?.timeout) {
+                // Mirrors BleFitnessMachineDevice.writeFtmsMessage()'s bounded-write pattern
+                // (FIXES_BACKLOG #25): some Wahoo-CP opcodes (e.g. setSimMode/0x43 on the KICKR SNAP)
+                // never trigger a GATT notify response, so an unguarded await here can hang forever,
+                // silently consuming the whole outer pairing timeout even while the trainer is
+                // already connected and streaming real data. Bound the underlying write() with its
+                // own AbortController-backed timeout, so a missing notify fails just this single
+                // write - non-fatal to the caller - instead of the entire startAdapter() chain.
+                const internalAbort = new AbortController()
+                const combined = new AbortController()
+                props.signal?.addEventListener('abort', () => combined.abort(), {once:true})
+                internalAbort.signal.addEventListener('abort', () => combined.abort(), {once:true})
+                const signal = combined.signal
+
+                res = await new InteruptableTask<TaskState,Buffer>(
+                    this.write( this.wahooCP, message, {...props, signal} ),
+                    {
+                        timeout: props.timeout,
+                        errorOnTimeout: true,
+                        onCancel: () => internalAbort.abort()
+                    }
+                ).run()
+            }
+            else {
+                res = await this.write( this.wahooCP, message, props )
+            }
 
             const responseData = Buffer.from(res)
             const result = responseData.readUInt8(0)
             //const opCode = responseData.readUInt8(1)
             return result===1;
 
-            
+
         }
         catch(err) {
             this.logEvent({message:'wahoo cp:write failed', opCode: requestedOpCode, reason: err.message})
             return false
-        } 
+        }
     }
 
     // Wahoo has a minimum interval between ERG writes to the trainer to give it time to react and apply a new setting.
@@ -348,7 +382,7 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
             const data = Buffer.alloc(2)
             data.writeInt16LE( Math.round(power), 0)
             
-            const res = await this.writeWahooFtmsMessage(OpCode.setErgMode, data )
+            const res = await this.writeWahooFtmsMessage(OpCode.setErgMode, data, {timeout:WAHOO_CP_WRITE_TIMEOUT} )
             if (res===true) {
                 this.setPowerAdjusting();
                 this.data.targetPower = power;
@@ -390,7 +424,7 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
             data.writeInt16LE( Math.round(crr*10000), 2)
             data.writeInt16LE( Math.round(cw*1000), 4)
             
-            const res = await this.writeWahooFtmsMessage(OpCode.setSimMode, data )
+            const res = await this.writeWahooFtmsMessage(OpCode.setSimMode, data, {timeout:WAHOO_CP_WRITE_TIMEOUT} )
 
             this.isSimMode = true;
             this.simModeSettings={weight,crr,cw}
@@ -409,8 +443,8 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
             const data = Buffer.alloc(2)
             data.writeInt16LE( Math.round(crr*10000), 0)
             
-            const res = await this.writeWahooFtmsMessage(OpCode.setSimCRR, data )
-            return res;            
+            const res = await this.writeWahooFtmsMessage(OpCode.setSimCRR, data, {timeout:WAHOO_CP_WRITE_TIMEOUT} )
+            return res;
         }
         catch(err) {
             this.logEvent({message:'error',fn:'setSimCRR', error:err.message||err, stack:err.stack})
@@ -426,8 +460,8 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
             const data = Buffer.alloc(2)
             data.writeInt16LE( Math.round(cw*1000), 0)
             
-            const res = await this.writeWahooFtmsMessage(OpCode.setSimWindResistance, data )
-            return res;            
+            const res = await this.writeWahooFtmsMessage(OpCode.setSimWindResistance, data, {timeout:WAHOO_CP_WRITE_TIMEOUT} )
+            return res;
         }
         catch(err) {
             this.logEvent({message:'error',fn:'setSimWindResistance', error:err.message||err, stack:err.stack})
@@ -450,8 +484,8 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
             const data = Buffer.alloc(2)
             data.writeUInt16LE( slopeVal, 0)
 
-            const res = await this.writeWahooFtmsMessage(OpCode.setSimGrade, data )
-            return res;            
+            const res = await this.writeWahooFtmsMessage(OpCode.setSimGrade, data, {timeout:WAHOO_CP_WRITE_TIMEOUT} )
+            return res;
         }
         catch(err) {
             this.logEvent({message:'error',fn:'setSimGrade', error:err.message||err, stack:err.stack})
@@ -468,8 +502,8 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
             const data = Buffer.alloc(2)
             data.writeInt16LE( Math.round(value), 0)
             
-            const res = await this.writeWahooFtmsMessage(OpCode.setSimWindSpeed, data )
-            return res;            
+            const res = await this.writeWahooFtmsMessage(OpCode.setSimWindSpeed, data, {timeout:WAHOO_CP_WRITE_TIMEOUT} )
+            return res;
         }
         catch(err:any) {
             this.logEvent({message:'error',fn:'setSimWindSpeed', error:err.message||err, stack:err.stack})
@@ -478,13 +512,37 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
 
     }
 
-    async setWheelCircumference(wheelCircumference: number): Promise<void> {        
+    async setWheelCircumference(wheelCircumference: number): Promise<void> {
         this.wheelCircumference = wheelCircumference
     }
     getWheelCircumference(): number {
         return this.wheelCircumference
     }
 
+    // Wahoo devices (CSP + Wahoo-proprietary Trainer CP only) never expose the FTMS service, so the
+    // inherited BleFitnessMachineDevice implementations of these would always try characteristic
+    // 2ad9, fail (characteristic not found) and log a guaranteed, spurious failure on every single
+    // Wahoo pairing. Slope/power/resistance control already happens through the Wahoo-proprietary CP
+    // (setSlope()/setTargetPower()/setSimMode() etc.), so these are safe, silent no-ops here.
 
+    async startRequest(): Promise<boolean> {
+        return true;
+    }
+
+    async stopRequest(): Promise<boolean> {
+        return true;
+    }
+
+    async PauseRequest(): Promise<boolean> {
+        return true;
+    }
+
+    async setTargetInclination(_inclination: number): Promise<boolean> {
+        return true;
+    }
+
+    async setTargetResistanceLevel(_resistanceLevel: number): Promise<boolean> {
+        return true;
+    }
 
 }
