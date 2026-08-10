@@ -1,6 +1,6 @@
 import { sleep } from "../../utils/utils.js";
 import { BleCharacteristic, BleDeviceIdentifier, BlePeripheralAnnouncement, BleRawCharacteristic, BleRawPeripheral, BleService, BleWriteProps, IBleInterface, IBlePeripheral } from "../types.js";
-import { beautifyUUID, fullUUID, matches, uuid } from "../utils.js";
+import { beautifyUUID, fullUUID, isSameServiceFamily, matches, uuid } from "../utils.js";
 import { BleInterface } from "./interface.js";
 
 export class BlePeripheral implements IBlePeripheral {
@@ -10,7 +10,7 @@ export class BlePeripheral implements IBlePeripheral {
     protected characteristics: Record<string, BleRawCharacteristic> = {}        // known characteristics
     protected onDisconnectHandler?: () => void
     protected ble: BleInterface
-    protected subscribed: Array<{uuid:string,callback:(data:Buffer)=>void}> = [] 
+    protected subscribed: Array<{uuid:string,callback:(data:Buffer)=>void}> = []
     protected disconnecting: boolean = false
     protected disconnectedSignalled: boolean = false
     protected discoveredServiceUUIds: Array<string>|undefined
@@ -20,7 +20,11 @@ export class BlePeripheral implements IBlePeripheral {
     // discoverServicesAsync() result - a self-powered device that has *just* powered back on can
     // advertise before its GATT server has actually finished registering the Fitness Machine
     // Service. subscribeSelected() consults this flag to fail the connection attempt cleanly
-    // instead of proceeding against an incomplete characteristic table.
+    // instead of proceeding against an incomplete characteristic table. Matching uses
+    // isSameServiceFamily() rather than exact equality: custom 128-bit UUIDs may legitimately
+    // differ in their vendor-assigned prefix between advertisement and GATT while sharing the same
+    // vendor base (see isSameServiceFamily()'s comment) - only a genuinely missing service (no
+    // family match at all) counts as incomplete.
     protected serviceDiscoveryIncomplete: boolean = false
 
     protected discoverServicesPromise: Promise<string[]>|undefined
@@ -240,13 +244,13 @@ export class BlePeripheral implements IBlePeripheral {
     }
 
     protected checkAnnouncedServices(discovered:string[]) {
-        const announced = this.getAnnouncedServices().map(x=>beautifyUUID(x))
+        const announced = this.getAnnouncedServices()
         const toBeChecked = discovered.map(x=>beautifyUUID(x))
 
         const cntAnnounced = announced.length;
         let cntVerified  = 0;
         for ( const s of announced) {
-            if ( toBeChecked.includes(s) )
+            if ( toBeChecked.some(d => isSameServiceFamily(s,d)) )
                 cntVerified++
         }
         return cntAnnounced===cntVerified
@@ -444,13 +448,14 @@ export class BlePeripheral implements IBlePeripheral {
             catch {}
         }
 
-        // FIXES_BACKLOG #26: an advertised service that didn't show up in discovery means the
-        // peripheral's GATT server (most likely) hasn't finished initializing yet - proceeding to
-        // discoverAllCharacteristics()/subscribe() here would only ever find a partial (or empty)
-        // characteristic table for it. Fail this connection attempt cleanly instead: disconnect (so
-        // the physical BLE connection is genuinely torn down, not left half-subscribed) and reset the
-        // cached discovery state, so the *next* connection attempt performs a real, fresh discovery
-        // rather than reusing this incomplete result or re-hitting a live-connection GATT cache.
+        // FIXES_BACKLOG #26: an advertised service that didn't show up in discovery (in any member of
+        // its UUID family - see isSameServiceFamily()) means the peripheral's GATT server (most
+        // likely) hasn't finished initializing yet - proceeding to discoverAllCharacteristics()/
+        // subscribe() here would only ever find a partial (or empty) characteristic table for it. Fail
+        // this connection attempt cleanly instead: disconnect (so the physical BLE connection is
+        // genuinely torn down, not left half-subscribed) and reset the cached discovery state, so the
+        // *next* connection attempt performs a real, fresh discovery rather than reusing this
+        // incomplete result or re-hitting a live-connection GATT cache.
         if (this.serviceDiscoveryIncomplete) {
             this.logEvent({message:'peripheral subscribe selected failed', uuids, reason:'service discovery incomplete',
                 announced:this.getAnnouncedServices(), discovered:this.getDiscoveredServices()})
