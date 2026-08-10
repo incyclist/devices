@@ -108,10 +108,16 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
 
 
     createPeripheral(announcement: MulticastDnsAnnouncement): IBlePeripheral {
-        return DirectConnectPeripheral.create(announcement) 
+        return DirectConnectPeripheral.create(announcement)
     }
 
-    
+    // WiFi/mDNS peripherals have no BLE-style GATT service-completeness check (DirectConnectPeripheral
+    // doesn't implement one) - this only exists to satisfy the shared IBleInterface contract.
+    getSupportedServices(): string[] {
+        return []
+    }
+
+
     createDeviceSetting(service:MulticastDnsAnnouncement):BleDeviceSettings {
         try {
             const name = service.name

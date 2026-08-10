@@ -543,5 +543,22 @@ describe('BleInterface', () => {
     describe('createDeviceSetting', () => {})
     describe('waitForPeripheral', () => {})
 
+    // FIXES_BACKLOG #26: BlePeripheral.checkAnnouncedServices() consults this to scope its
+    // announced-vs-discovered completeness check to services an implemented sensor actually cares
+    // about - it must expose whatever was last announced to bindings (setSupportedServices()), not
+    // recompute a fresh value.
+    describe('getSupportedServices', () => {
+        afterEach(() => {
+            (BleInterface as any)._instance = undefined
+        })
+
+        test('returns the cached expectedServices field', () => {
+            const i = BleInterface.getInstance({logger: logger as EventLogger})
+            const custom = ['180d', '1826', 'a0260001-0a7d-4ab3-97fa-f1500f9feb8b']
+            ;(i as any).expectedServices = custom
+
+            expect(i.getSupportedServices()).toBe(custom)
+        })
+    })
 
 } )

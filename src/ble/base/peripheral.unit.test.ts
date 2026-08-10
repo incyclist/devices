@@ -38,6 +38,8 @@ const ROWER_DATA = '2AD1'
 const CONTROL_POINT = '2AD9'
 const FM_STATUS = '2ADA'
 
+const CSP_MEASUREMENT = '2A63'   // Cycling Power Measurement - at the centre of the NEO Bike Plus regression
+
 // Minimal noble-style raw peripheral mock - a plain EventEmitter, matching
 // `BleRawPeripheral extends EventEmitter` (src/ble/types.ts). `discovered` drives what
 // discoverServicesAsync()/discoverSomeServicesAndCharacteristicsAsync() report back, independent of
@@ -334,12 +336,17 @@ describe('BlePeripheral', () => {
 
         // Two genuinely different custom UUIDs (different vendor base, not just a different
         // assigned-number prefix within the same base) must still be treated as a real mismatch -
-        // isSameServiceFamily() must not become "any two 128-bit UUIDs are equivalent".
-        test('a genuinely different custom/vendor service UUID (different base) still fails the connection attempt', async () => {
-            const announced = ['180D', 'A0260001-0A7D-4AB3-97FA-F1500F9FEB8B']
+        // isSameServiceFamily() must not become "any two 128-bit UUIDs are equivalent". The custom
+        // UUID is explicitly declared "expected" here (via a mocked getSupportedServices()) so this
+        // test isolates the "different base" scenario from the "not expected, ignore it" filtering
+        // exercised by the NEO Bike Plus test below.
+        test('an expected custom/vendor service UUID with a genuinely different base still fails the connection attempt', async () => {
+            const CUSTOM = 'A0260001-0A7D-4AB3-97FA-F1500F9FEB8B'
+            const announced = ['180D', CUSTOM]
             const discovered = ['180D', 'DEADBEEF-1111-2222-3333-444455556666']
 
             const { p } = setup(announced, discovered)
+            p.ble = { getSupportedServices: () => ['180d', CUSTOM] }
 
             const subscribeSpy = vi.spyOn(p, 'subscribe')
 
@@ -347,6 +354,42 @@ describe('BlePeripheral', () => {
 
             expect(result).toBe(false)
             expect(subscribeSpy).not.toHaveBeenCalled()
+        })
+
+        // Regression repro: Tacx NEO Bike Plus production log, 2026-08-05 (version 26.8.1). Announces
+        // [1818, 1826, 1000] - a bare, standalone "1000" alongside the two real standard services. No
+        // implemented sensor type declares "1000" as one of its services (it's not a registered SIG
+        // service number in any GATT range we recognize, and none of our sensor implementations
+        // reference it) - most likely a firmware/advertising-packet-size shorthand or scan-library
+        // parsing artifact for the FE031000-... custom service also visible in discovery, but either
+        // way it's irrelevant: nothing we implement needs it. The device never connected in production
+        // (this was not a transient registration race - the user confirmed "1000" was always missing
+        // and eventually switched to ANT+), so the fix is to stop requiring it at all, not to retry.
+        // The two real services (1818 Cycling Power, 1826 FTMS - both in the default expectedServices)
+        // are both genuinely present, so the connection attempt must now succeed.
+        test('an announced service no implemented sensor cares about is ignored even when missing from discovery (NEO Bike Plus regression)', async () => {
+            const announced = ['1818', '1826', '1000']
+            const discovered = [
+                '1800', '1801', '180A', '1816', '1818', '1826', 'FE59',
+                'FE031000-17D0-470A-8798-4AD3E1C1F35B', 'FE03A000-17D0-470A-8798-4AD3E1C1F35B',
+            ]
+
+            const raw = new MockRawPeripheral()
+            raw.discovered = discovered.map(uuid => ({ uuid }))
+            const announcement: any = { peripheral: raw, serviceUUIDs: announced, advertisement: {} }
+            const p: any = new BlePeripheral(announcement)
+            p.connected = true
+            p.logEvent = () => {}
+            // CP (1818) is the only relevant capability here for this test's purposes
+            p.characteristics = { [beautifyUUID(CSP_MEASUREMENT)]: new MockChar(CSP_MEASUREMENT) }
+
+            const subscribeSpy = vi.spyOn(p, 'subscribe').mockResolvedValue(true)
+
+            const result = await p.subscribeSelected([CSP_MEASUREMENT], () => {})
+
+            expect(result).toBe(true)
+            expect(subscribeSpy).toHaveBeenCalledTimes(1)
+            expect(p.isConnected()).toBe(true)
         })
 
     })
