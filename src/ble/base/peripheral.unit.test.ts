@@ -263,6 +263,92 @@ describe('BlePeripheral', () => {
             expect(subscribeSpy).toHaveBeenCalledTimes(3)
         })
 
+        // Regression repro: TICKR FIT F401 (HRM) production log, 2026-08-10. Advertises a custom/vendor
+        // 128-bit UUID (A0260001-0A7D-4AB3-97FA-F1500F9FEB8B) alongside the standard HR/Battery/
+        // DeviceInfo services; GATT discovery reports a *different* custom UUID
+        // (A026EE01-0A7D-4AB3-97FA-F1500F9FEB8B) for what is presumably the same vendor service. Both
+        // UUIDs share the identical last-96-bit vendor base (0A7D-4AB3-97FA-F1500F9FEB8B) and only
+        // differ in the first 32 bits (0001 vs EE01) - the classic vendor "UUID family" pattern
+        // (one private base UUID, many assigned-number services minted from it, mirroring how the
+        // Bluetooth SIG itself defines 16-bit UUIDs against the shared Bluetooth Base UUID). The old
+        // exact-match implementation treated this as two unrelated UUIDs and failed the connection
+        // attempt outright; isSameServiceFamily() recognizes them as the same family and lets the
+        // connection through.
+        test('a same-family (last-96-bits-matching) custom/vendor service UUID is not treated as a mismatch (TICKR FIT regression)', async () => {
+            const HR_MEASUREMENT = '2A37'
+            const announced = ['180D', '180F', '180A', 'A0260001-0A7D-4AB3-97FA-F1500F9FEB8B']
+            const discovered = [
+                '180D', '180F',
+                '6E400001-B5A3-F393-E0A9-E50E24DCCA91', '45121540-51F2-406E-927A-3E1E183412E0',
+                '180A', 'A026EE01-0A7D-4AB3-97FA-F1500F9FEB8B',
+            ]
+
+            const raw = new MockRawPeripheral()
+            raw.discovered = discovered.map(uuid => ({ uuid }))
+            const announcement: any = { peripheral: raw, serviceUUIDs: announced, advertisement: {} }
+            const p: any = new BlePeripheral(announcement)
+            p.connected = true
+            p.logEvent = () => {}
+            p.characteristics = { [beautifyUUID(HR_MEASUREMENT)]: new MockChar(HR_MEASUREMENT) }
+
+            const subscribeSpy = vi.spyOn(p, 'subscribe').mockResolvedValue(true)
+
+            const result = await p.subscribeSelected([HR_MEASUREMENT], () => {})
+
+            expect(result).toBe(true)
+            expect(subscribeSpy).toHaveBeenCalledTimes(1)
+            expect(p.isConnected()).toBe(true)
+        })
+
+        // Regression repro: Garmin HRM Pro+ production log, 2026-08-09 (version 26.8.2, one day before
+        // the TICKR FIT occurrence above - same defect class, different vendor). Advertises
+        // 6A4E3E10-667B-11E3-949A-0800200C9A66; GATT discovery reports
+        // 6A4E2401-667B-11E3-949A-0800200C9A66 - again, identical last-96-bit base
+        // (667B-11E3-949A-0800200C9A66), differing only in the assigned-number prefix (3E10 vs 2401).
+        // Also exercises two services (1800 Generic Access, 1801 Generic Attribute) that appear in
+        // discovery but were never announced at all - correctly ignored, since the check only ever
+        // requires announced -> discovered, never the reverse.
+        test('a same-family (last-96-bits-matching) custom/vendor service UUID is not treated as a mismatch (HRM Pro+ regression)', async () => {
+            const HR_MEASUREMENT = '2A37'
+            const announced = ['180D', '1814', '6A4E3E10-667B-11E3-949A-0800200C9A66']
+            const discovered = [
+                '1800', '1801', '6A4E2401-667B-11E3-949A-0800200C9A66', '180A', '180F', '180D', '1814',
+            ]
+
+            const raw = new MockRawPeripheral()
+            raw.discovered = discovered.map(uuid => ({ uuid }))
+            const announcement: any = { peripheral: raw, serviceUUIDs: announced, advertisement: {} }
+            const p: any = new BlePeripheral(announcement)
+            p.connected = true
+            p.logEvent = () => {}
+            p.characteristics = { [beautifyUUID(HR_MEASUREMENT)]: new MockChar(HR_MEASUREMENT) }
+
+            const subscribeSpy = vi.spyOn(p, 'subscribe').mockResolvedValue(true)
+
+            const result = await p.subscribeSelected([HR_MEASUREMENT], () => {})
+
+            expect(result).toBe(true)
+            expect(subscribeSpy).toHaveBeenCalledTimes(1)
+            expect(p.isConnected()).toBe(true)
+        })
+
+        // Two genuinely different custom UUIDs (different vendor base, not just a different
+        // assigned-number prefix within the same base) must still be treated as a real mismatch -
+        // isSameServiceFamily() must not become "any two 128-bit UUIDs are equivalent".
+        test('a genuinely different custom/vendor service UUID (different base) still fails the connection attempt', async () => {
+            const announced = ['180D', 'A0260001-0A7D-4AB3-97FA-F1500F9FEB8B']
+            const discovered = ['180D', 'DEADBEEF-1111-2222-3333-444455556666']
+
+            const { p } = setup(announced, discovered)
+
+            const subscribeSpy = vi.spyOn(p, 'subscribe')
+
+            const result = await p.subscribeSelected([ROWER_DATA, CONTROL_POINT, FM_STATUS], () => {})
+
+            expect(result).toBe(false)
+            expect(subscribeSpy).not.toHaveBeenCalled()
+        })
+
     })
 
     describe('discoverAllCharacteristics/discoverSomeCharacteristics cache invalidation (FIXES_BACKLOG #30)', () => {

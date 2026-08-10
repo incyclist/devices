@@ -128,8 +128,33 @@ export const beautifyUUID = (str:string, withX:boolean = false ):string => {
 
 }
 
-export const fullUUID = (str:string):string => { 
-    if (!str)  
+// FIXES_BACKLOG #26 (revised): vendors commonly mint a private 128-bit UUID "family" by generating
+// one random base UUID and varying only its first 32 bits - the same base-UUID + assigned-number
+// trick the Bluetooth SIG itself uses for its 16/32-bit UUIDs (against the shared Bluetooth Base
+// UUID), just applied to a private base. A BLE advertisement can legitimately announce one member of
+// that family while the device's real GATT service is a *different* member of the same family - e.g.
+// Wahoo TICKR FIT advertises A0260001-0A7D-4AB3-97FA-F1500F9FEB8B but exposes A026EE01-... in GATT;
+// Garmin HRM Pro+ advertises 6A4E3E10-667B-11E3-949A-0800200C9A66 but exposes 6A4E2401-... - same
+// vendor base in each case, only the assigned-number prefix differs. Standard/SIG UUIDs all share the
+// single common Bluetooth Base UUID, so this leniency only makes sense for genuinely custom
+// (non-SIG-base) 128-bit UUIDs - two different SIG assigned numbers (e.g. 180D vs 1814) are still,
+// correctly, different services.
+export const isSameServiceFamily = (uuid1:string, uuid2:string):boolean => {
+    const a = beautifyUUID(uuid1)
+    const b = beautifyUUID(uuid2)
+
+    if (a===b)
+        return true
+
+    const isCustom128 = (u:string) => u.length===36   // not collapsed to a short SIG form by beautifyUUID
+    if (isCustom128(a) && isCustom128(b))
+        return a.substring(9)===b.substring(9)   // compare the last 96 bits (vendor base) only
+
+    return false
+}
+
+export const fullUUID = (str:string):string => {
+    if (!str)
         return str
 
     const uuid = parseUUID(str)
