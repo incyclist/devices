@@ -3,6 +3,17 @@ import { BleCharacteristic, BleDeviceIdentifier, BlePeripheralAnnouncement, BleR
 import { beautifyUUID, fullUUID, isSameServiceFamily, matches, uuid } from "../utils.js";
 import { BleInterface } from "./interface.js";
 
+// FIXES_BACKLOG #26: production logs turned up several devices whose announced-vs-discovered
+// mismatch has nothing to do with the genuine late-GATT-registration race the check was built for
+// (vendor UUID family drift - TICKR FIT, HRM Pro+; unrelated vendor service fragments - NEO Bike
+// Plus, Concept2 PM5) - trying to generalize the comparison to correctly handle every vendor's BLE
+// quirks is a losing game. The whole completeness check now only runs for device names we've
+// *specifically* confirmed exhibit the late-registration behavior (currently just the rower from
+// the original investigation, MRK-R15-D829) - everything else skips it entirely and is never
+// disconnected over an announced/discovered mismatch. Grow this list only from confirmed production
+// evidence of the actual registration race, not from any other kind of mismatch.
+const SERVICE_COMPLETENESS_WHITELIST = ['MRK-R15']
+
 export class BlePeripheral implements IBlePeripheral {
 
     protected connected = false
@@ -231,7 +242,7 @@ export class BlePeripheral implements IBlePeripheral {
         const res = await promise
         sleep(0).then(()=> { delete this.discoverServicesPromise} )
 
-        const isComplete = this.checkAnnouncedServices(res)
+        const isComplete = !this.isServiceCompletenessCheckApplicable() || this.checkAnnouncedServices(res)
         this.serviceDiscoveryIncomplete = !isComplete
         if (!isComplete) {
             const {name,address} = this.getInfo()
@@ -241,6 +252,11 @@ export class BlePeripheral implements IBlePeripheral {
 
         return res
 
+    }
+
+    protected isServiceCompletenessCheckApplicable(): boolean {
+        const {name} = this.getInfo()
+        return !!name && SERVICE_COMPLETENESS_WHITELIST.some( prefix => name.startsWith(prefix) )
     }
 
     protected checkAnnouncedServices(discovered:string[]) {

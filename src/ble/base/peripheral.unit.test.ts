@@ -192,15 +192,119 @@ describe('BlePeripheral', () => {
 
     })
 
-    describe('subscribeSelected - service discovery vs advertisement mismatch (FIXES_BACKLOG #26)', () => {
+    describe('checkAnnouncedServices - comparison mechanism (FIXES_BACKLOG #26)', () => {
+        // Direct unit tests of the announced-vs-discovered comparison itself, independent of the
+        // device whitelist gate covered separately below - these prove isSameServiceFamily() and the
+        // getSupportedServices() filter behave correctly whenever the check does run.
 
-        // e.g. a rower that just powered back on: it advertises 1826 (Fitness Machine Service),
-        // but its GATT server hasn't finished registering it yet by the time discovery runs.
-        const setup = (announcedServices: string[], discoveredServices: string[]) => {
+        const setupPeripheral = (announcedServices: string[]) => {
+            const announcement: any = { peripheral: { id: 'p1', address: 'AA:BB:CC:DD:EE:FF' }, serviceUUIDs: announcedServices, advertisement: {} }
+            const p: any = new BlePeripheral(announcement)
+            p.logEvent = () => {}
+            return p
+        }
+
+        test('a discovered service list missing an advertised service is incomplete', () => {
+            const p = setupPeripheral([FTMS])   // advertised FTMS, but discovery came back without it
+            expect(p.checkAnnouncedServices([])).toBe(false)
+        })
+
+        test('a discovered service list that also contains unrelated/extra services is still incomplete when the advertised one is missing', () => {
+            const p = setupPeripheral([FTMS])
+            expect(p.checkAnnouncedServices(['180A'])).toBe(false)   // some other, unrelated service was found - still no FTMS
+        })
+
+        test('a discovered service list matching the advertisement is complete', () => {
+            const p = setupPeripheral([FTMS])
+            expect(p.checkAnnouncedServices([FTMS])).toBe(true)
+        })
+
+        test('no announced services (advertisement-less) is always complete', () => {
+            // some devices (e.g. older Tacx) don't advertise their service UUIDs at all - nothing to
+            // verify discovery against, so this must never be treated as a mismatch
+            const p = setupPeripheral([])
+            expect(p.checkAnnouncedServices([FTMS])).toBe(true)
+        })
+
+        // Regression repro: TICKR FIT F401 (HRM) production log, 2026-08-10. Advertises a custom/vendor
+        // 128-bit UUID (A0260001-0A7D-4AB3-97FA-F1500F9FEB8B) alongside the standard HR/Battery/
+        // DeviceInfo services; GATT discovery reports a *different* custom UUID
+        // (A026EE01-0A7D-4AB3-97FA-F1500F9FEB8B) for what is presumably the same vendor service. Both
+        // UUIDs share the identical last-96-bit vendor base (0A7D-4AB3-97FA-F1500F9FEB8B) and only
+        // differ in the first 32 bits (0001 vs EE01) - the classic vendor "UUID family" pattern
+        // (one private base UUID, many assigned-number services minted from it, mirroring how the
+        // Bluetooth SIG itself defines 16-bit UUIDs against the shared Bluetooth Base UUID).
+        // isSameServiceFamily() recognizes them as the same family.
+        test('a same-family (last-96-bits-matching) custom/vendor service UUID is not treated as a mismatch (TICKR FIT)', () => {
+            const p = setupPeripheral(['180D', '180F', '180A', 'A0260001-0A7D-4AB3-97FA-F1500F9FEB8B'])
+            const discovered = [
+                '180D', '180F',
+                '6E400001-B5A3-F393-E0A9-E50E24DCCA91', '45121540-51F2-406E-927A-3E1E183412E0',
+                '180A', 'A026EE01-0A7D-4AB3-97FA-F1500F9FEB8B',
+            ]
+            expect(p.checkAnnouncedServices(discovered)).toBe(true)
+        })
+
+        // Regression repro: Garmin HRM Pro+ production log, 2026-08-09. Advertises
+        // 6A4E3E10-667B-11E3-949A-0800200C9A66; GATT discovery reports
+        // 6A4E2401-667B-11E3-949A-0800200C9A66 - again, identical last-96-bit base
+        // (667B-11E3-949A-0800200C9A66), differing only in the assigned-number prefix (3E10 vs 2401).
+        // Also exercises two services (1800 Generic Access, 1801 Generic Attribute) that appear in
+        // discovery but were never announced at all - correctly ignored, since the check only ever
+        // requires announced -> discovered, never the reverse.
+        test('a same-family (last-96-bits-matching) custom/vendor service UUID is not treated as a mismatch (HRM Pro+)', () => {
+            const p = setupPeripheral(['180D', '1814', '6A4E3E10-667B-11E3-949A-0800200C9A66'])
+            const discovered = ['1800', '1801', '6A4E2401-667B-11E3-949A-0800200C9A66', '180A', '180F', '180D', '1814']
+            expect(p.checkAnnouncedServices(discovered)).toBe(true)
+        })
+
+        // Two genuinely different custom UUIDs (different vendor base, not just a different
+        // assigned-number prefix within the same base) must still be treated as a real mismatch -
+        // isSameServiceFamily() must not become "any two 128-bit UUIDs are equivalent". The custom
+        // UUID is explicitly declared "expected" here (via a mocked getSupportedServices()) so this
+        // test isolates the "different base" scenario from the "not expected, ignore it" filtering
+        // exercised by the NEO Bike Plus / PM5 tests below.
+        test('an expected custom/vendor service UUID with a genuinely different base is a real mismatch', () => {
+            const CUSTOM = 'A0260001-0A7D-4AB3-97FA-F1500F9FEB8B'
+            const p = setupPeripheral(['180D', CUSTOM])
+            p.ble = { getSupportedServices: () => ['180d', CUSTOM] }
+
+            expect(p.checkAnnouncedServices(['180D', 'DEADBEEF-1111-2222-3333-444455556666'])).toBe(false)
+        })
+
+        // Regression repro: Tacx NEO Bike Plus production log, 2026-08-05. Announces [1818, 1826, 1000]
+        // - a bare, standalone "1000" alongside the two real standard services. No implemented sensor
+        // type declares "1000" as one of its services (not a registered SIG service number in any GATT
+        // range we recognize, and none of our sensor implementations reference it) - most likely a
+        // firmware/advertising-packet-size shorthand or scan-library artifact for the FE031000-...
+        // custom service also visible in discovery, but either way it's irrelevant: nothing we
+        // implement needs it. getSupportedServices() filtering drops it before the completeness check
+        // even runs, so the two real, genuinely-present services are all that's required.
+        test('an announced service no implemented sensor cares about is ignored even when missing from discovery (NEO Bike Plus)', () => {
+            const p = setupPeripheral(['1818', '1826', '1000'])
+            const discovered = [
+                '1800', '1801', '180A', '1816', '1818', '1826', 'FE59',
+                'FE031000-17D0-470A-8798-4AD3E1C1F35B', 'FE03A000-17D0-470A-8798-4AD3E1C1F35B',
+            ]
+            expect(p.checkAnnouncedServices(discovered)).toBe(true)
+        })
+
+    })
+
+    describe('service completeness check applicability - device whitelist (FIXES_BACKLOG #26)', () => {
+        // FIXES_BACKLOG #26 was originally built around one specific device (a rower, MRK-R15-D829)
+        // that advertises a service before its GATT server has finished registering it. Production
+        // logs since then turned up several other devices whose announced/discovered mismatch has a
+        // completely different cause (vendor UUID family drift, unrelated vendor service fragments) -
+        // none of them the registration race the check exists to catch. Rather than keep chasing every
+        // vendor's BLE quirks, the whole check now only runs for device names specifically confirmed to
+        // exhibit the real registration race; everything else is skipped unconditionally.
+
+        const setup = (name: string, announcedServices: string[], discoveredServices: string[]) => {
             const raw = new MockRawPeripheral()
             raw.discovered = discoveredServices.map(uuid => ({ uuid }))
 
-            const announcement: any = { peripheral: raw, serviceUUIDs: announcedServices, advertisement: {} }
+            const announcement: any = { peripheral: raw, serviceUUIDs: announcedServices, advertisement: { localName: name } }
             const p: any = new BlePeripheral(announcement)
             p.connected = true
             p.logEvent = () => {}
@@ -213,8 +317,8 @@ describe('BlePeripheral', () => {
             return { p, raw, chars }
         }
 
-        test('a discovered service list missing an advertised service fails the connection attempt instead of subscribing', async () => {
-            const { p } = setup([FTMS], [])   // advertised FTMS, but discovery came back without it
+        test('a whitelisted device (MRK-R15) with a genuinely missing announced service fails the connection attempt instead of subscribing', async () => {
+            const { p } = setup('MRK-R15-D829', [FTMS], [])   // advertised FTMS, but discovery came back without it
 
             const subscribeSpy = vi.spyOn(p, 'subscribe')
 
@@ -228,19 +332,8 @@ describe('BlePeripheral', () => {
             expect(p.isConnected()).toBe(false)
         })
 
-        test('a discovered service list that also contains unrelated/extra services still fails when the advertised one is missing', async () => {
-            const { p } = setup([FTMS], ['180A'])  // some other, unrelated service was found - still no FTMS
-
-            const subscribeSpy = vi.spyOn(p, 'subscribe')
-
-            const result = await p.subscribeSelected([ROWER_DATA, CONTROL_POINT, FM_STATUS], () => {})
-
-            expect(result).toBe(false)
-            expect(subscribeSpy).not.toHaveBeenCalled()
-        })
-
-        test('a discovered service list matching the advertisement proceeds to subscribe as today', async () => {
-            const { p } = setup([FTMS], [FTMS])
+        test('a whitelisted device (MRK-R15) with a matching discovery proceeds to subscribe as today', async () => {
+            const { p } = setup('MRK-R15-D829', [FTMS], [FTMS])
 
             const subscribeSpy = vi.spyOn(p, 'subscribe').mockResolvedValue(true)
 
@@ -251,11 +344,11 @@ describe('BlePeripheral', () => {
             expect(p.isConnected()).toBe(true)
         })
 
-        test('an advertisement with no announced services (advertisement-less) proceeds to subscribe as today', async () => {
-            // some devices (e.g. older Tacx) don't advertise their service UUIDs at all - nothing to
-            // verify discovery against, so this must never be treated as a mismatch
-            const { p, raw } = setup([], [])
-            raw.discovered = [{ uuid: FTMS }]   // discovery still finds the real GATT table
+        // The exact same announced/discovered mismatch that fails for a whitelisted device above must
+        // never fail for a device we haven't confirmed the registration race on - the check must not
+        // even run.
+        test('a non-whitelisted device with the identical missing-service scenario is never disconnected', async () => {
+            const { p } = setup('Some Other Rower', [FTMS], [])
 
             const subscribeSpy = vi.spyOn(p, 'subscribe').mockResolvedValue(true)
 
@@ -263,31 +356,31 @@ describe('BlePeripheral', () => {
 
             expect(result).toBe(true)
             expect(subscribeSpy).toHaveBeenCalledTimes(3)
+            expect(p.isConnected()).toBe(true)
         })
 
-        // Regression repro: TICKR FIT F401 (HRM) production log, 2026-08-10. Advertises a custom/vendor
-        // 128-bit UUID (A0260001-0A7D-4AB3-97FA-F1500F9FEB8B) alongside the standard HR/Battery/
-        // DeviceInfo services; GATT discovery reports a *different* custom UUID
-        // (A026EE01-0A7D-4AB3-97FA-F1500F9FEB8B) for what is presumably the same vendor service. Both
-        // UUIDs share the identical last-96-bit vendor base (0A7D-4AB3-97FA-F1500F9FEB8B) and only
-        // differ in the first 32 bits (0001 vs EE01) - the classic vendor "UUID family" pattern
-        // (one private base UUID, many assigned-number services minted from it, mirroring how the
-        // Bluetooth SIG itself defines 16-bit UUIDs against the shared Bluetooth Base UUID). The old
-        // exact-match implementation treated this as two unrelated UUIDs and failed the connection
-        // attempt outright; isSameServiceFamily() recognizes them as the same family and lets the
-        // connection through.
-        test('a same-family (last-96-bits-matching) custom/vendor service UUID is not treated as a mismatch (TICKR FIT regression)', async () => {
+        // Regression repro: Concept2 PM5 production log, 2026-08-07 (version 0.0.41, mobile). Announces
+        // [1816, 1818, 1826, CE060000-43E5-11E4-916C-0800200C9A66]; discovery reports the three standard
+        // services correctly plus four *different* CE06xxxx characteristics/services (CE060010/20/30/40)
+        // under what's presumably Concept2's own documented "C2 Rowing" custom service family - the
+        // announced CE060000 itself never reappears verbatim. The device never connected in production
+        // and the user confirmed this was not a transient registration race (discovery never changed) -
+        // this device was never confirmed to exhibit the real late-registration behavior, so it must
+        // never be disconnected over this mismatch regardless of how the comparison mechanism itself
+        // would score it.
+        test('a non-whitelisted device is never disconnected regardless of the mismatch shape (Concept2 PM5 regression)', async () => {
             const HR_MEASUREMENT = '2A37'
-            const announced = ['180D', '180F', '180A', 'A0260001-0A7D-4AB3-97FA-F1500F9FEB8B']
+            const announced = ['1816', '1818', '1826', 'CE060000-43E5-11E4-916C-0800200C9A66']
             const discovered = [
-                '180D', '180F',
-                '6E400001-B5A3-F393-E0A9-E50E24DCCA91', '45121540-51F2-406E-927A-3E1E183412E0',
-                '180A', 'A026EE01-0A7D-4AB3-97FA-F1500F9FEB8B',
+                '1800', '1801',
+                'CE060020-43E5-11E4-916C-0800200C9A66', 'CE060010-43E5-11E4-916C-0800200C9A66',
+                'CE060030-43E5-11E4-916C-0800200C9A66', 'CE060040-43E5-11E4-916C-0800200C9A66',
+                '1826', '1818', '1816',
             ]
 
             const raw = new MockRawPeripheral()
             raw.discovered = discovered.map(uuid => ({ uuid }))
-            const announcement: any = { peripheral: raw, serviceUUIDs: announced, advertisement: {} }
+            const announcement: any = { peripheral: raw, serviceUUIDs: announced, advertisement: { localName: 'PM5 431996521' } }
             const p: any = new BlePeripheral(announcement)
             p.connected = true
             p.logEvent = () => {}
@@ -302,94 +395,23 @@ describe('BlePeripheral', () => {
             expect(p.isConnected()).toBe(true)
         })
 
-        // Regression repro: Garmin HRM Pro+ production log, 2026-08-09 (version 26.8.2, one day before
-        // the TICKR FIT occurrence above - same defect class, different vendor). Advertises
-        // 6A4E3E10-667B-11E3-949A-0800200C9A66; GATT discovery reports
-        // 6A4E2401-667B-11E3-949A-0800200C9A66 - again, identical last-96-bit base
-        // (667B-11E3-949A-0800200C9A66), differing only in the assigned-number prefix (3E10 vs 2401).
-        // Also exercises two services (1800 Generic Access, 1801 Generic Attribute) that appear in
-        // discovery but were never announced at all - correctly ignored, since the check only ever
-        // requires announced -> discovered, never the reverse.
-        test('a same-family (last-96-bits-matching) custom/vendor service UUID is not treated as a mismatch (HRM Pro+ regression)', async () => {
-            const HR_MEASUREMENT = '2A37'
-            const announced = ['180D', '1814', '6A4E3E10-667B-11E3-949A-0800200C9A66']
-            const discovered = [
-                '1800', '1801', '6A4E2401-667B-11E3-949A-0800200C9A66', '180A', '180F', '180D', '1814',
-            ]
-
+        test('a device with no name at all is never disconnected (isServiceCompletenessCheckApplicable requires a name to match against)', async () => {
             const raw = new MockRawPeripheral()
-            raw.discovered = discovered.map(uuid => ({ uuid }))
-            const announcement: any = { peripheral: raw, serviceUUIDs: announced, advertisement: {} }
+            ;(raw as any).id = undefined
+            raw.discovered = []
+
+            const announcement: any = { peripheral: raw, serviceUUIDs: [FTMS], advertisement: {} }
             const p: any = new BlePeripheral(announcement)
             p.connected = true
             p.logEvent = () => {}
-            p.characteristics = { [beautifyUUID(HR_MEASUREMENT)]: new MockChar(HR_MEASUREMENT) }
+            p.characteristics = { [beautifyUUID(ROWER_DATA)]: new MockChar(ROWER_DATA) }
 
             const subscribeSpy = vi.spyOn(p, 'subscribe').mockResolvedValue(true)
 
-            const result = await p.subscribeSelected([HR_MEASUREMENT], () => {})
+            const result = await p.subscribeSelected([ROWER_DATA], () => {})
 
             expect(result).toBe(true)
             expect(subscribeSpy).toHaveBeenCalledTimes(1)
-            expect(p.isConnected()).toBe(true)
-        })
-
-        // Two genuinely different custom UUIDs (different vendor base, not just a different
-        // assigned-number prefix within the same base) must still be treated as a real mismatch -
-        // isSameServiceFamily() must not become "any two 128-bit UUIDs are equivalent". The custom
-        // UUID is explicitly declared "expected" here (via a mocked getSupportedServices()) so this
-        // test isolates the "different base" scenario from the "not expected, ignore it" filtering
-        // exercised by the NEO Bike Plus test below.
-        test('an expected custom/vendor service UUID with a genuinely different base still fails the connection attempt', async () => {
-            const CUSTOM = 'A0260001-0A7D-4AB3-97FA-F1500F9FEB8B'
-            const announced = ['180D', CUSTOM]
-            const discovered = ['180D', 'DEADBEEF-1111-2222-3333-444455556666']
-
-            const { p } = setup(announced, discovered)
-            p.ble = { getSupportedServices: () => ['180d', CUSTOM] }
-
-            const subscribeSpy = vi.spyOn(p, 'subscribe')
-
-            const result = await p.subscribeSelected([ROWER_DATA, CONTROL_POINT, FM_STATUS], () => {})
-
-            expect(result).toBe(false)
-            expect(subscribeSpy).not.toHaveBeenCalled()
-        })
-
-        // Regression repro: Tacx NEO Bike Plus production log, 2026-08-05 (version 26.8.1). Announces
-        // [1818, 1826, 1000] - a bare, standalone "1000" alongside the two real standard services. No
-        // implemented sensor type declares "1000" as one of its services (it's not a registered SIG
-        // service number in any GATT range we recognize, and none of our sensor implementations
-        // reference it) - most likely a firmware/advertising-packet-size shorthand or scan-library
-        // parsing artifact for the FE031000-... custom service also visible in discovery, but either
-        // way it's irrelevant: nothing we implement needs it. The device never connected in production
-        // (this was not a transient registration race - the user confirmed "1000" was always missing
-        // and eventually switched to ANT+), so the fix is to stop requiring it at all, not to retry.
-        // The two real services (1818 Cycling Power, 1826 FTMS - both in the default expectedServices)
-        // are both genuinely present, so the connection attempt must now succeed.
-        test('an announced service no implemented sensor cares about is ignored even when missing from discovery (NEO Bike Plus regression)', async () => {
-            const announced = ['1818', '1826', '1000']
-            const discovered = [
-                '1800', '1801', '180A', '1816', '1818', '1826', 'FE59',
-                'FE031000-17D0-470A-8798-4AD3E1C1F35B', 'FE03A000-17D0-470A-8798-4AD3E1C1F35B',
-            ]
-
-            const raw = new MockRawPeripheral()
-            raw.discovered = discovered.map(uuid => ({ uuid }))
-            const announcement: any = { peripheral: raw, serviceUUIDs: announced, advertisement: {} }
-            const p: any = new BlePeripheral(announcement)
-            p.connected = true
-            p.logEvent = () => {}
-            // CP (1818) is the only relevant capability here for this test's purposes
-            p.characteristics = { [beautifyUUID(CSP_MEASUREMENT)]: new MockChar(CSP_MEASUREMENT) }
-
-            const subscribeSpy = vi.spyOn(p, 'subscribe').mockResolvedValue(true)
-
-            const result = await p.subscribeSelected([CSP_MEASUREMENT], () => {})
-
-            expect(result).toBe(true)
-            expect(subscribeSpy).toHaveBeenCalledTimes(1)
-            expect(p.isConnected()).toBe(true)
         })
 
     })
