@@ -244,7 +244,14 @@ export class BlePeripheral implements IBlePeripheral {
     }
 
     protected checkAnnouncedServices(discovered:string[]) {
-        const announced = this.getAnnouncedServices()
+        // FIXES_BACKLOG #26: only an announced service some *implemented* sensor type actually cares
+        // about (BleInterface.getSupportedServices() - the same list announced upfront to bindings
+        // like WebBluetooth) is worth requiring in discovery. A device can advertise vendor UUIDs no
+        // sensor of ours ever uses (e.g. NEO Bike Plus advertising a bare "1000" fragment alongside
+        // its real FE03xxxx custom service - not a real completeness gap, since nothing we implement
+        // needs it), and those must never fail an otherwise-complete connection attempt.
+        const expected = this.ble.getSupportedServices()
+        const announced = this.getAnnouncedServices().filter( a => expected.some(e => isSameServiceFamily(a,e)) )
         const toBeChecked = discovered.map(x=>beautifyUUID(x))
 
         const cntAnnounced = announced.length;

@@ -1059,6 +1059,14 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         return this.getAdapterFactory().getAllSupportedServices();
     }
 
+    // FIXES_BACKLOG #26: the service UUIDs of all currently-registered sensor implementations, as
+    // last announced to bindings that need it upfront (e.g. WebBluetooth's optionalServices) -
+    // used by BlePeripheral to scope its announced-vs-discovered completeness check to services an
+    // implemented sensor actually cares about, ignoring vendor UUIDs no sensor type ever uses.
+    getSupportedServices(): string[] {
+        return this.expectedServices
+    }
+
 
 
     public logEvent(event) {

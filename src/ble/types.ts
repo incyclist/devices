@@ -221,6 +221,12 @@ export interface IBleInterface<T extends PeripheralAnnouncement> extends Incycli
     waitForPeripheral(settings:DeviceSettings): Promise<IBlePeripheral>
     pauseDiscovery?():Promise<void>
     resumeDiscovery?():Promise<void>
+
+    // the service UUIDs of all currently-registered sensor implementations (BleAdapterFactory) -
+    // the same list announced upfront to bindings that need it (e.g. WebBluetooth's optionalServices).
+    // A service outside this set is one no implemented sensor type ever uses, so it's irrelevant to
+    // any completeness check - see FIXES_BACKLOG #26.
+    getSupportedServices(): string[]
 }
 
 
