@@ -5,6 +5,7 @@ import { CharacteristicParser, Feature } from "../types.js";
 export type CyclingCadenceAndSpeed = {
     cadence?: number    // rpm
     speed?:number       // m/s
+    raw?:string
 }
 
 export class CscMeasurement implements CharacteristicParser<CyclingCadenceAndSpeed> {
@@ -34,6 +35,7 @@ export class CscMeasurement implements CharacteristicParser<CyclingCadenceAndSpe
         
         let offset = 0;
 
+
         const flags = data.readUInt8(offset); offset++;
         if (flags & 0x01) {  // wheel revolutions
             const wheelData = { 
@@ -41,7 +43,8 @@ export class CscMeasurement implements CharacteristicParser<CyclingCadenceAndSpe
                 time: data.readUInt16LE(offset+4)
             }
             const {speed} = this.parseWheelData(wheelData)                
-            this.data.speed = speed;            
+
+            this.data.speed = speed;         
             offset+=6;
         }
         if (flags & 0x02) {  // crank revolutions
@@ -52,6 +55,8 @@ export class CscMeasurement implements CharacteristicParser<CyclingCadenceAndSpe
             const {rpm} = this.parseCrankData(crankData)                
             this.data.cadence = rpm;            
         }
+
+        this.data.raw = data.toString('hex')
         return this.data;
 
     } 

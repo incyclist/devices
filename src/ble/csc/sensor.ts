@@ -63,6 +63,13 @@ export class BleCyclingSpeedCadenceDevice extends TBleSensor implements ISpeedSe
         const parsed =  parser.parse(data)
         this.data = {...this.data,...parsed}
 
+        // we have detected negative speed values in production logs
+        // adding some logs to allow further analysis
+        if (this.data.speed!<0) {
+            this.logEvent({message:'error', fn:'onData', error:'speed<0', speed:this.data.speed, raw:this.data.raw})
+            return false
+        }
+
         this.emit('data', this.data)
         return true;
   
