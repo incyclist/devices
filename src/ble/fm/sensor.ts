@@ -574,7 +574,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
                 
             }
             else {
-                this.logEvent({message:'could not parse service data', reason:'not enough data', raw:data?.toString('hex')})
+                this.logEvent({message:'could not parse service data', reason: data==null ? 'not available' : 'not enough data', raw:data?.toString('hex')})
             }
         }
         catch(err:any) {
@@ -592,47 +592,53 @@ export default class BleFitnessMachineDevice extends TBleSensor {
             return {fitnessMachine:0, targetSettings:0, setPower:true,power:true, heartrate:true}
         }
         
+        let data
         try {
-            const data = await this.read('2acc')  // Fitness Machine Feature
-            const buffer = data ? Buffer.from(data) : undefined
+            this.logEvent({message:'reading FitnessMachineFeatures', device:this.getName()})
+            data = await this.read('2acc')  // Fitness Machine Feature
+        }
+        catch(err:any) {
+            this.logEvent({message:'could not read FitnessMachineFeatures', error:err.message, stack: err.stack,device:this.getName()})
+            return undefined
+        }
 
+        const buffer = data ? Buffer.from(data) : undefined
+        try {
 
             const services = this.peripheral?.services || []
             let power = services.some( s => matches(s.uuid,'1818'))  // Cycling Power
             let heartrate = services.some( s => matches(s.uuid,'180d'))  // Heart Rate
             const dataLength = buffer?.length??0
-            if (dataLength>=8) {
-                const fitnessMachine = buffer!.readUInt32LE(0)
-                const targetSettings = buffer!.readUInt32LE(4)
-                power = power || (fitnessMachine & FitnessMachineFeatureFlag.PowerMeasurementSupported) !== 0
-                heartrate = heartrate || (fitnessMachine & FitnessMachineFeatureFlag.HeartRateMeasurementSupported) !==0
-                const cadence = (fitnessMachine & FitnessMachineFeatureFlag.CadenceSupported)!==0
 
-                const setSlope = (targetSettings & TargetSettingFeatureFlag.IndoorBikeSimulationParametersSupported)!==0  
-                                || (targetSettings & TargetSettingFeatureFlag.InclinationTargetSettingSupported)!==0  
+            const fitnessMachine = dataLength>=4 ? buffer!.readUInt32LE(0) : 0
+            const targetSettings = dataLength>=8 ? buffer!.readUInt32LE(4) : 0
+            const fmInfo = this.buildFitnessMachineInfo(fitnessMachine) ?? []
+            const tsInfo = this.buildTargetSettingsInfo(targetSettings) ?? []
 
-                const setPower = (targetSettings & TargetSettingFeatureFlag.PowerTargetSettingSupported)!==0  
-                const setResistance = (targetSettings & TargetSettingFeatureFlag.ResistanceTargetSettingSupported)!==0
 
-                const fmInfo = this.buildFitnessMachineInfo(fitnessMachine) ?? []
-                const tsInfo = this.buildTargetSettingsInfo(targetSettings) ?? []
+            power = power || (fitnessMachine & FitnessMachineFeatureFlag.PowerMeasurementSupported) !== 0
+            heartrate = heartrate || (fitnessMachine & FitnessMachineFeatureFlag.HeartRateMeasurementSupported) !==0
+            const cadence = (fitnessMachine & FitnessMachineFeatureFlag.CadenceSupported)!==0
 
-                this._features = {fitnessMachine, targetSettings,power, heartrate, cadence, setPower, setSlope, setResistance}
+            const setSlope = (targetSettings & TargetSettingFeatureFlag.IndoorBikeSimulationParametersSupported)!==0  
+                            || (targetSettings & TargetSettingFeatureFlag.InclinationTargetSettingSupported)!==0  
 
-                this.logEvent( {message:'supported features',device:this.getName(),fmFeatures: fmInfo.join('|'), tsFeatures: tsInfo.join('|'), features:this._features })
-                this._features.fmInfo = fmInfo
-                this._features.tsInfo = tsInfo
+            const setPower = (targetSettings & TargetSettingFeatureFlag.PowerTargetSettingSupported)!==0  
+            const setResistance = (targetSettings & TargetSettingFeatureFlag.ResistanceTargetSettingSupported)!==0
 
-                return this._features
-            }
-            else {
-                return {fitnessMachine:0, targetSettings:0, power, heartrate}
-            }
-            
+
+            this._features = {fitnessMachine, targetSettings,power, heartrate, cadence, setPower, setSlope, setResistance}
+
+            this.logEvent( {message:'supported features',device:this.getName(),fmFeatures: fmInfo.join('|'), tsFeatures: tsInfo.join('|'), features:this._features, raw: buffer?.toString('hex') })
+            this._features.fmInfo = fmInfo
+            this._features.tsInfo = tsInfo
+
+            return this._features
+        
     
         }
         catch(err:any) {
-            this.logEvent({message:'could not read FitnessMachineFeatures', error:err.message, stack: err.stack,device:this.getName()})
+            this.logEvent({message:'could not parse FitnessMachineFeatures', error:err.message, stack: err.stack,device:this.getName(), raw:buffer?.toString('hex')})
             return undefined
         }
 
@@ -644,7 +650,10 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     }
 
 
-    protected buildFitnessMachineInfo(fitnessMachine:number):string[]|undefined { 
+    protected buildFitnessMachineInfo(fitnessMachine?:number):string[]|undefined { 
+        if (fitnessMachine==null)
+            return
+
         if (this.getName().startsWith('MRK-')) {
             return ['avgSpeed', 'cadence','power', 'pace']
         }
@@ -683,7 +692,10 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     }
 
 
-    protected buildTargetSettingsInfo(targetSettings:number):string[]|undefined { 
+    protected buildTargetSettingsInfo(targetSettings?:number):string[]|undefined { 
+        if (targetSettings==null) 
+            return 
+
         const info:Array<string> = [];
 
         const check = (flag:number, name:string):void => {
