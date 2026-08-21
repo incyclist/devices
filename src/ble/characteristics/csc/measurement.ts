@@ -146,6 +146,8 @@ export class CscMeasurement implements CharacteristicParser<CyclingCadenceAndSpe
         this.data = {}
         this.prevCrankData = undefined
         this.currentCrankData = undefined
+        this.prevWheelData = undefined
+        this.currentWheelData = undefined
         this.timeOffset = 0
     }
 

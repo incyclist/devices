@@ -77,6 +77,18 @@ export class BleCyclingSpeedCadenceDevice extends TBleSensor implements ISpeedSe
 
     reset() {
         this.data = {}
+        // guarded: TBleSensor's constructor calls reset() before this class's own field
+        // initializers (incl. `measurement`) have run
+        this.measurement?.reset()
+    }
+
+    protected onDisconnect() {
+        super.onDisconnect()
+        // a reconnect can mean the sensor's onboard cumulative counters have been reset (e.g. to 0).
+        // Discard the parser's stale pre-disconnect baseline so the next notification is treated as
+        // a fresh start (as the parser already does for the very first notification it ever sees),
+        // instead of being diffed against stale state and producing a bogus (e.g. negative) reading.
+        this.measurement.reset()
     }
 
     async setWheelCircumference(wheelCircumference: number): Promise<void> {        
