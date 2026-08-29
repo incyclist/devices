@@ -35,6 +35,8 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     protected rowerDataTS: number|undefined
     protected rowerMaxPower: number|undefined
 
+    protected indoorBikeDataTruncationLogged: boolean = false
+
     constructor (peripheral:IBlePeripheral, props?:any) {
         super(peripheral,props)
 
@@ -261,6 +263,9 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     protected parseHrm(_data: Uint8Array):IndoorBikeData { 
         const data = Buffer.from(_data);
 
+        if (data.length==0)
+            return { ...this.data, raw:'<empty>'};
+
         try {                         
             const flags = data.readUInt8(0);
 
@@ -272,7 +277,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
             }
         }
         catch (err:any) { 
-            this.logEvent({message:'error',fn:'parseHrm()',error:err.message|err, stack:err.stack})
+            this.logEvent({message:'error',fn:'parseHrm()',error:err.message, stack:err.stack, raw:`2a37:${data.toString('hex')}`})
 
         }
         return { ...this.data, raw:`2a37:${data.toString('hex')}`};
@@ -421,61 +426,76 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         return { ...this.data, raw: `2ad1:${data.toString('hex')}` };
     }
 
-    protected parseIndoorBikeData(_data: Uint8Array):IndoorBikeData { 
+    protected logIndoorBikeDataTruncated(data:Buffer, flags:number, offset:number, needed:number) {
+        if (this.indoorBikeDataTruncationLogged)
+            return
+        this.indoorBikeDataTruncationLogged = true
+        this.logEvent({message:'error', fn:'parseIndoorBikeData()', device:this.getName(), data:data.toString('hex'), flags, offset, needed, error:'Indoor Bike Data flags declare more fields than the packet contains'})
+    }
+
+    protected parseIndoorBikeData(_data: Uint8Array):IndoorBikeData {
         const data:Buffer = Buffer.from(_data);
-        let offset = 2 ;      
+        let offset = 2 ;
 
         if (data.length>2) {
 
             try {
                 const flags = data.readUInt16LE(0)
-        
-                if ((flags & IndoorBikeDataFlag.MoreData)===0 ) {
+
+                const need = (size:number):boolean => {
+                    if (offset+size > data.length) {
+                        this.logIndoorBikeDataTruncated(data, flags, offset, size)
+                        return false
+                    }
+                    return true
+                }
+
+                if ((flags & IndoorBikeDataFlag.MoreData)===0 && need(2)) {
                     this.data.speed = data.readUInt16LE(offset)/100; offset+=2;
                 }
-                if (flags & IndoorBikeDataFlag.AverageSpeedPresent) {
+                if ((flags & IndoorBikeDataFlag.AverageSpeedPresent) && need(2)) {
                     this.data.averageSpeed = data.readUInt16LE(offset)/100; offset+=2;
                 }
-                if (flags & IndoorBikeDataFlag.InstantaneousCadence) {
+                if ((flags & IndoorBikeDataFlag.InstantaneousCadence) && need(2)) {
                     this.data.cadence = data.readUInt16LE(offset)/2; offset+=2;
                 }
-                if (flags & IndoorBikeDataFlag.AverageCadencePresent) {
+                if ((flags & IndoorBikeDataFlag.AverageCadencePresent) && need(2)) {
                     this.data.averageCadence = data.readUInt16LE(offset)/2; offset+=2;
                 }
-        
-                if (flags & IndoorBikeDataFlag.TotalDistancePresent) {
+
+                if ((flags & IndoorBikeDataFlag.TotalDistancePresent) && need(3)) {
                     const dvLow  = data.readUInt8(offset); offset+=1;
                     const dvHigh = data.readUInt16LE(offset); offset+=2;
                     this.data.totalDistance = (dvHigh<<8) +dvLow;
                 }
-                if (flags & IndoorBikeDataFlag.ResistanceLevelPresent) {
+                if ((flags & IndoorBikeDataFlag.ResistanceLevelPresent) && need(2)) {
                     this.data.resistanceLevel = data.readInt16LE(offset); offset+=2;
                 }
-                if (flags & IndoorBikeDataFlag.InstantaneousPowerPresent) {
+                if ((flags & IndoorBikeDataFlag.InstantaneousPowerPresent) && need(2)) {
                     this.data.instantaneousPower = data.readInt16LE(offset); offset+=2;
                 }
-                if (flags & IndoorBikeDataFlag.AveragePowerPresent) {
+                if ((flags & IndoorBikeDataFlag.AveragePowerPresent) && need(2)) {
                     this.data.averagePower = data.readInt16LE(offset); offset+=2;
                 }
-                if (flags & IndoorBikeDataFlag.ExpendedEnergyPresent) {
+                if ((flags & IndoorBikeDataFlag.ExpendedEnergyPresent) && need(5)) {
                     this.data.totalEnergy = data.readUInt16LE(offset); offset+=2;
                     this.data.energyPerHour = data.readUInt16LE(offset); offset+=2;
                     this.data.energyPerMinute = data.readUInt8(offset); offset+=1;
                 }
-        
-                if (flags & IndoorBikeDataFlag.HeartRatePresent) {
+
+                if ((flags & IndoorBikeDataFlag.HeartRatePresent) && need(1)) {
                     this.data.heartrate = data.readUInt8(offset); offset+=1;
                 }
-                if (flags & IndoorBikeDataFlag.MetabolicEquivalentPresent) {
+                if ((flags & IndoorBikeDataFlag.MetabolicEquivalentPresent) && need(1)) {
                     this.data.metabolicEquivalent = data.readUInt8(offset)/10; offset+=1;
                 }
-                if (flags & IndoorBikeDataFlag.ElapsedTimePresent) {
+                if ((flags & IndoorBikeDataFlag.ElapsedTimePresent) && need(2)) {
                     this.data.time = data.readUInt16LE(offset); offset+=2;
                 }
-                if (flags & IndoorBikeDataFlag.RemainingTimePresent) {
-                    this.data.remainingTime = data.readUInt16LE(offset); 
+                if ((flags & IndoorBikeDataFlag.RemainingTimePresent) && need(2)) {
+                    this.data.remainingTime = data.readUInt16LE(offset);
                 }
-        
+
             }
             catch(err:any) {
                 this.logEvent({message:'error',fn:'parseIndoorBikeData()', device:this.getName(), data:data.toString('hex'),offset, error:err.message, stack:err.stack})

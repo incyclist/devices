@@ -270,6 +270,36 @@ describe('BleFitnessMachineDevice',()=>{
             expect(ftms.logEvent).not.toHaveBeenCalled()
         })
 
+        describe('flags declare more fields than the packet contains (FS-2FC6E8 production log)',()=>{
+            let truncated;
+
+            beforeEach( ()=>{
+                truncated = new BleFitnessMachineDevice({id:'test', getInfo: jest.fn().mockReturnValue({name:'FS-2FC6E8'})})
+                truncated.logEvent = jest.fn()
+            })
+
+            test('does not throw and parses the fields that fit',()=>{
+                const res = truncated.parseIndoorBikeData( data("740b000000000000006400000000000000004800"));
+                expect(res).toMatchObject( { cadence:0, totalDistance:0, resistanceLevel:100, instantaneousPower:0, heartrate:72 })
+                expect(res.time).toBeUndefined()
+            })
+
+            test('logs the truncation once with the raw data',()=>{
+                truncated.parseIndoorBikeData( data("740b000000000000006400000000000000004800"));
+                expect(truncated.logEvent).toHaveBeenCalledTimes(1)
+                expect(truncated.logEvent).toHaveBeenCalledWith( expect.objectContaining({
+                    message:'error', fn:'parseIndoorBikeData()', data:'740b000000000000006400000000000000004800'
+                }))
+            })
+
+            test('does not log again for subsequent notifications in the same session',()=>{
+                truncated.parseIndoorBikeData( data("740b000000000000006400000000000000004800"));
+                truncated.parseIndoorBikeData( data("740b000000000000006400000000000000004800"));
+                truncated.parseIndoorBikeData( data("740b000000000000006400000000000000004800"));
+                expect(truncated.logEvent).toHaveBeenCalledTimes(1)
+            })
+        })
+
     })
 
     describe('parseFitnessMachineStatus',()=>{
