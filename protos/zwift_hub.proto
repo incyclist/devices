@@ -134,7 +134,7 @@ message TrainerResponse {
 }
 
 message TrainerResponseContent  {
-	optional string Text = 4;
+	optional bytes Text = 4;
 }
 
 

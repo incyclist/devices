@@ -255,9 +255,9 @@ export interface TrainerResponse {
  */
 export interface TrainerResponseContent {
     /**
-     * @generated from protobuf field: optional string Text = 4
+     * @generated from protobuf field: optional bytes Text = 4
      */
-    text?: string;
+    text?: Uint8Array;
 }
 /**
  * ------------------ Zwift Click messages
@@ -1348,7 +1348,7 @@ export const TrainerResponse = new TrainerResponse$Type();
 class TrainerResponseContent$Type extends MessageType<TrainerResponseContent> {
     constructor() {
         super("org.cagnulen.qdomyoszwift.TrainerResponseContent", [
-            { no: 4, name: "Text", kind: "scalar", jsonName: "Text", opt: true, T: 9 /*ScalarType.STRING*/ }
+            { no: 4, name: "Text", kind: "scalar", jsonName: "Text", opt: true, T: 12 /*ScalarType.BYTES*/ }
         ]);
     }
     create(value?: PartialMessage<TrainerResponseContent>): TrainerResponseContent {
@@ -1362,8 +1362,8 @@ class TrainerResponseContent$Type extends MessageType<TrainerResponseContent> {
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
             switch (fieldNo) {
-                case /* optional string Text */ 4:
-                    message.text = reader.string();
+                case /* optional bytes Text */ 4:
+                    message.text = reader.bytes();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -1377,9 +1377,9 @@ class TrainerResponseContent$Type extends MessageType<TrainerResponseContent> {
         return message;
     }
     internalBinaryWrite(message: TrainerResponseContent, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
-        /* optional string Text = 4; */
+        /* optional bytes Text = 4; */
         if (message.text !== undefined)
-            writer.tag(4, WireType.LengthDelimited).string(message.text);
+            writer.tag(4, WireType.LengthDelimited).bytes(message.text);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
