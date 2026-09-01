@@ -426,12 +426,18 @@ export class BleZwiftPlaySensor extends TBleSensor {
         try {
 
             const data = TrainerResponse.fromBinary( m)
+            // Text isn't always valid UTF-8 on the wire (hence the `bytes` wire type); decode
+            // leniently here so we still get a readable string without risking a throw.
+            const text = data.content?.text!==undefined ? Buffer.from(data.content.text).toString('utf-8') : undefined
+
             this.emit('hub-trainer-response', data)
-            
-            this.logEvent({ message:'trainer response received',   data})
-        }               
-        catch(err) {
-            this.logEvent( {message:'Error', fn:'onTrainerResponse', error:err.message, stack:err.stack})
+            this.logEvent({ message:'trainer response received', unknown:data.unknown, text})
+        }
+        catch(err:any) {
+            let payload = 'unknown'
+            try { payload = m.toString('hex')} catch {}
+
+            this.logEvent( {message:'Error', fn:'onTrainerResponse', error:err.message, stack:err.stack, payload})
         }
     }
 
