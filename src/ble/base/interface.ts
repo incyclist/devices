@@ -54,6 +54,12 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     protected expectedServices: string[] = ['180d','1818','1826','6e40fec1']
     protected matching: string[] = []
 
+    /**
+     * Desired state for the self-restarting peripheral scan. Deliberately not cleared by
+     * disconnect(): the scan must stay suspended across a reconnect until it is resumed.
+     */
+    protected backgroundPaused: boolean = false
+
     protected connectTask: InteruptableTask<TaskState,boolean>
     protected disconnectTask: InteruptableTask<TaskState,boolean>
     protected scanTask: InteruptableTask<TaskState,void>
@@ -406,6 +412,28 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         return this.buildDeviceSettings(this.matching)
     }
 
+    async pauseBackgroundActivity():Promise<void> {
+        if (this.backgroundPaused)
+            return
+
+        this.backgroundPaused = true
+        this.logEvent({message:'pausing background activity'})
+
+        await this.stopPeripheralScan()
+    }
+
+    async resumeBackgroundActivity():Promise<void> {
+        if (!this.backgroundPaused)
+            return
+
+        this.backgroundPaused = false
+        this.logEvent({message:'resuming background activity'})
+
+        // If the interface is not connected right now this is a no-op - the scan will be started
+        // by onConnected() once it reconnects, as the guard in startPeripheralScan() now passes.
+        await this.startPeripheralScan()
+    }
+
     pauseLogging() {
         this.logEvent({message:'pausing logging'})
         this.logDisabled = true
@@ -507,6 +535,12 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     }
 
     protected async startPeripheralScan(retry:boolean=false):Promise<void> {
+        // Guarded here rather than at the call sites: connect(), onConnected() (i.e. reconnect)
+        // and the restart at the end of discover() all funnel through this method, so a single
+        // check keeps the scan suspended across a disconnect/reconnect cycle.
+        if (this.backgroundPaused)
+            return;
+
         if (!this.isConnected() || this.isDiscovering())  {
             return;
         }
@@ -537,16 +571,18 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
     }
 
-    protected stopPeripheralScan():Promise<void> {
-        if (!this.isConnected() || !this.isDiscovering())
+    protected async stopPeripheralScan():Promise<void> {
+        const ble = this.getBinding()
+        if (!ble)
             return;
 
         this.logEvent({message:'stopping peripheral discovery ...'})
 
-        this.discoverTask.stop()
-        
+        // The native scan is stopped unconditionally: isDiscovering() reflects the discover task,
+        // which can be out of sync with the binding, and skipping the stop in that case would
+        // leave the native scan running for the rest of the process lifetime.
+        this.discoverTask?.stop()
 
-        const ble = this.getBinding()
         ble.off('discover',this.onDiscovered )
 
         return new Promise( done =>{            
