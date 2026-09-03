@@ -55,6 +55,12 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
     protected matching?:Array<string> = []
     protected instance:number
     protected connected: boolean = false;
+
+    /**
+     * Desired state for the mDNS browsers. Deliberately not cleared by disconnect(): discovery
+     * must stay suspended across a reconnect until it is resumed.
+     */
+    protected backgroundPaused: boolean = false;
     
 
     static getInstance(props:InterfaceProps={}): DirectConnectInterface {
@@ -246,19 +252,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
             this.logEvent({message:'connecting to Direct Connect'})
             this.getBinding().mdns.connect()
 
-            if (!reconnect)
-                this.logEvent({message:'starting multicast DNS scan ..'})
-
-            this.getBinding().mdns.find( null,( service:MulticastDnsAnnouncement )=>{
-                this.addService( service,'unfiltered' )  
-
-            } )
-
-            this.getBinding().mdns.find( {type:DC_TYPE},( service:MulticastDnsAnnouncement )=>{
-                this.addService( service, DC_TYPE )  
-
-            } )
-
+            this.startServiceDiscovery(reconnect)
 
         }
         catch (err:any) {
@@ -270,6 +264,75 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         this.emit('connected')
         return true;
 
+    }
+
+    /**
+     * Starts the continuous mDNS browsers used to discover devices on the network.
+     *
+     * Skipped while background activity is paused, so that a connect() or reconnect during that
+     * period does not silently restart discovery.
+     */
+    protected startServiceDiscovery(reconnect?:boolean):void {
+        if (this.backgroundPaused)
+            return
+
+        if (!reconnect)
+            this.logEvent({message:'starting multicast DNS scan ..'})
+
+        this.getBinding().mdns.find( null,( service:MulticastDnsAnnouncement )=>{
+            this.addService( service,'unfiltered' )  
+
+        } )
+
+        this.getBinding().mdns.find( {type:DC_TYPE},( service:MulticastDnsAnnouncement )=>{
+            this.addService( service, DC_TYPE )  
+
+        } )
+    }
+
+    async pauseBackgroundActivity():Promise<void> {
+        if (this.backgroundPaused)
+            return
+
+        // Set first: some bindings' disconnect() can throw (e.g. desktop's, which tears down a
+        // UDP multicast socket) and the desired state should hold regardless - the worst case of
+        // treating a failed release as 'paused' is that discovery stays suspended a bit longer
+        // than intended, which is far preferable to it silently continuing unnoticed.
+        this.backgroundPaused = true
+        this.logEvent({message:'pausing background activity'})
+
+        try {
+            // Releases the mDNS browsers. On mobile this also releases the wifi multicast lock
+            // they hold, which otherwise disables the wifi chip's multicast filtering for the
+            // whole process lifetime.
+            this.getBinding()?.mdns?.disconnect()
+        }
+        catch(err:any) {
+            this.logError(err, 'pauseBackgroundActivity')
+        }
+    }
+
+    async resumeBackgroundActivity():Promise<void> {
+        if (!this.backgroundPaused)
+            return
+
+        this.backgroundPaused = false
+        this.logEvent({message:'resuming background activity'})
+
+        // If not connected, discovery is started by connect() once the interface comes back.
+        if (!this.isConnected())
+            return
+
+        try {
+            this.getBinding()?.mdns?.connect()
+            this.startServiceDiscovery()
+        }
+        catch(err:any) {
+            // backgroundPaused is already false, matching the interface's connect() convention:
+            // a binding failure here is reported, not retried, and self-heals on the next
+            // connect()/reconnect once the binding recovers.
+            this.logError(err, 'resumeBackgroundActivity')
+        }
     }
 
     /**
