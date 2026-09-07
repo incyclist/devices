@@ -471,6 +471,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
                     resolve(true)
                 })
     
+                this.logEvent( {message:'connecting to wifi peripheral',path:this.getPath()})
                 this.socket.connect(port, address)
     
             })

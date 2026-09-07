@@ -63,7 +63,9 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     }
 
     async waitForPeripheral() {
-        this.logEvent({message:'waiting for sensor ...',device:this.getName(),interface:this.getInterface()})
+        const settings:BleDeviceSettings = {...this.settings} as BleDeviceSettings
+
+        this.logEvent({message:'waiting for sensor ...',device:this.getName(),interface:this.getInterface(), address: settings.address})
         const ble = this.getBle()
         const peripheral = await  ble.waitForPeripheral(this.settings)
         
