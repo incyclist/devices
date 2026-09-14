@@ -130,6 +130,8 @@ describe('BleFmAdapter',()=>{
             if (iv)
                 clearInterval(iv)
 
+            ble.connect = jest.fn().mockResolvedValue(true)
+            sensor.requestControl = jest.fn().mockResolvedValue(true)
             await adapter.stop()
         })
 
@@ -202,6 +204,36 @@ describe('BleFmAdapter',()=>{
             expect(establishControl).toHaveBeenCalled()
         })
 
+        // A real ride start (as opposed to pair/check) calls adapter.start() with no
+        // startProps.timeout at all. The outer task governing the *whole* start() call (connect
+        // through pairing through the data-wait) must still be self-limiting in that case -
+        // otherwise a sensor that never even completes the BLE connection hangs 'Starting'
+        // forever, since nothing else bounds that phase.
+        test('no explicit timeout given (real ride start): the outer start task still times out via the default startup timeout, even when the connection phase itself never settles',async ()=>{
+            setupMocks(adapter)
+            jest.spyOn(adapter as any,'getDefaultStartupTimeout').mockReturnValue(50)
+            ble.connect = jest.fn().mockReturnValue(new Promise(()=>{ /* never resolves - simulates a non-responding sensor */ }))
+
+            const result = await adapter.start()
+
+            expect(result).toBeFalsy()
+            expect(adapter.started).toBeFalsy()
+        })
+
+        // Confirms the default fallback doesn't interfere with a normal, well-behaved start that
+        // completes well within the (default) timeout window when no explicit timeout is given.
+        test('no explicit timeout given: a normal successful start still completes normally',async ()=>{
+            setupMocks(adapter)
+            jest.spyOn(adapter as any,'getDefaultStartupTimeout').mockReturnValue(2000)
+            iv = setInterval( ()=> {
+                sensor.emit('data',{power:0})
+            },10)
+
+            const result = await adapter.start()
+
+            expect(result).toBeTruthy()
+            expect(adapter.started).toBeTruthy()
+        })
 
     })
 

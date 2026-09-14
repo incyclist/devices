@@ -327,7 +327,13 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         ble.once('disconnect-done',this.onDisconnectDoneHandler)
 
         this.startTask = new InteruptableTask( this.startAdapter(startProps), {
-            timeout: startProps?.timeout,
+            // the outer task bounds the *entire* start() call (connect+pair+wait for data).
+            // Without a fallback here, a startProps.timeout that the caller never set (e.g. a
+            // real ride start, as opposed to pair/check) leaves this task unable to ever time
+            // out on its own - a non-responding sensor then hangs in 'Starting' forever. Default
+            // to the same startup timeout the adapter's own internal data-wait already falls
+            // back to (see startAdapter() below), so every start() call is self-limiting.
+            timeout: startProps?.timeout ?? this.getDefaultStartupTimeout(),
             name:'start',
             errorOnTimeout: false,
             log: this.logEvent.bind(this)
