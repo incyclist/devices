@@ -36,6 +36,7 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     protected rowerMaxPower: number|undefined
 
     protected indoorBikeDataTruncationLogged: boolean = false
+    protected hrmParseErrorLogged: boolean = false
 
     constructor (peripheral:IBlePeripheral, props?:any) {
         super(peripheral,props)
@@ -266,19 +267,26 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         if (data.length==0)
             return { ...this.data, raw:'<empty>'};
 
-        try {                         
-            const flags = data.readUInt8(0);
-
-            if ( flags % 1 === 0) { 
-                this.data.heartrate = data.readUInt8(1);
+        try {
+            if (data.length === 1) {
+                this.data.heartrate = data.readUInt8(0);
             }
             else {
-                this.data.heartrate = data.readUInt16LE(1);
+                const flags = data.readUInt8(0);
+
+                if ( (flags & 0x1) === 0) {
+                    this.data.heartrate = data.readUInt8(1);
+                }
+                else {
+                    this.data.heartrate = data.readUInt16LE(1);
+                }
             }
         }
-        catch (err:any) { 
-            this.logEvent({message:'error',fn:'parseHrm()',error:err.message, stack:err.stack, raw:`2a37:${data.toString('hex')}`})
-
+        catch (err:any) {
+            if (!this.hrmParseErrorLogged) {
+                this.hrmParseErrorLogged = true
+                this.logEvent({message:'error',fn:'parseHrm()',error:err.message, stack:err.stack, raw:`2a37:${data.toString('hex')}`})
+            }
         }
         return { ...this.data, raw:`2a37:${data.toString('hex')}`};
     }

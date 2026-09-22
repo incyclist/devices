@@ -146,12 +146,16 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
 
     async stopSensor(): Promise<boolean> {
 
+        // set synchronously, before anything else, so a command already in flight (queued
+        // before this stop was requested) can recognize a subsequent "not connected" write
+        // failure as this expected teardown rather than an unexpected disconnect
+        this.stopRequested = true
+
         this.onDisconnect()
         this.removeAllListeners()
         if (!this.peripheral)
             return true;
-        
-        this.stopRequested = true
+
         return await this.peripheral.disconnect()
     }
 
