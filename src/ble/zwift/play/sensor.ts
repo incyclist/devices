@@ -287,18 +287,18 @@ export class BleZwiftPlaySensor extends TBleSensor {
         let type: number
         let message: Buffer
 
-        // a message that couldn't be fully decoded from the previous notification is still
-        // pending - this notification is treated as its continuation, not a new message
-        if (this.pendingMeasurement) {
-            type = this.pendingMeasurement.type
-            message = Buffer.concat([this.pendingMeasurement.buffer, data])
-        }
-        else {
-            type = data.readUInt8(0)
-            message = data.subarray(1)
-        }
-
         try {
+            // a message that couldn't be fully decoded from the previous notification is still
+            // pending - this notification is treated as its continuation, not a new message
+            if (this.pendingMeasurement) {
+                type = this.pendingMeasurement.type
+                message = Buffer.concat([this.pendingMeasurement.buffer, data])
+            }
+            else {
+                type = data.readUInt8(0)
+                message = data.subarray(1)
+            }
+
             this.dispatchMeasurement(type, message)
             this.clearPendingMeasurement()
         }
