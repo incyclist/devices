@@ -23,12 +23,19 @@ type BleZwiftPlaySensorProps =
 
 type DeviceType = 'left' | 'right' | 'click' | 'hub' | 'ride-left' | 'ride-right'
 
+type PendingMeasurement = {
+    type: number
+    buffer: Buffer
+    timer: ReturnType<typeof setTimeout>
+}
+
 export class BleZwiftPlaySensor extends TBleSensor {
-    static readonly profile:LegacyProfile  = 'Controller'   
+    static readonly profile:LegacyProfile  = 'Controller'
     static readonly protocol:BleProtocol = 'zwift-play'
     static readonly services =  ['0000000119ca465186e5fa29dcdd09d1'];
     static readonly characteristics =  [];
     static readonly detectionPriority = 1;
+    static readonly MEASUREMENT_REASSEMBLY_TIMEOUT = 250 // ms
 
     protected emitter: EventEmitter
     protected isHubPairConfirmed: boolean
@@ -52,6 +59,9 @@ export class BleZwiftPlaySensor extends TBleSensor {
     protected subscribePromise: Promise<boolean>
     protected prevHubSettings: DeviceSettingsSubContent|undefined
     protected prevcWax10000: number
+
+    protected pendingMeasurement: PendingMeasurement|undefined
+    protected measurementReassemblyErrorLogged: boolean = false
 
     constructor (peripheral:IBlePeripheral|TBleSensor , props?:BleZwiftPlaySensorProps) {
         
@@ -89,8 +99,8 @@ export class BleZwiftPlaySensor extends TBleSensor {
         this.emitter.removeAllListeners()
         this.setInitialState()
 
-        this.removeAllListeners('key-pressed')       
-        
+        this.removeAllListeners('key-pressed')
+
         return super.stopSensor()
     }
 
@@ -205,7 +215,11 @@ export class BleZwiftPlaySensor extends TBleSensor {
             await this.requestDataUpdate(512)
         }
         catch(err) {
-            this.logger.logEvent( {message:"error",fn:'setSimulationData',data, error:err.message,stack:err.stack} );                        
+            // a command queued just before a pairing-group abort can still reach write() a
+            // moment after stopSensor() tore this sensor down - that's an expected outcome of
+            // the abort, not a real failure, so it's logged at a lower noise level
+            const message = this.stopRequested ? 'warning' : 'error'
+            this.logger.logEvent( {message,fn:'setSimulationData',data, error:err.message,stack:err.stack} );
         }
 
     }
@@ -247,7 +261,8 @@ export class BleZwiftPlaySensor extends TBleSensor {
             await this.requestDataUpdate(512)
         }
         catch(err) {
-            this.logger.logEvent( {message:"error",fn:'setGearRatio',gearRatio, error:err.message,stack:err.stack} );                        
+            const message = this.stopRequested ? 'warning' : 'error'
+            this.logger.logEvent( {message,fn:'setGearRatio',gearRatio, error:err.message,stack:err.stack} );
 
         }
 
@@ -264,21 +279,51 @@ export class BleZwiftPlaySensor extends TBleSensor {
     protected onMeasurement(d: Buffer): boolean {
         const data = Buffer.from(d)
 
-
         if (data?.length<1) {
             console.log('Invalid click measurement data', data.toString('hex'))
             return false
         }
-        const type = data.readUInt8(0)
-        const message = data.subarray(1)
 
+        let type: number
+        let message: Buffer
+
+        try {
+            // a message that couldn't be fully decoded from the previous notification is still
+            // pending - this notification is treated as its continuation, not a new message
+            if (this.pendingMeasurement) {
+                type = this.pendingMeasurement.type
+                message = Buffer.concat([this.pendingMeasurement.buffer, data])
+            }
+            else {
+                type = data.readUInt8(0)
+                message = data.subarray(1)
+            }
+
+            this.dispatchMeasurement(type, message)
+            this.clearPendingMeasurement()
+        }
+        catch (err:any) {
+            if (err instanceof RangeError && err.message==='premature EOF') {
+                // message is split across more than one BLE notification - buffer it and
+                // wait for the remaining fragment(s) instead of decoding a truncated buffer
+                this.bufferPendingMeasurement(type, message)
+            }
+            else {
+                this.clearPendingMeasurement()
+            }
+        }
+
+        return true
+    }
+
+    protected dispatchMeasurement(type: number, message: Buffer) {
         if (type===0x37) {
             this.onClickButtonMessage(message)
         }
         else if (type===0x19 ) {
             this.onPingMessage(message)
         }
-        else if (type===0x42) { 
+        else if (type===0x42) {
             console.log('# init confirmed')
         }
         else if (type===0x03) {
@@ -287,23 +332,44 @@ export class BleZwiftPlaySensor extends TBleSensor {
         else if (type===0x23) {
             this.onRideKeyPadStatus(message)
         }
-        else if (type===0x2A) {  
+        else if (type===0x2A) {
             this.onTrainerResponse(message)
         }
         else if (type===0x3c) {
             this.onDeviceInformation(message)
         }
-        else if (type===0x15) { 
+        else if (type===0x15) {
             // empty message, seem to signal that device is pairing
         }
 
         else {
-            this.logEvent({message:'got hub notification', raw:data.toString('hex')})
-            //this.emit('data', { raw: data.toString('hex')})
+            this.logEvent({message:'got hub notification', raw:message.toString('hex')})
+            //this.emit('data', { raw: message.toString('hex')})
 
         }
+    }
 
-        return true
+    protected bufferPendingMeasurement(type: number, buffer: Buffer) {
+        this.clearPendingMeasurement()
+
+        const timer = setTimeout( ()=>{
+            const pending = this.pendingMeasurement
+            this.pendingMeasurement = undefined
+
+            if (!this.measurementReassemblyErrorLogged) {
+                this.measurementReassemblyErrorLogged = true
+                this.logEvent({message:'error', fn:'onMeasurement', error:'message reassembly timed out - incomplete message dropped', type:pending?.type, payload:pending?.buffer?.toString('hex')})
+            }
+        }, BleZwiftPlaySensor.MEASUREMENT_REASSEMBLY_TIMEOUT)
+
+        this.pendingMeasurement = {type, buffer, timer}
+    }
+
+    protected clearPendingMeasurement() {
+        if (this.pendingMeasurement) {
+            clearTimeout(this.pendingMeasurement.timer)
+            this.pendingMeasurement = undefined
+        }
     }
 
     async initHubService( setSimulation:boolean = true):Promise<boolean> {
@@ -434,6 +500,9 @@ export class BleZwiftPlaySensor extends TBleSensor {
             this.logEvent({ message:'trainer response received', unknown:data.unknown, text})
         }
         catch(err:any) {
+            if (err instanceof RangeError && err.message==='premature EOF')
+                throw err
+
             let payload = 'unknown'
             try { payload = m.toString('hex')} catch {}
 
@@ -451,6 +520,9 @@ export class BleZwiftPlaySensor extends TBleSensor {
             this.logEvent({ message:'riding data received',   power:data.power,  cadence:data.cadence, Speed:data.speedX100/100, heartrate:data.hR,  unknown1: data.unknown1, unknown2:data.unknown2})
         }
         catch(err) {
+            if (err instanceof RangeError && err.message==='premature EOF')
+                throw err
+
             this.logEvent( {message:'Error', fn:'onRidingData', error:err.message, stack:err.stack})
         }
     }
@@ -512,6 +584,9 @@ export class BleZwiftPlaySensor extends TBleSensor {
 
         }
         catch(err) {
+            if (err instanceof RangeError && (err as Error).message==='premature EOF')
+                throw err
+
             this.logEvent({message: 'Error', fn: 'onRideKeyPadStatus', error: (err as Error).message, stack: (err as Error).stack})
         }
     }
@@ -586,6 +661,9 @@ export class BleZwiftPlaySensor extends TBleSensor {
             this.prevClickMessage = messageStr
         }
         catch(err) {
+            if (err instanceof RangeError && err.message==='premature EOF')
+                throw err
+
             this.logEvent({message:'error', fn:'onButtonMessage', error:err.message, stack:err.stack})
         }
     }
@@ -823,6 +901,7 @@ export class BleZwiftPlaySensor extends TBleSensor {
         delete this.initHubServicePromise
         delete this.prevHubSettings
         this.rideKeyPadStates = new Map()
+        this.clearPendingMeasurement()
 
     }
 

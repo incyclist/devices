@@ -239,7 +239,39 @@ describe('BleFitnessMachineDevice',()=>{
 
     describe('onDisconnect',()=>{})
 
-    describe('parseHrm',()=>{})
+    describe('parseHrm',()=>{
+        let ftms;
+
+        beforeEach( ()=>{
+            ftms = new BleFitnessMachineDevice({id:'test'})
+        })
+
+        test('bare 1-byte HR value (non-spec, single-byte notification) parses without throwing or logging',()=>{
+            ftms.logEvent = jest.fn()
+            const res = ftms.parseHrm( data('5e'));
+            expect(res).toMatchObject({heartrate:94})
+            expect(ftms.logEvent).not.toHaveBeenCalled()
+        })
+
+        test('spec-compliant 2-byte value (flags bit0=0) still parses as UINT8',()=>{
+            const res = ftms.parseHrm( data('0050'));
+            expect(res).toMatchObject({heartrate:80})
+        })
+
+        test('spec-compliant value with flags bit0=1 takes the UINT16 branch',()=>{
+            const res = ftms.parseHrm( data('015000'));
+            expect(res).toMatchObject({heartrate:80})
+        })
+
+        test('logs a parse error only once for repeated failures on the same instance',()=>{
+            ftms.logEvent = jest.fn()
+            ftms.parseHrm( data('0150'))
+            ftms.parseHrm( data('0150'))
+            ftms.parseHrm( data('0150'))
+            expect(ftms.logEvent).toHaveBeenCalledTimes(1)
+            expect(ftms.logEvent).toHaveBeenCalledWith( expect.objectContaining({message:'error', fn:'parseHrm()'}))
+        })
+    })
 
     describe('parseIndoorBikeData',()=>{
         let ftms;
