@@ -41,7 +41,7 @@
         "protoc": "^33.6.0",
         "ts-node": "^10.9.2",
         "typescript": "^5.9.3",
-        "vitest": "^4.0.18"
+        "vitest": "^4.1.11"
     },
     "files": [
         "lib/"
