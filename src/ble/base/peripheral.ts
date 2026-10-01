@@ -347,7 +347,7 @@ export class BlePeripheral implements IBlePeripheral {
 
         try {
             if (this.disconnecting || !this.connected) {
-                this.logEvent({message:'peripheral subscribe failed', uuid:characteristicUUID, reason:'not connected',
+                this.logEvent({message:'peripheral subscribe failed', characteristic:beautifyUUID(characteristicUUID), reason:'not connected',
                     disconnecting:this.disconnecting, connected:this.connected
                 }) 
                 return false
@@ -365,7 +365,7 @@ export class BlePeripheral implements IBlePeripheral {
 
             const subscription = this.subscribed.find( s => s.uuid ===uuid)
             if (subscription) {
-                this.logEvent({message:'peripheral subscribe skipped', uuid:characteristicUUID, reason:'already subscribed'}) 
+                this.logEvent({message:'peripheral subscribe skipped', characteristic:beautifyUUID(characteristicUUID), reason:'already subscribed'}) 
                 const c = this.getRawCharacteristic(characteristicUUID)
                 if (c) {
                     c.off('data',onData)
@@ -376,7 +376,7 @@ export class BlePeripheral implements IBlePeripheral {
 
             let c = await this.queryRawCharacteristic(characteristicUUID).catch( ()=>null)
             if (!c) {
-                this.logEvent({message:'peripheral subscribe failed', uuid:characteristicUUID, reason:'not found'}) 
+                this.logEvent({message:'peripheral subscribe failed', characteristic:beautifyUUID(characteristicUUID), reason:'not found'}) 
                 return false
             }
 
@@ -384,7 +384,7 @@ export class BlePeripheral implements IBlePeripheral {
 
                 const info = this.subscribed.find( s => s.uuid ===characteristicUUID)
                 if (info) {
-                    this.logEvent({message:'peripheral subscribe skipped', uuid:characteristicUUID, reason:'already subscribed'}) 
+                    this.logEvent({message:'peripheral subscribe skipped', characteristic:beautifyUUID(characteristicUUID), reason:'already subscribed'}) 
                     // already subscribed
                     return Promise.resolve(true)
                 }
