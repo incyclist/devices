@@ -506,10 +506,10 @@ export class BlePeripheral implements IBlePeripheral {
                 else {
                     const uuid =  beautifyUUID(element)
                     if (c?.properties) {
-                        this.logEvent({message:'cannot subscribe',uuid, reason:'invalid type', properties:c.properties.join('|')})
+                        this.logEvent({message:'cannot subscribe',characteristics:beautifyUUID(uuid), reason:'invalid type', properties:c.properties.join('|')})
                     }
                     else {
-                        this.logEvent({message:'cannot subscribe',uuid, reason:'not found'})
+                        this.logEvent({message:'cannot subscribe',characteristics:beautifyUUID(uuid), reason:'not found'})
                     }
                 }
             }
@@ -522,7 +522,7 @@ export class BlePeripheral implements IBlePeripheral {
     
         }
         catch(err) {
-            this.logEvent( {message:'Error', fn:'subscribeSelected', error:err.message, stack:err.stack})
+            this.logEvent( {message:'Error', fn:'subscribeSelected',uuids, error:err.message, stack:err.stack})
             return false
         }
     }
