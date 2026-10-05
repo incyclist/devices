@@ -485,6 +485,40 @@ describe('BleFmAdapter',()=>{
     // showed the entire checkCapabilities()/establishControl()/requestControl() sequence firing
     // twice, ~4ms apart, producing two concurrent RequestControl BLE writes that collided at the
     // GATT layer.
+    describe('restart - resets virtual shifting hub state',()=>{
+
+        test('clears the zwift play hub state and hub-initialized flag before the base restart runs',async ()=>{
+            const adapter = new BleFmAdapter({interface:'ble', name:'1', address:'1111', protocol:'fm'})
+            const resetHubState = jest.fn()
+            ;(adapter as any).zwiftPlay = { resetHubState }
+            ;(adapter as any).isHubInitialized = true
+
+            const baseRestart = jest.spyOn(Object.getPrototypeOf(BleFmAdapter.prototype),'restart')
+                .mockImplementation( async ()=> {
+                    expect(resetHubState).toHaveBeenCalled()
+                    expect((adapter as any).isHubInitialized).toBe(false)
+                    return true
+                })
+
+            const res = await adapter.restart(0)
+
+            expect(res).toBe(true)
+            expect(baseRestart).toHaveBeenCalledWith(0)
+            baseRestart.mockRestore()
+        })
+
+        test('restart without any virtual shifting still delegates to the base restart',async ()=>{
+            const adapter = new BleFmAdapter({interface:'ble', name:'1', address:'1111', protocol:'fm'})
+
+            const baseRestart = jest.spyOn(Object.getPrototypeOf(BleFmAdapter.prototype),'restart')
+                .mockResolvedValue(false)
+
+            expect(await adapter.restart()).toBe(false)
+            expect(baseRestart).toHaveBeenCalledTimes(1)
+            baseRestart.mockRestore()
+        })
+    })
+
     describe('start/stop concurrency (FIXES_BACKLOG #23)',()=>{
 
         let sensor: BleFitnessMachineDevice

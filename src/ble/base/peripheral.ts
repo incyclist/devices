@@ -14,6 +14,12 @@ import { BleInterface } from "./interface.js";
 // evidence of the actual registration race, not from any other kind of mismatch.
 const SERVICE_COMPLETENESS_WHITELIST = ['MRK-R15']
 
+// After a (re)connect, the OS GATT cache can take a few seconds to expose vendor-specific services.
+// Discovery that comes back empty right after connecting is retried with a growing delay before it
+// is accepted as the device's real (empty) characteristic table.
+const POST_CONNECT_DISCOVERY_ATTEMPTS = 4
+const POST_CONNECT_DISCOVERY_BACKOFF_MS = 1000
+
 export class BlePeripheral implements IBlePeripheral {
 
     protected connected = false
@@ -40,6 +46,10 @@ export class BlePeripheral implements IBlePeripheral {
 
     protected discoverServicesPromise: Promise<string[]>|undefined
     protected discoverCharacteristicsPromise: Record<string,Promise<BleCharacteristic[]>|undefined> = {}
+
+    // set on every successful connect(); cleared once characteristic discovery returns a non-empty
+    // result, or once the post-connect retries are exhausted
+    protected awaitingPostConnectDiscovery: boolean = false
 
     protected onErrorHandler = this.onPeripheralError.bind(this)
 
@@ -109,8 +119,9 @@ export class BlePeripheral implements IBlePeripheral {
                 peripheral.on('error',this.onErrorHandler)
         
                 this.connected = true;
+                this.awaitingPostConnectDiscovery = true
                 done()
-    
+
             })
             .catch( ()=> {
                 this.connected = false
@@ -528,6 +539,28 @@ export class BlePeripheral implements IBlePeripheral {
     }
 
     async discoverAllCharacteristics():Promise<string[]> {
+        const attempts = this.awaitingPostConnectDiscovery ? POST_CONNECT_DISCOVERY_ATTEMPTS : 1
+
+        for (let attempt=1; ; attempt++) {
+            const found = await this.queryAllCharacteristics()
+
+            if (found.length>0) {
+                this.awaitingPostConnectDiscovery = false
+                return found
+            }
+
+            if (attempt>=attempts) {
+                this.awaitingPostConnectDiscovery = false
+                return found
+            }
+
+            const {name,address} = this.getInfo()
+            this.logEvent({message:'discover all characteristics empty after connect - retrying',name,address,attempt})
+            await sleep(POST_CONNECT_DISCOVERY_BACKOFF_MS*attempt)
+        }
+    }
+
+    protected async queryAllCharacteristics():Promise<string[]> {
         try {
             const {name,address} = this.getInfo()
 

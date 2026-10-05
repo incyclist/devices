@@ -416,6 +416,94 @@ describe('BlePeripheral', () => {
 
     })
 
+    describe('discoverAllCharacteristics - post-connect retry with backoff', () => {
+
+        const IBD = '2AD2'
+
+        const setup = () => {
+            const announcement: any = { peripheral: { id: 'p1', address: 'AA:BB:CC:DD:EE:FF' }, serviceUUIDs: [] }
+            const p: any = new BlePeripheral(announcement)
+            p.connected = true
+            p.logEvent = () => {}
+
+            const peripheral = {
+                id: 'p1',
+                address: 'AA:BB:CC:DD:EE:FF',
+                discoverSomeServicesAndCharacteristicsAsync: vi.fn(),
+            }
+            p.getPeripheral = () => peripheral
+
+            return { p, peripheral }
+        }
+
+        beforeEach(() => { vi.useFakeTimers() })
+        afterEach(() => { vi.useRealTimers() })
+
+        test('retries an empty discovery right after connect until the vendor characteristics appear', async () => {
+            const { p, peripheral } = setup()
+            const ibd = new MockChar(IBD)
+
+            p.awaitingPostConnectDiscovery = true
+            peripheral.discoverSomeServicesAndCharacteristicsAsync
+                .mockResolvedValueOnce({ services: [], characteristics: [] })
+                .mockResolvedValueOnce({ services: [], characteristics: [] })
+                .mockResolvedValueOnce({ services: [], characteristics: [ibd] })
+
+            const promise = p.discoverAllCharacteristics()
+            await vi.runAllTimersAsync()
+            const found = await promise
+
+            expect(found).toEqual([IBD])
+            expect(peripheral.discoverSomeServicesAndCharacteristicsAsync).toHaveBeenCalledTimes(3)
+            expect(p.getRawCharacteristic(IBD)).toBe(ibd)
+            expect(p.awaitingPostConnectDiscovery).toBe(false)
+        })
+
+        test('gives up after the bounded attempts and clears the post-connect flag', async () => {
+            const { p, peripheral } = setup()
+
+            p.awaitingPostConnectDiscovery = true
+            peripheral.discoverSomeServicesAndCharacteristicsAsync.mockResolvedValue({ services: [], characteristics: [] })
+
+            const promise = p.discoverAllCharacteristics()
+            await vi.runAllTimersAsync()
+            const found = await promise
+
+            expect(found).toEqual([])
+            expect(peripheral.discoverSomeServicesAndCharacteristicsAsync).toHaveBeenCalledTimes(4)
+            expect(p.awaitingPostConnectDiscovery).toBe(false)
+
+            // a later discovery is a single attempt again - no lingering retry loop
+            await p.discoverAllCharacteristics()
+            expect(peripheral.discoverSomeServicesAndCharacteristicsAsync).toHaveBeenCalledTimes(5)
+        })
+
+        test('does not retry an empty discovery when not awaiting post-connect discovery', async () => {
+            const { p, peripheral } = setup()
+
+            peripheral.discoverSomeServicesAndCharacteristicsAsync.mockResolvedValue({ services: [], characteristics: [] })
+
+            const found = await p.discoverAllCharacteristics()
+
+            expect(found).toEqual([])
+            expect(peripheral.discoverSomeServicesAndCharacteristicsAsync).toHaveBeenCalledTimes(1)
+        })
+
+        test('a non-empty discovery right after connect is accepted immediately', async () => {
+            const { p, peripheral } = setup()
+            const ibd = new MockChar(IBD)
+
+            p.awaitingPostConnectDiscovery = true
+            peripheral.discoverSomeServicesAndCharacteristicsAsync.mockResolvedValueOnce({ services: [], characteristics: [ibd] })
+
+            const found = await p.discoverAllCharacteristics()
+
+            expect(found).toEqual([IBD])
+            expect(peripheral.discoverSomeServicesAndCharacteristicsAsync).toHaveBeenCalledTimes(1)
+            expect(p.awaitingPostConnectDiscovery).toBe(false)
+        })
+    })
+
     describe('discoverAllCharacteristics/discoverSomeCharacteristics cache invalidation (FIXES_BACKLOG #30)', () => {
 
         const IBD = '2AD2'   // FTMS Indoor Bike Data

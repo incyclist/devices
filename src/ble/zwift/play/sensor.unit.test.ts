@@ -75,6 +75,34 @@ describe('BleZwiftPlaySensor', () => {
         })
     })
 
+    describe('resetHubState - peripheral reconnect invalidates hub pairing', () => {
+        let sensor: any
+
+        beforeEach(() => {
+            const peripheral = {
+                isConnected: jest.fn().mockReturnValue(true),
+                write: jest.fn().mockResolvedValue(Buffer.from([])),
+                disconnect: jest.fn().mockResolvedValue(true),
+                onDisconnect: jest.fn(),
+                getInterface: jest.fn().mockReturnValue({ isLoggingPaused: jest.fn().mockReturnValue(false) }),
+            }
+            sensor = new BleZwiftPlaySensor(peripheral, { logger: MockLogger })
+            sensor.isHubServiceActive = true
+            sensor.isHubServicePaired = true
+            sensor.isHubServiceSubscribed = true
+            sensor.isHubPairConfirmed = true
+        })
+
+        test('clears all cached hub pairing state so the next command re-runs the handshake', () => {
+            sensor.resetHubState()
+
+            expect(sensor.isHubServiceActive).toBe(false)
+            expect(sensor.isHubServicePaired).toBe(false)
+            expect(sensor.isHubServiceSubscribed).toBe(false)
+            expect(sensor.isHubPairConfirmed).toBe(false)
+        })
+    })
+
     describe('setSimulationData - write racing a concurrent stopSensor()', () => {
         let sensor: any
         let peripheral: any
