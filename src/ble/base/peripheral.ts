@@ -540,24 +540,21 @@ export class BlePeripheral implements IBlePeripheral {
 
     async discoverAllCharacteristics():Promise<string[]> {
         const attempts = this.awaitingPostConnectDiscovery ? POST_CONNECT_DISCOVERY_ATTEMPTS : 1
+        return this.discoverAllCharacteristicsAttempt(1, attempts)
+    }
 
-        for (let attempt=1; ; attempt++) {
-            const found = await this.queryAllCharacteristics()
+    protected async discoverAllCharacteristicsAttempt(attempt:number, maxAttempts:number):Promise<string[]> {
+        const found = await this.queryAllCharacteristics()
 
-            if (found.length>0) {
-                this.awaitingPostConnectDiscovery = false
-                return found
-            }
-
-            if (attempt>=attempts) {
-                this.awaitingPostConnectDiscovery = false
-                return found
-            }
-
-            const {name,address} = this.getInfo()
-            this.logEvent({message:'discover all characteristics empty after connect - retrying',name,address,attempt})
-            await sleep(POST_CONNECT_DISCOVERY_BACKOFF_MS*attempt)
+        if (found.length>0 || attempt>=maxAttempts) {
+            this.awaitingPostConnectDiscovery = false
+            return found
         }
+
+        const {name,address} = this.getInfo()
+        this.logEvent({message:'discover all characteristics empty after connect - retrying',name,address,attempt})
+        await sleep(POST_CONNECT_DISCOVERY_BACKOFF_MS*attempt)
+        return this.discoverAllCharacteristicsAttempt(attempt+1, maxAttempts)
     }
 
     protected async queryAllCharacteristics():Promise<string[]> {
