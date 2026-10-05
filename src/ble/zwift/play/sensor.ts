@@ -890,6 +890,13 @@ export class BleZwiftPlaySensor extends TBleSensor {
 
 
 
+    // This sensor does not own the shared peripheral's lifecycle, so it is not notified when the
+    // peripheral reconnects. The owner calls this so the next setSimulationData()/setGearRatio()
+    // re-runs initHubService() instead of trusting pairing state from before the reconnect.
+    resetHubState() {
+        this.setInitialState()
+    }
+
     protected setInitialState() {
         this.isHubPairConfirmed = false
         this.encrypted = false

@@ -218,9 +218,18 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         }
         catch(err) {
             this.logEvent({message:'could not init virtual shifting', reason:(err as Error).message})    
-            delete this.zwiftPlay    
-            this.isHubInitialized =false    
+            delete this.zwiftPlay
+            this.isHubInitialized =false
         }
+    }
+
+    async restart(pause?:number):Promise<boolean> {
+        // the restart tears down the shared peripheral connection, so any hub pairing state
+        // cached from before it is no longer valid and must be re-established on next use
+        this.zwiftPlay?.resetHubState()
+        this.isHubInitialized = false
+
+        return await super.restart(pause)
     }
 
     
