@@ -5,6 +5,7 @@ import {BlePwrAdapter, BlePwrComms} from './cp/index.js'
 import {BleFmAdapter,BleFmComms} from './fm/index.js'
 import {BleWahooAdapter,BleWahooComms} from './wahoo/index.js'
 import { BleTacxAdapter, BleTacxComms } from './tacx/index.js'
+import { BleBkoolAdapter, BleBkoolComms } from './bkool/index.js'
 import { BleDeviceSettings, BleInterfaceProps } from './types.js'
 import { BleInterface, BleInterfaceFactory } from '../ble/base/interface.js'
 import { BleMultiTransportInterfaceFactory,BleAdapterFactory } from './factories/index.js'
@@ -20,6 +21,7 @@ import { BleZwiftPlaySensor, ZwiftPlayAdapter } from './zwift/play/index.js'
     af.register('fm',BleFmAdapter, BleFmComms)
     af.register('wahoo',BleWahooAdapter,BleWahooComms)
     af.register('tacx',BleTacxAdapter,BleTacxComms)
+    af.register('bkool',BleBkoolAdapter,BleBkoolComms)
     af.register('csc',BleCSCAdapter,BleCyclingSpeedCadenceDevice)
     af.register('zwift-play',ZwiftPlayAdapter,BleZwiftPlaySensor)
 })
@@ -37,5 +39,6 @@ export {
     BlePwrAdapter,
     BleFmAdapter,
     BleWahooAdapter,
-    BleTacxAdapter
+    BleTacxAdapter,
+    BleBkoolAdapter
 }
