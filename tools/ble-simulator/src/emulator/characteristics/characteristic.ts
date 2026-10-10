@@ -15,42 +15,59 @@ export class Characteristic<T> implements ICharacteristic<T>{
     protected data: T
     protected description: string
     protected emitter = new EventEmitter()
+    protected notifyCallback?: (buffer: Buffer) => void
 
     constructor( props:ICharacteristicDefinition) {
         this.uuid = props.uuid;
         this.properties = props.properties
         this.value = props.value
         this.descriptors = props.descriptors
+        // NOTE: @stoprocent/bleno's Characteristic constructor wires its internal EventEmitter
+        // listeners (this.on('subscribe', this.onSubscribe.bind(this)), etc.) at construction
+        // time, binding whatever onSubscribe/onWriteRequest/onReadRequest/onUnsubscribe were
+        // passed in the constructor options. Assigning `this.bleno.onSubscribe = ...` *after*
+        // construction (as this used to do) has no effect - the listener is already bound to
+        // the library's no-op default, so subscribes/writes/reads silently never reach us even
+        // though the client sees a successful ATT-level ack. Must pass these in the options.
         this.bleno = new bleno.Characteristic( {
             uuid:this.uuid,
             properties: this.properties,
             value:  this.value ? Buffer.from(this.value) : null,
-            descriptors: this.getDescriptors(this.descriptors)
+            descriptors: this.getDescriptors(this.descriptors),
 
+            onReadRequest: (_connection, _offset, callback) => {
+                callback( bleno.Characteristic.RESULT_SUCCESS, Buffer.from(this.value))
+            },
+
+            onWriteRequest: (_connection, data, offset, withoutResponse, callback) => {
+                this.write(data, offset, withoutResponse, (success:boolean) => {
+                    callback( success ? bleno.Characteristic.RESULT_SUCCESS : bleno.Characteristic.RESULT_UNLIKELY_ERROR)
+                })
+            },
+
+            onSubscribe: (_connection, _maxValueSize, updateValueCallback) => {
+                this.subscribe(updateValueCallback)
+            },
+
+            onUnsubscribe: () => {
+                // must pass the SAME callback reference subscribe() registered - EventEmitter.off()
+                // only removes a listener on exact function identity. Passing a fresh anonymous
+                // function here (as this used to do) silently fails to remove it, leaving the
+                // stale callback (tied to the now-dead connection) in place; the next notify()
+                // tick then invokes it and crashes inside bleno's own gatt.js, which can no longer
+                // find that connection.
+                if (this.notifyCallback) {
+                    this.unsubscribe(this.notifyCallback)
+                    delete this.notifyCallback
+                }
+            }
         })
 
-        this.bleno.onReadRequest = (_connection, _offset,callback) => {
-            callback( this.bleno.RESULT_SUCCESS, Buffer.from(this.value))
-        }
-
-        this.bleno.onWriteRequest = (_connection,data, offset, withoutResponse, callback)=> {
-            this.write(data,offset,withoutResponse, (success:boolean)=> {
-                callback( success ? this.bleno.RESULT_SUCCESS : this.bleno.RESULT_UNLIKELY_ERROR)
-            })
-        }
-
-        this.bleno.onSubscribe = (_connection,_maxValueSize, updateValueCallback) => {
-            this.subscribe(updateValueCallback)
-        }
-
-        this.bleno.onUnsubscribe = ()=>{
-            this.unsubscribe( ()=>{ /* */})
-        }
-        
     }
 
     subscribe(callback: (buffer: Buffer) => void): void {
-        
+
+        this.notifyCallback = callback
         this.emitter.on('notification', callback)
         console.log('subscribe',this.description, this.emitter.listenerCount('notification'),   callback)
 

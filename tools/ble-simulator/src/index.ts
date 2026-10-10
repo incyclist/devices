@@ -1,4 +1,5 @@
 import {main as wahoo} from './wahoo'
+import {main as bkool} from './bkool'
 
 const parseArgs = ()=> {
     const args = process.argv.slice(2);
@@ -17,8 +18,12 @@ const main = async ({profile}) => {
         console.log('wahoo simulator')
         wahoo()
     }
+    else if (profile==='bkool') {
+        console.log('bkool simulator')
+        bkool()
+    }
     else {
-        console.log ( 'usage: ble-simulator <profile>')
+        console.log ( 'usage: ble-simulator <profile> [--random]')
     }
 
 
