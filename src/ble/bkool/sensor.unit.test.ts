@@ -54,33 +54,14 @@ describe('Bkool Sensor', ()=>{
     })
 
     describe('requestControl', ()=>{
-        let sensor: BleBkoolDevice
-        let writeSpy
-
-        beforeEach(()=>{
-            sensor = new BleBkoolDevice(null, {logger:MockLogger})
-            writeSpy = jest.fn().mockResolvedValue(undefined)
+        // this protocol has no permission/unlock negotiation anywhere in bkoolbike.cpp - unlike
+        // Wahoo/FTMS devices, there is nothing to request
+        test('is a trivial no-op - no write happens', async ()=>{
+            const sensor = new BleBkoolDevice(null, {logger:MockLogger})
+            const writeSpy = jest.fn()
             sensor.write = writeSpy
-        })
 
-        test('sends the fixed 5-frame init sequence once, byte-for-byte matching bkoolbike.cpp', async ()=>{
-            const res = await sensor.requestControl()
-
-            expect(res).toBe(true)
-            expect(writeSpy).toHaveBeenCalledTimes(5)
-            expect(writeSpy).toHaveBeenNthCalledWith(1, BKOOL_CONTROL, Buffer.from('3025ffffffffff00','hex'), {withoutResponse:true})
-            expect(writeSpy).toHaveBeenNthCalledWith(2, BKOOL_CONTROL, Buffer.from('3225ffffff1e7f00','hex'), {withoutResponse:true})
-            expect(writeSpy).toHaveBeenNthCalledWith(3, BKOOL_CONTROL, Buffer.from('3325ffffff204e00','hex'), {withoutResponse:true})
-            expect(writeSpy).toHaveBeenNthCalledWith(4, BKOOL_CONTROL, Buffer.from('374c1dff800c4621','hex'), {withoutResponse:true})
-            expect(writeSpy).toHaveBeenNthCalledWith(5, BKOOL_CONTROL, Buffer.from('37ee16ff800c4621','hex'), {withoutResponse:true})
-        })
-
-        test('second call does not resend the init sequence', async ()=>{
-            await sensor.requestControl()
-            writeSpy.mockClear()
-
-            const res = await sensor.requestControl()
-            expect(res).toBe(true)
+            expect(await sensor.requestControl()).toBe(true)
             expect(writeSpy).not.toHaveBeenCalled()
         })
     })
@@ -89,12 +70,10 @@ describe('Bkool Sensor', ()=>{
         let sensor: BleBkoolDevice
         let writeSpy
 
-        beforeEach(async ()=>{
+        beforeEach(()=>{
             sensor = new BleBkoolDevice(null, {logger:MockLogger})
             writeSpy = jest.fn().mockResolvedValue(undefined)
             sensor.write = writeSpy
-            await sensor.requestControl()
-            writeSpy.mockClear()
         })
 
         test('150W -> FE-C page 0x31, quarter-watt resolution', async ()=>{
@@ -117,24 +96,30 @@ describe('Bkool Sensor', ()=>{
         let sensor: BleBkoolDevice
         let writeSpy
 
-        beforeEach(async ()=>{
+        beforeEach(()=>{
             sensor = new BleBkoolDevice(null, {logger:MockLogger})
             writeSpy = jest.fn().mockResolvedValue(undefined)
             sensor.write = writeSpy
-            await sensor.requestControl()
-            writeSpy.mockClear()
         })
 
-        test('0% -> FE-C page 0x33, raw=(0+200)*100=20000=0x4e20 LE', async ()=>{
+        // default crr (0.0033, from the shared BleFitnessMachineDevice base) -> round(0.0033/0.00005) = 66 = 0x42
+        test('0% -> FE-C page 0x33, raw=(0+200)*100=20000=0x4e20 LE, default crr', async ()=>{
             const res = await sensor.setSlope(0)
             expect(res).toBe(true)
-            expect(writeSpy).toHaveBeenCalledWith(BKOOL_CONTROL, Buffer.from([0x33,0x25,0xff,0xff,0xff,0x20,0x4e,0xa0]), {withoutResponse:true})
+            expect(writeSpy).toHaveBeenCalledWith(BKOOL_CONTROL, Buffer.from([0x33,0x25,0xff,0xff,0xff,0x20,0x4e,0x42]), {withoutResponse:true})
         })
 
         test('5% -> raw=(5+200)*100=20500=0x5014 LE', async ()=>{
             const res = await sensor.setSlope(5)
             expect(res).toBe(true)
-            expect(writeSpy).toHaveBeenCalledWith(BKOOL_CONTROL, Buffer.from([0x33,0x25,0xff,0xff,0xff,0x14,0x50,0xa0]), {withoutResponse:true})
+            expect(writeSpy).toHaveBeenCalledWith(BKOOL_CONTROL, Buffer.from([0x33,0x25,0xff,0xff,0xff,0x14,0x50,0x42]), {withoutResponse:true})
+        })
+
+        test('uses the sensor\'s own configured crr, not a hardcoded value', async ()=>{
+            sensor.setCrr(0.005)   // round(0.005/0.00005) = 100 = 0x64
+            const res = await sensor.setSlope(0)
+            expect(res).toBe(true)
+            expect(writeSpy).toHaveBeenCalledWith(BKOOL_CONTROL, Buffer.from([0x33,0x25,0xff,0xff,0xff,0x20,0x4e,0x64]), {withoutResponse:true})
         })
     })
 
@@ -145,6 +130,46 @@ describe('Bkool Sensor', ()=>{
 
             await sensor.setTargetResistanceLevel(50)
             expect(sensor.setSlope).toHaveBeenCalledWith(5)
+        })
+    })
+
+    // Byte layouts below are confirmed byte-for-byte against a live capture of qdomyos-zwift's own
+    // fixed init-sequence writes against a simulated device (see design repo
+    // features/bkool-smartpro-trainer-support) - these builders replace what used to be opaque,
+    // hardcoded frame constants with properly parameterized FE-C page construction.
+    describe('FE-C page builders', ()=>{
+        let sensor: BleBkoolDevice
+        let writeSpy
+
+        beforeEach(()=>{
+            sensor = new BleBkoolDevice(null, {logger:MockLogger})
+            writeSpy = jest.fn().mockResolvedValue(undefined)
+            sensor.write = writeSpy
+        })
+
+        test('sendBasicResistance(0) matches QZ\'s captured init1', async ()=>{
+            await sensor.sendBasicResistance(0)
+            expect(writeSpy).toHaveBeenCalledWith(BKOOL_CONTROL, Buffer.from('3025ffffffffff00','hex'), {withoutResponse:true})
+        })
+
+        test('sendWindResistance(0.30, 0, 0) matches QZ\'s captured init2', async ()=>{
+            await sensor.sendWindResistance(0.30, 0, 0)
+            expect(writeSpy).toHaveBeenCalledWith(BKOOL_CONTROL, Buffer.from('3225ffffff1e7f00','hex'), {withoutResponse:true})
+        })
+
+        test('sendTrackResistance(0, 0) matches QZ\'s captured init3', async ()=>{
+            await sensor.sendTrackResistance(0, 0)
+            expect(writeSpy).toHaveBeenCalledWith(BKOOL_CONTROL, Buffer.from('3325ffffff204e00','hex'), {withoutResponse:true})
+        })
+
+        test('sendUserConfiguration(75, 10, 0.7, 1.0) matches QZ\'s captured init4 exactly (DEFAULT_USER_WEIGHT/DEFAULT_BIKE_WEIGHT, 700c wheel, 1:1 gear ratio)', async ()=>{
+            await sensor.sendUserConfiguration(75, 10, 0.7, 1.0)
+            expect(writeSpy).toHaveBeenCalledWith(BKOOL_CONTROL, Buffer.from('374c1dff800c4621','hex'), {withoutResponse:true})
+        })
+
+        test('sendUserConfiguration with a different real user weight (58.7kg) matches QZ\'s captured init5, same bike/wheel/gear', async ()=>{
+            await sensor.sendUserConfiguration(58.7, 10, 0.7, 1.0)
+            expect(writeSpy).toHaveBeenCalledWith(BKOOL_CONTROL, Buffer.from('37ee16ff800c4621','hex'), {withoutResponse:true})
         })
     })
 

@@ -21,9 +21,9 @@ export function isBkoolDeviceName(name?: string): boolean {
 }
 
 // Bare 8-byte ANT+ FE-C data pages - no sync/channel/checksum envelope (unlike Tacx, which tunnels
-// full ANT+ messages). Byte layouts below are confirmed byte-for-byte against bkoolbike.cpp
-// (forcePower()/forceInclination()/the fixed init sequence) and, for the init sequence, against a
-// live capture of qdomyos-zwift's actual writes to a simulated device.
+// full ANT+ messages). Field layouts are the standard ANT+ FE-C pages - same vocabulary already
+// implemented for Tacx (sendBasicResistance/sendTargetPower/sendWindResistance/sendTrackResistance/
+// sendUserConfiguration in ../tacx/sensor.ts) - just without the leading ANT channel byte.
 export enum FECPage {
     basicResistance = 0x30,
     targetPower = 0x31,
@@ -32,11 +32,10 @@ export enum FECPage {
     userConfiguration = 0x37
 }
 
-// Fixed frames bkoolbike.cpp sends once on first connect, before any dynamic power/slope write -
-// confirmed byte-for-byte via live QZ capture. Real purpose of the exact byte values (beyond the
-// page ID) is unconfirmed; they are treated as an opaque, required handshake.
-export const INIT_BASIC_RESISTANCE = [0x30, 0x25, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00]
-export const INIT_WIND_RESISTANCE  = [0x32, 0x25, 0xff, 0xff, 0xff, 0x1e, 0x7f, 0x00]
-export const INIT_TRACK_RESISTANCE = [0x33, 0x25, 0xff, 0xff, 0xff, 0x20, 0x4e, 0x00]
-export const INIT_USER_CONFIG_1    = [0x37, 0x4c, 0x1d, 0xff, 0x80, 0x0c, 0x46, 0x21]
-export const INIT_USER_CONFIG_2    = [0x37, 0xee, 0x16, 0xff, 0x80, 0x0c, 0x46, 0x21]  // BKOOLSMARTPRO branch (not bkool_fitness_bike)
+// Byte 1 of every basicResistance/targetPower/windResistance/trackResistance frame is fixed at
+// this value in all observed traffic - both qdomyos-zwift's own hardcoded writes and its init
+// sequence captured live against a simulator. Real ANT+ FE-C reserves this byte (0xFF); this
+// device's BLE variant repurposes it for something unidentified, consistently, across every page
+// in this family except userConfiguration (which puts real payload there instead - see
+// sendUserConfiguration). Treated as an opaque, required marker rather than guessed at further.
+export const BKOOL_FRAME_MARKER = 0x25

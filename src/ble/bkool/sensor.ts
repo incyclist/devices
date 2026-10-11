@@ -1,6 +1,6 @@
 import { LegacyProfile } from "../../antv2/types.js";
 import { CSP, CSP_MEASUREMENT } from "../consts.js";
-import { BKOOL_SERVICE, BKOOL_CONTROL, FECPage, INIT_BASIC_RESISTANCE, INIT_WIND_RESISTANCE, INIT_TRACK_RESISTANCE, INIT_USER_CONFIG_1, INIT_USER_CONFIG_2 } from './consts.js'
+import { BKOOL_SERVICE, BKOOL_CONTROL, BKOOL_FRAME_MARKER, FECPage } from './consts.js'
 import { CrankData } from "../cp/index.js";
 import { IndoorBikeData } from "../fm/index.js";
 import BleFitnessMachineDevice from "../fm/sensor.js";
@@ -17,7 +17,6 @@ export default class BleBkoolDevice extends BleFitnessMachineDevice {
     prevCrankData: CrankData = undefined
     currentCrankData: CrankData = undefined
     timeOffset: number = 0
-    isInitialized: boolean = false
 
     constructor (peripheral: IBlePeripheral, props?: any) {
         super(peripheral, props)
@@ -36,7 +35,6 @@ export default class BleBkoolDevice extends BleFitnessMachineDevice {
 
     reset() {
         this.data = {}
-        this.isInitialized = false
     }
 
     protected getRequiredCharacteristics():Array<string> {
@@ -64,38 +62,10 @@ export default class BleBkoolDevice extends BleFitnessMachineDevice {
     }
 
     // Bkool's protocol has no RequestControl handshake - it's bare FE-C data pages written
-    // straight to BKOOL_CONTROL. qdomyos-zwift instead sends a fixed 5-frame init sequence (basic
-    // resistance / wind resistance / track resistance / user config x2) the first time it talks to
-    // a device, before any dynamic power/slope write - confirmed byte-for-byte via a live capture
-    // of QZ's actual writes against a simulated device (see design repo
-    // features/bkool-smartpro-trainer-support). Mirrored here, once per connection, gating the
-    // first dynamic write the same way requestControl() gates Wahoo/FTMS devices.
+    // straight to BKOOL_CONTROL, with no permission/unlock negotiation anywhere in bkoolbike.cpp.
+    // Mirrors Tacx's own sensor (ble/tacx/sensor.ts), which has the same property.
     async requestControl(): Promise<boolean> {
-        if (this.hasControl)
-            return true;
-
-        if (this.isInitialized) {
-            this.hasControl = true
-            return true;
-        }
-
-        this.logEvent({message:'requestControl'})
-
-        try {
-            await this.sendFrame(INIT_BASIC_RESISTANCE)
-            await this.sendFrame(INIT_WIND_RESISTANCE)
-            await this.sendFrame(INIT_TRACK_RESISTANCE)
-            await this.sendFrame(INIT_USER_CONFIG_1)
-            await this.sendFrame(INIT_USER_CONFIG_2)
-
-            this.isInitialized = true
-            this.hasControl = true
-        }
-        catch(err:any) {
-            this.logEvent({message:'error', fn:'requestControl()', error:err.message, stack:err.stack})
-        }
-
-        return this.hasControl;
+        return true;
     }
 
     async setTargetPower( power: number): Promise<boolean> {
@@ -104,17 +74,7 @@ export default class BleBkoolDevice extends BleFitnessMachineDevice {
         if (this.data.targetPower!==undefined && this.data.targetPower===power)
             return true;
 
-        const hasControl = await this.requestControl();
-        if (!hasControl) {
-            this.logEvent({message: 'setTargetPower failed',reason:'control is disabled'})
-            return false;
-        }
-
-        // FE-C page 0x31 Target Power, quarter-watt resolution, bytes[6..7] LE (bkoolbike.cpp forcePower())
-        const quarterWatts = Math.round(power*4) & 0xFFFF
-        const frame = [FECPage.targetPower, 0x25, 0xff, 0xff, 0xff, 0xff, quarterWatts&0xFF, (quarterWatts>>8)&0xFF]
-
-        const res = await this.sendFrame(frame)
+        const res = await this.sendTargetPower(power)
         if (res)
             this.data.targetPower = power
         return res
@@ -126,18 +86,7 @@ export default class BleBkoolDevice extends BleFitnessMachineDevice {
         if (this.data.targetInclination!==undefined && this.data.targetInclination===slope)
             return true;
 
-        const hasControl = await this.requestControl();
-        if (!hasControl) {
-            this.logEvent({message: 'setSlope failed',reason:'control is disabled'})
-            return false;
-        }
-
-        // FE-C page 0x33 Track Resistance, raw=(slope+200)*100, bytes[5..6] LE, trailing byte fixed
-        // at 0xa0 (bkoolbike.cpp forceInclination() - the drafting-factor byte it never varies)
-        const raw = Math.round((slope+200)*100) & 0xFFFF
-        const frame = [FECPage.trackResistance, 0x25, 0xff, 0xff, 0xff, raw&0xFF, (raw>>8)&0xFF, 0xa0]
-
-        const res = await this.sendFrame(frame)
+        const res = await this.sendTrackResistance(slope, this.crr)
         if (res)
             this.data.targetInclination = slope
         return res
@@ -149,6 +98,75 @@ export default class BleBkoolDevice extends BleFitnessMachineDevice {
     // The /10 factor mirrors QZ's own conversion exactly.
     async setTargetResistanceLevel( resistanceLevel: number): Promise<boolean> {
         return await this.setSlope(resistanceLevel/10)
+    }
+
+    // --- FE-C page builders - bare 8-byte frames, no ANT envelope. Same field layouts as the
+    // standard ANT+ FE-C pages (and as ../tacx/sensor.ts's identically-named methods), reverse
+    // verified byte-for-byte against a live capture of qdomyos-zwift's actual init-sequence writes
+    // against a simulated device (see design repo features/bkool-smartpro-trainer-support): every
+    // one of QZ's hardcoded init bytes decodes exactly under these formulas with ordinary values
+    // (0% resistance, 0.30 wind coefficient, 0% slope, and - for sendUserConfiguration - this
+    // library's own DEFAULT_USER_WEIGHT/DEFAULT_BIKE_WEIGHT, a 700c wheel, 1:1 gear ratio).
+
+    async sendBasicResistance(resistance?: number): Promise<boolean> {
+        const res = resistance===undefined ? 0xFF : Math.round(resistance/0.5) & 0xFF
+        const frame = [FECPage.basicResistance, BKOOL_FRAME_MARKER, 0xff, 0xff, 0xff, 0xff, 0xff, res]
+        return await this.sendFrame(frame)
+    }
+
+    async sendTargetPower(power?: number): Promise<boolean> {
+        const p = power===undefined ? 0xFFFF : Math.round(power*4) & 0xFFFF
+        const frame = [FECPage.targetPower, BKOOL_FRAME_MARKER, 0xff, 0xff, 0xff, 0xff, p&0xFF, (p>>8)&0xFF]
+        return await this.sendFrame(frame)
+    }
+
+    async sendWindResistance(windCoeff?: number, windSpeed?: number, draftFactor?: number): Promise<boolean> {
+        const wc = windCoeff===undefined ? 0xFF : Math.round(windCoeff/0.01) & 0xFF
+        const ws = windSpeed===undefined ? 0xFF : Math.round(windSpeed+127) & 0xFF
+        const df = draftFactor===undefined ? 0xFF : Math.round(draftFactor/0.01) & 0xFF
+        const frame = [FECPage.windResistance, BKOOL_FRAME_MARKER, 0xff, 0xff, 0xff, wc, ws, df]
+        return await this.sendFrame(frame)
+    }
+
+    async sendTrackResistance(slope?: number, rrCoeff?: number): Promise<boolean> {
+        const s = slope===undefined ? 0xFFFF : Math.round((slope+200)*100) & 0xFFFF
+        const rr = rrCoeff===undefined ? 0xFF : Math.round(rrCoeff/0.00005) & 0xFF
+        const frame = [FECPage.trackResistance, BKOOL_FRAME_MARKER, 0xff, 0xff, 0xff, s&0xFF, (s>>8)&0xFF, rr]
+        return await this.sendFrame(frame)
+    }
+
+    // Page 0x37 User Configuration - the one page in this family that does NOT use
+    // BKOOL_FRAME_MARKER at byte 1; that position (and byte 2) carry the actual user-weight
+    // payload instead. Field layout identical to Tacx's sendUserConfiguration().
+    async sendUserConfiguration(userWeight?: number, bikeWeight?: number, wheelDiameter?: number, gearRatio?: number): Promise<boolean> {
+        let m = userWeight===undefined ? 0xFFFF : userWeight;
+        let mb = bikeWeight===undefined ? 0xFFF: bikeWeight;
+        let d = wheelDiameter===undefined ? 0xFF : wheelDiameter;
+        let gr = gearRatio===undefined ? 0x00 : gearRatio;
+        let dOffset = 0xFF;
+
+        if (m!==0xFFFF)
+            m = Math.round(m*100);
+        if (mb!==0xFFF)
+            mb = Math.round(mb*20);
+        if (d!==0xFF) {
+            d = d*1000;
+            dOffset = d%10;
+            d = Math.trunc(d/10);
+        }
+        if (gr!==0x00) {
+            gr = Math.round(gr/0.03);
+        }
+
+        const frame = [
+            FECPage.userConfiguration,
+            m&0xFF, (m>>8)&0xFF,
+            0xff,
+            ((mb&0xF)<<4)|(dOffset&0xF), (mb>>4)&0xFF,
+            d&0xFF,
+            gr&0xFF
+        ]
+        return await this.sendFrame(frame)
     }
 
     protected async sendFrame(frame: number[]): Promise<boolean> {
