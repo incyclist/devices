@@ -151,7 +151,7 @@ export type DiscoverResult = {
 
 
 
-export type BleProperty = 'notify' | 'read' | 'write' | 'indicate'
+export type BleProperty = 'notify' | 'read' | 'write' | 'writeWithoutResponse' | 'indicate'
 
 export interface BleCharacteristic  {
     uuid: string;

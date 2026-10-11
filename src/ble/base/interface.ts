@@ -691,7 +691,6 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         // same situation as the Wahoo/Tacx enhancements above, so it goes through the same
         // connect-and-discover-first path instead of a name-based protocol override.
         const isBkool = this.checkForBkoolEnhancement(announcement)
-        this.logEvent({message:'checkForBkoolEnhancement', name:announcement.name, serviceUUIDs:announcement.serviceUUIDs, isBkool})
         if (isBkool) {
             this.processEnrichedAnnouncement(announcement)
             return

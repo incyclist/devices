@@ -38,7 +38,17 @@ export class BkoolControlCharacteristic extends Characteristic<BkoolControlState
         super({
             uuid: 'F03EE002-4910-473C-BE46-960948C2F59C',
             value: null,
-            properties: ['write', 'notify'],
+            // Must be writeWithoutResponse (ATT Write Command, GATT property bit 0x04), not write
+            // (ATT Write Request/Response, bit 0x08) - these are genuinely different ATT opcodes,
+            // not a flag on the same call. Real hardware declares writeWithoutResponse+notify (see
+            // header comment); this was wrongly 'write' because BleProperty didn't have a
+            // 'writeWithoutResponse' member yet. That mismatch is why Incyclist's own BLE central
+            // (which honors the server's declared properties and issues a genuine Write Command for
+            // a withoutResponse write) silently never delivered the write to this characteristic,
+            // while qdomyos-zwift - which reads the characteristic's actual declared properties and
+            // picks its write type accordingly - fell back to Write Request/Response and happened
+            // to still work regardless of which one we declared.
+            properties: ['writeWithoutResponse', 'notify'],
             descriptors: [
                 { uuid: '2901', value: 'Bkool Control Point' },
                 { uuid: '2902', value: Buffer.alloc(2) },
