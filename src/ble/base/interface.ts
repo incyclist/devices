@@ -703,10 +703,10 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         if (!isBkoolDeviceName(announcement.name))
             return false
 
-        const supported = announcement.serviceUUIDs.map( s=> beautifyUUID(s))
+        const supported = new Set(announcement.serviceUUIDs.map( s=> beautifyUUID(s)))
         const cp = beautifyUUID(CSP)
         const bkoolService = beautifyUUID(BKOOL_SERVICE)
-        return supported.includes(cp) && !supported.includes(bkoolService)
+        return supported.has(cp) && !supported.has(bkoolService)
     }
 
     protected checkForWahooEnhancement(announcement:BlePeripheralAnnouncement):boolean {

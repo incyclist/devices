@@ -28,8 +28,8 @@ export default class BleBkoolDevice extends BleFitnessMachineDevice {
     }
 
     isMatching(serviceUUIDs: string[]): boolean {
-        const uuids = serviceUUIDs.map( uuid=>beautifyUUID(uuid))
-        return uuids.includes(beautifyUUID(CSP)) && uuids.includes(beautifyUUID(BKOOL_SERVICE));
+        const uuids = new Set(serviceUUIDs.map( uuid=>beautifyUUID(uuid)))
+        return uuids.has(beautifyUUID(CSP)) && uuids.has(beautifyUUID(BKOOL_SERVICE));
     }
 
     reset() {
@@ -45,13 +45,12 @@ export default class BleBkoolDevice extends BleFitnessMachineDevice {
         const uuid = beautifyUUID( characteristic).toLowerCase();
 
         let res
-        switch(uuid) {
-            case CSP_MEASUREMENT:
-                res = this.parsePower(data)
-                break;
-            default:    // ignore - includes BKOOL_CONTROL notifications (echo/ack, not parsed)
-                this.logEvent({message:'data',uuid,data:Buffer.from(data).toString('hex')})
-                break;
+        if (uuid === CSP_MEASUREMENT) {
+            res = this.parsePower(data)
+        }
+        else {
+            // ignore - includes BKOOL_CONTROL notifications (echo/ack, not parsed)
+            this.logEvent({message:'data',uuid,data:Buffer.from(data).toString('hex')})
         }
         if (res) {
             this.emit('data', res)
@@ -63,8 +62,8 @@ export default class BleBkoolDevice extends BleFitnessMachineDevice {
     // Bkool's protocol has no RequestControl handshake - it's bare FE-C data pages written
     // straight to BKOOL_CONTROL, with no permission/unlock negotiation anywhere in bkoolbike.cpp.
     // Mirrors Tacx's own sensor (ble/tacx/sensor.ts), which has the same property.
-    async requestControl(): Promise<boolean> {
-        return true;
+    requestControl(): Promise<boolean> {
+        return Promise.resolve(true);
     }
 
     async setTargetPower( power: number): Promise<boolean> {
@@ -195,20 +194,20 @@ export default class BleBkoolDevice extends BleFitnessMachineDevice {
     // setTargetPower()/setTargetResistanceLevel() above), so these are safe, silent no-ops here -
     // same precedent as the Wahoo sensor.
 
-    async startRequest(): Promise<boolean> {
-        return true;
+    startRequest(): Promise<boolean> {
+        return Promise.resolve(true);
     }
 
-    async stopRequest(): Promise<boolean> {
-        return true;
+    stopRequest(): Promise<boolean> {
+        return Promise.resolve(true);
     }
 
-    async PauseRequest(): Promise<boolean> {
-        return true;
+    PauseRequest(): Promise<boolean> {
+        return Promise.resolve(true);
     }
 
-    async setTargetInclination(_inclination: number): Promise<boolean> {
-        return true;
+    setTargetInclination(_inclination: number): Promise<boolean> {
+        return Promise.resolve(true);
     }
 
     protected getName(): string {

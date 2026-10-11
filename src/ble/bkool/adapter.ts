@@ -56,8 +56,9 @@ export default class BleBkoolAdapter extends BleFmAdapter {
         await this.sendUpdate(startRequest)
     }
 
-    protected async checkCapabilities() {
+    protected checkCapabilities(): Promise<void> {
         this.logEvent({message:'device capabilities updated', name:this.getSettings().name, interface:this.getSettings().interface,capabilities: this.capabilities})
+        return Promise.resolve()
     }
 
 }

@@ -47,7 +47,7 @@ export function buildTrackResistancePage(slopePercent: number|undefined, rrCoeff
 export function buildUserConfigurationPage(userWeightKg: number|undefined, bikeWeightKg: number|undefined, wheelDiameterM: number|undefined, gearRatio: number|undefined): number[] {
     let m = userWeightKg===undefined ? 0xFFFF : Math.trunc(userWeightKg*100)
     let mb = bikeWeightKg===undefined ? 0xFFF : Math.trunc(bikeWeightKg*20)
-    let d: number = wheelDiameterM===undefined ? RESERVED : wheelDiameterM
+    let d: number = wheelDiameterM ?? RESERVED
     const gr = gearRatio===undefined ? 0x00 : Math.trunc(gearRatio/0.03)
     let dOffset = RESERVED
 
