@@ -1,6 +1,7 @@
 import { LegacyProfile } from "../../antv2/types.js";
 import { CSC_MEASUREMENT, CSP_MEASUREMENT, FTMS_STATUS, INDOOR_BIKE_DATA } from "../consts.js";
 import { TACX_FE_C_BLE, TACX_FE_C_RX, TACX_FE_C_TX , SYNC_BYTE, ANTMessages, DEFAULT_CHANNEL, ACKNOWLEDGED_DATA } from "./consts.js";
+import { buildBasicResistancePage, buildTargetPowerPage, buildWindResistancePage, buildTrackResistancePage, buildUserConfigurationPage } from "../fe-c-pages.js";
 import { CrankData } from "../cp/index.js";
 import { IndoorBikeData } from "../fm/index.js";
 import BleFitnessMachineDevice from "../fm/sensor.js";
@@ -540,81 +541,34 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         const logStr = `sendUserConfiguration(${userWeight},${bikeWeight},${wheelDiameter},${gearRatio})`
         this.logEvent( {message:logStr})
 
-        let m = userWeight===undefined ? 0xFFFF : userWeight;
-        let mb = bikeWeight===undefined ? 0xFFF: bikeWeight;
-        let d = wheelDiameter===undefined ? 0xFF : wheelDiameter;
-        let gr = gearRatio===undefined ? 0x00 : gearRatio;
-        let dOffset = 0xFF;
-
-        if (m!==0xFFFF)
-            m = Math.trunc(m*100);
-        if (mb!==0xFFF)
-            mb = Math.trunc(mb*20);        
-        if (d!==0xFF) {
-            d = d*1000;
-            dOffset = d%10;
-            d = Math.trunc(d/10);
-        }
-        if (gr!==0x00) {
-            gr= Math.trunc(gr/0.03);
-        }
-
-        const payload = [];
-        payload.push ( DEFAULT_CHANNEL);
-        payload.push (0x37);                        // data page 55: User Configuration
-        payload.push (m&0xFF);                      // weight LSB
-        payload.push ((m>>8)&0xFF);                 // weight MSB
-        payload.push (0xFF);                        // reserved
-        payload.push (((mb&0xF)<<4)|(dOffset&0xF)); //  bicycle weight LSN  and 
-        payload.push ((mb>>4)&0xF);                 // bicycle weight MSB 
-        payload.push (d&0xFF);                      // bicycle wheel diameter 
-        payload.push (gr&0xFF);                     // gear ratio 
+        const payload = [ DEFAULT_CHANNEL, ...buildUserConfigurationPage(userWeight, bikeWeight, wheelDiameter, gearRatio) ]
 
         const data = this.buildMessage(payload,ACKNOWLEDGED_DATA )
-        return await this.sendMessage(data)  
+        return await this.sendMessage(data)
     }
 
-    async sendBasicResistance( resistance):Promise<boolean> {   
+    async sendBasicResistance( resistance):Promise<boolean> {
         const logStr = `sendBasicResistance(${resistance})`;
         this.logEvent( {message:logStr})
 
-        let res = resistance===undefined ?  0 : resistance;            
-        res = res / 0.5;
+        // unlike the ANT+ FE-C "not used" convention the shared builder otherwise follows, Tacx
+        // has always treated an omitted resistance as 0% here, not "field not used" - preserved by
+        // resolving the default before calling, rather than inside the shared builder
+        const payload = [ DEFAULT_CHANNEL, ...buildBasicResistancePage(resistance ?? 0) ]
 
-        const payload = [];
-        payload.push (DEFAULT_CHANNEL);
-        payload.push (0x30);                        // data page 48: Basic Resistance
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (res&0xFF);                    // resistance 
         const data = this.buildMessage(payload,ACKNOWLEDGED_DATA )
-        return await this.sendMessage(data)  
+        return await this.sendMessage(data)
     }
 
     async sendTargetPower( power):Promise<boolean> {
         const logStr = `sendTargetPower(${power})`;
         this.logEvent( {message:logStr})
 
-        let p = power===undefined ?  0x00 : power;
-        p = p * 4;
-
-        const payload = [];
-        payload.push (DEFAULT_CHANNEL);
-        payload.push (0x31);                        // data page 49: Target Power
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (p&0xFF);                      // power LSB
-        payload.push ((p>>8)&0xFF);                 // power MSB 
+        // same "omitted means 0" precedent as sendBasicResistance above, not the ANT+ "not used" marker
+        const payload = [ DEFAULT_CHANNEL, ...buildTargetPowerPage(power ?? 0) ]
 
         const data = this.buildMessage(payload,ACKNOWLEDGED_DATA )
-        return await this.sendMessage(data)  
+        return await this.sendMessage(data)
 
     }
 
@@ -623,63 +577,21 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         const logStr = `sendWindResistance(${windCoeff},${windSpeed},${draftFactor})`;
         this.logEvent( {message:logStr})
 
-        let wc = windCoeff===undefined ? 0xFF : windCoeff;
-        let ws = windSpeed===undefined ? 0xFF : windSpeed;
-        let df = draftFactor===undefined ? 0xFF : draftFactor;
-
-        if (wc!==0xFF) {
-            wc = Math.trunc(wc/0.01);
-        }
-        if (ws!==0xFF) {
-            ws = Math.trunc(ws+127);
-        }
-        if (df!==0xFF) {
-            df = Math.trunc(df/0.01);
-        }
-
-        const payload = [];
-        payload.push (DEFAULT_CHANNEL);
-        payload.push (0x32);                        // data page 50: Wind Resistance
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (wc&0xFF);                     // Wind Resistance Coefficient
-        payload.push (ws&0xFF);                     // Wind Speed
-        payload.push (df&0xFF);                     // Drafting Factor
+        const payload = [ DEFAULT_CHANNEL, ...buildWindResistancePage(windCoeff, windSpeed, draftFactor) ]
 
         const data = this.buildMessage(payload,ACKNOWLEDGED_DATA )
-        return await this.sendMessage(data)  
+        return await this.sendMessage(data)
 
     }
 
-    async sendTrackResistance( slope, rrCoeff?): Promise<boolean> {       
+    async sendTrackResistance( slope, rrCoeff?): Promise<boolean> {
         const logStr = `sendTrackResistance(${slope},${rrCoeff})`;
         this.logEvent( {message:logStr})
 
-        let s  = slope===undefined ?  0xFFFF : slope;
-        let rr = rrCoeff===undefined ? 0xFF : rrCoeff;
-
-        if (s!==0xFFFF) {
-            s = Math.trunc((s+200)/0.01);
-        }
-        if (rr!==0xFF) {
-            rr = Math.trunc(rr/0.00005);
-        }
-
-        const payload = [];
-        payload.push (DEFAULT_CHANNEL);
-        payload.push (0x33);                        // data page 51: Track Resistance 
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (s&0xFF);                      // Grade (Slope) LSB
-        payload.push ((s>>8)&0xFF);                 // Grade (Slope) MSB
-        payload.push (rr&0xFF);                     // Drafting Factor
+        const payload = [ DEFAULT_CHANNEL, ...buildTrackResistancePage(slope, rrCoeff) ]
 
         const data = this.buildMessage(payload,ACKNOWLEDGED_DATA )
-        return await this.sendMessage(data)  
+        return await this.sendMessage(data)
 
     }
 

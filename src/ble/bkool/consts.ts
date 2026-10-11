@@ -21,16 +21,8 @@ export function isBkoolDeviceName(name?: string): boolean {
 }
 
 // Bare 8-byte ANT+ FE-C data pages - no sync/channel/checksum envelope (unlike Tacx, which tunnels
-// full ANT+ messages). Field layouts are the standard ANT+ FE-C pages - same vocabulary already
-// implemented for Tacx (sendBasicResistance/sendTargetPower/sendWindResistance/sendTrackResistance/
-// sendUserConfiguration in ../tacx/sensor.ts) - just without the leading ANT channel byte.
-export enum FECPage {
-    basicResistance = 0x30,
-    targetPower = 0x31,
-    windResistance = 0x32,
-    trackResistance = 0x33,
-    userConfiguration = 0x37
-}
+// full ANT+ messages). Field layouts (and the FECPage enum) are shared with ../tacx/sensor.ts via
+// ../fe-c-pages.js - same ANT+ FE-C page formats, just without the leading ANT channel byte.
 
 // Byte 1 of every basicResistance/targetPower/windResistance/trackResistance frame is fixed at
 // this value in all observed traffic - both qdomyos-zwift's own hardcoded writes and its init

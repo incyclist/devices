@@ -115,8 +115,52 @@ describe('Tacx Sensor',()=>{
             expect(res).toBe(false)
             expect(peripheral.write).not.toHaveBeenCalled()
         })
-    
-    
+
+
+    })
+
+    // sendBasicResistance/sendTargetPower/sendWindResistance/sendUserConfiguration now delegate
+    // their page byte-math to the shared ../fe-c-pages.js builders (also used by ble/bkool) -
+    // these lock in that the refactor produced byte-identical ANT+ messages to the original
+    // inline implementation.
+    describe('FE-C page builders (shared with Bkool)', ()=>{
+
+        const setup = () => {
+            const peripheral = {
+                write: jest.fn().mockResolvedValue(Buffer.from([])),
+                isConnected: jest.fn().mockReturnValue(true)
+            }
+            const tacx = new TacxAdvancedFitnessMachineDevice(peripheral, {id:'4711',logger:MockLogger});
+            return {peripheral, tacx}
+        }
+
+        test('sendBasicResistance(50)', async ()=>{
+            const {peripheral, tacx} = setup()
+            const res = await tacx.sendBasicResistance(50)
+            expect(res).toBe(true)
+            expect(peripheral.write).toHaveBeenCalledWith(TACX_FE_C_TX, Buffer.from('a4094f0530ffffffffffff64b3','hex'), {withoutResponse:true})
+        })
+
+        test('sendTargetPower(200)', async ()=>{
+            const {peripheral, tacx} = setup()
+            const res = await tacx.sendTargetPower(200)
+            expect(res).toBe(true)
+            expect(peripheral.write).toHaveBeenCalledWith(TACX_FE_C_TX, Buffer.from('a4094f0531ffffffffff20030a','hex'), {withoutResponse:true})
+        })
+
+        test('sendWindResistance(0.5, 10, 0.2)', async ()=>{
+            const {peripheral, tacx} = setup()
+            const res = await tacx.sendWindResistance(0.5, 10, 0.2)
+            expect(res).toBe(true)
+            expect(peripheral.write).toHaveBeenCalledWith(TACX_FE_C_TX, Buffer.from('a4094f0532ffffffff3289147a','hex'), {withoutResponse:true})
+        })
+
+        test('sendUserConfiguration(70, 12, 0.68, 2.5)', async ()=>{
+            const {peripheral, tacx} = setup()
+            const res = await tacx.sendUserConfiguration(70, 12, 0.68, 2.5)
+            expect(res).toBe(true)
+            expect(peripheral.write).toHaveBeenCalledWith(TACX_FE_C_TX, Buffer.from('a4094f0537581bff000f445374','hex'), {withoutResponse:true})
+        })
     })
 
 })

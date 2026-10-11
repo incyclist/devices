@@ -1,6 +1,7 @@
 import { LegacyProfile } from "../../antv2/types.js";
 import { CSP, CSP_MEASUREMENT } from "../consts.js";
-import { BKOOL_SERVICE, BKOOL_CONTROL, BKOOL_FRAME_MARKER, FECPage } from './consts.js'
+import { BKOOL_SERVICE, BKOOL_CONTROL, BKOOL_FRAME_MARKER } from './consts.js'
+import { buildBasicResistancePage, buildTargetPowerPage, buildWindResistancePage, buildTrackResistancePage, buildUserConfigurationPage } from "../fe-c-pages.js";
 import { CrankData } from "../cp/index.js";
 import { IndoorBikeData } from "../fm/index.js";
 import BleFitnessMachineDevice from "../fm/sensor.js";
@@ -100,73 +101,36 @@ export default class BleBkoolDevice extends BleFitnessMachineDevice {
         return await this.setSlope(resistanceLevel/10)
     }
 
-    // --- FE-C page builders - bare 8-byte frames, no ANT envelope. Same field layouts as the
-    // standard ANT+ FE-C pages (and as ../tacx/sensor.ts's identically-named methods), reverse
-    // verified byte-for-byte against a live capture of qdomyos-zwift's actual init-sequence writes
-    // against a simulated device (see design repo features/bkool-smartpro-trainer-support): every
-    // one of QZ's hardcoded init bytes decodes exactly under these formulas with ordinary values
-    // (0% resistance, 0.30 wind coefficient, 0% slope, and - for sendUserConfiguration - this
-    // library's own DEFAULT_USER_WEIGHT/DEFAULT_BIKE_WEIGHT, a 700c wheel, 1:1 gear ratio).
+    // --- FE-C page builders - bare 8-byte frames, no ANT envelope. The byte math itself lives in
+    // ../fe-c-pages.js, shared with ../tacx/sensor.ts (same ANT+ FE-C page formats, different
+    // envelope). Reverse verified byte-for-byte against a live capture of qdomyos-zwift's actual
+    // init-sequence writes against a simulated device (see design repo
+    // features/bkool-smartpro-trainer-support): every one of QZ's hardcoded init bytes decodes
+    // exactly under these formulas with ordinary values (0% resistance, 0.30 wind coefficient, 0%
+    // slope, and - for sendUserConfiguration - this library's own DEFAULT_USER_WEIGHT/
+    // DEFAULT_BIKE_WEIGHT, a 700c wheel, 1:1 gear ratio).
 
     async sendBasicResistance(resistance?: number): Promise<boolean> {
-        const res = resistance===undefined ? 0xFF : Math.round(resistance/0.5) & 0xFF
-        const frame = [FECPage.basicResistance, BKOOL_FRAME_MARKER, 0xff, 0xff, 0xff, 0xff, 0xff, res]
-        return await this.sendFrame(frame)
+        return await this.sendFrame(buildBasicResistancePage(resistance, BKOOL_FRAME_MARKER))
     }
 
     async sendTargetPower(power?: number): Promise<boolean> {
-        const p = power===undefined ? 0xFFFF : Math.round(power*4) & 0xFFFF
-        const frame = [FECPage.targetPower, BKOOL_FRAME_MARKER, 0xff, 0xff, 0xff, 0xff, p&0xFF, (p>>8)&0xFF]
-        return await this.sendFrame(frame)
+        return await this.sendFrame(buildTargetPowerPage(power, BKOOL_FRAME_MARKER))
     }
 
     async sendWindResistance(windCoeff?: number, windSpeed?: number, draftFactor?: number): Promise<boolean> {
-        const wc = windCoeff===undefined ? 0xFF : Math.round(windCoeff/0.01) & 0xFF
-        const ws = windSpeed===undefined ? 0xFF : Math.round(windSpeed+127) & 0xFF
-        const df = draftFactor===undefined ? 0xFF : Math.round(draftFactor/0.01) & 0xFF
-        const frame = [FECPage.windResistance, BKOOL_FRAME_MARKER, 0xff, 0xff, 0xff, wc, ws, df]
-        return await this.sendFrame(frame)
+        return await this.sendFrame(buildWindResistancePage(windCoeff, windSpeed, draftFactor, BKOOL_FRAME_MARKER))
     }
 
     async sendTrackResistance(slope?: number, rrCoeff?: number): Promise<boolean> {
-        const s = slope===undefined ? 0xFFFF : Math.round((slope+200)*100) & 0xFFFF
-        const rr = rrCoeff===undefined ? 0xFF : Math.round(rrCoeff/0.00005) & 0xFF
-        const frame = [FECPage.trackResistance, BKOOL_FRAME_MARKER, 0xff, 0xff, 0xff, s&0xFF, (s>>8)&0xFF, rr]
-        return await this.sendFrame(frame)
+        return await this.sendFrame(buildTrackResistancePage(slope, rrCoeff, BKOOL_FRAME_MARKER))
     }
 
     // Page 0x37 User Configuration - the one page in this family that does NOT use
-    // BKOOL_FRAME_MARKER at byte 1; that position (and byte 2) carry the actual user-weight
-    // payload instead. Field layout identical to Tacx's sendUserConfiguration().
+    // BKOOL_FRAME_MARKER; that position (and the next byte) carry the actual user-weight payload
+    // instead, so there is no reservedByte1 parameter to pass here.
     async sendUserConfiguration(userWeight?: number, bikeWeight?: number, wheelDiameter?: number, gearRatio?: number): Promise<boolean> {
-        let m = userWeight===undefined ? 0xFFFF : userWeight;
-        let mb = bikeWeight===undefined ? 0xFFF: bikeWeight;
-        let d = wheelDiameter===undefined ? 0xFF : wheelDiameter;
-        let gr = gearRatio===undefined ? 0x00 : gearRatio;
-        let dOffset = 0xFF;
-
-        if (m!==0xFFFF)
-            m = Math.round(m*100);
-        if (mb!==0xFFF)
-            mb = Math.round(mb*20);
-        if (d!==0xFF) {
-            d = d*1000;
-            dOffset = d%10;
-            d = Math.trunc(d/10);
-        }
-        if (gr!==0x00) {
-            gr = Math.round(gr/0.03);
-        }
-
-        const frame = [
-            FECPage.userConfiguration,
-            m&0xFF, (m>>8)&0xFF,
-            0xff,
-            ((mb&0xF)<<4)|(dOffset&0xF), (mb>>4)&0xFF,
-            d&0xFF,
-            gr&0xFF
-        ]
-        return await this.sendFrame(frame)
+        return await this.sendFrame(buildUserConfigurationPage(userWeight, bikeWeight, wheelDiameter, gearRatio))
     }
 
     protected async sendFrame(frame: number[]): Promise<boolean> {
