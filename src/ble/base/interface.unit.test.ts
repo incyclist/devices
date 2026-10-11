@@ -540,7 +540,16 @@ describe('BleInterface', () => {
 
     describe('createPeripheral', () => {})
     describe('createPeripheralFromSettings', () => {})
-    describe('createDeviceSetting', () => {
+    describe('createDeviceSetting', () => {})
+    describe('waitForPeripheral', () => {})
+
+    // Real Bkool SmartPro/Pro2/Pro3 devices only ever advertise standard CP (1818) + Device
+    // Information (180a) - never their proprietary control service - confirmed via real devices'
+    // own advertisements captured live (serviceUuids:[1818,180a]). So, same as the existing
+    // Wahoo/Tacx "enhancement" checks, this can't be resolved by the service-UUID-driven factory
+    // from the advertisement alone - it has to trigger a connect-and-discover-services round trip
+    // (processEnrichedAnnouncement) before protocol detection runs.
+    describe('checkForBkoolEnhancement', () => {
         let i
 
         beforeEach(() => {
@@ -550,42 +559,34 @@ describe('BleInterface', () => {
             (BleInterface as any)._instance = undefined
         })
 
-        // Real Bkool SmartPro/Pro2/Pro3 devices only ever advertise standard CP (1818) + Device
-        // Information (180a) - never their proprietary control service - so protocol detection for
-        // them can't go through the normal service-UUID-driven factory path at all; confirmed via a
-        // real device's advertisement captured live (serviceUuids:[1818,180a]) after the
-        // UUID-based detection was shipped and failed to recognize it (fell back to generic 'cp').
-        test('Bkool device is recognized by name despite advertising only standard CP+DIS', () => {
-            const peripheral: Partial<BleRawPeripheral> = {
-                id: 'B4:8C:9D:74:68:CA', address: 'B4:8C:9D:74:68:CA', name: 'BkoolSmartPro2',
-                advertisement: { localName: 'BkoolSmartPro2', serviceUuids: ['1818', '180a'] }
-            }
+        test('Bkool SmartPro2 advertising only CP+DIS triggers the enhancement path', () => {
             const announcement: Partial<BlePeripheralAnnouncement> = {
-                name: 'BkoolSmartPro2', serviceUUIDs: ['1818', '180a'],
-                peripheral: peripheral as BleRawPeripheral
+                name: 'BkoolSmartPro2', serviceUUIDs: ['1818', '180a']
             }
-
-            const settings = i.createDeviceSetting(announcement)
-            expect(settings).toMatchObject({protocol: 'bkool', name: 'BkoolSmartPro2', address: 'B4:8C:9D:74:68:CA'})
+            expect(i.checkForBkoolEnhancement(announcement)).toBe(true)
         })
 
-        test('devices outside the confirmed name family (e.g. BkoolSmartGo) fall through to the generic factory', () => {
-            i.getAdapterFactory = jest.fn().mockReturnValue({ getProtocol: jest.fn().mockReturnValue('cp') })
-
-            const peripheral: Partial<BleRawPeripheral> = {
-                id: 'id2', address: 'addr2', name: 'BkoolSmartGo',
-                advertisement: { localName: 'BkoolSmartGo', serviceUuids: ['1818'] }
-            }
+        test('already-enriched announcement (proprietary service present) does not re-trigger', () => {
             const announcement: Partial<BlePeripheralAnnouncement> = {
-                name: 'BkoolSmartGo', serviceUUIDs: ['1818'],
-                peripheral: peripheral as BleRawPeripheral
+                name: 'BkoolSmartPro2', serviceUUIDs: ['1818', '180a', 'f03eee01-4910-473c-be46-960948c2f59c']
             }
+            expect(i.checkForBkoolEnhancement(announcement)).toBe(false)
+        })
 
-            const settings = i.createDeviceSetting(announcement)
-            expect(settings.protocol).toBe('cp')
+        test('devices outside the confirmed name family (e.g. BkoolSmartGo) are left alone', () => {
+            const announcement: Partial<BlePeripheralAnnouncement> = {
+                name: 'BkoolSmartGo', serviceUUIDs: ['1818']
+            }
+            expect(i.checkForBkoolEnhancement(announcement)).toBe(false)
+        })
+
+        test('unrelated device name does not trigger', () => {
+            const announcement: Partial<BlePeripheralAnnouncement> = {
+                name: 'Favero', serviceUUIDs: ['1818']
+            }
+            expect(i.checkForBkoolEnhancement(announcement)).toBe(false)
         })
     })
-    describe('waitForPeripheral', () => {})
 
     // FIXES_BACKLOG #26: BlePeripheral.checkAnnouncedServices() consults this to scope its
     // announced-vs-discovered completeness check to services an implemented sensor actually cares
