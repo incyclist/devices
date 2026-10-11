@@ -6,6 +6,20 @@
 export const BKOOL_SERVICE = 'f03eee01-4910-473c-be46-960948c2f59c'
 export const BKOOL_CONTROL = 'f03ee002-4910-473c-be46-960948c2f59c'  // writeWithoutResponse + notify
 
+// Real devices only ever advertise standard CP (1818) + Device Information (180a) during scanning
+// - the proprietary service above is never in the advertisement, only discoverable post-connect.
+// So, unlike every other BLE adapter in this package, protocol detection for this device cannot be
+// service-UUID-driven at scan time; it has to go by the advertised device name instead - exactly
+// how qdomyos-zwift itself dispatches to bkoolbike.cpp (name-prefix match, not UUID-based). Confirmed
+// real names: BkoolSmartPro, BkoolSmartPro2, BkoolSmartPro3. Deliberately excludes BkoolSmartGo/Go2
+// (no GATT reference implementation exists for that sub-family, per the architecture doc) and
+// BkoolFBike/BkoolFitnessBike (a different QZ class, not covered by this adapter).
+export const BKOOL_NAME_PREFIX = 'BKOOLSMARTPRO'
+
+export function isBkoolDeviceName(name?: string): boolean {
+    return !!name && name.toUpperCase().startsWith(BKOOL_NAME_PREFIX)
+}
+
 // Bare 8-byte ANT+ FE-C data pages - no sync/channel/checksum envelope (unlike Tacx, which tunnels
 // full ANT+ messages). Byte layouts below are confirmed byte-for-byte against bkoolbike.cpp
 // (forcePower()/forceInclination()/the fixed init sequence) and, for the init sequence, against a

@@ -10,6 +10,8 @@ import { InterfaceFactory } from "./types.js";
 import { BleAdapterFactory } from "../factories/index.js";
 import { TBleSensor } from "./sensor.js";
 import { BleZwiftPlaySensor } from "../zwift/play/sensor.js";
+import { CSP } from "../consts.js";
+import { isBkoolDeviceName } from "../bkool/consts.js";
 
 const BLE_EXPIRATION_TIMEOUT = 10*1000*60 // 10min
 const BLE_DEFAULT_CONNECT_TIMEOUT = 30*1000; // 30s
@@ -510,9 +512,19 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         if (service.name==='Zwift Ride' && service.serviceUUIDs.some(  uuid=> matches(uuid,'FC82'))) {
             const protocol = 'zwift-play'
             const {id,name,address} = getPeripheralInfo(peripheral)
-            return {interface:BleInterface.INTERFACE_NAME, protocol, id,name,address}    
+            return {interface:BleInterface.INTERFACE_NAME, protocol, id,name,address}
         }
-        
+
+        // Bkool SmartPro/Pro2/Pro3 never advertise their proprietary control service (only
+        // standard CP) - the service-UUID-driven factory below can never select 'bkool' for them,
+        // so they have to be special-cased on the advertised name instead, same precedent as the
+        // Zwift Ride check above (and mirroring how qdomyos-zwift itself dispatches to this device).
+        if (isBkoolDeviceName(service.name) && service.serviceUUIDs.some( uuid=> matches(uuid,CSP))) {
+            const protocol = 'bkool'
+            const {id,name,address} = getPeripheralInfo(peripheral)
+            return {interface:BleInterface.INTERFACE_NAME, protocol, id,name,address}
+        }
+
         const protocol = this.getAdapterFactory().getProtocol(service.serviceUUIDs)
         const {id,name,address} = getPeripheralInfo(peripheral)
         
