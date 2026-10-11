@@ -10,6 +10,8 @@ import { InterfaceFactory } from "./types.js";
 import { BleAdapterFactory } from "../factories/index.js";
 import { TBleSensor } from "./sensor.js";
 import { BleZwiftPlaySensor } from "../zwift/play/sensor.js";
+import { CSP } from "../consts.js";
+import { BKOOL_SERVICE, isBkoolDeviceName } from "../bkool/consts.js";
 
 const BLE_EXPIRATION_TIMEOUT = 10*1000*60 // 10min
 const BLE_DEFAULT_CONNECT_TIMEOUT = 30*1000; // 30s
@@ -510,9 +512,9 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         if (service.name==='Zwift Ride' && service.serviceUUIDs.some(  uuid=> matches(uuid,'FC82'))) {
             const protocol = 'zwift-play'
             const {id,name,address} = getPeripheralInfo(peripheral)
-            return {interface:BleInterface.INTERFACE_NAME, protocol, id,name,address}    
+            return {interface:BleInterface.INTERFACE_NAME, protocol, id,name,address}
         }
-        
+
         const protocol = this.getAdapterFactory().getProtocol(service.serviceUUIDs)
         const {id,name,address} = getPeripheralInfo(peripheral)
         
@@ -684,7 +686,27 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
             return
         }
 
+        // Bkool SmartPro/Pro2/Pro3 never advertise their proprietary control service, only
+        // standard CP + Device Information (confirmed against real devices' own advertisements) -
+        // same situation as the Wahoo/Tacx enhancements above, so it goes through the same
+        // connect-and-discover-first path instead of a name-based protocol override.
+        const isBkool = this.checkForBkoolEnhancement(announcement)
+        if (isBkool) {
+            this.processEnrichedAnnouncement(announcement)
+            return
+        }
+
         this.addService(announcement)
+    }
+
+    protected checkForBkoolEnhancement(announcement:BlePeripheralAnnouncement):boolean {
+        if (!isBkoolDeviceName(announcement.name))
+            return false
+
+        const supported = new Set(announcement.serviceUUIDs.map( s=> beautifyUUID(s)))
+        const cp = beautifyUUID(CSP)
+        const bkoolService = beautifyUUID(BKOOL_SERVICE)
+        return supported.has(cp) && !supported.has(bkoolService)
     }
 
     protected checkForWahooEnhancement(announcement:BlePeripheralAnnouncement):boolean {

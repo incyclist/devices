@@ -1,12 +1,13 @@
 import { LegacyProfile } from "../../antv2/types.js";
 import { CSC_MEASUREMENT, CSP_MEASUREMENT, FTMS_STATUS, INDOOR_BIKE_DATA } from "../consts.js";
 import { TACX_FE_C_BLE, TACX_FE_C_RX, TACX_FE_C_TX , SYNC_BYTE, ANTMessages, DEFAULT_CHANNEL, ACKNOWLEDGED_DATA } from "./consts.js";
-import { CrankData } from "../cp/index.js";
+import { buildBasicResistancePage, buildTargetPowerPage, buildWindResistancePage, buildTrackResistancePage, buildUserConfigurationPage } from "../fe-c-pages.js";
 import { IndoorBikeData } from "../fm/index.js";
 import BleFitnessMachineDevice from "../fm/sensor.js";
 import { BleProtocol } from "../types.js";
 import { beautifyUUID, matches } from "../utils.js";
 import { BleFeBikeData, FECState } from "./types.js";
+import { CrankCadenceCalculator } from "../crank-cadence.js";
 
 export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineDevice {
     static readonly profile: LegacyProfile = 'Smart Trainer'
@@ -15,10 +16,12 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
     static readonly characteristics =  [ '2acc', '2ad2', '2ad6', '2ad8', '2ad9', '2ada', TACX_FE_C_RX, TACX_FE_C_TX];
     static readonly detectionPriority = 10;
 
-    protected prevCrankData: CrankData = undefined
-    protected currentCrankData: CrankData = undefined
-    protected timeOffset: number = 0
-    protected tsPrevWrite = undefined;  
+    // seedOnFirstSample=true: matches this class's own prior behavior exactly - the first crank
+    // sample only seeds the baseline (no cadence reported) rather than computing from a synthetic
+    // zero baseline, since this device's crank-revolution counters are already running by the
+    // time a client connects (same precedent as characteristics/csc/measurement.ts).
+    protected crankCadence = new CrankCadenceCalculator(true)
+    protected tsPrevWrite = undefined;
     declare protected data: BleFeBikeData;
     protected hasFECData: boolean
     protected messageCnt: number
@@ -133,44 +136,6 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         return true;
     }
 
-    protected parseCrankData(crankData) {
-        if (!this.prevCrankData) {
-            this.prevCrankData= {...crankData, cntUpdateMissing:-1}
-            return {}
-        }
-
-        const c = this.currentCrankData = crankData
-        const p = this.prevCrankData;
-        let rpm = this.data.cadence;
-        
-        let hasUpdate = c.time!==p.time;
-
-        if ( hasUpdate) { 
-            let time = c.time - p.time //+ c.time<p.time ? 0x10000: 0
-            let revs = c.revolutions - p.revolutions //+ c.revolutions<p.revolutions ? 0x10000: 0
-
-            if (c.time<p.time) {
-                 time+=0x10000;
-                 this.timeOffset+=0x10000;
-                 
-            }
-
-            if (c.revolutions<p.revolutions) revs+=0x10000;
-            
-            rpm = 1024*60*revs/time
-        }
-        else if ( p.cntUpdateMissing<0 || p.cntUpdateMissing>2) {
-                rpm = 0;            
-        }
-        const cntUpdateMissing = p.cntUpdateMissing;
-        this.prevCrankData = this.currentCrankData
-        if ( hasUpdate)  
-            this.prevCrankData.cntUpdateMissing = 0;
-        else 
-            this.prevCrankData.cntUpdateMissing = cntUpdateMissing+1;
-
-        return {rpm, time:this.timeOffset+c.time }
-    }
 
     protected parseCSC( _data:Buffer,logOnly:boolean=false):IndoorBikeData {
         const data:Buffer = Buffer.from(_data);
@@ -189,7 +154,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
                 revolutions: data.readUInt16LE(offset),
                 time: data.readUInt16LE(offset+2)
             }
-            const {rpm,time} = this.parseCrankData(crankData)                
+            const {rpm,time} = this.crankCadence.update(crankData)
             this.data.cadence = rpm;
             this.data.time = time;
         }
@@ -224,13 +189,13 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
                     revolutions: data.readUInt16LE(offset),
                     time: data.readUInt16LE(offset+2)
                 }
-                const {rpm,time} = this.parseCrankData(crankData)                
+                const {rpm,time} = this.crankCadence.update(crankData)
                 this.data.cadence = rpm;
                 this.data.time = time;
             }
-            
+
         }
-        catch (err) { 
+        catch (err) {
             this.logEvent( {message:'error',fn:'parsePower()',error:err.message||err, stack:err.stack})
         }
         const {instantaneousPower, cadence,time} = this.data
@@ -540,81 +505,34 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         const logStr = `sendUserConfiguration(${userWeight},${bikeWeight},${wheelDiameter},${gearRatio})`
         this.logEvent( {message:logStr})
 
-        let m = userWeight===undefined ? 0xFFFF : userWeight;
-        let mb = bikeWeight===undefined ? 0xFFF: bikeWeight;
-        let d = wheelDiameter===undefined ? 0xFF : wheelDiameter;
-        let gr = gearRatio===undefined ? 0x00 : gearRatio;
-        let dOffset = 0xFF;
-
-        if (m!==0xFFFF)
-            m = Math.trunc(m*100);
-        if (mb!==0xFFF)
-            mb = Math.trunc(mb*20);        
-        if (d!==0xFF) {
-            d = d*1000;
-            dOffset = d%10;
-            d = Math.trunc(d/10);
-        }
-        if (gr!==0x00) {
-            gr= Math.trunc(gr/0.03);
-        }
-
-        const payload = [];
-        payload.push ( DEFAULT_CHANNEL);
-        payload.push (0x37);                        // data page 55: User Configuration
-        payload.push (m&0xFF);                      // weight LSB
-        payload.push ((m>>8)&0xFF);                 // weight MSB
-        payload.push (0xFF);                        // reserved
-        payload.push (((mb&0xF)<<4)|(dOffset&0xF)); //  bicycle weight LSN  and 
-        payload.push ((mb>>4)&0xF);                 // bicycle weight MSB 
-        payload.push (d&0xFF);                      // bicycle wheel diameter 
-        payload.push (gr&0xFF);                     // gear ratio 
+        const payload = [ DEFAULT_CHANNEL, ...buildUserConfigurationPage(userWeight, bikeWeight, wheelDiameter, gearRatio) ]
 
         const data = this.buildMessage(payload,ACKNOWLEDGED_DATA )
-        return await this.sendMessage(data)  
+        return await this.sendMessage(data)
     }
 
-    async sendBasicResistance( resistance):Promise<boolean> {   
+    async sendBasicResistance( resistance):Promise<boolean> {
         const logStr = `sendBasicResistance(${resistance})`;
         this.logEvent( {message:logStr})
 
-        let res = resistance===undefined ?  0 : resistance;            
-        res = res / 0.5;
+        // unlike the ANT+ FE-C "not used" convention the shared builder otherwise follows, Tacx
+        // has always treated an omitted resistance as 0% here, not "field not used" - preserved by
+        // resolving the default before calling, rather than inside the shared builder
+        const payload = [ DEFAULT_CHANNEL, ...buildBasicResistancePage(resistance ?? 0) ]
 
-        const payload = [];
-        payload.push (DEFAULT_CHANNEL);
-        payload.push (0x30);                        // data page 48: Basic Resistance
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (res&0xFF);                    // resistance 
         const data = this.buildMessage(payload,ACKNOWLEDGED_DATA )
-        return await this.sendMessage(data)  
+        return await this.sendMessage(data)
     }
 
     async sendTargetPower( power):Promise<boolean> {
         const logStr = `sendTargetPower(${power})`;
         this.logEvent( {message:logStr})
 
-        let p = power===undefined ?  0x00 : power;
-        p = p * 4;
-
-        const payload = [];
-        payload.push (DEFAULT_CHANNEL);
-        payload.push (0x31);                        // data page 49: Target Power
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (p&0xFF);                      // power LSB
-        payload.push ((p>>8)&0xFF);                 // power MSB 
+        // same "omitted means 0" precedent as sendBasicResistance above, not the ANT+ "not used" marker
+        const payload = [ DEFAULT_CHANNEL, ...buildTargetPowerPage(power ?? 0) ]
 
         const data = this.buildMessage(payload,ACKNOWLEDGED_DATA )
-        return await this.sendMessage(data)  
+        return await this.sendMessage(data)
 
     }
 
@@ -623,63 +541,21 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         const logStr = `sendWindResistance(${windCoeff},${windSpeed},${draftFactor})`;
         this.logEvent( {message:logStr})
 
-        let wc = windCoeff===undefined ? 0xFF : windCoeff;
-        let ws = windSpeed===undefined ? 0xFF : windSpeed;
-        let df = draftFactor===undefined ? 0xFF : draftFactor;
-
-        if (wc!==0xFF) {
-            wc = Math.trunc(wc/0.01);
-        }
-        if (ws!==0xFF) {
-            ws = Math.trunc(ws+127);
-        }
-        if (df!==0xFF) {
-            df = Math.trunc(df/0.01);
-        }
-
-        const payload = [];
-        payload.push (DEFAULT_CHANNEL);
-        payload.push (0x32);                        // data page 50: Wind Resistance
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (wc&0xFF);                     // Wind Resistance Coefficient
-        payload.push (ws&0xFF);                     // Wind Speed
-        payload.push (df&0xFF);                     // Drafting Factor
+        const payload = [ DEFAULT_CHANNEL, ...buildWindResistancePage(windCoeff, windSpeed, draftFactor) ]
 
         const data = this.buildMessage(payload,ACKNOWLEDGED_DATA )
-        return await this.sendMessage(data)  
+        return await this.sendMessage(data)
 
     }
 
-    async sendTrackResistance( slope, rrCoeff?): Promise<boolean> {       
+    async sendTrackResistance( slope, rrCoeff?): Promise<boolean> {
         const logStr = `sendTrackResistance(${slope},${rrCoeff})`;
         this.logEvent( {message:logStr})
 
-        let s  = slope===undefined ?  0xFFFF : slope;
-        let rr = rrCoeff===undefined ? 0xFF : rrCoeff;
-
-        if (s!==0xFFFF) {
-            s = Math.trunc((s+200)/0.01);
-        }
-        if (rr!==0xFF) {
-            rr = Math.trunc(rr/0.00005);
-        }
-
-        const payload = [];
-        payload.push (DEFAULT_CHANNEL);
-        payload.push (0x33);                        // data page 51: Track Resistance 
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (0xFF);                        // reserved
-        payload.push (s&0xFF);                      // Grade (Slope) LSB
-        payload.push ((s>>8)&0xFF);                 // Grade (Slope) MSB
-        payload.push (rr&0xFF);                     // Drafting Factor
+        const payload = [ DEFAULT_CHANNEL, ...buildTrackResistancePage(slope, rrCoeff) ]
 
         const data = this.buildMessage(payload,ACKNOWLEDGED_DATA )
-        return await this.sendMessage(data)  
+        return await this.sendMessage(data)
 
     }
 

@@ -3,7 +3,7 @@ import { EventLogger } from "gd-eventlog";
 import { DeviceProperties, DeviceSettings, DeviceStartProperties, IncyclistInterface, IncyclistScanProps,InterfaceProps } from "../types/index.js";
 
 
-export type BleProtocol = 'hr' | 'fm' | 'cp' | 'tacx' | 'wahoo' | 'elite' | 'csc' | 'zwift-play'
+export type BleProtocol = 'hr' | 'fm' | 'cp' | 'tacx' | 'wahoo' | 'bkool' | 'elite' | 'csc' | 'zwift-play'
 export type BleInterfaceState  =  'unknown' | 'resetting' | 'unsupported' | 'unauthorized' | 'poweredOff'|  'poweredOn'
 
 
@@ -151,7 +151,7 @@ export type DiscoverResult = {
 
 
 
-export type BleProperty = 'notify' | 'read' | 'write' | 'indicate'
+export type BleProperty = 'notify' | 'read' | 'write' | 'writeWithoutResponse' | 'indicate'
 
 export interface BleCharacteristic  {
     uuid: string;

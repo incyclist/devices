@@ -1,6 +1,7 @@
 import { DEFAULT_WHEEL_CIRCUMFERENCE } from "../../../base/consts.js";
 import { CrankData } from "../../cp/index.js";
 import { CharacteristicParser, Feature } from "../types.js";
+import { CrankCadenceCalculator } from "../../crank-cadence.js";
 
 export type CyclingCadenceAndSpeed = {
     cadence?: number    // rpm
@@ -10,8 +11,9 @@ export type CyclingCadenceAndSpeed = {
 
 export class CscMeasurement implements CharacteristicParser<CyclingCadenceAndSpeed> {
 
-    protected prevCrankData: CrankData = undefined
-    protected currentCrankData: CrankData = undefined
+    // seedOnFirstSample=true matches this class's own prior behavior exactly - see
+    // ../../crank-cadence.js
+    protected crankCadence = new CrankCadenceCalculator(true)
     protected prevWheelData: CrankData = undefined
     protected currentWheelData: CrankData = undefined
 
@@ -52,54 +54,15 @@ export class CscMeasurement implements CharacteristicParser<CyclingCadenceAndSpe
                 revolutions: data.readUInt16LE(offset),
                 time: data.readUInt16LE(offset+2)
             }
-            const {rpm} = this.parseCrankData(crankData)                
-            this.data.cadence = rpm;            
+            const {rpm} = this.crankCadence.update(crankData)
+            this.data.cadence = rpm;
         }
 
         this.data.raw = data.toString('hex')
         return this.data;
 
-    } 
-
-    protected parseCrankData(crankData) {
-        if (!this.prevCrankData) {
-            this.prevCrankData= {...crankData, cntUpdateMissing:-1}
-            return {}
-        }
-
-        const c = this.currentCrankData = crankData
-        const p = this.prevCrankData;
-        let rpm = this.data.cadence;
-        
-        let hasUpdate = c.time!==p.time;
-
-        if ( hasUpdate) { 
-            let time = c.time - p.time //+ c.time<p.time ? 0x10000: 0
-            let revs = c.revolutions - p.revolutions //+ c.revolutions<p.revolutions ? 0x10000: 0
-
-            if (c.time<p.time) {
-                 time+=0x10000;
-                 this.timeOffset+=0x10000;
-                 
-            }
-
-            if (c.revolutions<p.revolutions) revs+=0x10000;
-            const seconds = time/1024
-            
-            rpm = 60*revs/seconds
-        }
-        else if ( p.cntUpdateMissing<0 || p.cntUpdateMissing>2) {
-                rpm = 0;            
-        }
-        const cntUpdateMissing = p.cntUpdateMissing;
-        this.prevCrankData = this.currentCrankData
-        if ( hasUpdate)  
-            this.prevCrankData.cntUpdateMissing = 0;
-        else 
-            this.prevCrankData.cntUpdateMissing = cntUpdateMissing+1;
-
-        return {rpm, time:this.timeOffset+c.time }
     }
+
     protected parseWheelData(wheelData) {
         if (!this.prevWheelData) {
             this.prevWheelData= {...wheelData, cntUpdateMissing:-1}
@@ -144,8 +107,7 @@ export class CscMeasurement implements CharacteristicParser<CyclingCadenceAndSpe
 
     reset() {
         this.data = {}
-        this.prevCrankData = undefined
-        this.currentCrankData = undefined
+        this.crankCadence = new CrankCadenceCalculator(true)
         this.prevWheelData = undefined
         this.currentWheelData = undefined
         this.timeOffset = 0
