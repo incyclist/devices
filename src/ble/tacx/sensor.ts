@@ -2,12 +2,12 @@ import { LegacyProfile } from "../../antv2/types.js";
 import { CSC_MEASUREMENT, CSP_MEASUREMENT, FTMS_STATUS, INDOOR_BIKE_DATA } from "../consts.js";
 import { TACX_FE_C_BLE, TACX_FE_C_RX, TACX_FE_C_TX , SYNC_BYTE, ANTMessages, DEFAULT_CHANNEL, ACKNOWLEDGED_DATA } from "./consts.js";
 import { buildBasicResistancePage, buildTargetPowerPage, buildWindResistancePage, buildTrackResistancePage, buildUserConfigurationPage } from "../fe-c-pages.js";
-import { CrankData } from "../cp/index.js";
 import { IndoorBikeData } from "../fm/index.js";
 import BleFitnessMachineDevice from "../fm/sensor.js";
 import { BleProtocol } from "../types.js";
 import { beautifyUUID, matches } from "../utils.js";
 import { BleFeBikeData, FECState } from "./types.js";
+import { CrankCadenceCalculator } from "../crank-cadence.js";
 
 export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineDevice {
     static readonly profile: LegacyProfile = 'Smart Trainer'
@@ -16,10 +16,12 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
     static readonly characteristics =  [ '2acc', '2ad2', '2ad6', '2ad8', '2ad9', '2ada', TACX_FE_C_RX, TACX_FE_C_TX];
     static readonly detectionPriority = 10;
 
-    protected prevCrankData: CrankData = undefined
-    protected currentCrankData: CrankData = undefined
-    protected timeOffset: number = 0
-    protected tsPrevWrite = undefined;  
+    // seedOnFirstSample=true: matches this class's own prior behavior exactly - the first crank
+    // sample only seeds the baseline (no cadence reported) rather than computing from a synthetic
+    // zero baseline, since this device's crank-revolution counters are already running by the
+    // time a client connects (same precedent as characteristics/csc/measurement.ts).
+    protected crankCadence = new CrankCadenceCalculator(true)
+    protected tsPrevWrite = undefined;
     declare protected data: BleFeBikeData;
     protected hasFECData: boolean
     protected messageCnt: number
@@ -134,44 +136,6 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
         return true;
     }
 
-    protected parseCrankData(crankData) {
-        if (!this.prevCrankData) {
-            this.prevCrankData= {...crankData, cntUpdateMissing:-1}
-            return {}
-        }
-
-        const c = this.currentCrankData = crankData
-        const p = this.prevCrankData;
-        let rpm = this.data.cadence;
-        
-        let hasUpdate = c.time!==p.time;
-
-        if ( hasUpdate) { 
-            let time = c.time - p.time //+ c.time<p.time ? 0x10000: 0
-            let revs = c.revolutions - p.revolutions //+ c.revolutions<p.revolutions ? 0x10000: 0
-
-            if (c.time<p.time) {
-                 time+=0x10000;
-                 this.timeOffset+=0x10000;
-                 
-            }
-
-            if (c.revolutions<p.revolutions) revs+=0x10000;
-            
-            rpm = 1024*60*revs/time
-        }
-        else if ( p.cntUpdateMissing<0 || p.cntUpdateMissing>2) {
-                rpm = 0;            
-        }
-        const cntUpdateMissing = p.cntUpdateMissing;
-        this.prevCrankData = this.currentCrankData
-        if ( hasUpdate)  
-            this.prevCrankData.cntUpdateMissing = 0;
-        else 
-            this.prevCrankData.cntUpdateMissing = cntUpdateMissing+1;
-
-        return {rpm, time:this.timeOffset+c.time }
-    }
 
     protected parseCSC( _data:Buffer,logOnly:boolean=false):IndoorBikeData {
         const data:Buffer = Buffer.from(_data);
@@ -190,7 +154,7 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
                 revolutions: data.readUInt16LE(offset),
                 time: data.readUInt16LE(offset+2)
             }
-            const {rpm,time} = this.parseCrankData(crankData)                
+            const {rpm,time} = this.crankCadence.update(crankData)
             this.data.cadence = rpm;
             this.data.time = time;
         }
@@ -225,13 +189,13 @@ export default class TacxAdvancedFitnessMachineDevice extends BleFitnessMachineD
                     revolutions: data.readUInt16LE(offset),
                     time: data.readUInt16LE(offset+2)
                 }
-                const {rpm,time} = this.parseCrankData(crankData)                
+                const {rpm,time} = this.crankCadence.update(crankData)
                 this.data.cadence = rpm;
                 this.data.time = time;
             }
-            
+
         }
-        catch (err) { 
+        catch (err) {
             this.logEvent( {message:'error',fn:'parsePower()',error:err.message||err, stack:err.stack})
         }
         const {instantaneousPower, cadence,time} = this.data

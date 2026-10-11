@@ -1,9 +1,10 @@
-import { CrankData, PowerData } from './types.js';
+import { PowerData } from './types.js';
 import {CSP, CSP_MEASUREMENT,CSP_FEATURE}  from '../consts.js'
 import { matches } from '../utils.js';
 import { LegacyProfile } from '../../antv2/types.js';
 import { BleProtocol } from '../types.js';
 import { TBleSensor } from '../base/sensor.js';
+import { CrankCadenceCalculator } from '../crank-cadence.js';
 
 
 export default class BleCyclingPowerDevice extends TBleSensor {
@@ -12,53 +13,15 @@ export default class BleCyclingPowerDevice extends TBleSensor {
     static readonly services =  [CSP];
     static readonly characteristics =  [ CSP_MEASUREMENT, CSP_FEATURE, '2a5d', '2a3c' ];
     static readonly detectionPriority = 1;
-    
+
     instantaneousPower: number = undefined;
     balance: number = undefined;
     accTorque:number = undefined;
     rpm: number = undefined
-    timeOffset: number = 0
     time: number = undefined
-    currentCrankData: CrankData = undefined
-    prevCrankData: CrankData = undefined
-   
-    parseCrankData(crankData) {
-        if (!this.prevCrankData) this.prevCrankData= {revolutions:0,time:0, cntUpdateMissing:-1}
+    protected crankCadence = new CrankCadenceCalculator()
 
-        const c = this.currentCrankData = crankData
-        const p = this.prevCrankData;
-        let rpm = this.rpm;
-        
-        let hasUpdate = c.time!==p.time;
-
-        if ( hasUpdate) { 
-            let time = c.time - p.time //+ c.time<p.time ? 0x10000: 0
-            let revs = c.revolutions - p.revolutions //+ c.revolutions<p.revolutions ? 0x10000: 0
-
-            if (c.time<p.time) {
-                 time+=0x10000;
-                 this.timeOffset+=0x10000;
-                 
-            }
-
-            if (c.revolutions<p.revolutions) revs+=0x10000;
-            
-            rpm = 1024*60*revs/time
-        }
-        else if ( p.cntUpdateMissing<0 || p.cntUpdateMissing>2) {
-                rpm = 0;            
-        }
-        const cntUpdateMissing = p.cntUpdateMissing;
-        this.prevCrankData = this.currentCrankData
-        if ( hasUpdate)  
-            this.prevCrankData.cntUpdateMissing = 0;
-        else 
-            this.prevCrankData.cntUpdateMissing = cntUpdateMissing+1;
-
-        return {rpm, time:this.timeOffset+c.time }
-    }
-
-    parsePower(_data: Uint8Array):PowerData { 
+    parsePower(_data: Uint8Array):PowerData {
         const data:Buffer = Buffer.from(_data);
         try {
             let offset = 4;
@@ -81,7 +44,7 @@ export default class BleCyclingPowerDevice extends TBleSensor {
                     revolutions: data.readUInt16LE(offset),
                     time: data.readUInt16LE(offset+2)
                 }
-                const {rpm,time} = this.parseCrankData(crankData)                
+                const {rpm,time} = this.crankCadence.update(crankData)
                 this.rpm = rpm;
                 this.time = time;
             }
@@ -120,10 +83,8 @@ export default class BleCyclingPowerDevice extends TBleSensor {
         this.balance = undefined;
         this.accTorque = undefined;
         this.rpm = undefined
-        this.timeOffset = 0
         this.time = undefined
-        this.currentCrankData = undefined
-        this.prevCrankData = undefined    
+        this.crankCadence = new CrankCadenceCalculator()
     }
 
 }

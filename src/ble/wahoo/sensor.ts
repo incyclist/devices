@@ -2,12 +2,12 @@ import { LegacyProfile } from "../../antv2/types.js";
 import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/consts.js";
 import { CSP, CSP_MEASUREMENT, FTMS_CP, FTMS_FEATURE, FTMS_STATUS, HR_MEASUREMENT, INDOOR_BIKE_DATA, POWER_RANGE, RES_LEVEL_RANGE } from "../consts.js";
 import { WAHOO_ADVANCED_FTMS, WAHOO_ADVANCED_TRAINER_CP,OpCode, ErgWriteDelay } from './consts.js'
-import { CrankData } from "../cp/index.js";
 import { IndoorBikeData } from "../fm/index.js";
 import BleFitnessMachineDevice from "../fm/sensor.js";
 import { BleProtocol, BleWriteProps  } from "../types.js";
 import { beautifyUUID} from "../utils.js";
 import { InteruptableTask, TaskState } from "../../utils/task.js";
+import { CrankCadenceCalculator } from "../crank-cadence.js";
 
 // Wahoo-CP writes (e.g. setSimMode/0x43) don't reliably trigger a GATT notify response on every
 // firmware (confirmed on the KICKR SNAP) - unlike unlock/requestControl, which uses its own longer
@@ -23,9 +23,7 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
     static readonly characteristics =  [  FTMS_FEATURE, INDOOR_BIKE_DATA, RES_LEVEL_RANGE, POWER_RANGE, FTMS_CP, FTMS_STATUS, WAHOO_ADVANCED_TRAINER_CP];
     static readonly detectionPriority = 5;
 
-    prevCrankData: CrankData = undefined
-    currentCrankData: CrankData = undefined
-    timeOffset: number = 0
+    protected crankCadence = new CrankCadenceCalculator()
     tsPrevWrite = undefined;
     prevSlope = undefined;
     wahooCP:string;
@@ -186,43 +184,6 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
     }
 
 
-    protected parseCrankData(crankData) {
-        if (!this.prevCrankData) this.prevCrankData= {revolutions:0,time:0, cntUpdateMissing:-1}
-
-        const c = this.currentCrankData = crankData
-        const p = this.prevCrankData;
-        let rpm = this.data.cadence;
-        
-        let hasUpdate = c.time!==p.time;
-
-        if ( hasUpdate) { 
-            let time = c.time - p.time //+ c.time<p.time ? 0x10000: 0
-            let revs = c.revolutions - p.revolutions //+ c.revolutions<p.revolutions ? 0x10000: 0
-
-            if (c.time<p.time) {
-                 time+=0x10000;
-                 this.timeOffset+=0x10000;
-                 
-            }
-
-            if (c.revolutions<p.revolutions) revs+=0x10000;
-            
-            rpm = 1024*60*revs/time
-        }
-        else if ( p.cntUpdateMissing<0 || p.cntUpdateMissing>2) {
-            rpm = 0;
-        }
-        
-        const cntUpdateMissing = p.cntUpdateMissing;
-        this.prevCrankData = this.currentCrankData
-        if ( hasUpdate)  
-            this.prevCrankData.cntUpdateMissing = 0;
-        else 
-            this.prevCrankData.cntUpdateMissing = cntUpdateMissing+1;
-
-        return {rpm, time:this.timeOffset+c.time }
-    }
-
     protected parsePower( _data:Buffer):IndoorBikeData {
         const data:Buffer = Buffer.from(_data);
         let balance;
@@ -277,7 +238,7 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
                     revolutions: data.readUInt16LE(offset),
                     time: data.readUInt16LE(offset+2)
                 }
-                const {rpm,time} = this.parseCrankData(crankData)
+                const {rpm,time} = this.crankCadence.update(crankData)
                 this.data.cadence = rpm;
                 this.data.time = time;
             }

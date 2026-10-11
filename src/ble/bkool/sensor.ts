@@ -2,11 +2,11 @@ import { LegacyProfile } from "../../antv2/types.js";
 import { CSP, CSP_MEASUREMENT } from "../consts.js";
 import { BKOOL_SERVICE, BKOOL_CONTROL, BKOOL_FRAME_MARKER } from './consts.js'
 import { buildBasicResistancePage, buildTargetPowerPage, buildWindResistancePage, buildTrackResistancePage, buildUserConfigurationPage } from "../fe-c-pages.js";
-import { CrankData } from "../cp/index.js";
 import { IndoorBikeData } from "../fm/index.js";
 import BleFitnessMachineDevice from "../fm/sensor.js";
 import { BleProtocol, IBlePeripheral } from "../types.js";
 import { beautifyUUID } from "../utils.js";
+import { CrankCadenceCalculator } from "../crank-cadence.js";
 
 export default class BleBkoolDevice extends BleFitnessMachineDevice {
     static readonly profile: LegacyProfile = 'Smart Trainer'
@@ -15,9 +15,7 @@ export default class BleBkoolDevice extends BleFitnessMachineDevice {
     static readonly characteristics =  [CSP_MEASUREMENT, BKOOL_CONTROL];
     static readonly detectionPriority = 5;
 
-    prevCrankData: CrankData = undefined
-    currentCrankData: CrankData = undefined
-    timeOffset: number = 0
+    protected crankCadence = new CrankCadenceCalculator()
 
     constructor (peripheral: IBlePeripheral, props?: any) {
         super(peripheral, props)
@@ -147,38 +145,6 @@ export default class BleBkoolDevice extends BleFitnessMachineDevice {
         }
     }
 
-    protected parseCrankData(crankData: CrankData) {
-        if (!this.prevCrankData) this.prevCrankData= {revolutions:0,time:0, cntUpdateMissing:-1}
-
-        const c = this.currentCrankData = crankData
-        const p = this.prevCrankData;
-        let rpm = this.data.cadence;
-
-        const hasUpdate = c.time!==p.time;
-
-        if ( hasUpdate) {
-            let time = c.time - p.time
-            let revs = c.revolutions - p.revolutions
-
-            if (c.time<p.time) {
-                 time+=0x10000;
-                 this.timeOffset+=0x10000;
-            }
-            if (c.revolutions<p.revolutions) revs+=0x10000;
-
-            rpm = 1024*60*revs/time
-        }
-        else if ( p.cntUpdateMissing<0 || p.cntUpdateMissing>2) {
-            rpm = 0;
-        }
-
-        const cntUpdateMissing = p.cntUpdateMissing;
-        this.prevCrankData = this.currentCrankData
-        this.prevCrankData.cntUpdateMissing = hasUpdate ? 0 : cntUpdateMissing+1;
-
-        return {rpm, time:this.timeOffset+c.time }
-    }
-
     protected parsePower( _data:Buffer):IndoorBikeData {
         const data:Buffer = Buffer.from(_data);
 
@@ -197,7 +163,7 @@ export default class BleBkoolDevice extends BleFitnessMachineDevice {
                     revolutions: data.readUInt16LE(offset),
                     time: data.readUInt16LE(offset+2)
                 }
-                const {rpm,time} = this.parseCrankData(crankData)
+                const {rpm,time} = this.crankCadence.update(crankData)
                 this.data.cadence = rpm;
                 this.data.time = time;
             }
