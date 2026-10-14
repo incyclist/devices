@@ -143,5 +143,64 @@ describe('BleZwiftPlaySensor', () => {
 
             expect(logEvent).toHaveBeenCalledWith(expect.objectContaining({ message: 'error', fn: 'setSimulationData' }))
         })
+
+        test('a write that fails while a reconnect from a known disconnect is already in flight logs a warning, not an error', async () => {
+            peripheral.isConnected.mockReturnValue(false)
+            sensor.reconnectPromise = new Promise(() => { /* never resolves within the test */ })
+
+            await sensor.setSimulationData({ inclineX100: 5 })
+
+            expect(logEvent).toHaveBeenCalledWith(expect.objectContaining({ message: 'warning', fn: 'setSimulationData' }))
+            expect(logEvent).not.toHaveBeenCalledWith(expect.objectContaining({ message: 'error' }))
+        })
+    })
+
+    describe('setGearRatio - write racing a concurrent stopSensor() or in-flight reconnect', () => {
+        let sensor: any
+        let peripheral: any
+        let logEvent: any
+
+        beforeEach(() => {
+            logEvent = jest.fn()
+            peripheral = {
+                isConnected: jest.fn().mockReturnValue(true),
+                write: jest.fn().mockResolvedValue(Buffer.from([])),
+                disconnect: jest.fn().mockResolvedValue(true),
+                onDisconnect: jest.fn(),
+                getInterface: jest.fn().mockReturnValue({ isLoggingPaused: jest.fn().mockReturnValue(false) }),
+            }
+            sensor = new BleZwiftPlaySensor(peripheral, { logger: MockLogger })
+            sensor.logger = { logEvent }
+            sensor.isHubServiceActive = true
+            sensor.isHubPairConfirmed = true
+        })
+
+        test('a write that fails because a stop was already requested logs a warning, not an error', async () => {
+            await sensor.stopSensor()
+            peripheral.isConnected.mockReturnValue(false)
+
+            await sensor.setGearRatio(2.5)
+
+            expect(logEvent).toHaveBeenCalledWith(expect.objectContaining({ message: 'warning', fn: 'setGearRatio' }))
+            expect(logEvent).not.toHaveBeenCalledWith(expect.objectContaining({ message: 'error' }))
+        })
+
+        test('a write that fails while a reconnect from a known disconnect is already in flight logs a warning, not an error', async () => {
+            peripheral.isConnected.mockReturnValue(false)
+            sensor.reconnectPromise = new Promise(() => { /* never resolves within the test */ })
+
+            await sensor.setGearRatio(2.5)
+
+            expect(logEvent).toHaveBeenCalledWith(expect.objectContaining({ message: 'warning', fn: 'setGearRatio' }))
+            expect(logEvent).not.toHaveBeenCalledWith(expect.objectContaining({ message: 'error' }))
+        })
+
+        test('a write that fails without a stop or reconnect in flight still logs an error', async () => {
+            peripheral.isConnected.mockReturnValue(false)
+
+            await sensor.setGearRatio(2.5)
+
+            expect(logEvent).toHaveBeenCalledWith(expect.objectContaining({ message: 'error', fn: 'setGearRatio' }))
+        })
     })
 })

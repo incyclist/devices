@@ -216,9 +216,10 @@ export class BleZwiftPlaySensor extends TBleSensor {
         }
         catch(err) {
             // a command queued just before a pairing-group abort can still reach write() a
-            // moment after stopSensor() tore this sensor down - that's an expected outcome of
-            // the abort, not a real failure, so it's logged at a lower noise level
-            const message = this.stopRequested ? 'warning' : 'error'
+            // moment after stopSensor() tore this sensor down, or while a known disconnect is
+            // already being handled by a reconnect in flight - neither is a new failure, so
+            // both are logged at a lower noise level
+            const message = (this.stopRequested || this.isReconnectBusy()) ? 'warning' : 'error'
             this.logger.logEvent( {message,fn:'setSimulationData',data, error:err.message,stack:err.stack} );
         }
 
@@ -261,7 +262,7 @@ export class BleZwiftPlaySensor extends TBleSensor {
             await this.requestDataUpdate(512)
         }
         catch(err) {
-            const message = this.stopRequested ? 'warning' : 'error'
+            const message = (this.stopRequested || this.isReconnectBusy()) ? 'warning' : 'error'
             this.logger.logEvent( {message,fn:'setGearRatio',gearRatio, error:err.message,stack:err.stack} );
 
         }
