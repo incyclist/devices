@@ -223,9 +223,9 @@ describe('utils',()=>{
             })
 
             test('timeout without Callback',async ()=>{
-                const fn = new Promise( resolve => {to=setTimeout(()=>{resolve('X')},5000)}) 
-                
-                expect( async ()=>{ await waitWithTimeout(fn,100,undefined)}).rejects.toThrow('Timeout')
+                const fn = new Promise( resolve => {to=setTimeout(()=>{resolve('X')},5000)})
+
+                await expect( async ()=>{ await waitWithTimeout(fn,100,undefined)}).rejects.toThrow('Timeout')
             })
 
         })
