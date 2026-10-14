@@ -304,10 +304,10 @@ describe( 'adapter', ()=>{
             a.getCyclingMode = jest.fn().mockReturnValue({buildUpdate: jest.fn()})
         })
 
-        test('default -- needs to be implemented by subclass',()=>{
+        test('default -- needs to be implemented by subclass',async ()=>{
             a.capabilities=[IncyclistCapability.Control]
 
-            expect( async ()=>{ await a.sendUpdate({slope:0}) } ).rejects
+            await expect( async ()=>{ await a.sendUpdate({slope:0}) } ).rejects
             .toThrow('method not implemented')
 
         })
