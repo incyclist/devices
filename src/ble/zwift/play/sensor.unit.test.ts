@@ -203,4 +203,170 @@ describe('BleZwiftPlaySensor', () => {
             expect(logEvent).toHaveBeenCalledWith(expect.objectContaining({ message: 'error', fn: 'setGearRatio' }))
         })
     })
+
+    describe('reconnectSensor - re-pairing after the link was re-established', () => {
+        let sensor: any
+        let baseReconnect: any
+
+        beforeEach(() => {
+            jest.useFakeTimers()
+            const peripheral = {
+                isConnected: jest.fn().mockReturnValue(true),
+                write: jest.fn().mockResolvedValue(Buffer.from([])),
+                disconnect: jest.fn().mockResolvedValue(true),
+                onDisconnect: jest.fn(),
+                getInfo: jest.fn().mockReturnValue({ name: 'Zwift Click', address: '1234' }),
+                getInterface: jest.fn().mockReturnValue({ isLoggingPaused: jest.fn().mockReturnValue(false) }),
+            }
+            sensor = new BleZwiftPlaySensor(peripheral as any, { logger: MockLogger })
+            sensor.logEvent = jest.fn()
+            baseReconnect = jest.spyOn(Object.getPrototypeOf(BleZwiftPlaySensor.prototype), 'reconnectSensor')
+                .mockResolvedValue(true)
+        })
+
+        afterEach(() => {
+            baseReconnect.mockRestore()
+            jest.useRealTimers()
+        })
+
+        test('awaits pair() before reporting the reconnect result', async () => {
+            let resolvePair: (v: boolean) => void
+            sensor.pair = jest.fn().mockReturnValue(new Promise<boolean>(done => { resolvePair = done }))
+
+            let result: boolean | undefined
+            sensor.reconnectSensor().then((r: boolean) => { result = r })
+            await jest.advanceTimersByTimeAsync(10)
+
+            expect(sensor.pair).toHaveBeenCalledTimes(1)
+            expect(result).toBeUndefined()
+            expect(sensor.isReconnectBusy()).toBe(true)
+
+            resolvePair(true)
+            await jest.advanceTimersByTimeAsync(10)
+
+            expect(result).toBe(true)
+            expect(sensor.isReconnectBusy()).toBe(false)
+        })
+
+        test('retries a failed pair()', async () => {
+            sensor.pair = jest.fn().mockResolvedValueOnce(false).mockResolvedValue(true)
+
+            let result: boolean | undefined
+            sensor.reconnectSensor().then((r: boolean) => { result = r })
+            await jest.advanceTimersByTimeAsync(5000)
+
+            expect(sensor.pair).toHaveBeenCalledTimes(2)
+            expect(result).toBe(true)
+        })
+
+        test('reports a reconnect as failed if pairing keeps failing', async () => {
+            sensor.pair = jest.fn().mockResolvedValue(false)
+
+            let result: boolean | undefined
+            sensor.reconnectSensor().then((r: boolean) => { result = r })
+            await jest.advanceTimersByTimeAsync(10000)
+
+            expect(result).toBe(false)
+            expect(sensor.logEvent).toHaveBeenCalledWith(expect.objectContaining({ message: 'reconnect sensor pairing failed' }))
+        })
+
+        test('does not try to pair if the link could not be re-established', async () => {
+            baseReconnect.mockResolvedValue(false)
+            sensor.pair = jest.fn().mockResolvedValue(true)
+
+            const result = await sensor.reconnectSensor()
+
+            expect(result).toBe(false)
+            expect(sensor.pair).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('Zwift Hub - writes while the trainer sensor (owner of the shared peripheral) reconnects', () => {
+        let sensor: any
+        let owner: any
+        let peripheral: any
+        let logEvent: any
+
+        beforeEach(() => {
+            logEvent = jest.fn()
+            peripheral = {
+                isConnected: jest.fn().mockReturnValue(false),
+                write: jest.fn().mockRejectedValue(new Error('not connected')),
+                subscribeSelected: jest.fn().mockResolvedValue(true),
+                disconnect: jest.fn().mockResolvedValue(true),
+                onDisconnect: jest.fn(),
+                getInfo: jest.fn().mockReturnValue({ name: 'JUSTO 2', address: '1234' }),
+                getInterface: jest.fn().mockReturnValue({ isLoggingPaused: jest.fn().mockReturnValue(false) }),
+            }
+            owner = {
+                getPeripheral: () => peripheral,
+                startSensor: jest.fn(),
+                isReconnectBusy: jest.fn().mockReturnValue(true),
+                getReconnectCount: jest.fn().mockReturnValue(1),
+            }
+            sensor = new BleZwiftPlaySensor(owner, { logger: MockLogger, isTrainer: true })
+            sensor.logger = { logEvent }
+            sensor.logEvent = jest.fn()
+        })
+
+        test('reports the reconnect of the owner as its own', () => {
+            expect(sensor.isReconnectBusy()).toBe(true)
+            owner.isReconnectBusy.mockReturnValue(false)
+            expect(sensor.isReconnectBusy()).toBe(false)
+        })
+
+        test('setGearRatio is skipped: no discovery/subscribe, no write, logged as warning not error', async () => {
+            await sensor.setGearRatio(2.5)
+
+            expect(peripheral.subscribeSelected).not.toHaveBeenCalled()
+            expect(peripheral.write).not.toHaveBeenCalled()
+            expect(logEvent).not.toHaveBeenCalledWith(expect.objectContaining({ message: 'error' }))
+            expect(sensor.logEvent).not.toHaveBeenCalledWith(expect.objectContaining({ message: 'error' }))
+            expect(logEvent).toHaveBeenCalledWith(expect.objectContaining({ message: 'warning', fn: 'setGearRatio', reason: 'reconnect in progress' }))
+        })
+
+        test('setSimulationData is skipped: no discovery/subscribe, no write, logged as warning not error', async () => {
+            await sensor.setIncline(2)
+
+            expect(peripheral.subscribeSelected).not.toHaveBeenCalled()
+            expect(peripheral.write).not.toHaveBeenCalled()
+            expect(logEvent).not.toHaveBeenCalledWith(expect.objectContaining({ message: 'error' }))
+            expect(sensor.logEvent).not.toHaveBeenCalledWith(expect.objectContaining({ message: 'error' }))
+            expect(logEvent).toHaveBeenCalledWith(expect.objectContaining({ message: 'warning', fn: 'setSimulationData', reason: 'reconnect in progress' }))
+        })
+
+        test('a write that fails during the owner reconnect (race) is logged as warning', async () => {
+            owner.isReconnectBusy.mockReturnValueOnce(false).mockReturnValue(true)
+            sensor.isHubServiceActive = true
+            sensor.isHubPairConfirmed = true
+            owner.getReconnectCount.mockReturnValue(0)
+            sensor.ownerReconnectCount = 0
+
+            await sensor.setGearRatio(2.5)
+
+            expect(logEvent).toHaveBeenCalledWith(expect.objectContaining({ message: 'warning', fn: 'setGearRatio' }))
+            expect(logEvent).not.toHaveBeenCalledWith(expect.objectContaining({ message: 'error' }))
+        })
+
+        test('hub state from before a reconnect of the owner is discarded, so the hub is re-initialized on the next write', async () => {
+            owner.isReconnectBusy.mockReturnValue(false)
+            owner.getReconnectCount.mockReturnValue(0)
+            sensor.ownerReconnectCount = 0
+            sensor.isHubServiceActive = true
+            sensor.isHubServicePaired = true
+            sensor.isHubServiceSubscribed = true
+            sensor.isHubPairConfirmed = true
+
+            // owner reconnected in the meantime
+            owner.getReconnectCount.mockReturnValue(1)
+            peripheral.isConnected.mockReturnValue(true)
+            peripheral.write.mockResolvedValue(Buffer.from([]))
+            sensor.initHubService = jest.fn().mockResolvedValue(false)
+
+            await sensor.setGearRatio(2.5)
+
+            expect(sensor.initHubService).toHaveBeenCalled()
+            expect(sensor.isHubServicePaired).toBe(false)
+        })
+    })
 })

@@ -485,6 +485,70 @@ describe('BleFmAdapter',()=>{
     // showed the entire checkCapabilities()/establishControl()/requestControl() sequence firing
     // twice, ~4ms apart, producing two concurrent RequestControl BLE writes that collided at the
     // GATT layer.
+    describe('sendUpdate / isReconnecting - while the trainer sensor reconnects',()=>{
+        let adapter: any
+        let sensor: any
+        let zwiftPlay: any
+
+        beforeEach( ()=>{
+            adapter = new BleFmAdapter({interface:'ble', name:'JUSTO 2', address:'1111', protocol:'fm'})
+            sensor = {
+                isReconnectBusy: jest.fn().mockReturnValue(true),
+                isReady: jest.fn().mockReturnValue(false),
+                setSlope: jest.fn().mockRejectedValue(new Error('not connected')),
+                setTargetPower: jest.fn().mockRejectedValue(new Error('not connected')),
+            }
+            zwiftPlay = {
+                setIncline: jest.fn().mockResolvedValue(undefined),
+                setGearRatio: jest.fn().mockResolvedValue(2.5),
+                initHubService: jest.fn().mockResolvedValue(true),
+                resetHubState: jest.fn(),
+            }
+            adapter.device = sensor
+            adapter.zwiftPlay = zwiftPlay
+            adapter.started = true
+            adapter.stopped = false
+            adapter.capabilities = [IncyclistCapability.Power, IncyclistCapability.Control]
+            adapter.logEvent = jest.fn()
+            adapter.getCyclingMode = jest.fn().mockReturnValue({
+                buildUpdate: jest.fn().mockReturnValue({slope:1, gearRatio:2.5, isHub:true}),
+                confirmed: jest.fn(),
+                getName: jest.fn().mockReturnValue('SIM'),
+            })
+        })
+
+        test('isReconnecting() reports the reconnect state of the sensor',()=>{
+            expect(adapter.isReconnecting()).toBe(true)
+            sensor.isReconnectBusy.mockReturnValue(false)
+            expect(adapter.isReconnecting()).toBe(false)
+        })
+
+        test('isReconnecting() is false without a sensor',()=>{
+            adapter.device = undefined
+            expect(adapter.isReconnecting()).toBe(false)
+        })
+
+        test('hub gear/incline writes are skipped, without initializing the hub and without logging an error',async ()=>{
+            await adapter.sendUpdate({slope:1})
+
+            expect(zwiftPlay.setIncline).not.toHaveBeenCalled()
+            expect(zwiftPlay.setGearRatio).not.toHaveBeenCalled()
+            expect(zwiftPlay.initHubService).not.toHaveBeenCalled()
+            expect(adapter.logEvent).not.toHaveBeenCalledWith(expect.objectContaining({message:'error'}))
+            expect(adapter.logEvent).toHaveBeenCalledWith(expect.objectContaining({message:'send bike update skipped', reason:'reconnect in progress'}))
+        })
+
+        test('writes are sent again once the reconnect has completed',async ()=>{
+            sensor.isReconnectBusy.mockReturnValue(false)
+            adapter.isHubInitialized = true
+
+            await adapter.sendUpdate({slope:1})
+
+            expect(zwiftPlay.setIncline).toHaveBeenCalledWith(1)
+            expect(zwiftPlay.setGearRatio).toHaveBeenCalledWith(2.5)
+        })
+    })
+
     describe('restart - resets virtual shifting hub state',()=>{
 
         test('clears the zwift play hub state and hub-initialized flag before the base restart runs',async ()=>{

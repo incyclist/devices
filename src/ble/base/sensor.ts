@@ -2,18 +2,23 @@ import { EventEmitter } from "node:events";
 import { EventLogger } from "gd-eventlog";
 
 import { LegacyProfile } from "../../antv2/types.js";
-import { sleep } from "../../utils/utils.js";
+import { runWithTimeout, sleep } from "../../utils/utils.js";
 import { BleWriteProps, IBlePeripheral, BleProtocol, IBleSensor} from "../types.js";
 import { beautifyUUID } from "../utils.js";
 
 export class TBleSensor extends EventEmitter implements IBleSensor {
 
     static readonly protocol: BleProtocol
+    // upper bound for a single reconnect attempt (connect + discovery + subscribe)
+    static readonly RECONNECT_ATTEMPT_TIMEOUT = 20000
+
     protected logger: EventLogger
     protected stopRequested: boolean = false
     protected subscribeSuccess:boolean = false
     protected reconnectPromise: Promise<boolean>|undefined
     protected connectPromise: Promise<boolean>|undefined
+    protected reconnectAttemptTimeout: number = TBleSensor.RECONNECT_ATTEMPT_TIMEOUT
+    protected reconnectCount: number = 0
     protected onDataHandler
 
     logEvent(event:any, ...args:any) {
@@ -130,8 +135,7 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
 
         if (selected===null) {
             const res =  this.peripheral?.subscribeAll ? await this.peripheral.subscribeAll(this.onDataHandler) : false
-            this.subscribeSuccess = res
-            return res;
+            return this.onSubscribeResult(res)
         }
 
         if (selected.length===0) {
@@ -140,8 +144,18 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
         }
 
         const res =  await this.peripheral.subscribeSelected(selected,this.onDataHandler)
-        this.subscribeSuccess = res
-        return res
+        return this.onSubscribeResult(res)
+    }
+
+    protected onSubscribeResult(res:boolean):boolean {
+        // the peripheral reports a completed subscription even if the link dropped while it was
+        // subscribing - that must not be treated as success
+        const success = res && this.isConnected()
+        if (res && !success) {
+            this.logEvent({message:'subscribe failed', reason:'not connected'})
+        }
+        this.subscribeSuccess = success
+        return success
     }
 
     async stopSensor(): Promise<boolean> {
@@ -175,14 +189,23 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
         return res;
     }
 
+    /**
+     * Number of reconnects that have been started on this sensor.
+     *
+     * Allows components that share this sensor's peripheral (e.g. the Zwift Hub service of a
+     * FTMS trainer) to detect that the link was re-established and their own state is stale
+     */
+    getReconnectCount():number {
+        return this.reconnectCount
+    }
+
     async doReconnectSensor(connectionLost:boolean = true):Promise<boolean> {
         this.onDisconnect()
+        this.reconnectCount++
 
         const {name,address} = this.peripheral?.getInfo()??{}
-        
+
         this.logEvent({message:'reconnect sensor', name,address,connectionLost})
-        let connected = false;
-        let subscribed = false;
 
         let success = false
         if (connectionLost) {
@@ -190,34 +213,11 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
         }
 
 
-        // TODO: remove these hard coded sleeps to event based logic 
+        // TODO: remove these hard coded sleeps to event based logic
         // -------------------------------------------------
         await sleep(500)
 
-        do {
-            try {
-                if (!connected) {
-                    connected = await this.startSensor(true)
-                }
-
-                if (connected && !subscribed) {
-                    subscribed = await this.subscribe()
-                    
-                }
-            }
-            catch  { 
-                // ignore
-            }
-
-
-            success = connected && subscribed        
-            if (!success) {
-                await sleep(1000)
-            }
-            if (!this.stopRequested && !success)
-                this.logEvent({message:'reconnect sensor retry', name,address})
-
-        } while (!success || this.stopRequested)
+        success = await this.reconnectUntilDone(name,address)
 
         if (connectionLost && success) {
             this.emit('connctionRecovered')
@@ -227,6 +227,57 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
         this.logEvent({message:'reconnect sensor completed',success, stopRequested:this.stopRequested})
         return success
 
+    }
+
+    // retries sequentially until an attempt succeeds or a stop is requested
+    protected async reconnectUntilDone(name:string, address:string):Promise<boolean> {
+        const success = await this.reconnectAttempt(name,address)
+        if (success || this.stopRequested)
+            return success
+
+        await sleep(1000)
+        if (this.stopRequested)
+            return false
+
+        this.logEvent({message:'reconnect sensor retry', name,address})
+        return this.reconnectUntilDone(name,address)
+    }
+
+    protected async reconnectAttempt(name:string, address:string):Promise<boolean> {
+        try {
+            // connect and GATT discovery are not bounded by the BLE bindings, a stalled discovery
+            // would otherwise block the reconnect forever
+            return await runWithTimeout(this.connectAndSubscribe(), this.reconnectAttemptTimeout)
+        }
+        catch (err) {
+            if (err?.message==='Timeout') {
+                await this.abortReconnectAttempt(name,address)
+            }
+            return false
+        }
+    }
+
+    protected async connectAndSubscribe():Promise<boolean> {
+        const connected = await this.startSensor(true)
+        if (!connected)
+            return false
+
+        const subscribed = await this.subscribe()
+        return subscribed && this.isConnected()
+    }
+
+    protected async abortReconnectAttempt(name:string, address:string):Promise<void> {
+        this.logEvent({message:'reconnect sensor attempt timeout', name,address, timeout:this.reconnectAttemptTimeout})
+
+        // tear down the stalled link, so that the next attempt performs a fresh connect and discovery
+        delete this.connectPromise
+        this.onDisconnect()
+        try {
+            await runWithTimeout(this.peripheral.disconnect(), this.reconnectAttemptTimeout)
+        }
+        catch {
+            // ignore - the next attempt will try to connect again
+        }
     }
 
 

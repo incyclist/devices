@@ -487,10 +487,20 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         // don't send any commands if the device is stopped and not starting
         if( !enforced && ( this.stopped && !this.isStarting()))
             return
-        
+
         try {
 
             const update = this.getCyclingMode().buildUpdate(request)
+
+            // don't send any commands while the link is being re-established: they would fail anyway and
+            // a (re-)init of the Zwift Hub service would start a second, concurrent GATT discovery.
+            // The update was still applied to the cycling mode (e.g. a gear change), so its current
+            // target is sent with the next update after the reconnect
+            if (this.isReconnecting()) {
+                this.logEvent({message: 'send bike update skipped', reason:'reconnect in progress', update, request})
+                return
+            }
+
             this.logEvent({message: 'send bike update requested',profile:this.getProfile(),mode:this.getCyclingMode()?.getName(),  update, request})
 
             const device = this.getSensor()
