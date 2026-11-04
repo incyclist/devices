@@ -75,6 +75,9 @@ export interface IAdapter extends EventEmitter, ITrainer, ISensor{
     onScanStop():void
 
     createMode(ModeClass:typeof CyclingMode):ICyclingMode
-    isLogPaused():boolean 
+    isLogPaused():boolean
+
+    // true while the adapter is re-establishing a lost connection on its own - a restart should not be triggered then
+    isReconnecting?():boolean
 }
 

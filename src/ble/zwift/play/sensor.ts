@@ -2,6 +2,7 @@ import { EventLogger } from "gd-eventlog";
 import { LegacyProfile } from "../../../antv2/types.js";
 import { ClickKeyPadStatus, DeviceDataEnvelope, DeviceInformationContent, DeviceSettings, DeviceSettingsSubContent, HubCommand, HubRequest, HubRidingData, Idle, PhysicalParam, PlayButtonStatus, RideKeyPadStatus, SimulationParam, TrainerResponse } from "../../../proto/zwift_hub.js";
 import { TBleSensor } from "../../base/sensor.js";
+import { sleep } from "../../../utils/utils.js";
 import { BleProtocol, IBlePeripheral  } from "../../types.js";
 import { beautifyUUID, fullUUID  } from "../../utils.js";
 import { EventEmitter } from "node:events";
@@ -63,36 +64,106 @@ export class BleZwiftPlaySensor extends TBleSensor {
     protected pendingMeasurement: PendingMeasurement|undefined
     protected measurementReassemblyErrorLogged: boolean = false
 
+    static readonly RECONNECT_PAIR_ATTEMPTS = 3
+    static readonly RECONNECT_PAIR_RETRY_DELAY = 1000 // ms
+
+    // the sensor that owns the shared peripheral (e.g. the FTMS sensor of a Zwift Hub trainer)
+    protected owner: TBleSensor|undefined
+    protected ownerReconnectCount: number = 0
+    protected reconnectAndPairPromise: Promise<boolean>|undefined
+
     constructor (peripheral:IBlePeripheral|TBleSensor , props?:BleZwiftPlaySensorProps) {
-        
+
         if ( props?.isTrainer && peripheral) {
             const sensor = peripheral as TBleSensor
-            super(sensor.getPeripheral(),props) 
+            super(sensor.getPeripheral(),props)
             this.isFM = true
+            this.owner = sensor
         }
 
-        else if ( peripheral && 
-            'startSensor' in peripheral && typeof peripheral.startSensor === 'function'  && 
+        else if ( peripheral &&
+            'startSensor' in peripheral && typeof peripheral.startSensor === 'function'  &&
             'getPeripheral' in peripheral && typeof peripheral.getPeripheral === 'function'
         ) {
-            super(peripheral.getPeripheral(),props) 
+            super(peripheral.getPeripheral(),props)
             // peripheral is IBleSensor
             this.isFM = true
+            this.owner = peripheral as TBleSensor
         }
         else {
             super(peripheral as IBlePeripheral,props)
             this.isFM = false
-        }        
+        }
 
+        this.ownerReconnectCount = this.owner?.getReconnectCount?.() ?? 0
         this.emitter = new EventEmitter()
         this.setInitialState()
     }
 
-    async reconnectSensor() {     
-        this.setInitialState()
-        let reconnected = await super.reconnectSensor()
-        this.pair()
+    async reconnectSensor():Promise<boolean> {
+        // shield from parallel calls (e.g. disconnect handler and adapter restart)
+        this.reconnectAndPairPromise = this.reconnectAndPairPromise ?? this.reconnectAndPair()
+        const promise = this.reconnectAndPairPromise
+        const reconnected = await promise
+        if (this.reconnectAndPairPromise===promise)
+            delete this.reconnectAndPairPromise
         return reconnected
+    }
+
+    isReconnectBusy(): boolean {
+        return super.isReconnectBusy() || this.reconnectAndPairPromise!==undefined || this.isOwnerReconnecting()
+    }
+
+    protected isOwnerReconnecting():boolean {
+        return this.owner?.isReconnectBusy?.() ?? false
+    }
+
+    protected async reconnectAndPair():Promise<boolean> {
+        this.setInitialState()
+        const reconnected = await super.reconnectSensor()
+        if (!reconnected)
+            return false
+
+        for (let attempt=1; attempt<=BleZwiftPlaySensor.RECONNECT_PAIR_ATTEMPTS; attempt++) {
+            if (this.stopRequested)
+                return false
+
+            const paired = await this.pair()
+            if (paired)
+                return true
+
+            if (attempt<BleZwiftPlaySensor.RECONNECT_PAIR_ATTEMPTS)
+                await sleep(BleZwiftPlaySensor.RECONNECT_PAIR_RETRY_DELAY)
+        }
+
+        const {name,address} = this.peripheral?.getInfo()??{}
+        this.logEvent({message:'reconnect sensor pairing failed', name,address, attempts:BleZwiftPlaySensor.RECONNECT_PAIR_ATTEMPTS})
+        return false
+    }
+
+    /**
+     * Checks if writes to the hub service can be sent right now.
+     *
+     * If the sensor shares its peripheral with a trainer sensor, any reconnect of that sensor
+     * invalidates the hub state (subscription and pairing). While that reconnect is in flight,
+     * hub commands are skipped - they would fail anyway and a hub (re-)init would trigger a
+     * second, concurrent GATT discovery. The next command after the reconnect re-initializes the hub
+     */
+    protected canSendHubCommand(fn:string):boolean {
+        if (!this.owner)
+            return true
+
+        const reconnectCount = this.owner.getReconnectCount?.() ?? 0
+        if (reconnectCount!==this.ownerReconnectCount) {
+            this.ownerReconnectCount = reconnectCount
+            this.setInitialState()
+        }
+
+        if (this.isOwnerReconnecting()) {
+            this.logger.logEvent({message:'warning', fn, reason:'reconnect in progress', skipped:true})
+            return false
+        }
+        return true
     }
 
     stopSensor(): Promise<boolean> {
@@ -180,6 +251,8 @@ export class BleZwiftPlaySensor extends TBleSensor {
 
     async setSimulationData( data?:SimulationParam) {
         try {
+            if (!this.canSendHubCommand('setSimulationData'))
+                return
 
             if (!this.isHubServiceActive) {
                 await this.initHubService(false)
@@ -233,6 +306,9 @@ export class BleZwiftPlaySensor extends TBleSensor {
     async setGearRatio( gearRatio:number):Promise<number> {
 
         try {
+            if (!this.canSendHubCommand('setGearRatio'))
+                return
+
             if (!this.isHubServiceActive) {
                 await this.initHubService()
             }
@@ -374,7 +450,10 @@ export class BleZwiftPlaySensor extends TBleSensor {
     }
 
     async initHubService( setSimulation:boolean = true):Promise<boolean> {
-        
+
+        if (!this.canSendHubCommand('initHubService'))
+            return false
+
         if (!this.isHubServiceActive && this.initHubServicePromise!==undefined) {
             await this.initHubServicePromise            
         }
@@ -766,7 +845,7 @@ export class BleZwiftPlaySensor extends TBleSensor {
             const paired = await this.pairPromise
             this.pairPromise = undefined
             if (paired)
-                return
+                return true
         }
 
         let manufacturerData:string

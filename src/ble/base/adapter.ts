@@ -149,6 +149,16 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         return this.device?.isConnected()
     }
 
+    /**
+     * Returns true while the sensor is re-establishing a lost BLE link (connect, discovery, subscribe).
+     *
+     * During that time no data is delivered, but the adapter must not be restarted, as the
+     * reconnect is already in progress and bounded in time
+     */
+    isReconnecting():boolean {
+        return this.getSensor()?.isReconnectBusy() ?? false
+    }
+
     resetData() {
         super.resetData()
         this.dataMsgCount = 0;        

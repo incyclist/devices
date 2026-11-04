@@ -121,6 +121,10 @@ export default class IncyclistDevice<P extends DeviceProperties>
         return  typeof this.settings.interface==='string' ? this.settings.interface : this.settings.interface.getName()
     }
 
+    isReconnecting():boolean {
+        return false
+    }
+
     async restart(pause?:number):Promise<boolean> {
 
         this.logger.logEvent({message:'restarting device',  device:this.getName()})
