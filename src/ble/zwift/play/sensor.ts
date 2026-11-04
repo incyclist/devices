@@ -124,21 +124,28 @@ export class BleZwiftPlaySensor extends TBleSensor {
         if (!reconnected)
             return false
 
-        for (let attempt=1; attempt<=BleZwiftPlaySensor.RECONNECT_PAIR_ATTEMPTS; attempt++) {
-            if (this.stopRequested)
-                return false
-
-            const paired = await this.pair()
-            if (paired)
-                return true
-
-            if (attempt<BleZwiftPlaySensor.RECONNECT_PAIR_ATTEMPTS)
-                await sleep(BleZwiftPlaySensor.RECONNECT_PAIR_RETRY_DELAY)
+        const paired = await this.pairWithRetry(1)
+        if (paired===undefined) {
+            const {name,address} = this.peripheral?.getInfo()??{}
+            this.logEvent({message:'reconnect sensor pairing failed', name,address, attempts:BleZwiftPlaySensor.RECONNECT_PAIR_ATTEMPTS})
+            return false
         }
+        return paired
+    }
 
-        const {name,address} = this.peripheral?.getInfo()??{}
-        this.logEvent({message:'reconnect sensor pairing failed', name,address, attempts:BleZwiftPlaySensor.RECONNECT_PAIR_ATTEMPTS})
-        return false
+    // returns true if paired, false if a stop was requested, undefined if all attempts failed
+    protected async pairWithRetry(attempt:number):Promise<boolean|undefined> {
+        if (this.stopRequested)
+            return false
+
+        if (await this.pair())
+            return true
+
+        if (attempt>=BleZwiftPlaySensor.RECONNECT_PAIR_ATTEMPTS)
+            return undefined
+
+        await sleep(BleZwiftPlaySensor.RECONNECT_PAIR_RETRY_DELAY)
+        return this.pairWithRetry(attempt+1)
     }
 
     /**

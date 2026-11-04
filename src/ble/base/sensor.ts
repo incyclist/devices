@@ -217,15 +217,7 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
         // -------------------------------------------------
         await sleep(500)
 
-        do {
-            success = await this.reconnectAttempt(name,address)
-            if (!success) {
-                await sleep(1000)
-                if (!this.stopRequested)
-                    this.logEvent({message:'reconnect sensor retry', name,address})
-            }
-
-        } while (!success && !this.stopRequested)
+        success = await this.reconnectUntilDone(name,address)
 
         if (connectionLost && success) {
             this.emit('connctionRecovered')
@@ -235,6 +227,20 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
         this.logEvent({message:'reconnect sensor completed',success, stopRequested:this.stopRequested})
         return success
 
+    }
+
+    // retries sequentially until an attempt succeeds or a stop is requested
+    protected async reconnectUntilDone(name:string, address:string):Promise<boolean> {
+        const success = await this.reconnectAttempt(name,address)
+        if (success || this.stopRequested)
+            return success
+
+        await sleep(1000)
+        if (this.stopRequested)
+            return false
+
+        this.logEvent({message:'reconnect sensor retry', name,address})
+        return this.reconnectUntilDone(name,address)
     }
 
     protected async reconnectAttempt(name:string, address:string):Promise<boolean> {
