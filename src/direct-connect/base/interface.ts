@@ -5,12 +5,13 @@ import { DirectConnectBinding, MulticastDnsAnnouncement } from "../bindings/inde
 import { DirectConnectScanProps } from "../types.js";
 import { BleDeviceSettings, BleProtocol, IBleInterface, IBlePeripheral } from '../../ble/types.js';
 import { InteruptableTask,  TaskState } from "../../utils/task.js";
-import { DirectConnectPeripheral } from "./peripheral.js";
+import { DirectConnectPeripheral, OpenBikeControlPeripheral } from "./peripheral.js";
 import { beautifyUUID, BleAdapterFactory } from "../../ble/index.js";
 import { TBleSensor } from "../../ble/base/sensor.js";
 import { InterfaceFactory } from "../../ble/base/types.js";
 import { CSC, CSP } from "../../ble/consts.js";
 import { WAHOO_ADVANCED_FTMS } from "../../ble/wahoo/consts.js";
+import { OBC_SERVICE } from "../../ble/openbikecontrol/consts.js";
 
 const DC_TYPE = 'wahoo-fitness-tnp'
 const DC_PORT = 36866
@@ -18,6 +19,7 @@ const DC_EXPIRATION_TIMEOUT = 10*1000*60 // 10min
 const DC_PROBE_TIMEOUT = 2000             // max time to wait for a TCP probe
 const DC_REPROBE_INTERVAL = 5000          // pause between probes while waiting for a device
 const DC_WAIT_LIFETIME = 5*60*1000        // stop re-probing a device after 5min
+const OBC_TYPE = 'openbikecontrol'
 
 
 interface Announcement {
@@ -118,6 +120,8 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
 
 
     createPeripheral(announcement: MulticastDnsAnnouncement): IBlePeripheral {
+        if (announcement.type===OBC_TYPE)
+            return OpenBikeControlPeripheral.create(announcement)
         return DirectConnectPeripheral.create(announcement)
     }
 
@@ -291,6 +295,13 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         this.getBinding().mdns.find( {type:DC_TYPE},( service:MulticastDnsAnnouncement )=>{
             this.addService( service, DC_TYPE )  
 
+        } )
+
+        this.getBinding().mdns.find( {type:OBC_TYPE},( service:MulticastDnsAnnouncement )=>{
+            // some bindings don't provide the type and deliver announcements to all callbacks
+            if (service.type && service.type!==OBC_TYPE)
+                return
+            this.addService( {...service, type:OBC_TYPE}, OBC_TYPE )  
         } )
     }
 
@@ -660,6 +671,10 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         try {
             service.transport = this.getName();
 
+            // OpenBikeControl announces its service UUIDs in a different TXT record than Direct Connect
+            if (service.type===OBC_TYPE && !service.serviceUUIDs?.length)
+                service.serviceUUIDs = [OBC_SERVICE]
+
             // exact match (same name AND same address): a refresh/heartbeat of an entry we already
             // track, not a new device
             const sameAddress = this.findByNameAndAddress(service.name, service.address)
@@ -710,11 +725,21 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         const idx = this.services.indexOf(sameAddress)
         const wasKnownDevicePlaceholder = sameAddress.source==='known-device'
         const nextSource = (wasKnownDevicePlaceholder && src!=='known-device') ? src : sameAddress.source
-        this.services[idx] = {ts:Date.now(),service,source:nextSource}
+
+        // an announcement without services (e.g. from the unfiltered browser) must not replace one with services
+        const hadServices = sameAddress.service.serviceUUIDs?.length>0
+        const hasServices = service.serviceUUIDs?.length>0
+        this.services[idx] = {ts:Date.now(),service: (hadServices && !hasServices) ? sameAddress.service : service,source:nextSource}
 
         if (src!=='known-device' && wasKnownDevicePlaceholder) {
             this.logEvent({message:'device re-announced',device:service.name, announcement:service, source})
             this.emitDevice(service)
+        }
+        else if (!hadServices && hasServices) {
+            // first announcement with services (e.g. an OpenBikeControl device that was already seen by the unfiltered browser)
+            this.logEvent({message:'device announced',device:service.name, announcement:service, source})
+            this.emitDevice(service)
+            this.matching?.push(service.name)
         }
     }
 
@@ -826,7 +851,8 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         return details[0].class
     }
     protected createAnnouncementFromSettings(settings: BleDeviceSettings): MulticastDnsAnnouncement {
-        if (settings.protocol && settings.address) {
+        // OpenBikeControl devices don't use a fixed port, they can only be connected once announced
+        if (settings.protocol && settings.address && settings.protocol!=='openbikecontrol') {
             const announcement:MulticastDnsAnnouncement = {
                 name: settings.name,
                 address: settings.address, 
@@ -863,8 +889,6 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
                 return [CSC]
             case 'zwift-play':
                 return ['0000000119ca465186e5fa29dcdd09d1']
-            case 'openbikecontrol':
-                return ['d273f680d548419db9d1fa0472345229']
             default:
                 return []
         }

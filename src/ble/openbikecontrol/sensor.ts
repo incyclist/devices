@@ -2,11 +2,7 @@ import { LegacyProfile } from "../../antv2/types.js";
 import { TBleSensor } from "../base/sensor.js";
 import { BleProtocol } from "../types.js";
 import { matches } from "../utils.js";
-
-// OpenBikeControl (https://openbikecontrol.org) - open protocol for handlebar controllers
-const OBC_SERVICE = 'd273f680-d548-419d-b9d1-fa0472345229'
-const OBC_BUTTON_STATE = 'd273f681-d548-419d-b9d1-fa0472345229'
-const OBC_APP_INFO = 'd273f683-d548-419d-b9d1-fa0472345229'
+import { OBC_APP_INFO, OBC_BUTTON_STATE, OBC_SERVICE } from "./consts.js";
 
 const MSG_BUTTON_STATE = 0x01
 const MSG_APP_INFO = 0x04
