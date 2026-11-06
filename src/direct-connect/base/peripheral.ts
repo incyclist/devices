@@ -6,6 +6,7 @@ import { CharacteristicNotificationMessage, DiscoverCharacteristicsMessage, Disc
 import { EventEmitter } from "node:events";
 import { DC_MESSAGE_CHARACTERISTIC_NOTIFICATION, DC_RC_REQUEST_COMPLETED_SUCCESSFULLY } from "../consts.js";
 import {  beautifyUUID, parseUUID } from "../../ble/utils.js";
+import { OBC_BUTTON_STATE, OBC_SERVICE } from "../../ble/openbikecontrol/consts.js";
 
 let IDS = 0;
 
@@ -657,5 +658,102 @@ export class DirectConnectPeripheral implements IBlePeripheral {
     }
     
     
+
+}
+
+const OBC_MSG_BUTTON_STATE = 0x01
+const OBC_MSG_DEVICE_STATUS = 0x02
+const OBC_DEVICE_STATUS_LENGTH = 3
+
+/**
+ * OpenBikeControl device, discovered via mDNS (_openbikecontrol._tcp)
+ * 
+ * Other than Direct Connect, the TCP connection carries the plain OpenBikeControl messages, which use
+ * the same format as the BLE characteristics. Button state messages are therefore provided as notifications 
+ * of the Button State characteristic and writes (e.g. App Information) are sent as they are. 
+ * This allows to use the same sensor for BLE and WiFi
+ */
+export class OpenBikeControlPeripheral extends DirectConnectPeripheral {
+
+    static readonly instances: Record<string, OpenBikeControlPeripheral> ={}
+
+    static create(announcement:MulticastDnsAnnouncement) {
+        const {address,port}  = announcement
+        const key = `${address}:${port}`
+        if (!this.instances[key])
+            this.instances[key] = new OpenBikeControlPeripheral(announcement)
+        return this.instances[key]
+    }
+
+    async discoverServices(): Promise<string[]> {
+        this.discoveredServiceUUIds = [beautifyUUID(OBC_SERVICE)]
+        return [OBC_SERVICE]
+    }
+
+    async discoverCharacteristics(_serviceUUID: string): Promise<BleCharacteristic[]> {
+        return [{uuid:OBC_BUTTON_STATE, properties:['read','notify']}]
+    }
+
+    async subscribe(characteristicUUID: string, callback?: (characteristicUuid: string, data: Buffer) => void): Promise<boolean> {
+        // the device sends button state messages without request
+        const uuid = parseUUID(characteristicUUID)
+        if (!this.subscribed.includes(uuid))
+            this.subscribed.push(uuid)
+        if (callback) {
+            this.eventEmitter.on(uuid, (data)=>{
+                callback(characteristicUUID,data)
+            })
+        }
+        return true
+    }
+
+    async unsubscribe(characteristicUUID: string): Promise<boolean> {
+        const uuid = parseUUID(characteristicUUID)
+        if (this.subscribed.includes(uuid))
+            this.subscribed.splice(this.subscribed.indexOf(uuid),1)
+        this.eventEmitter.removeAllListeners(uuid)
+        return true
+    }
+
+    async read(_characteristicUUID: string): Promise<Buffer> {
+        return Buffer.from([])
+    }
+
+    async write(characteristicUUID: string, data: Buffer, _options?: BleWriteProps): Promise<Buffer> {
+        await this.connect()
+
+        this.logEvent({message:'write', path:this.getPath(), characteristic:beautifyUUID(characteristicUUID), raw:data.toString('hex') })
+        this.socket.write(data)
+        return Buffer.from([])
+    }
+
+    protected async onData(data:Buffer) {
+        try {
+            let offset = 0
+            while (offset<data.length) {
+                const msgType = data[offset]
+
+                if (msgType===OBC_MSG_DEVICE_STATUS) {
+                    const status = data.subarray(offset, offset+OBC_DEVICE_STATUS_LENGTH)
+                    this.logEvent({message:'device status', path:this.getPath(), battery:status[1], connected:status[2]===1, raw:status.toString('hex') })
+                    offset += OBC_DEVICE_STATUS_LENGTH
+                }
+                else if (msgType===OBC_MSG_BUTTON_STATE) {
+                    // button state messages don't contain a length, so the remaining data is treated as one message
+                    const message = Buffer.from(data.subarray(offset))
+                    this.logEvent({message:'button state', path:this.getPath(), raw:message.toString('hex') })
+                    this.eventEmitter.emit(parseUUID(OBC_BUTTON_STATE), message)
+                    return
+                }
+                else {
+                    this.logEvent({message:'unknown message', path:this.getPath(), raw:data.subarray(offset).toString('hex') })
+                    return
+                }
+            }
+        }
+        catch(err) {
+            this.logEvent({message:'error', fn:'onData', error:err.message, stack:err.stack, path:this.getPath(), raw:data?.toString('hex')})
+        }
+    }
 
 }
