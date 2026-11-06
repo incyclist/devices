@@ -24,8 +24,10 @@ const BUTTON_KEYS = new Map<number,string>([
     [BUTTON_PREVIOUS_INTERVAL, 'z'],
 ])
 
-type ButtonState = {
-    pressed: boolean
+// buttons that were pressed with the same message, i.e. one physical button
+type ButtonPress = {
+    buttons: number[]
+    pressed: number[]
     timestamp: number
 }
 
@@ -36,7 +38,7 @@ export class BleOpenBikeControlSensor extends TBleSensor {
     static readonly characteristics =  [];
     static readonly detectionPriority = 0;     // trainers that also offer OpenBikeControl should be detected as trainer
 
-    protected buttonStates: Map<number, ButtonState> = new Map()
+    protected buttonStates: Map<number, ButtonPress> = new Map()
 
     protected onDisconnect() {
         super.onDisconnect()
@@ -66,8 +68,11 @@ export class BleOpenBikeControlSensor extends TBleSensor {
             if (data.length<3 || data[0]!==MSG_BUTTON_STATE)
                 return
 
+            // a controller may send several actions for one physical button (e.g. BikeControl), 
+            // so all buttons pressed with the same message are treated as one press, which results in one key.
             // keys are reported on release, same as for the Zwift controllers
-            const released = new Map<number,number>()
+            const press:ButtonPress = {buttons:[], pressed:[], timestamp:Date.now()}
+            const released:ButtonPress[] = []
             for (let i=1; i+1<data.length; i+=2) {
                 const buttonId = data[i]
                 if (!BUTTON_KEYS.has(buttonId))
@@ -75,16 +80,22 @@ export class BleOpenBikeControlSensor extends TBleSensor {
 
                 const pressed = data[i+1]!==0x00
                 const prev = this.buttonStates.get(buttonId)
-                if (pressed && !prev?.pressed) {
-                    this.buttonStates.set(buttonId, {pressed:true, timestamp:Date.now()})
+                if (pressed && !prev) {
+                    press.buttons.push(buttonId)
+                    press.pressed.push(buttonId)
+                    this.buttonStates.set(buttonId, press)
                 }
-                else if (!pressed && prev?.pressed) {
-                    released.set(buttonId, Date.now()-prev.timestamp)
-                    this.buttonStates.set(buttonId, {pressed:false, timestamp:Date.now()})
+                else if (!pressed && prev) {
+                    this.buttonStates.delete(buttonId)
+                    prev.pressed = prev.pressed.filter( id=> id!==buttonId)
+                    if (prev.pressed.length===0)
+                        released.push(prev)
                 }
             }
 
-            this.getReleasedKeys(released).forEach( ({key,duration}) => {
+            released.forEach( p => {
+                const key = this.getKey(p.buttons)
+                const duration = Date.now()-p.timestamp
                 const {name,address} = this.peripheral?.getInfo() ?? {}
                 this.logEvent({message:'key pressed', key, name,address, duration})
                 this.emit('key-pressed', {key, duration})
@@ -95,25 +106,17 @@ export class BleOpenBikeControlSensor extends TBleSensor {
         }
     }
 
-    protected getReleasedKeys(released:Map<number,number>):Array<{key:string, duration:number}> {
-        const keys:Array<{key:string, duration:number}> = []
+    protected getKey(buttons:number[]):string {
+        // shift and difficulty for the same button: use the generic 'up'/'down' keys (as Zwift Click), 
+        // which adjust gear or power depending on the mode, to avoid a double adjustment
+        if (buttons.includes(BUTTON_SHIFT_UP) && buttons.includes(BUTTON_INCREASE_DIFFICULTY))
+            return 'up'
+        if (buttons.includes(BUTTON_SHIFT_DOWN) && buttons.includes(BUTTON_DECREASE_DIFFICULTY))
+            return 'down'
 
-        // controllers may send shift and difficulty for the same physical button (e.g. BikeControl)
-        // in that case use the generic 'up'/'down' keys (as Zwift Click), to avoid a double adjustment
-        const combine = (shift:number, difficulty:number, key:string) => {
-            if (released.has(shift) && released.has(difficulty)) {
-                keys.push({key, duration:released.get(shift)})
-                released.delete(shift)
-                released.delete(difficulty)
-            }
-        }
-        combine(BUTTON_SHIFT_UP, BUTTON_INCREASE_DIFFICULTY, 'up')
-        combine(BUTTON_SHIFT_DOWN, BUTTON_DECREASE_DIFFICULTY, 'down')
-
-        released.forEach( (duration,buttonId) => {
-            keys.push({key:BUTTON_KEYS.get(buttonId), duration})
-        })
-        return keys
+        // otherwise the first supported action in the order of BUTTON_KEYS
+        const buttonId = Array.from(BUTTON_KEYS.keys()).find( id=> buttons.includes(id))
+        return BUTTON_KEYS.get(buttonId)
     }
 
     protected async sendAppInfo():Promise<void> {
