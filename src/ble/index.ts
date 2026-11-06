@@ -11,6 +11,7 @@ import { BleInterface, BleInterfaceFactory } from '../ble/base/interface.js'
 import { BleMultiTransportInterfaceFactory,BleAdapterFactory } from './factories/index.js'
 import { BleCSCAdapter, BleCyclingSpeedCadenceDevice } from './csc/index.js'
 import { BleZwiftPlaySensor, ZwiftPlayAdapter } from './zwift/play/index.js'
+import { BleOpenBikeControlSensor, OpenBikeControlAdapter } from './openbikecontrol/index.js'
 
 
 
@@ -24,6 +25,7 @@ import { BleZwiftPlaySensor, ZwiftPlayAdapter } from './zwift/play/index.js'
     af.register('bkool',BleBkoolAdapter,BleBkoolComms)
     af.register('csc',BleCSCAdapter,BleCyclingSpeedCadenceDevice)
     af.register('zwift-play',ZwiftPlayAdapter,BleZwiftPlaySensor)
+    af.register('openbikecontrol',OpenBikeControlAdapter,BleOpenBikeControlSensor)
 })
 
 BleMultiTransportInterfaceFactory.register('ble',BleInterfaceFactory)

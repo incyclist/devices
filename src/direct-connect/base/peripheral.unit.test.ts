@@ -1,6 +1,6 @@
 import { write } from "fs"
 import { MulticastDnsAnnouncement } from "../bindings"
-import { DirectConnectPeripheral } from "./peripheral"
+import { DirectConnectPeripheral, OpenBikeControlPeripheral } from "./peripheral"
 
 describe('DirectConnect Peripheral',()=>{
 
@@ -78,5 +78,60 @@ describe('DirectConnect Peripheral',()=>{
             expect(p.subscribe).not.toHaveBeenCalledWith(undefined, expect.any(Function))
         })
 
+    })
+
+    describe('OpenBikeControlPeripheral',()=>{
+
+        const announcement:MulticastDnsAnnouncement = {
+            type:'openbikecontrol',
+            name:'BikeControl',
+            address:'192.168.1.2',
+            protocol:'tcp',
+            port:4711,
+            serviceUUIDs:['d273f680-d548-419d-b9d1-fa0472345229'],
+            transport:'wifi'}
+
+        const BUTTON_STATE = 'd273f681-d548-419d-b9d1-fa0472345229'
+
+        let p:any
+        beforeEach( ()=>{
+            p = new OpenBikeControlPeripheral(announcement)
+            p.logEvent = jest.fn()
+        })
+
+        test('button state messages are notified on the Button State characteristic',async ()=>{
+            const callback = jest.fn()
+            const success = await p.subscribeSelected([BUTTON_STATE],callback)
+            expect(success).toBe(true)
+
+            await p.onData(M('010101'))
+            expect(callback).toHaveBeenCalledWith(BUTTON_STATE, M('010101'))
+        })
+
+        test('device status is skipped, also if followed by a button state message in the same packet',async ()=>{
+            const callback = jest.fn()
+            await p.subscribe(BUTTON_STATE,callback)
+
+            await p.onData(M('025501'))
+            expect(callback).not.toHaveBeenCalled()
+
+            await p.onData(M('0255010102010300'))
+            expect(callback).toHaveBeenCalledTimes(1)
+            expect(callback).toHaveBeenCalledWith(BUTTON_STATE, M('0102010300'))
+        })
+
+        test('writes are sent unchanged',async ()=>{
+            const write = jest.fn()
+            p.connect = jest.fn(async ()=>true)
+            p.socket = { write }
+
+            await p.write('d273f683-d548-419d-b9d1-fa0472345229', M('0401'), {withoutResponse:true})
+            expect(write).toHaveBeenCalledWith(M('0401'))
+        })
+
+        test('create returns one instance per address and port',()=>{
+            expect(OpenBikeControlPeripheral.create(announcement)).toBe(OpenBikeControlPeripheral.create({...announcement}))
+            expect(OpenBikeControlPeripheral.create(announcement)).not.toBe(OpenBikeControlPeripheral.create({...announcement, port:4712}))
+        })
     })
 })
