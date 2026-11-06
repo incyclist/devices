@@ -6,7 +6,7 @@ import { DirectConnectScanProps } from "../types.js";
 import { BleDeviceSettings, BleProtocol, IBleInterface, IBlePeripheral } from '../../ble/types.js';
 import { InteruptableTask,  TaskState } from "../../utils/task.js";
 import { DirectConnectPeripheral, OpenBikeControlPeripheral } from "./peripheral.js";
-import { beautifyUUID, BleAdapterFactory } from "../../ble/index.js";
+import { beautifyUUID, BleAdapterFactory, matches } from "../../ble/index.js";
 import { TBleSensor } from "../../ble/base/sensor.js";
 import { InterfaceFactory } from "../../ble/base/types.js";
 import { CSC, CSP } from "../../ble/consts.js";
@@ -292,16 +292,19 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
 
         } )
 
+        // started before the Direct Connect browser, as some bindings only support one active browser
+        this.getBinding().mdns.find( {type:OBC_TYPE},( service:MulticastDnsAnnouncement )=>{
+            // some bindings deliver all announcements to all callbacks
+            if (service.type && service.type!==OBC_TYPE)
+                return
+            if (service.serviceUUIDs?.length && !service.serviceUUIDs.some( uuid=>matches(uuid,OBC_SERVICE)))
+                return
+            this.addService( {...service, type:OBC_TYPE}, OBC_TYPE )  
+        } )
+
         this.getBinding().mdns.find( {type:DC_TYPE},( service:MulticastDnsAnnouncement )=>{
             this.addService( service, DC_TYPE )  
 
-        } )
-
-        this.getBinding().mdns.find( {type:OBC_TYPE},( service:MulticastDnsAnnouncement )=>{
-            // some bindings don't provide the type and deliver announcements to all callbacks
-            if (service.type && service.type!==OBC_TYPE)
-                return
-            this.addService( {...service, type:OBC_TYPE}, OBC_TYPE )  
         } )
     }
 
