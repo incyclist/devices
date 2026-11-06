@@ -324,6 +324,8 @@ describe('DirectConnectInterface', () => {
 
             await iface.connect()
             callbacks['openbikecontrol'](OBC({ type: 'wahoo-fitness-tnp' }))
+            // bindings that set the requested type on all announcements
+            callbacks['openbikecontrol'](OBC({ name: 'KICKR', type: 'openbikecontrol', serviceUUIDs: ['1826'] }))
 
             expect(deviceSpy).not.toHaveBeenCalled()
         })
