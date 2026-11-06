@@ -14,7 +14,7 @@ on:
       - '.github/**'
 
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
     paths-ignore:
       - 'README.MD'
       - '.github/**'
