@@ -46,12 +46,40 @@ describe('BleOpenBikeControlSensor', () => {
             expect(onKey).toHaveBeenCalledWith({ key: 'r-shift-up', duration: 1500 })
         })
 
-        test('shift and difficulty sent for the same button are combined into one key', () => {
-            send(0x01, 0x01, 0x01, 0x30, 0x01, 0x14, 0x01)
-            send(0x01, 0x01, 0x00, 0x30, 0x00, 0x14, 0x00)
+        test.each([
+            ['Shift Up + Increase Difficulty + Select', [0x01, 0x30, 0x14], 'up'],
+            ['Shift Down + Decrease Difficulty + Back', [0x02, 0x31, 0x15], 'down'],
+            ['Shift Up + Increase Difficulty + Skip Interval', [0x01, 0x30, 0x32], 'up'],
+            ['Shift Up + Decrease Difficulty', [0x01, 0x31], 'r-shift-up'],
+            ['Increase Difficulty + Skip Interval', [0x30, 0x32], 'y'],
+            ['Skip Interval + Previous Interval + Select', [0x32, 0x36, 0x14], 'a'],
+            ['Shift Up + Shift Down', [0x01, 0x02], 'r-shift-up'],
+        ])('several actions for one button (%s) result in exactly one key', (_name, ids: number[], key) => {
+            send(0x01, ...ids.flatMap(id => [id, 0x01]))
+            send(0x01, ...ids.flatMap(id => [id, 0x00]))
 
             expect(onKey).toHaveBeenCalledTimes(1)
+            expect(onKey).toHaveBeenCalledWith(expect.objectContaining({ key }))
+        })
+
+        test('a press is reported once all of its actions are released, also if released with separate messages', () => {
+            send(0x01, 0x01, 0x01, 0x30, 0x01)
+            send(0x01, 0x01, 0x00)
+            expect(onKey).not.toHaveBeenCalled()
+
+            send(0x01, 0x30, 0x00)
+            expect(onKey).toHaveBeenCalledTimes(1)
             expect(onKey).toHaveBeenCalledWith(expect.objectContaining({ key: 'up' }))
+        })
+
+        test('buttons pressed with separate messages are separate presses', () => {
+            send(0x01, 0x01, 0x01)
+            send(0x01, 0x32, 0x01)
+            send(0x01, 0x01, 0x00, 0x32, 0x00)
+
+            expect(onKey).toHaveBeenCalledTimes(2)
+            expect(onKey).toHaveBeenCalledWith(expect.objectContaining({ key: 'r-shift-up' }))
+            expect(onKey).toHaveBeenCalledWith(expect.objectContaining({ key: 'a' }))
         })
 
         test('release without press, unsupported buttons and other messages are ignored', () => {
