@@ -35,10 +35,13 @@ export class BleCSCAdapter extends BleAdapter<CSCData,BleCyclingSpeedCadenceDevi
             return
 
         const features = await sensor.getFeatures()
-        if (!features?.wheelRevolutionData)
-            this.capabilities = this.capabilities.filter(c => c !== IncyclistCapability.Speed)
-        if (!features?.crankRevolutionData)
-            this.capabilities = this.capabilities.filter(c => c !== IncyclistCapability.Cadence)
+        if (!features || (features.wheelRevolutionData === undefined && features.crankRevolutionData === undefined))
+            return
+
+        this.capabilities = BleCSCAdapter.CAPABILITIES.filter(c =>
+            (c !== IncyclistCapability.Speed || features.wheelRevolutionData) &&
+            (c !== IncyclistCapability.Cadence || features.crankRevolutionData)
+        )
 
         const after = this.capabilities.join(',')
 
@@ -70,9 +73,9 @@ export class BleCSCAdapter extends BleAdapter<CSCData,BleCyclingSpeedCadenceDevi
         return this.getName()        
     }
 
-    mapData(deviceData:CSCData): IncyclistAdapterData{
+    mapData(deviceData:CSCData): IncyclistAdapterData & Partial<IncyclistBikeData>{
         const {cadence, speed=0}  = deviceData
-        return {cadence,speed} // speed is already in km/h from sensor
+        return {cadence, pedalRpm:cadence, speed} // speed is already in km/h from sensor
     }
 
     transformData( bikeData:IncyclistBikeData): IncyclistAdapterData {
