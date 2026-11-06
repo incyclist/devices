@@ -733,6 +733,8 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
                 return [CSC]
             case 'zwift-play':
                 return ['0000000119ca465186e5fa29dcdd09d1']
+            case 'openbikecontrol':
+                return ['d273f680d548419db9d1fa0472345229']
             default:
                 return []
         }
