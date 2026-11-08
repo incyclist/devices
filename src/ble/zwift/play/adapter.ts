@@ -107,6 +107,10 @@ export class ZwiftPlayAdapter extends BleAdapter<BleDeviceData,BleZwiftPlaySenso
         return {} // nothing requires mapping
     }
 
+    // the sensors is only sending data if a button is pressed. The start should not wait for this to happen
+    protected shouldWaitForData(): boolean {
+        return false;
+    }
 
 }
 
