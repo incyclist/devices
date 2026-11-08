@@ -79,4 +79,73 @@ describe('DirectConnect Peripheral',()=>{
         })
 
     })
+    describe('connection handling',()=>{
+        const announcement:MulticastDnsAnnouncement = {
+            type:'wahoo-fitness-tnp', name:'TEST', address:'192.168.1.1', protocol:'tcp',
+            port:36866, serviceUUIDs:['0x1826'], transport:'wifi'}
+
+        const makeSocket = ()=>{
+            const { EventEmitter } = require('events')
+            const s:any = new EventEmitter()
+            s.destroy = jest.fn()
+            s.write = jest.fn()
+            s.connect = jest.fn() // never connects
+            return s
+        }
+
+        const setup = (socket)=>{
+            const p:any = new DirectConnectPeripheral(announcement)
+            p.getBinding = ()=>({ net:{ createSocket:()=>socket } })
+            p.logEvent = jest.fn()
+            return p
+        }
+
+        test('connect timeout leaves no socket behind and isConnected() stays false',async ()=>{
+            jest.useFakeTimers()
+            try {
+                const socket = makeSocket()
+                const p = setup(socket)
+
+                const res = p.connect()
+                await jest.advanceTimersByTimeAsync(3000)
+
+                expect(await res).toBe(false)
+                expect(p.isConnected()).toBe(false)
+                expect(p.socket).toBeUndefined()
+                expect(socket.destroy).toHaveBeenCalled()
+            }
+            finally {
+                jest.useRealTimers()
+            }
+        })
+
+        test('send rejects without writing when the connection fails',async ()=>{
+            const socket = makeSocket()
+            const p = setup(socket)
+            p.connect = jest.fn().mockResolvedValue(false)
+
+            await expect(p.send(1,Buffer.from('00','hex'))).rejects.toThrow('not connected')
+            expect(socket.write).not.toHaveBeenCalled()
+        })
+
+        test('send rejects if no response arrives in time',async ()=>{
+            jest.useFakeTimers()
+            try {
+                const socket = makeSocket()
+                const p = setup(socket)
+                p.connect = jest.fn().mockResolvedValue(true)
+                p.socket = socket
+                p.socketConnected = true
+
+                const res = p.send(1,Buffer.from('00','hex'))
+                const assertion = expect(res).rejects.toThrow('response timeout')
+                await jest.advanceTimersByTimeAsync(6000)
+                await assertion
+                expect(socket.write).toHaveBeenCalled()
+            }
+            finally {
+                jest.useRealTimers()
+            }
+        })
+    })
 })

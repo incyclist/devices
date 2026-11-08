@@ -15,6 +15,9 @@ import { WAHOO_ADVANCED_FTMS } from "../../ble/wahoo/consts.js";
 const DC_TYPE = 'wahoo-fitness-tnp'
 const DC_PORT = 36866
 const DC_EXPIRATION_TIMEOUT = 10*1000*60 // 10min
+const DC_PROBE_TIMEOUT = 2000             // max time to wait for a TCP probe
+const DC_REPROBE_INTERVAL = 5000          // pause between probes while waiting for a device
+const DC_WAIT_LIFETIME = 5*60*1000        // stop re-probing a device after 5min
 
 
 interface Announcement {
@@ -55,6 +58,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
     protected matching?:Array<string> = []
     protected instance:number
     protected connected: boolean = false;
+    protected pendingWaits: Map<string,{promise:Promise<IBlePeripheral>, cancel:()=>void}> = new Map()
 
     /**
      * Desired state for the mDNS browsers. Deliberately not cleared by disconnect(): discovery
@@ -300,6 +304,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         // than intended, which is far preferable to it silently continuing unnoticed.
         this.backgroundPaused = true
         this.logEvent({message:'pausing background activity'})
+        this.cancelWaits()
 
         try {
             // Releases the mDNS browsers. On mobile this also releases the wifi multicast lock
@@ -434,28 +439,147 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         return this.logDisabled
     }
 
+    /**
+     * Waits until the device described by `settings` is reachable and returns its peripheral.
+     *
+     * A cached entry (real mDNS observation or a placeholder built from saved settings) is only
+     * returned after its address:port has been probed successfully. Otherwise we keep waiting for
+     * a real mDNS announcement and re-probe periodically (a device that is switched off would
+     * otherwise fail the connect and send the caller into a noisy retry loop).
+     *
+     * Concurrent calls for the same device share one wait.
+     */
     waitForPeripheral(settings:DeviceSettings): Promise<IBlePeripheral> {
+        const key = `${settings.name}|${(settings as BleDeviceSettings).address??''}`
 
-        const peripheral =  this.createPeripheralFromSettings(settings)
-        if (peripheral) return Promise.resolve(peripheral)
+        const pending = this.pendingWaits.get(key)
+        if (pending) return pending.promise
 
-        return new Promise ( (done)=>{
+        let cancel: ()=>void = ()=>{}
+        const promise = new Promise<IBlePeripheral>( (resolve)=> {
+            cancel = this.runWait(key, settings, resolve)
+        })
+        this.pendingWaits.set(key, {promise, cancel})
+        return promise
+    }
 
-            const onDevice = (device:BleDeviceSettings)=>{
+    protected runWait(key:string, settings:DeviceSettings, resolve:(p:IBlePeripheral)=>void): ()=>void {
+        const start = Date.now()
+        let probes = 0
+        let lastResult: string|undefined
+        let finished = false
+        let timer: ReturnType<typeof setTimeout>|undefined
 
-                if (device.name===settings.name) {
-                    const peripheral =  this.createPeripheralFromSettings(settings)
-                    if (peripheral) {
-                        this.off('device', onDevice)
-                        done(peripheral)
-                    }
-                }                        
+        const cleanup = ()=> {
+            finished = true
+            if (timer) clearTimeout(timer)
+            this.off('device', onDevice)
+            this.pendingWaits.delete(key)
+        }
+
+        const succeed = (peripheral:IBlePeripheral, source:'probe'|'mdns')=> {
+            if (finished) return
+            cleanup()
+            this.logEvent({message:'wifi device reachable', device:settings.name, address:(settings as BleDeviceSettings).address??'', source, waitedMs:Date.now()-start, probes})
+            resolve(peripheral)
+        }
+
+        const onDevice = (device:BleDeviceSettings)=> {
+            if (finished || device.name!==settings.name) return
+            const peripheral = this.createPeripheralFromSettings(settings)
+            if (peripheral) succeed(peripheral,'mdns')
+        }
+
+        const attempt = async (trigger:'start'|'reprobe')=> {
+            if (finished) return
+            const entry = this.findEntry(settings)
+
+            if (entry) {
+                const {address, port} = entry.service
+                const t0 = Date.now()
+                const result = await this.probePort(address, port)
+                if (finished) return
+                probes++
+
+                if (result!==lastResult) {
+                    lastResult = result
+                    this.logEvent({message:'wifi device probe', device:settings.name, address, port, result, durationMs:Date.now()-t0, trigger})
+                }
+
+                if (result==='open' || result==='skipped') {
+                    entry.ts = Date.now()
+                    const peripheral = this.createPeripheralFromSettings(settings)
+                    if (peripheral) return succeed(peripheral,'probe')
+                }
             }
 
-            this.on('device', onDevice)
-        })
-            
+            if (Date.now()-start >= DC_WAIT_LIFETIME) {
+                this.logEvent({message:'wifi device wait abandoned', device:settings.name, address:(settings as BleDeviceSettings).address??'', waitedMs:Date.now()-start, probes})
+                cleanup()
+                return
+            }
+            timer = setTimeout( ()=>{ void attempt('reprobe') }, DC_REPROBE_INTERVAL)
+        }
 
+        this.on('device', onDevice)
+        void attempt('start')
+
+        return cleanup
+    }
+
+    /**
+     * Checks if a TCP connection to address:port can be established.
+     * Resolves with 'skipped' if the platform provides no socket binding (older desktop shells),
+     * so that callers fall back to the previous (probe-less) behaviour.
+     */
+    protected probePort(address:string, port:number, timeout:number=DC_PROBE_TIMEOUT): Promise<'open'|'closed'|'timeout'|'error'|'skipped'> {
+        const net = this.getBinding()?.net
+        if (!net?.createSocket || !address) return Promise.resolve('skipped')
+
+        return new Promise( resolve => {
+            let socket: ReturnType<typeof net.createSocket>|undefined
+            let timer: ReturnType<typeof setTimeout>|undefined
+            let settled = false
+
+            const done = (result:'open'|'closed'|'timeout'|'error')=> {
+                if (settled) return
+                settled = true
+                if (timer) clearTimeout(timer)
+                try {
+                    socket?.removeAllListeners()
+                    socket?.on('error',()=>{})
+                    socket?.destroy()
+                }
+                catch { /* ignore */ }
+                resolve(result)
+            }
+
+            try {
+                socket = net.createSocket()
+                socket.once('connect', ()=>done('open'))
+                socket.once('error', (err:any)=> done( err?.code==='ETIMEDOUT' ? 'timeout' : 'closed'))
+                socket.once('timeout', ()=>done('timeout'))
+                timer = setTimeout( ()=>done('timeout'), timeout)
+                socket.connect(port, address)
+            }
+            catch (err:any) {
+                this.logError(err,'probePort')
+                done('error')
+            }
+        })
+    }
+
+    protected findEntry(settings:DeviceSettings):Announcement|undefined {
+        const bleSettings = settings as BleDeviceSettings
+        const all = this.getAll()
+        return (bleSettings.address && all.find(a=>a.service.name===settings.name && a.service.address===bleSettings.address))
+            || all.find(a=>a.service.name === settings.name)
+    }
+
+    protected cancelWaits() {
+        const waits = Array.from(this.pendingWaits.values())
+        waits.forEach( w=>w.cancel() )
+        this.pendingWaits.clear()
     }
 
 
@@ -482,7 +606,9 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         const announced = this.getAll();
         this.matching = announced.map(a => a.service.name);
 
-        announced.forEach(a => {
+        // placeholders built from saved settings are unverified (the device might be switched off) -
+        // they are only handed out by waitForPeripheral() after a successful probe
+        announced.filter(a => a.source!=='known-device').forEach(a => {
             this.emitDevice(a.service);
         });
     }
@@ -597,6 +723,10 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
     private announceNewEntry(service:MulticastDnsAnnouncement, src:string, source:string|undefined, message:string) {
         this.services.push( {ts:Date.now(),service,source:src} )
         if ( !service.serviceUUIDs?.length)
+            return;
+
+        // unverified placeholder: cached for waitForPeripheral(), but not announced
+        if (src==='known-device')
             return;
 
         this.logEvent({message,device:service.name, announcement:service, source})

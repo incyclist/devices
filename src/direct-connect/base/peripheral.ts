@@ -8,6 +8,8 @@ import { DC_MESSAGE_CHARACTERISTIC_NOTIFICATION, DC_RC_REQUEST_COMPLETED_SUCCESS
 import {  beautifyUUID, parseUUID } from "../../ble/utils.js";
 
 let IDS = 0;
+const DC_CONNECT_TIMEOUT = 2000   // max time to establish the TCP connection
+const DC_RESPONSE_TIMEOUT = 5000  // max time to wait for the reply to a request
 
 export class DirectConnectPeripheral implements IBlePeripheral {
 
@@ -23,6 +25,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
 
 
     protected socket:Socket
+    protected socketConnected = false
     protected connectTask: InteruptableTask<TaskState,boolean>
     protected msgSeqNo = 0;
     protected onDataHandler = this.onData.bind(this)
@@ -67,29 +70,41 @@ export class DirectConnectPeripheral implements IBlePeripheral {
         if (this.isConnected())
             return true;
 
-        if (this.isConnecting())
-            await this.connectTask.getPromise()
-
-         
-        const keys = Object.keys(DirectConnectPeripheral.instances)
-        const instances = []
-        for (const key of keys)
-            instances.push(DirectConnectPeripheral.instances[key])
+        if (this.isConnecting()) {
+            try { await this.connectTask.getPromise() } catch { /* handled below */ }
+            if (this.isConnected())
+                return true;
+        }
 
         this.connectTask = new InteruptableTask(this.startConnection(),{
-            timeout:1000,
+            timeout:DC_CONNECT_TIMEOUT,
         })
-        return await this.connectTask.run()
+
+        let connected = false
+        try {
+            connected = await this.connectTask.run()
+        }
+        catch {
+            connected = false
+        }
+
+        if (!connected || !this.isConnected()) {
+            // don't leave a half-open socket behind - it would make isConnected() lie
+            this.discardSocket()
+            return false
+        }
+        return true
     }
 
     async disconnect(connectionLost:boolean=false): Promise<boolean> {
 
         try {
 
-            await this.connectTask.stop()
+            await this.connectTask?.stop()
             await this.stopConnection(connectionLost)
 
             delete this.socket
+            this.socketConnected = false
 
         }
         catch(err) {
@@ -97,8 +112,26 @@ export class DirectConnectPeripheral implements IBlePeripheral {
         }
         return true
     }
+
+    /**
+     * Whether a connection was actually established (a 'connect' event was received),
+     * not just whether a socket object exists
+     */
     isConnected(): boolean {
-        return this.socket!==undefined
+        return this.socket!==undefined && this.socketConnected
+    }
+
+    protected discardSocket() {
+        const socket = this.socket
+        delete this.socket
+        this.socketConnected = false
+        if (!socket) return
+        try {
+            socket.removeAllListeners()
+            socket.on('error',()=>{}) // ignore errors while closing
+            socket.destroy()
+        }
+        catch { /* ignore */ }
     }
     isConnecting(): boolean {
         return this.connectTask?.isRunning()
@@ -461,7 +494,8 @@ export class DirectConnectPeripheral implements IBlePeripheral {
                     this.stopConnection().then( ()=>resolve(false) )                    
                     //reject(err)
                 })
-                this.socket.once('connect',()=>{ 
+                this.socket.once('connect',()=>{
+                    this.socketConnected = true
 
                     this.socket.on('data', this.onDataHandler)
                     this.socket.on('error',this.onPortErrorHandler )
@@ -515,9 +549,7 @@ export class DirectConnectPeripheral implements IBlePeripheral {
 
         this.eventEmitter.removeAllListeners()
         if (!this.isConnected()) {
-            this.socket.removeAllListeners()
-            this.socket.destroy()
-            delete this.socket
+            this.discardSocket()
             return true;
         }
 
@@ -556,15 +588,32 @@ export class DirectConnectPeripheral implements IBlePeripheral {
         return this.msgSeqNo
     }
     protected async send(seqNo:number, data:Buffer):Promise<Buffer> {    
-        await this.connect()
-        this.socket.write(data)
+        const connected = await this.connect()
+        if (!connected || !this.isConnected())
+            throw new Error('not connected')
 
-        return new Promise( done  => {
-            this.eventEmitter.once(`response-${seqNo}`, (response:Buffer) => {
+        const event = `response-${seqNo}`
+        return new Promise( (done,reject)  => {
+            const timer = setTimeout( ()=>{
+                this.eventEmitter.off(event, onResponse)
+                reject(new Error('response timeout'))
+            }, DC_RESPONSE_TIMEOUT)
+
+            const onResponse = (response:Buffer) => {
+                clearTimeout(timer)
                 done(response)
-            })                
-            
-        })        
+            }
+            this.eventEmitter.once(event, onResponse)
+
+            try {
+                this.socket.write(data)
+            }
+            catch(err) {
+                clearTimeout(timer)
+                this.eventEmitter.off(event, onResponse)
+                reject(err)
+            }
+        })
     }
 
     protected getNextMessage(data:Buffer):Buffer {
