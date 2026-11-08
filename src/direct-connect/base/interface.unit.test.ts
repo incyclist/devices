@@ -148,7 +148,154 @@ describe('DirectConnectInterface', () => {
     })
     describe('stopScan', () => {})
 
-    describe('waitForPeripheral', () => {})
+    describe('waitForPeripheral (probe before use)', () => {
+        let dc: any
+        const settings:any = { interface:'wifi', name:'Volt', address:'10.0.0.5', protocol:'fm' }
+        const known = (): MulticastDnsAnnouncement =>
+            ({ name:'Volt', address:'10.0.0.5', port:36866, serviceUUIDs:['1826'] } as MulticastDnsAnnouncement)
+
+        beforeEach(() => {
+            jest.useFakeTimers()
+            DirectConnectInterface.prototype.autoConnect = jest.fn()
+            iface = new DirectConnectInterface({ binding: mock })
+            iface.on('log', ()=>{})
+            dc = iface as any
+            dc.logEvent = jest.fn()
+        })
+
+        afterEach(() => {
+            dc.cancelWaits()
+            iface?.removeAllListeners()
+            jest.useRealTimers()
+        })
+
+        test('known-device placeholder is neither announced nor emitted on scan', () => {
+            const onDevice = jest.fn()
+            iface.on('device', onDevice)
+
+            iface.addKnownDevice(settings)
+            dc.emitCachedDevices()
+
+            expect(onDevice).not.toHaveBeenCalled()
+            expect(dc.getAll()).toHaveLength(1) // still cached for waitForPeripheral
+        })
+
+        test('resolves with the peripheral when the probe succeeds', async () => {
+            iface.addKnownDevice(settings)
+            dc.probePort = jest.fn().mockResolvedValue('open')
+
+            const peripheral = await iface.waitForPeripheral(settings)
+
+            expect(peripheral).toBeDefined()
+            expect(dc.probePort).toHaveBeenCalledWith('10.0.0.5', 36866)
+        })
+
+        test('keeps waiting while the port is closed, then resolves once it opens', async () => {
+            iface.addKnownDevice(settings)
+            dc.probePort = jest.fn().mockResolvedValueOnce('closed').mockResolvedValue('open')
+
+            let resolved = false
+            const p = iface.waitForPeripheral(settings).then(r=>{ resolved = true; return r })
+
+            await jest.advanceTimersByTimeAsync(100)
+            expect(resolved).toBe(false)
+
+            await jest.advanceTimersByTimeAsync(5000)
+            await p
+            expect(resolved).toBe(true)
+            expect(dc.probePort).toHaveBeenCalledTimes(2)
+        })
+
+        test('resolves on a real mDNS announcement while the probe keeps failing', async () => {
+            iface.addKnownDevice(settings)
+            dc.probePort = jest.fn().mockResolvedValue('closed')
+
+            const p = iface.waitForPeripheral(settings)
+            await jest.advanceTimersByTimeAsync(100)
+
+            dc.addService(known(), 'unfiltered') // placeholder is upgraded -> 'device' event
+            const peripheral = await p
+            expect(peripheral).toBeDefined()
+        })
+
+        test('falls back to the cached entry if the platform has no socket binding', async () => {
+            iface.addKnownDevice(settings)
+            dc.binding = { mdns }
+
+            const peripheral = await iface.waitForPeripheral(settings)
+            expect(peripheral).toBeDefined()
+        })
+
+        test('concurrent calls for the same device share one wait', async () => {
+            iface.addKnownDevice(settings)
+            dc.probePort = jest.fn().mockResolvedValue('open')
+
+            const p1 = iface.waitForPeripheral(settings)
+            const p2 = iface.waitForPeripheral(settings)
+
+            expect(p2).toBe(p1)
+            await p1
+            expect(dc.probePort).toHaveBeenCalledTimes(1)
+        })
+
+        test('stops re-probing and drops its listener after cancel (pause background activity)', async () => {
+            iface.addKnownDevice(settings)
+            dc.probePort = jest.fn().mockResolvedValue('closed')
+
+            iface.waitForPeripheral(settings)
+            await jest.advanceTimersByTimeAsync(100)
+            const calls = dc.probePort.mock.calls.length
+
+            dc.cancelWaits()
+            await jest.advanceTimersByTimeAsync(20000)
+
+            expect(dc.probePort.mock.calls.length).toBe(calls)
+            expect(iface.listenerCount('device')).toBe(0)
+        })
+    })
+
+    describe('probePort', () => {
+        let dc: any
+        beforeEach(() => {
+            DirectConnectInterface.prototype.autoConnect = jest.fn()
+        })
+
+        const ifaceWithSocket = (socket:any) => {
+            iface = new DirectConnectInterface({ binding: { mdns, net:{ createSocket: ()=>socket } } })
+            dc = iface as any
+            dc.logEvent = jest.fn()
+        }
+        const fakeSocket = (onConnect:(s:any)=>void) => {
+            const { EventEmitter } = require('events')
+            const s:any = new EventEmitter()
+            s.destroy = jest.fn()
+            s.write = jest.fn()
+            s.connect = jest.fn(()=>{ setTimeout(()=>onConnect(s),0) })
+            return s
+        }
+
+        test('open', async () => {
+            ifaceWithSocket(fakeSocket(s=>s.emit('connect')))
+            expect(await dc.probePort('10.0.0.5', 36866)).toBe('open')
+        })
+
+        test('closed on connection error', async () => {
+            ifaceWithSocket(fakeSocket(s=>s.emit('error', Object.assign(new Error('refused'),{code:'ECONNREFUSED'}))))
+            expect(await dc.probePort('10.0.0.5', 36866)).toBe('closed')
+        })
+
+        test('timeout if nothing happens', async () => {
+            ifaceWithSocket(fakeSocket(()=>{}))
+            expect(await dc.probePort('10.0.0.5', 36866, 20)).toBe('timeout')
+        })
+
+        test('socket is destroyed after the probe', async () => {
+            const s = fakeSocket(s=>s.emit('connect'))
+            ifaceWithSocket(s)
+            await dc.probePort('10.0.0.5', 36866)
+            expect(s.destroy).toHaveBeenCalled()
+        })
+    })
 
     describe('addService / discovery cache identity heuristic (FIXES_BACKLOG #14)', () => {
 

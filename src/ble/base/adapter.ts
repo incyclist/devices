@@ -539,7 +539,8 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         const sensor = this.getSensor();
         let connected = await sensor.startSensor()
 
-        const subscribed = await sensor.subscribe()
+        // no point in subscribing (service discovery, writes) if the connection failed
+        const subscribed = connected ? await sensor.subscribe() : false
 
         // FIXES_BACKLOG #26: subscribe() can come back false even though the physical BLE connect
         // just succeeded - e.g. BlePeripheral.subscribeSelected() detected that a service the
