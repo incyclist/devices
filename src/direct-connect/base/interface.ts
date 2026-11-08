@@ -518,11 +518,11 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
                 cleanup()
                 return
             }
-            timer = setTimeout( ()=>{ attempt('reprobe') }, DC_REPROBE_INTERVAL)
+            timer = setTimeout( ()=>{ void attempt('reprobe') }, DC_REPROBE_INTERVAL)
         }
 
         this.on('device', onDevice)
-        attempt('start')
+        void attempt('start')
 
         return cleanup
     }
