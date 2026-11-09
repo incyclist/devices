@@ -242,7 +242,8 @@ describe('DirectConnectInterface', () => {
             iface.addKnownDevice(settings)
             dc.probePort = jest.fn().mockResolvedValue('closed')
 
-            iface.waitForPeripheral(settings)
+            const p = iface.waitForPeripheral(settings)
+            p.catch(()=>{}) // settling (rejecting) it is covered by its own test below
             await jest.advanceTimersByTimeAsync(100)
             const calls = dc.probePort.mock.calls.length
 
@@ -251,6 +252,33 @@ describe('DirectConnectInterface', () => {
 
             expect(dc.probePort.mock.calls.length).toBe(calls)
             expect(iface.listenerCount('device')).toBe(0)
+        })
+
+        // a caller (e.g. BleAdapter.stop()) awaits this promise to know a cancelled/abandoned wait
+        // has genuinely finished - it must always settle, never hang forever
+        test('settles (rejects) once cancelled, instead of leaving the caller waiting forever', async () => {
+            iface.addKnownDevice(settings)
+            dc.probePort = jest.fn().mockResolvedValue('closed')
+
+            const p = iface.waitForPeripheral(settings)
+            const outcome = p.then(()=>'resolved').catch(()=>'rejected')
+
+            await jest.advanceTimersByTimeAsync(100)
+            dc.cancelWaits()
+
+            await expect(outcome).resolves.toBe('rejected')
+        })
+
+        test('settles (rejects) once its lifetime is abandoned, instead of leaving the caller waiting forever', async () => {
+            iface.addKnownDevice(settings)
+            dc.probePort = jest.fn().mockResolvedValue('closed')
+
+            const p = iface.waitForPeripheral(settings)
+            const outcome = p.then(()=>'resolved').catch(()=>'rejected')
+
+            await jest.advanceTimersByTimeAsync(5*60*1000 + 1000)
+
+            await expect(outcome).resolves.toBe('rejected')
         })
     })
 
