@@ -669,7 +669,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             // or some other promise in the chain that genuinely never settles - so stop() still
             // returns instead of leaving the caller (and whatever it's waiting to do next) stuck.
             const underlying = task.getUnderlyingPromise()
-            if (underlying) {
+            if (underlying !== undefined) {
                 const settled = await Promise.race([
                     underlying.then(()=>true).catch(()=>true),
                     sleep(this.getStopWaitBound()).then(()=>false),
