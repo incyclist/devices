@@ -45,6 +45,11 @@ export class OpenBikeControlAdapter extends BleAdapter<BleDeviceData,BleOpenBike
             return connected
         }
         catch ( err:any)  {
+            if (err.message==='wifi device wait cancelled') {
+                this.logEvent({message:err.message})
+                return false
+            }
+
             this.logEvent({message:'error', fn:'startSensor', error:err.message, stack:err.stack})
             return false
         }
@@ -79,7 +84,7 @@ export class OpenBikeControlAdapter extends BleAdapter<BleDeviceData,BleOpenBike
         const settings:BleDeviceSettings = this.settings as BleDeviceSettings
         const id = (settings.id ?? settings.address ?? '').replace(/[:\-.]/g, '')
         const addressHash = id.length > 4 ? id.slice(-4).toUpperCase() : id.toUpperCase()
-        return addressHash ? `${settings.name} ${addressHash}` : settings.name
+        return addressHash ? `${settings.name} ${addressHash}` : settings.name??'BikeControl'
     }
 
     getDisplayName() {

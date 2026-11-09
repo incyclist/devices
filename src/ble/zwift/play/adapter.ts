@@ -45,6 +45,10 @@ export class ZwiftPlayAdapter extends BleAdapter<BleDeviceData,BleZwiftPlaySenso
             return connected
         }
         catch ( err:any)  {
+            if (err.message==='wifi device wait cancelled') {
+                this.logEvent({message:err.message})
+                return false
+            }
             this.logEvent({message:'error', fn:'startSensor', error:err.message, stack:err.stack})
             return false
         }

@@ -47,7 +47,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
     getUniqueName(): string {
         const settings:BleDeviceSettings = this.settings as BleDeviceSettings
 
-        if (settings.name?.match(/\d/g) || settings.address===undefined)      
+        if (this.getName().match(/\d/g) || settings.address===undefined)      
             return this.getName()
         else {
             const id = (settings.id ?? settings.address ?? '').replace(/[:\-]/g, '')
