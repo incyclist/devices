@@ -456,14 +456,24 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         if (pending) return pending.promise
 
         let cancel: ()=>void = ()=>{}
-        const promise = new Promise<IBlePeripheral>( (resolve)=> {
-            cancel = this.runWait(key, settings, resolve)
+        const promise = new Promise<IBlePeripheral>( (resolve,reject)=> {
+            cancel = this.runWait(key, settings, resolve, reject)
         })
         this.pendingWaits.set(key, {promise, cancel})
         return promise
     }
 
-    protected runWait(key:string, settings:DeviceSettings, resolve:(p:IBlePeripheral)=>void): ()=>void {
+    /**
+     * Settles a specific device's pending wait (if any) without the caller having to know whether
+     * one is even running - used when a start attempt for this device is itself being cancelled
+     * (BleAdapter.stop()/timeout), so the wait doesn't keep that cancellation hanging behind it.
+     */
+    cancelWait(settings:DeviceSettings): void {
+        const key = `${settings.name}|${(settings as BleDeviceSettings).address??''}`
+        this.pendingWaits.get(key)?.cancel()
+    }
+
+    protected runWait(key:string, settings:DeviceSettings, resolve:(p:IBlePeripheral)=>void, reject:(err:Error)=>void): ()=>void {
         const start = Date.now()
         let probes = 0
         let lastResult: string|undefined
@@ -482,6 +492,15 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
             cleanup()
             this.logEvent({message:'wifi device reachable', device:settings.name, address:(settings as BleDeviceSettings).address??'', source, waitedMs:Date.now()-start, probes})
             resolve(peripheral)
+        }
+
+        // settles the promise instead of leaving it pending - a cancelled/abandoned wait is still
+        // an outcome a caller is genuinely waiting on (e.g. BleAdapter.stop() awaits this via
+        // startAdapter()'s underlying promise), not something that can be silently dropped
+        const fail = (reason:'cancelled'|'abandoned')=> {
+            if (finished) return
+            cleanup()
+            reject(new Error(`wifi device wait ${reason}`))
         }
 
         const onDevice = (device:BleDeviceSettings)=> {
@@ -515,7 +534,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
 
             if (Date.now()-start >= DC_WAIT_LIFETIME) {
                 this.logEvent({message:'wifi device wait abandoned', device:settings.name, address:(settings as BleDeviceSettings).address??'', waitedMs:Date.now()-start, probes})
-                cleanup()
+                fail('abandoned')
                 return
             }
             timer = setTimeout( ()=>{ void attempt('reprobe') }, DC_REPROBE_INTERVAL)
@@ -524,7 +543,7 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         this.on('device', onDevice)
         void attempt('start')
 
-        return cleanup
+        return ()=>fail('cancelled')
     }
 
     /**

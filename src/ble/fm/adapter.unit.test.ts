@@ -708,5 +708,53 @@ describe('BleFmAdapter',()=>{
             expect(sensor.reset).toHaveBeenCalledTimes(1)
         })
 
+        test('stop() interrupts a still-pending waitForPeripheral() instead of being stuck behind its own, much longer, timeout',async ()=>{
+            setupMocks(adapter)
+            emitDataContinuously()
+            sensor.hasPeripheral = jest.fn().mockReturnValue(false)
+
+            // the interface's own wait never settles on its own (e.g. the device isn't reachable
+            // yet) - only cancelWait() (called via the task's onCancel hook) can unstick it, the
+            // same way the real DirectConnectInterface's cancelWait() settles its own pending wait
+            let rejectWait: (err:Error)=>void
+            ble.waitForPeripheral = jest.fn().mockReturnValue(new Promise( (_,reject) => { rejectWait = reject }))
+            ble.cancelWait = jest.fn( ()=> rejectWait(new Error('cancelled')))
+
+            const p1 = adapter.start({timeout:5000})
+            await sleep(20)
+            expect(ble.waitForPeripheral).toHaveBeenCalled()
+
+            const stopPromise = adapter.stop()
+            await sleep(20)
+
+            expect(ble.cancelWait).toHaveBeenCalledWith(adapter['settings'])
+
+            // stop() must not actually be waiting on the real 5+ minute lifetime of that wait -
+            // this only passes because something settles the underlying promise; with no cancelWait
+            // wired up, this would still be pending and the test would time out
+            await stopPromise
+            await p1.catch(()=>{})
+        })
+
+        test('stop() does not wait forever if a pending wait cannot be interrupted at all',async ()=>{
+            setupMocks(adapter)
+            emitDataContinuously()
+            sensor.hasPeripheral = jest.fn().mockReturnValue(false)
+            adapter['getStopWaitBound'] = jest.fn().mockReturnValue(50)
+
+            // no cancelWait on this interface (e.g. plain BLE, which has no comparable internal
+            // wait today) and the wait itself never settles - runStop()'s bound is the only thing
+            // that can still unstick stop() here
+            ble.waitForPeripheral = jest.fn().mockReturnValue(new Promise(()=>{}))
+
+            const p1 = adapter.start({timeout:5000})
+            await sleep(20)
+            expect(ble.waitForPeripheral).toHaveBeenCalled()
+
+            await adapter.stop() // must return (bound by getStopWaitBound()), not hang
+
+            p1.catch(()=>{})
+        })
+
     })
 })

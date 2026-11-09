@@ -219,6 +219,11 @@ export interface IBleInterface<T extends PeripheralAnnouncement> extends Incycli
     createPeripheralFromSettings(settings:DeviceSettings):IBlePeripheral
     createDeviceSetting(announcement: T):DeviceSettings
     waitForPeripheral(settings:DeviceSettings): Promise<IBlePeripheral>
+    // settles (rejects) a specific device's still-pending waitForPeripheral(), if any - lets a
+    // cancelled/timed-out start interrupt that wait immediately instead of leaving it to its own,
+    // much longer, internal timeout. Optional: an interface whose waitForPeripheral() has no
+    // comparable internal wait (or settles quickly on its own) doesn't need one.
+    cancelWait?(settings:DeviceSettings): void
     pauseDiscovery?():Promise<void>
     resumeDiscovery?():Promise<void>
 

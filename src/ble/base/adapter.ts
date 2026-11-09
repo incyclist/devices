@@ -8,10 +8,17 @@ import ICyclingMode from "../../modes/types.js";
 import { BleMultiTransportInterfaceFactory } from "../factories/interface-factory.js";
 import { InteruptableTask, TaskState } from "../../utils/task.js";
 import { TBleSensor } from "./sensor.js";
-import { resolveNextTick } from "../../utils/utils.js";
+import { resolveNextTick, sleep } from "../../utils/utils.js";
 
 
-export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice extends TBleSensor>  extends IncyclistDevice<BleDeviceProperties>  { 
+export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice extends TBleSensor>  extends IncyclistDevice<BleDeviceProperties>  {
+
+    // backstop bound for runStop()'s wait on a previous start's underlying promise - see runStop()
+    protected static readonly STOP_WAIT_BOUND_MS = 10000
+
+    protected getStopWaitBound():number {
+        return BleAdapter.STOP_WAIT_BOUND_MS
+    }
 
     protected deviceData: TDeviceData
     protected dataMsgCount: number
@@ -346,7 +353,12 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             timeout: startProps?.timeout ?? this.getDefaultStartupTimeout(),
             name:'start',
             errorOnTimeout: false,
-            log: this.logEvent.bind(this)
+            log: this.logEvent.bind(this),
+            // this task being stopped/timed out doesn't by itself interrupt a still-running
+            // waitForPeripheral() underneath (startSensor() has no way to see it) - without this,
+            // stop() can be left awaiting that wait's own, much longer, timeout (interfaces that
+            // support it settle this immediately; others are unaffected, same as pauseDiscovery())
+            onCancel: ()=>{ ble.cancelWait?.(this.settings) }
         })
 
         this.startPromise = this.runStartTask(ble)
@@ -527,7 +539,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             return true;
         }
         catch(err:any) {
-            this.logEvent({message: 'start result: error', error: err.message,stack:err.stack,device:this.getName(),interface:this.getInterface(), protocol:this.getProtocolName()})
+            this.logEvent({message: 'start result: error', error: err.message,device:this.getName(),interface:this.getInterface(), protocol:this.getProtocolName()})
             this.started = false;
             this.stopped = true;      
             const ble = this.getBle()
@@ -659,7 +671,21 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             // prior run has genuinely settled (completed, errored, or hit its own timeout). Without
             // this, a subsequent start() could begin while the previous run's GATT operations were
             // still physically in flight, colliding with them.
-            await task.getUnderlyingPromise()?.catch(()=>{})
+            //
+            // Bounded as a backstop: the task's onCancel hook above (cancelWait()) is what actually
+            // interrupts a still-pending wait underneath, promptly, for the interfaces that support
+            // it. This bound only matters if that didn't happen - an interface with no cancelWait(),
+            // or some other promise in the chain that genuinely never settles - so stop() still
+            // returns instead of leaving the caller (and whatever it's waiting to do next) stuck.
+            const underlying = task.getUnderlyingPromise()
+            if (underlying !== undefined) {
+                const settled = await Promise.race([
+                    underlying.then(()=>true).catch(()=>true),
+                    sleep(this.getStopWaitBound()).then(()=>false),
+                ])
+                if (!settled)
+                    this.logEvent({message:'stop(): the previous start is still running past its bound, proceeding anyway', device:this.getName(),interface:this.getInterface()})
+            }
         }
 
         // make sure that we restart upon next start() call, even if the stop fails
