@@ -54,6 +54,11 @@ export class OpenBikeControlAdapter extends BleAdapter<BleDeviceData,BleOpenBike
         this.emit('key-pressed',this.getSettings(), event)                
     }
 
+    isEqual(settings: BleDeviceSettings): boolean {
+        // several controllers may use the same name (e.g. BikeControl on two devices)
+        return super.isEqual(settings) && settings.address == (this.settings as BleDeviceSettings).address
+    }
+
     isSame(adapter:IAdapter):boolean {
         if (!(adapter instanceof OpenBikeControlAdapter))
             return false;        
@@ -70,12 +75,24 @@ export class OpenBikeControlAdapter extends BleAdapter<BleDeviceData,BleOpenBike
         return OpenBikeControlAdapter.INCYCLIST_PROFILE_NAME
     }
 
+    getName(): string {
+        const settings:BleDeviceSettings = this.settings as BleDeviceSettings
+        const id = (settings.id ?? settings.address ?? '').replace(/[:\-.]/g, '')
+        const addressHash = id.length > 4 ? id.slice(-4).toUpperCase() : id.toUpperCase()
+        return addressHash ? `${settings.name} ${addressHash}` : settings.name
+    }
+
     getDisplayName() {
         return this.getName()        
     }
 
     mapData(deviceData:BleDeviceData): IncyclistAdapterData{        
         return {} // nothing requires mapping
+    }
+
+    // controllers only send data when a button is pressed, so the start must not wait for it
+    protected shouldWaitForData(): boolean {
+        return false
     }
 
 
