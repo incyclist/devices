@@ -3,6 +3,7 @@ import { DEFAULT_BIKE_WEIGHT, DEFAULT_USER_WEIGHT } from "../../base/consts.js";
 import { CSP, CSP_MEASUREMENT, FTMS_CP, FTMS_FEATURE, FTMS_STATUS, HR_MEASUREMENT, INDOOR_BIKE_DATA, POWER_RANGE, RES_LEVEL_RANGE } from "../consts.js";
 import { WAHOO_ADVANCED_FTMS, WAHOO_ADVANCED_TRAINER_CP,OpCode, ErgWriteDelay } from './consts.js'
 import { IndoorBikeData } from "../fm/index.js";
+import { IndoorBikeFeatures } from "../fm/types.js";
 import BleFitnessMachineDevice from "../fm/sensor.js";
 import { BleProtocol, BleWriteProps  } from "../types.js";
 import { beautifyUUID} from "../utils.js";
@@ -52,7 +53,12 @@ export default class BleWahooDevice extends BleFitnessMachineDevice {
             setSlope: true
         }
     }
-
+    public get features(): IndoorBikeFeatures {
+        if (this._features && !this._features.heartrate && this.supportsHeartRate())
+            this._features.heartrate = true
+        return this._features!
+      }
+    
     isMatching(serviceUUIDs: string[]): boolean {    
 
 

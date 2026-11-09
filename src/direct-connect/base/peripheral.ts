@@ -53,7 +53,14 @@ export class DirectConnectPeripheral implements IBlePeripheral {
     }
 
     get services(): BleService[] {
-        const services =  this.announcement?.serviceUUIDs??[]
+        const announced =  this.announcement?.serviceUUIDs??[]
+        const discovered = this.discoveredServiceUUIds??[]
+
+        const services = [...announced]
+        discovered.forEach( d => {
+            if (!services.some( s=> beautifyUUID(s)===beautifyUUID(d)))
+                services.push(d)
+        })
         return services.map(s => ({uuid:s}))
     }
 
