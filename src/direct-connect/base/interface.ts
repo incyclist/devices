@@ -292,7 +292,12 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
 
         } )
 
-        // started before the Direct Connect browser, as some bindings only support one active browser
+        this.getBinding().mdns.find( {type:DC_TYPE},( service:MulticastDnsAnnouncement )=>{
+            this.addService( service, DC_TYPE )  
+
+        } )
+
+        // started after the Direct Connect browser, so that smart trainers are found first
         this.getBinding().mdns.find( {type:OBC_TYPE},( service:MulticastDnsAnnouncement )=>{
             // some bindings deliver all announcements to all callbacks
             if (service.type && service.type!==OBC_TYPE)
@@ -300,11 +305,6 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
             if (service.serviceUUIDs?.length && !service.serviceUUIDs.some( uuid=>matches(uuid,OBC_SERVICE)))
                 return
             this.addService( {...service, type:OBC_TYPE}, OBC_TYPE )  
-        } )
-
-        this.getBinding().mdns.find( {type:DC_TYPE},( service:MulticastDnsAnnouncement )=>{
-            this.addService( service, DC_TYPE )  
-
         } )
     }
 

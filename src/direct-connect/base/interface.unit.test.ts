@@ -465,6 +465,15 @@ describe('DirectConnectInterface', () => {
             expect(dc.createPeripheralFromSettings({ interface: 'wifi', name: 'BikeControl', address: '10.0.0.7' })).toBeInstanceOf(OpenBikeControlPeripheral)
         })
 
+        test('browses for smart trainers before OpenBikeControl devices', async () => {
+            mdns.find = jest.fn()
+
+            await iface.connect()
+            const types = mdns.find.mock.calls.map(([filter]) => filter?.type).filter(Boolean)
+            expect(types.indexOf('wahoo-fitness-tnp')).toBeGreaterThanOrEqual(0)
+            expect(types.indexOf('wahoo-fitness-tnp')).toBeLessThan(types.indexOf('openbikecontrol'))
+        })
+
         test('ignores announcements of other types', async () => {
             const callbacks: Record<string, (s: MulticastDnsAnnouncement) => void> = {}
             mdns.find = jest.fn((filter, cb) => { callbacks[filter?.type ?? 'unfiltered'] = cb })
