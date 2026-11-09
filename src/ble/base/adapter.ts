@@ -375,6 +375,13 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         return this.dataMsgCount>0
     }
 
+    // some sensors are not constantly sending data. 
+    // These sensors should overwrite this funtion and return false
+    // the default implemention returns 
+    protected shouldWaitForData():boolean  {
+        return true
+    }
+
     protected async waitForInitialData(startupTimeout):Promise<void> {
 
         let waitTask;
@@ -499,7 +506,9 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
                 await this.initControlBestEffort(startProps)
             }
 
-            await this.waitForInitialData(timeout)
+            if (this.shouldWaitForData()) {
+                await this.waitForInitialData(timeout)
+            }
 
             this.stopped = false;    
             this.started = true;
