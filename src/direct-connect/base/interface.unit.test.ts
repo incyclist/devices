@@ -1,6 +1,7 @@
 import { resolveNextTick } from "../../utils/utils"
 import { DirectConnectBinding, MulticastDnsAnnouncement, MulticastDnsBinding } from "../bindings"
 import DirectConnectInterface from "./interface"
+import { OpenBikeControlPeripheral } from "./peripheral"
 import net from 'net'
 const mdns:MulticastDnsBinding = {
     
@@ -460,4 +461,74 @@ describe('DirectConnectInterface', () => {
         })
     })
 
+    describe('OpenBikeControl', () => {
+
+        let dc: any
+
+        const OBC = (extra: Partial<MulticastDnsAnnouncement> = {}): MulticastDnsAnnouncement =>
+            ({ name: 'BikeControl', address: '10.0.0.7', port: 4711, protocol: 'tcp', ...extra } as MulticastDnsAnnouncement)
+
+        beforeEach(() => {
+            DirectConnectInterface.prototype.autoConnect = jest.fn()
+            iface = new DirectConnectInterface({ binding: mock })
+            iface.on('device',deviceSpy)
+            dc = iface as any
+        })
+
+        afterEach(() => {
+            jest.resetAllMocks()
+            iface?.removeAllListeners()
+        })
+
+        test('browses for _openbikecontrol._tcp and announces the device', async () => {
+            const callbacks: Record<string, (s: MulticastDnsAnnouncement) => void> = {}
+            mdns.find = jest.fn((filter, cb) => { callbacks[filter?.type ?? 'unfiltered'] = cb })
+
+            await iface.connect()
+            expect(mdns.find).toHaveBeenCalledWith({type:'openbikecontrol'},expect.anything())
+
+            callbacks['openbikecontrol'](OBC())
+
+            expect(deviceSpy).toHaveBeenCalledWith(O({ interface: 'wifi', name: 'BikeControl', protocol: 'openbikecontrol', address: '10.0.0.7' }), expect.anything())
+            expect(dc.createPeripheralFromSettings({ interface: 'wifi', name: 'BikeControl', address: '10.0.0.7' })).toBeInstanceOf(OpenBikeControlPeripheral)
+        })
+
+        test('browses for smart trainers before OpenBikeControl devices', async () => {
+            mdns.find = jest.fn()
+
+            await iface.connect()
+            const types = mdns.find.mock.calls.map(([filter]) => filter?.type).filter(Boolean)
+            expect(types.indexOf('wahoo-fitness-tnp')).toBeGreaterThanOrEqual(0)
+            expect(types.indexOf('wahoo-fitness-tnp')).toBeLessThan(types.indexOf('openbikecontrol'))
+        })
+
+        test('ignores announcements of other types', async () => {
+            const callbacks: Record<string, (s: MulticastDnsAnnouncement) => void> = {}
+            mdns.find = jest.fn((filter, cb) => { callbacks[filter?.type ?? 'unfiltered'] = cb })
+
+            await iface.connect()
+            callbacks['openbikecontrol'](OBC({ type: 'wahoo-fitness-tnp' }))
+            // bindings that set the requested type on all announcements
+            callbacks['openbikecontrol'](OBC({ name: 'KICKR', type: 'openbikecontrol', serviceUUIDs: ['1826'] }))
+
+            expect(deviceSpy).not.toHaveBeenCalled()
+        })
+
+        test('device that was first seen by the unfiltered browser is announced once its type is known', () => {
+            dc.addService(OBC(), 'unfiltered')
+            expect(deviceSpy).not.toHaveBeenCalled()
+
+            dc.addService(OBC({ type: 'openbikecontrol' }), 'openbikecontrol')
+            expect(deviceSpy).toHaveBeenCalledTimes(1)
+
+            // a later unfiltered announcement does not replace the OpenBikeControl announcement
+            dc.addService(OBC(), 'unfiltered')
+            expect(dc.createPeripheralFromSettings({ interface: 'wifi', name: 'BikeControl', address: '10.0.0.7' })).toBeInstanceOf(OpenBikeControlPeripheral)
+        })
+
+        test('known devices are not added, as the port is only known from the announcement', () => {
+            iface.addKnownDevice({ interface: 'wifi', name: 'BikeControl', protocol: 'openbikecontrol', address: '10.0.0.7' })
+            expect(dc.getAll()).toHaveLength(0)
+        })
+    })
 })
