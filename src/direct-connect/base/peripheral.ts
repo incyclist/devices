@@ -746,8 +746,11 @@ export class OpenBikeControlPeripheral extends DirectConnectPeripheral {
     async subscribe(characteristicUUID: string, callback?: (characteristicUuid: string, data: Buffer) => void): Promise<boolean> {
         // the device sends button state messages without request
         const uuid = parseUUID(characteristicUUID)
-        if (!this.subscribed.includes(uuid))
-            this.subscribed.push(uuid)
+        // already subscribed? A second callback would report every button press twice
+        if (this.subscribed.includes(uuid))
+            return true
+
+        this.subscribed.push(uuid)
         if (callback) {
             this.eventEmitter.on(uuid, (data)=>{
                 callback(characteristicUUID,data)
@@ -776,33 +779,86 @@ export class OpenBikeControlPeripheral extends DirectConnectPeripheral {
         return Buffer.from([])
     }
 
+    protected pending?:Buffer
+
+    async disconnect(connectionLost?:boolean): Promise<boolean> {
+        delete this.pending
+        return super.disconnect(connectionLost)
+    }
+
     protected async onData(data:Buffer) {
+        const buffer = this.pending ? Buffer.concat([this.pending,data]) : data
+        delete this.pending
+
         try {
             let offset = 0
-            while (offset<data.length) {
-                const msgType = data[offset]
+            while (offset<buffer.length) {
+                const msgType = buffer[offset]
 
                 if (msgType===OBC_MSG_DEVICE_STATUS) {
-                    const status = data.subarray(offset, offset+OBC_DEVICE_STATUS_LENGTH)
+                    if (offset+OBC_DEVICE_STATUS_LENGTH>buffer.length) {
+                        // incomplete, the rest will arrive with the next read
+                        this.pending = Buffer.from(buffer.subarray(offset))
+                        return
+                    }
+                    const status = buffer.subarray(offset, offset+OBC_DEVICE_STATUS_LENGTH)
                     this.logEvent({message:'device status', path:this.getPath(), battery:status[1], connected:status[2]===1, raw:status.toString('hex') })
                     offset += OBC_DEVICE_STATUS_LENGTH
                 }
                 else if (msgType===OBC_MSG_BUTTON_STATE) {
-                    // button state messages don't contain a length, so the remaining data is treated as one message
-                    const message = Buffer.from(data.subarray(offset))
+                    const end = this.getButtonStateEnd(buffer, offset)
+                    if (end<0) {
+                        // incomplete (odd number of bytes), the rest will arrive with the next read
+                        this.pending = Buffer.from(buffer.subarray(offset))
+                        return
+                    }
+                    const message = Buffer.from(buffer.subarray(offset,end))
                     this.logEvent({message:'button state', path:this.getPath(), raw:message.toString('hex') })
                     this.eventEmitter.emit(parseUUID(OBC_BUTTON_STATE), message)
-                    return
+                    offset = end
                 }
                 else {
-                    this.logEvent({message:'unknown message', path:this.getPath(), raw:data.subarray(offset).toString('hex') })
+                    this.logEvent({message:'unknown message', path:this.getPath(), raw:buffer.subarray(offset).toString('hex') })
                     return
                 }
             }
         }
         catch(err) {
-            this.logEvent({message:'error', fn:'onData', error:err.message, stack:err.stack, path:this.getPath(), raw:data?.toString('hex')})
+            this.logEvent({message:'error', fn:'onData', error:err.message, stack:err.stack, path:this.getPath(), raw:buffer?.toString('hex')})
         }
+    }
+
+    /**
+     * Returns the end of the button state message that starts at `offset`, or -1 if it is incomplete
+     * 
+     * Button state messages don't contain a length, and the message types 0x01/0x02 are also button IDs
+     * (Shift Up/Down), so a message boundary can't be read from the stream directly. The next message starts
+     * where the next pair would
+     * - repeat a button of the current message (a message lists every button only once), e.g. press and release, or
+     * - start with 0x01/0x02 followed by a byte that is not a valid Shift Up/Down state (these buttons are digital)
+     */
+    protected getButtonStateEnd(buffer:Buffer, offset:number):number {
+        const buttons = new Set<number>()
+        let pos = offset+1
+        while (pos<buffer.length) {
+            const id = buffer[pos]
+            if (buttons.has(id))
+                return pos
+            if (pos+1>=buffer.length)
+                return buttons.size>0 && this.isMessageType(id) ? pos : -1
+
+            const next = buffer[pos+1]
+            if (buttons.size>0 && this.isMessageType(id) && next>0x01)
+                return pos
+
+            buttons.add(id)
+            pos += 2
+        }
+        return buttons.size>0 ? pos : -1
+    }
+
+    protected isMessageType(byte:number):boolean {
+        return byte===OBC_MSG_BUTTON_STATE || byte===OBC_MSG_DEVICE_STATUS
     }
 
 }
