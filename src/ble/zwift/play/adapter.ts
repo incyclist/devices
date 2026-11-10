@@ -96,7 +96,7 @@ export class ZwiftPlayAdapter extends BleAdapter<BleDeviceData,BleZwiftPlaySenso
             if (this.device.getDeviceType()==='ride-left') name = name + '-L'
             if (this.device.getDeviceType()==='ride-right') name = name + '-R'
         }
-        const id = (settings.id ?? settings.address ?? '').replace(/[:\-]/g, '')
+        const id = (settings.id ?? settings.address ?? '').replace(/[:\-.]/g, '')
         const addressHash = id.length > 4 ? id.slice(-4).toUpperCase() : id.toUpperCase() 
         return `${name} ${addressHash}`
     }

@@ -50,9 +50,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         if (this.getName().match(/\d/g) || settings.address===undefined)      
             return this.getName()
         else {
-            const id = (settings.id ?? settings.address ?? '').replace(/[:\-]/g, '')
-
-
+            const id = (settings.id ?? settings.address ?? '').replace(/[:\-.]/g, '')
             const addressHash = id.length > 4 ? id.slice(-4).toUpperCase() : id.toUpperCase() 
             return `${this.getName()} ${addressHash}`
         }
@@ -202,6 +200,10 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
 
     getName(): string {
         const settings = this.settings as BleDeviceSettings
+
+        const id = (settings.id ?? settings.address ?? '').replace(/[:\-]/g, '')
+        const addressHash = id.length > 4 ? id.slice(-4).toUpperCase() : id.toUpperCase() 
+
         return settings.name || settings.id || settings.address
     }
 
