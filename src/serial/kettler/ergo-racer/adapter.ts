@@ -588,8 +588,12 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceP
             return request
         
         }
-        catch (err) {
+        catch (err:any) {
             this.requestBusy = false;
+            if (err.message==='connection error') {
+                this.logEvent( {message:'send failed',reason:'not connected'})                
+                return;
+            }
             this.logEvent( {message:'error',fn:'sendRequest()',error:err.message||err})            
             return;
         }
