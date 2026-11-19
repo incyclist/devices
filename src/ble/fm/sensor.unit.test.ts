@@ -237,6 +237,44 @@ describe('BleFitnessMachineDevice',()=>{
 
     })
 
+    describe('setIndoorBikeSimulation / setTargetResistanceLevel guards',()=>{
+        let ftms:any
+
+        beforeEach( ()=>{
+            ftms = new BleFitnessMachineDevice(null,{id:'test'})
+            ftms.logEvent = jest.fn()
+            ftms.isSubscribed = jest.fn().mockReturnValue(true)
+            ftms.requestControl = jest.fn().mockResolvedValue(true)
+            ftms.writeFtmsMessage = jest.fn().mockResolvedValue(0x01)
+        })
+
+        test('does not write if setSlope is not supported (even if setPower is)',async ()=>{
+            ftms._features = {fitnessMachine:0, targetSettings:0, setPower:true, setSlope:false, setResistance:true}
+            const res = await ftms.setIndoorBikeSimulation(0,2,0.004,0.5)
+            expect(res).toBe(true)
+            expect(ftms.writeFtmsMessage).not.toHaveBeenCalled()
+        })
+
+        test('writes if setSlope is supported (even if setPower is not)',async ()=>{
+            ftms._features = {fitnessMachine:0, targetSettings:0, setPower:false, setSlope:true, setResistance:false}
+            const res = await ftms.setIndoorBikeSimulation(0,2,0.004,0.5)
+            expect(res).toBe(true)
+            expect(ftms.writeFtmsMessage).toHaveBeenCalled()
+        })
+
+        test('writes if features are unknown',async ()=>{
+            await ftms.setIndoorBikeSimulation(0,2,0.004,0.5)
+            expect(ftms.writeFtmsMessage).toHaveBeenCalled()
+        })
+
+        test('logs a failed setTargetResistanceLevel',async ()=>{
+            ftms.writeFtmsMessage = jest.fn().mockResolvedValue(0x04)
+            const res = await ftms.setTargetResistanceLevel(42)
+            expect(res).toBe(false)
+            expect(ftms.logEvent).toHaveBeenCalledWith(expect.objectContaining({message:'setTargetResistanceLevel failed', resistanceLevel:42, result:'4'}))
+        })
+    })
+
     describe('onDisconnect',()=>{})
 
     describe('parseHrm',()=>{

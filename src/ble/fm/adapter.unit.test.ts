@@ -757,4 +757,123 @@ describe('BleFmAdapter',()=>{
         })
 
     })
+
+    describe('unsupported cycling mode (INC-66)',()=>{
+        let adapter: any
+        let sensor: any
+
+        const setFeatures = (features:any) => { sensor.features = features }
+
+        beforeEach( ()=>{
+            sensor = {
+                features: undefined,
+                getSupportedSports: jest.fn().mockReturnValue(['cycling']),
+                getFitnessMachineFeatures: jest.fn(),
+                setSlope: jest.fn().mockResolvedValue(true),
+                setTargetPower: jest.fn().mockResolvedValue(true),
+                setTargetResistanceLevel: jest.fn().mockResolvedValue(true),
+                isReady: jest.fn().mockReturnValue(true),
+                isReconnectBusy: jest.fn().mockReturnValue(false),
+            }
+            adapter = new BleFmAdapter({interface:'ble', name:'Bike', address:'1111', protocol:'fm'})
+            adapter.getSensor = jest.fn().mockReturnValue(sensor)
+            adapter.device = sensor
+            adapter.logEvent = jest.fn()
+        })
+
+        test('before features are known, SIM mode is kept',()=>{
+            adapter.setCyclingMode('Smart Trainer')
+            expect(adapter.getCyclingMode().getName()).toBe('Smart Trainer')
+            expect(adapter.isModeSupported('Smart Trainer')).toBe(true)
+        })
+
+        test('after features are known, SIM mode is replaced by the default mode and the replacement is reported',async ()=>{
+            adapter.setCyclingMode('Smart Trainer')
+            const onReplaced = jest.fn()
+            adapter.on('mode-replaced', onReplaced)
+
+            setFeatures({fitnessMachine:0,targetSettings:0,setPower:false,setSlope:false,setResistance:true})
+            await adapter.checkCapabilities()
+
+            expect(adapter.getCyclingMode().getName()).toBe('Resistance')
+            expect(onReplaced).toHaveBeenCalledWith({requestedMode:'Smart Trainer', newMode:'Resistance'})
+            expect(adapter.logEvent).toHaveBeenCalledWith(expect.objectContaining({
+                message:'cycling mode not supported', requestedMode:'Smart Trainer', newMode:'Resistance', 
+                setSlope:false, setPower:false, setResistance:true, device:'Bike'}))
+        })
+
+        test('a supported mode is not replaced',async ()=>{
+            adapter.setCyclingMode('Smart Trainer')
+            const onReplaced = jest.fn()
+            adapter.on('mode-replaced', onReplaced)
+
+            setFeatures({fitnessMachine:0,targetSettings:0,setPower:true,setSlope:true,setResistance:true})
+            await adapter.checkCapabilities()
+
+            expect(adapter.getCyclingMode().getName()).toBe('Smart Trainer')
+            expect(onReplaced).not.toHaveBeenCalled()
+        })
+
+        test('createOrGetMode() does not keep an unsupported current mode once features are known',()=>{
+            adapter.setCyclingMode('Smart Trainer')
+            setFeatures({fitnessMachine:0,targetSettings:0,setPower:false,setSlope:false,setResistance:true})
+
+            adapter.setCyclingMode('Smart Trainer')
+            expect(adapter.getCyclingMode().getName()).toBe('Resistance')
+        })
+
+        test('auto resistance defaults to on for devices that can not set the slope',async ()=>{
+            setFeatures({fitnessMachine:0,targetSettings:0,setPower:false,setSlope:false,setResistance:true})
+            await adapter.checkCapabilities()
+            expect(adapter.getCyclingMode().isAutoResistance()).toBe(true)
+        })
+
+        test('auto resistance defaults to off for devices that can set the slope',async ()=>{
+            setFeatures({fitnessMachine:0,targetSettings:0,setPower:true,setSlope:true,setResistance:true})
+            await adapter.checkCapabilities()
+            adapter.setCyclingMode('Resistance')
+            expect(adapter.getCyclingMode().isAutoResistance()).toBe(false)
+        })
+
+        test('sendUpdate() never sends the slope if setSlope is not supported, and logs it once',async ()=>{
+            setFeatures({fitnessMachine:0,targetSettings:0,setPower:true,setSlope:false,setResistance:false})
+            adapter.getCyclingMode = jest.fn().mockReturnValue({
+                buildUpdate: jest.fn().mockReturnValue({slope:2, targetPower:100}),
+                confirmed: jest.fn(),
+                getName: jest.fn().mockReturnValue('Smart Trainer'),
+            })
+
+            const res = await adapter.sendUpdate({slope:2},true)
+            await adapter.sendUpdate({slope:3},true)
+
+            expect(sensor.setSlope).not.toHaveBeenCalled()
+            expect(sensor.setTargetPower).toHaveBeenCalledWith(100)
+            expect(res).toEqual({targetPower:100})
+            const skipped = adapter.logEvent.mock.calls.filter( c=>c[0].message==='setSlope skipped')
+            expect(skipped).toHaveLength(1)
+            expect(skipped[0][0]).toMatchObject({reason:'not supported', device:'Bike'})
+        })
+
+        test('sendUpdate() sends the slope if setSlope is supported',async ()=>{
+            setFeatures({fitnessMachine:0,targetSettings:0,setPower:true,setSlope:true,setResistance:false})
+            adapter.getCyclingMode = jest.fn().mockReturnValue({
+                buildUpdate: jest.fn().mockReturnValue({slope:2}),
+                confirmed: jest.fn(),
+                getName: jest.fn().mockReturnValue('Smart Trainer'),
+            })
+            await adapter.sendUpdate({slope:2},true)
+            expect(sensor.setSlope).toHaveBeenCalledWith(2)
+        })
+
+        test('failed resistance updates are counted in the auto resistance summary',async ()=>{
+            setFeatures({fitnessMachine:0,targetSettings:0,setPower:false,setSlope:false,setResistance:true})
+            await adapter.checkCapabilities()
+            const mode = adapter.getCyclingMode()
+            const spy = jest.spyOn(mode,'registerFailedUpdate')
+            sensor.setTargetResistanceLevel.mockResolvedValue(false)
+
+            await adapter.sendUpdate({targetResistance:20},true)
+            expect(spy).toHaveBeenCalled()
+        })
+    })
 })
