@@ -256,6 +256,9 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
         // only RequestControl does (FIXES_BACKLOG #22).
         await this.attemptStartRequest()
 
+        // shifts done in a previous session must not survive a (re-)start of the adapter
+        this.getResistanceMode()?.resetSession()
+
         await this.sendInitialRequest()
     }
 
@@ -417,6 +420,24 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
             mode.getConfig()
 
         })
+
+        // Auto resistance is only on by default for devices that can't simulate slopes
+        const autoDefault = this.getSensor()?.features?.setSlope===false
+        const resistanceModes = [ ...Object.values(this.modes), this.cyclingMode ]
+        resistanceModes.forEach( mode => {
+            if (mode instanceof FMResistanceMode)
+                mode.setAutoResistanceDefault(autoDefault)
+        })
+    }
+
+    protected getResistanceMode():FMResistanceMode|undefined {
+        const mode = this.getCyclingMode()
+        return mode instanceof FMResistanceMode ? mode : undefined
+    }
+
+    async stop(): Promise<boolean> {
+        this.getResistanceMode()?.logSummary()
+        return await super.stop()
     }
 
     protected async checkCapabilities() {
@@ -439,6 +460,8 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
 
         this.setSlopeSkippedLogged = false
         this.checkCyclingModeSupported()
+        if (sensor.features)
+            this.updateCyclingModeConfig()
 
 
         const after = this.capabilities.join(',')
@@ -484,7 +507,6 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
             setSlope: features.setSlope===true, setPower: features.setPower===true, setResistance: features.setResistance===true, 
             device:this.getName()
         })
-        this.updateCyclingModeConfig()
         this.emit('mode-replaced', {requestedMode, newMode:newMode.getName()})
     }
 
@@ -581,7 +603,9 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
                     } 
 
                     if (update.targetResistance!==undefined && !update.isHub) {
-                        await device.setTargetResistanceLevel(update.targetResistance)
+                        const success = await device.setTargetResistanceLevel(update.targetResistance)
+                        if (success===false)
+                            this.getResistanceMode()?.registerFailedUpdate()
                         res.targetResistance = update.targetResistance
                         
                     }

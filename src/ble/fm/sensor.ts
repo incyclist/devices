@@ -246,6 +246,9 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         if (res === OpCodeResult.ControlNotPermitted) {
             this.hasControl = false
         }
+        if (res!==OpCodeResult.Success) {
+            this.logEvent({message: 'setTargetResistanceLevel failed', device:this.getName(), resistanceLevel, result:String(res)})
+        }
         return ( res===OpCodeResult.Success)
     }
 
