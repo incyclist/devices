@@ -236,7 +236,7 @@ export default class IncyclistDevice<P extends DeviceProperties>
     protected createOrGetMode(mode: string | ICyclingMode, useCurrent:boolean=true) {
         if ( typeof mode === 'string') {
 
-            if (useCurrent && this.cyclingMode && mode===this.cyclingMode?.getName()) {
+            if (useCurrent && this.cyclingMode && mode===this.cyclingMode?.getName() && this.isModeSupported(mode)) {
                 return  this.cyclingMode
             }
 
@@ -263,6 +263,14 @@ export default class IncyclistDevice<P extends DeviceProperties>
 
 
 
+
+    /**
+     * Allows adapters to veto the "keep the current mode" shortcut in createOrGetMode(),
+     * e.g. once device capabilities are known and the current mode is not supported
+     */
+    protected isModeSupported(_modeName:string):boolean {
+        return true
+    }
 
     getSupportedCyclingModes() : Array<typeof CyclingMode>  {
         if (!this.isControllable())

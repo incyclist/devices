@@ -17,6 +17,23 @@ export type UpdateRequestInput = UpdateRequest & {
     enforced? : boolean
 }
 
+/**
+ * Payload of the 'mode-replaced' adapter event.
+ * Emitted when the adapter replaced the active cycling mode, because the requested mode is not supported
+ * by the device (known only after the device features have been read)
+ */
+export type ModeReplacedInfo = {
+    requestedMode: string
+    newMode: string
+}
+
+/**
+ * Typed events emitted by adapters (listener signatures by event name)
+ */
+export interface AdapterEvents {
+    'mode-replaced': (info: ModeReplacedInfo) => void
+}
+
 export interface ITrainer {
     setCyclingMode(mode: ICyclingMode|string, settings?:any,sendInitCommands?:boolean):void
     getSupportedCyclingModes() : Array<typeof CyclingMode>      
@@ -49,6 +66,11 @@ export interface ISensor {
 
 
 export interface IAdapter extends EventEmitter, ITrainer, ISensor{
+    on<E extends keyof AdapterEvents>(event: E, listener: AdapterEvents[E]): this
+    on(event: string | symbol, listener: (...args: any[]) => void): this
+    emit<E extends keyof AdapterEvents>(event: E, ...args: Parameters<AdapterEvents[E]>): boolean
+    emit(event: string | symbol, ...args: any[]): boolean
+
     getName(): string    
     getID(): string
     getUniqueName(): string

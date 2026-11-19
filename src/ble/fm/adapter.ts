@@ -32,6 +32,7 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
     protected promiseSendUpdate: Promise<UpdateRequest|void>|undefined
     protected zwiftPlay: BleZwiftPlaySensor|undefined
     protected isHubInitialized: boolean = false
+    protected setSlopeSkippedLogged: boolean = false
 
     constructor( settings:BleDeviceSettings, props?:BleDeviceProperties) {
         super(settings,props);
@@ -436,6 +437,9 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
             this.updateCapabilitiesFromFeatures(sensor.features);           
         }
 
+        this.setSlopeSkippedLogged = false
+        this.checkCyclingModeSupported()
+
 
         const after = this.capabilities.join(',')
 
@@ -444,6 +448,44 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
             this.emit('device-info', this.getSettings(), {capabilities:this.capabilities})
         }
 
+    }
+
+    protected isModeSupported(modeName:string):boolean {
+        // as long as the features are unknown, we can't tell which modes are supported
+        if (!this.getSensor()?.features)
+            return true
+
+        return this.getSupportedCyclingModes().some( M => new M(null).getName()===modeName)
+    }
+
+    /**
+     * Once the device features are known, the current mode might turn out to be not supported by the device
+     * (e.g. SIM mode on a trainer that can't set the slope). In that case the default mode is used instead
+     */
+    protected checkCyclingModeSupported() {
+        const sensor = this.getSensor()
+        const features = sensor?.features
+        if (!features)
+            return
+
+        const current = this.getCyclingMode()
+        const requestedMode = current?.getName()
+        if (!requestedMode || this.isModeSupported(requestedMode))
+            return
+
+        const newMode = this.getDefaultCyclingMode()
+        if (!newMode)
+            return
+
+        this.cyclingMode = newMode
+        this.logEvent({
+            message:'cycling mode not supported', 
+            requestedMode, newMode:newMode.getName(), 
+            setSlope: features.setSlope===true, setPower: features.setPower===true, setResistance: features.setResistance===true, 
+            device:this.getName()
+        })
+        this.updateCyclingModeConfig()
+        this.emit('mode-replaced', {requestedMode, newMode:newMode.getName()})
     }
 
     protected updateCapabilitiesFromFeatures(features: IndoorBikeFeatures) {
@@ -511,7 +553,15 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
                 const send = async ()=> {             
                     const res: UpdateRequest = {}
                     if (update.slope!==undefined) {
-                        if (update.isHub) {
+                        const skipSlope = !update.isHub && device.features?.setSlope===false
+                        if (skipSlope) {
+                            // the device can't process a slope, don't send it (it would be ignored or rejected)
+                            if (!this.setSlopeSkippedLogged) {
+                                this.setSlopeSkippedLogged = true
+                                this.logEvent({message:'setSlope skipped', reason:'not supported', device:this.getName()})
+                            }
+                        }
+                        else if (update.isHub) {
                             await this.initVirtualShifting(true)                            
                             if (this.zwiftPlay) {
                                 await this.zwiftPlay.setIncline(update.slope)
@@ -520,7 +570,8 @@ export default class BleFmAdapter extends BleAdapter<IndoorBikeData,BleFitnessMa
                         else {
                             await device.setSlope(update.slope)
                         }
-                        res.slope = update.slope
+                        if (!skipSlope)
+                            res.slope = update.slope
                     } 
 
                     if (update.targetPower!==undefined && !update.isHub) {
