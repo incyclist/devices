@@ -52,8 +52,12 @@ export const parseConfig = async (file:string) => {
         props.power = target.power
         delete target.power
     }
-    
-    
+    // optional FTMS feature flags: { "simulation": bool, "powerTarget": bool, "resistanceTarget": bool }
+    if (target.ftms) {
+        props.ftms = target.ftms
+        delete target.ftms
+    }
+
     const emulator= new Emulator({...props,name,uuids})
 
     return {config:target,emulator}
