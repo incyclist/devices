@@ -246,6 +246,9 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         if (res === OpCodeResult.ControlNotPermitted) {
             this.hasControl = false
         }
+        if (res!==OpCodeResult.Success) {
+            this.logEvent({message: 'setTargetResistanceLevel failed', device:this.getName(), resistanceLevel, result:String(res)})
+        }
         return ( res===OpCodeResult.Success)
     }
 
@@ -852,8 +855,8 @@ export default class BleFitnessMachineDevice extends TBleSensor {
     async setIndoorBikeSimulation( windSpeed:number, gradient:number, crr:number, cw:number): Promise<boolean> {
 
 
-        // If we know from features flag that setPower is not supported, just ignore
-        if (this.features?.setPower===false)
+        // If we know from features flag that setSlope is not supported, just ignore
+        if (this.features?.setSlope===false)
             return true;
 
         this.logEvent( {message:'setIndoorBikeSimulation', device:this.getName(), windSpeed, gradient, crr, cw})

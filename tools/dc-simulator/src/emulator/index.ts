@@ -6,6 +6,7 @@ import { EventEmitter } from 'events';
 import CyclingPowerService from './services/csp.js';
 import { Service } from "./services/service.js";
 import { FitnessMachineService } from './services/ftms.js';
+import { FtmsFeatures } from './characteristics/fitness-machine-feature-characteristic.js';
 import { HeartRateService } from './services/hrs.js';
 import { ZwiftPlayService } from './services/zwift-play.js';
 import { CyclingSpeedCadenceService } from './services/csc.js';
@@ -17,6 +18,7 @@ export interface EmulatorOptions {
   frequency?: number;
   uuids?: string[]
   power?: number
+  ftms?: Partial<FtmsFeatures>   // FTMS feature flags; omitted flags default to true
 }
 
 interface DataUpdate  {
@@ -56,7 +58,7 @@ export class Emulator extends EventEmitter {
   constructor(options: EmulatorOptions={}) {
     super();
 
-    const {frequency=DEFAULT_FREQUENCY, uuids=[],power} = options??{}
+    const {frequency=DEFAULT_FREQUENCY, uuids=[],power,ftms} = options??{}
     
     this.frequency = frequency
     this.targetPower = power
@@ -65,7 +67,7 @@ export class Emulator extends EventEmitter {
     this.hrs = uuids.includes('180D') ? new HeartRateService() : null;
     this.csp = uuids.includes('1818') ? new CyclingPowerService() : null;
     this.csc = uuids.includes('1816') ? new CyclingSpeedCadenceService() : null;
-    this.ftms = uuids.includes('1826') ? new FitnessMachineService() : null;
+    this.ftms = uuids.includes('1826') ? new FitnessMachineService(ftms) : null;
     this.play = uuids.includes('00000001-19CA-4651-86E5-FA29DCDD09D1') ? new ZwiftPlayService() : null
 
     this.last_timestamp = 0;

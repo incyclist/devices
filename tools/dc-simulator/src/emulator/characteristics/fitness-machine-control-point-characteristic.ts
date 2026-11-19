@@ -1,5 +1,6 @@
 import { Characteristic } from "./characteristic.js";
 import { TValue } from "../types.js";
+import { FtmsFeatures, resolveFtmsFeatures } from "./fitness-machine-feature-characteristic.js";
 
 const RequestControl = 0x00;
 const Reset = 0x01;
@@ -23,7 +24,9 @@ export class FitnessMachineControlPointCharacteristic extends  Characteristic<TV
     protected targetPower: number;  
     protected handlers: Record<number, Handler> = {};
 
-    constructor( ) {
+    protected features: FtmsFeatures
+
+    constructor( features?: Partial<FtmsFeatures> ) {
         super({
             uuid: '2AD9',
             value: null,
@@ -31,6 +34,7 @@ export class FitnessMachineControlPointCharacteristic extends  Characteristic<TV
             descriptors: [{ uuid: '2901', value: 'Fitness Machine Control Point'} ]
         });
 
+    this.features = resolveFtmsFeatures(features)
     this.hasControl = false;
     this.isStarted = false;
     this.targetPower = 0;
@@ -157,6 +161,15 @@ export class FitnessMachineControlPointCharacteristic extends  Characteristic<TV
         return result
     }
 
+    protected isOpcodeEnabled(code: number): boolean {
+        switch (code) {
+            case SetTargetResistance: return this.features.resistanceTarget
+            case SetTargetPower: return this.features.powerTarget
+            case SetIndoorBikeSimulation: return this.features.simulation
+            default: return true
+        }
+    }
+
     write(data: Buffer, offset: number, withoutResponse: boolean, callback: (success: boolean, response?: Buffer) => void): void { 
         // first byte indicates opcode
         const code = data.readUInt8(0);
@@ -164,7 +177,11 @@ export class FitnessMachineControlPointCharacteristic extends  Characteristic<TV
         let result
 
         const handler = this.handlers[code];
-        if (handler) {
+        if (handler && !this.isOpcodeEnabled(code)) {
+            console.log(this.description,'OPCODE 0x'+code.toString(16)+' rejected: feature not supported by this configuration');
+            result = OpCodeNotSupported
+        }
+        else if (handler) {
             result = handler(data);
         }
         else {

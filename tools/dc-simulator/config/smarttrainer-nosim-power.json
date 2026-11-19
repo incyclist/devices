@@ -1,0 +1,23 @@
+{
+    "name":"DCSIM FTMS NoSim Pwr",
+    "subtypes":[],
+    "referer":{
+      "address":"192.168.8.106",
+      "family":"IPv4",
+      "port":5353,
+      "size":433},
+    "port":36866,
+    "type":"wahoo-fitness-tnp",
+    "protocol":"tcp",
+    "disableIPv6":true,
+    "ftms":{
+      "simulation":false,
+      "powerTarget":true,
+      "resistanceTarget":true
+    },
+    "txt":{
+      "ble-service-uuids":"0x1818,0x1826,0x180D",
+      "mac-address":"EC-DA-3B-1C-F9-EC",
+      "serial-number":"234300240"
+    }
+}
