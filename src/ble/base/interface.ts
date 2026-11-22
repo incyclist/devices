@@ -1003,8 +1003,15 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         const found = service.serviceUUIDs.map(parseUUID)
         const expected = this.expectedServices.map(parseUUID)
 
-        if (service.name.startsWith('Zwift'))
+        if (service.name.startsWith('Zwift')) {
+            // Both Click v2 pucks advertise as "Zwift Click". The left one also reports the right one's
+            // buttons, so only the left one is used (devices are matched by name, so the first one found would win)
+            if (isZwiftClickV2Right(service.manufacturerData)) {
+                this.logEvent({message:'Zwift Click v2 right side ignored', address:service.peripheral?.address})
+                return false
+            }
             return true
+        }
 
         const supported = found.filter( uuid => expected.includes(uuid) )??[]
 
@@ -1246,3 +1253,7 @@ export class BleInterfaceFactory extends InterfaceFactory{
         return this.iface
     }
 }
+
+// Zwift manufacturer data: company id 0x094A (little endian) followed by the device type, 0x0A = Click v2 right side
+const isZwiftClickV2Right = (manufacturerData?:Buffer):boolean =>
+    manufacturerData?.length>=3 && manufacturerData[0]===0x4a && manufacturerData[1]===0x09 && manufacturerData[2]===0x0a

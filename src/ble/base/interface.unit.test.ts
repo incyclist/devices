@@ -549,6 +549,13 @@ describe('BleInterface', () => {
             (BleInterface as any)._instance = undefined
         })
 
+        test('Zwift Click v2: only the left side is used, it also reports the right side buttons', () => {
+            i.expectedServices = []
+            const announce = (type:number) => ({name:'Zwift Click', serviceUUIDs:['fc82'], manufacturerData:Buffer.from([0x4a,0x09,type,0x41,0xdb]), peripheral:{address:'a'}})
+            expect(i.isSupportedPeripheral(announce(0x0a))).toBe(false)
+            expect(i.isSupportedPeripheral(announce(0x0b))).toBe(true)
+        })
+
         test.each(['Zwift Ride','Zwift Click'])('%s advertising only FC82 is a zwift-play controller', (name) => {
             const peripheral = {id:'c1', address:'c1', name}
             const settings = i.createDeviceSetting({name, serviceUUIDs:['fc82'], peripheral})
