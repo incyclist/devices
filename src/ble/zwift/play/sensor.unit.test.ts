@@ -1,5 +1,5 @@
 import { BleZwiftPlaySensor } from './sensor'
-import { TrainerResponse } from '../../../proto/zwift_hub'
+import { RideKeyPadStatus, TrainerResponse } from '../../../proto/zwift_hub'
 import { MockLogger } from '../../../../test/logger'
 
 const buildTrainerResponseMessage = () => {
@@ -367,6 +367,54 @@ describe('BleZwiftPlaySensor', () => {
 
             expect(sensor.initHubService).toHaveBeenCalled()
             expect(sensor.isHubServicePaired).toBe(false)
+        })
+    })
+
+    describe('Zwift Click v2', () => {
+        const createSensor = (manufacturerData:string) => {
+            const peripheral = { getManufacturerData: ()=>manufacturerData, getInfo: ()=>({name:'Zwift Click', address:'a'}) }
+            const sensor:any = new BleZwiftPlaySensor(peripheral as any, { logger: MockLogger })
+            sensor.logEvent = jest.fn()
+            return sensor
+        }
+
+        test.each([
+            ['4a090a41db', 'click-v2-right'],
+            ['4a090b41db', 'click-v2-left'],
+            ['4a0909', 'click'],
+            ['4a0907', 'ride-right'],
+            ['4a0908', 'ride-left'],
+            ['4a0902', 'right'],
+            ['4a0903', 'left'],
+        ])('manufacturer data %s is detected as %s', (data, expected) => {
+            expect(createSensor(data).getDeviceType()).toBe(expected)
+        })
+
+        test('pairing sends the 8 byte RideOn start command', async () => {
+            const sensor = createSensor('4a090a41db')
+            sensor.write = jest.fn().mockResolvedValue(Buffer.from([]))
+
+            await sensor.pair()
+
+            expect(sensor.write).toHaveBeenCalledWith(expect.anything(), Buffer.concat([Buffer.from('RideOn'), Buffer.from([0x02,0x03])]), {withoutResponse:true})
+        })
+
+        test.each([
+            ['4a090a41db', 0x1000, 'up'],      // right "+"
+            ['4a090b41db', 0x0100, 'down'],    // left "-"
+            ['4a0907',     0x1000, 'r-shift-up'], // Zwift Ride keeps its key names
+        ])('%s: button bit %s is reported as %s', (data, bit, expected) => {
+            const sensor = createSensor(data)
+            sensor.getDeviceType()
+            const onKey = jest.fn()
+            sensor.on('key-pressed', onKey)
+
+            const released = 0xFFFF // bit set = button released
+            const keyPad = (buttonMap:number) => Buffer.concat([Buffer.from([0x23]), Buffer.from(RideKeyPadStatus.toBinary({buttonMap, analogButtons:[]}))])
+            sensor.onMeasurement(keyPad(released & ~bit))
+            sensor.onMeasurement(keyPad(released))
+
+            expect(onKey).toHaveBeenCalledWith(expect.objectContaining({key: expected}))
         })
     })
 })

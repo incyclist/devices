@@ -540,7 +540,21 @@ describe('BleInterface', () => {
 
     describe('createPeripheral', () => {})
     describe('createPeripheralFromSettings', () => {})
-    describe('createDeviceSetting', () => {})
+    describe('createDeviceSetting', () => {
+        let i
+        beforeEach(() => {
+            i = BleInterface.getInstance({logger: logger as EventLogger})
+        })
+        afterEach(() => {
+            (BleInterface as any)._instance = undefined
+        })
+
+        test.each(['Zwift Ride','Zwift Click'])('%s advertising only FC82 is a zwift-play controller', (name) => {
+            const peripheral = {id:'c1', address:'c1', name}
+            const settings = i.createDeviceSetting({name, serviceUUIDs:['fc82'], peripheral})
+            expect(settings).toMatchObject({interface:'ble', protocol:'zwift-play', name})
+        })
+    })
     describe('background activity (pause reasons)', () => {
         let i:any
 

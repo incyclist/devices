@@ -548,7 +548,9 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         if (peripheral.address===undefined || peripheral.address==='')
             peripheral.address = peripheral.id || peripheral.name;
 
-        if (service.name==='Zwift Ride' && service.serviceUUIDs.some(  uuid=> matches(uuid,'FC82'))) {
+        // Zwift Ride and Zwift Click v2 only advertise FC82, not the Play service (00000001-19ca-...)
+        const isZwiftFC82Controller = service.name==='Zwift Ride' || service.name==='Zwift Click'
+        if (isZwiftFC82Controller && service.serviceUUIDs.some(  uuid=> matches(uuid,'FC82'))) {
             const protocol = 'zwift-play'
             const {id,name,address} = getPeripheralInfo(peripheral)
             return {interface:BleInterface.INTERFACE_NAME, protocol, id,name,address}
