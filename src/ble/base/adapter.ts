@@ -607,7 +607,13 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
 
 
         // make sure that the sensor is unregistering all subscriptions (otherwise it might re-use)
-        await sensor.getPeripheral().disconnect()
+        // (disconnect() is time-bounded, a failure must not prevent the restart itself)
+        try {
+            await sensor.getPeripheral().disconnect()
+        }
+        catch(err) {
+            this.logEvent({message:'restart: disconnect failed', device:this.getName(), interface:this.getInterface(), reason:err?.message})
+        }
         const success = await super.restart(pause)
         return success;
 

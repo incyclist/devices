@@ -14,6 +14,9 @@ import { CSP } from "../consts.js";
 import { BKOOL_SERVICE, isBkoolDeviceName } from "../bkool/consts.js";
 
 const BLE_EXPIRATION_TIMEOUT = 10*1000*60 // 10min
+const DEFAULT_PAUSE_REASON = 'app-background'
+// how long waitForPeripheral() scans on its own while the background scan is paused
+const TEMPORARY_SCAN_TIMEOUT = 30*1000
 const BLE_DEFAULT_CONNECT_TIMEOUT = 30*1000; // 30s
 
 let instanceCount = 0
@@ -61,6 +64,10 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
      * disconnect(): the scan must stay suspended across a reconnect until it is resumed.
      */
     protected backgroundPaused: boolean = false
+    // Why the background scan is paused: several independent callers can request a pause (e.g. app in
+    // background, ride in progress). The scan resumes only once all of them have released their pause.
+    protected pauseReasons: Set<string> = new Set()
+    protected pausedSince?: number
 
     protected connectTask: InteruptableTask<TaskState,boolean>
     protected disconnectTask: InteruptableTask<TaskState,boolean>
@@ -414,22 +421,37 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         return this.buildDeviceSettings(this.matching)
     }
 
-    async pauseBackgroundActivity():Promise<void> {
-        if (this.backgroundPaused)
+    async pauseBackgroundActivity(reason:string=DEFAULT_PAUSE_REASON):Promise<void> {
+        if (this.pauseReasons.has(reason))
             return
 
+        this.pauseReasons.add(reason)
+        const alreadyPaused = this.backgroundPaused
         this.backgroundPaused = true
-        this.logEvent({message:'pausing background activity'})
+        this.logEvent({message:'pausing background activity', reason, reasons:Array.from(this.pauseReasons).join(','), interface:'ble'})
 
+        // the scan is already stopped by the first pause
+        if (alreadyPaused)
+            return
+
+        this.pausedSince = Date.now()
         await this.stopPeripheralScan()
     }
 
-    async resumeBackgroundActivity():Promise<void> {
-        if (!this.backgroundPaused)
+    async resumeBackgroundActivity(reason:string=DEFAULT_PAUSE_REASON):Promise<void> {
+        if (!this.pauseReasons.delete(reason))
             return
 
+        const reasons = Array.from(this.pauseReasons).join(',')
+        if (this.pauseReasons.size>0) {
+            this.logEvent({message:'resuming background activity skipped', reason, reasons, interface:'ble'})
+            return
+        }
+
         this.backgroundPaused = false
-        this.logEvent({message:'resuming background activity'})
+        const pausedMs = this.pausedSince ? Date.now()-this.pausedSince : 0
+        delete this.pausedSince
+        this.logEvent({message:'resuming background activity', reason, reasons, pausedMs, interface:'ble'})
 
         // If the interface is not connected right now this is a no-op - the scan will be started
         // by onConnected() once it reconnects, as the guard in startPeripheralScan() now passes.
@@ -474,31 +496,48 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         const peripheral =  this.createPeripheralFromSettings(settings)
         if (peripheral) return Promise.resolve(peripheral)
 
-        
+        return new Promise ( (done,reject)=>{
 
-        return new Promise ( (done)=>{
-
+            // While the background scan is paused nobody would ever announce the device: run a
+            // temporary scan, which must not wait forever either
+            const temporary = this.backgroundPaused
             const wasDiscovering = this.isDiscovering()
-            if (!wasDiscovering)
-                this.startPeripheralScan()
+            const tsStart = Date.now()
+            let timer:ReturnType<typeof setTimeout>|undefined
+
+            const finish = ()=> {
+                this.off('device', onDevice)
+                if (timer) clearTimeout(timer)
+                if (temporary || !wasDiscovering)
+                    this.stopPeripheralScan().catch( ()=>{} )
+            }
 
             const onDevice = (device:BleDeviceSettings)=>{
                 if (device.address===settings.address) {
                     const peripheral =  this.createPeripheralFromSettings(device)
 
                     if (peripheral) {
-                        this.off('device', onDevice)
-                        if (!wasDiscovering)
-                            this.stopPeripheralScan()
+                        finish()
+                        if (temporary)
+                            this.logEvent({message:'temporary discovery for peripheral', interface:'ble', device:settings.name, waitedMs:Date.now()-tsStart, found:true})
                         done(peripheral)
                     }
                 }                        
             }
 
             this.on('device', onDevice)
-        })
-            
 
+            if (temporary) {
+                timer = setTimeout( ()=>{
+                    finish()
+                    this.logEvent({message:'temporary discovery for peripheral', interface:'ble', device:settings.name, waitedMs:Date.now()-tsStart, found:false})
+                    reject(new Error('peripheral not found'))
+                }, TEMPORARY_SCAN_TIMEOUT)
+                this.startPeripheralScan(false,true).catch( ()=>{} )
+            }
+            else if (!wasDiscovering)
+                this.startPeripheralScan()
+        })
     }
 
 
@@ -536,11 +575,12 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         await this.connectInternal(true)
     }
 
-    protected async startPeripheralScan(retry:boolean=false):Promise<void> {
+    protected async startPeripheralScan(retry:boolean=false, force:boolean=false):Promise<void> {
         // Guarded here rather than at the call sites: connect(), onConnected() (i.e. reconnect)
         // and the restart at the end of discover() all funnel through this method, so a single
         // check keeps the scan suspended across a disconnect/reconnect cycle.
-        if (this.backgroundPaused)
+        // force: temporary scan requested by waitForPeripheral(), which must run despite the pause
+        if (this.backgroundPaused && !force)
             return;
 
         if (!this.isConnected() || this.isDiscovering())  {
@@ -568,7 +608,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
         // scan should always run unless explicitly stopped
         if (this.discoverTask.getState().result !== 'stopped' ) {
-            this.startPeripheralScan(true)
+            this.startPeripheralScan(true, force)
         }
 
     }
@@ -975,10 +1015,22 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     }
 
     protected find(service:BlePeripheralAnnouncement) {
-        return  this.services.find( a=> a.service.name===service.name && a.service?.peripheral?.address  && a.ts>Date.now()-BLE_EXPIRATION_TIMEOUT )
+        return  this.services.find( a=> a.service.name===service.name && a.service?.peripheral?.address  && this.isAnnouncementValid(a) )
     }
     protected getAll() {
-        return this.services.filter( a=> a.ts>Date.now()-BLE_EXPIRATION_TIMEOUT )
+        return this.services.filter( a=> this.isAnnouncementValid(a) )
+    }
+
+    // An announcement is only refreshed by the scan. While the scan is paused, announcements of connected
+    // peripherals must not expire: the peripheral is in use, and a reconnect needs the announcement to
+    // re-create it.
+    protected isAnnouncementValid(a:{ts:number, service:BlePeripheralAnnouncement}):boolean {
+        if (a.ts>Date.now()-BLE_EXPIRATION_TIMEOUT)
+            return true
+        if (!this.backgroundPaused)
+            return false
+        const id = a.service?.peripheral?.id
+        return id!==undefined && this.connectedPeripherals.some( p=> p.id===id )
     }
 
     setDebug(enabled:boolean) {

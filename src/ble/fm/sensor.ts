@@ -805,6 +805,11 @@ export default class BleFitnessMachineDevice extends TBleSensor {
 
             const responseData = Buffer.from(res)
 
+            // The peripheral answers with an empty buffer when it is disconnecting/disconnected.
+            // Report that as such instead of failing in readUInt8() with a misleading RangeError
+            if (responseData.length<3)
+                throw new Error('not connected')
+
             const opCode = responseData.readUInt8(0)
             const request = responseData.readUInt8(1)
             const result = responseData.readUInt8(2)

@@ -112,6 +112,15 @@ describe('BleFitnessMachineDevice',()=>{
             ftms.isSubscribed = jest.fn().mockReturnValue(true)
         })
 
+        test('an empty response (peripheral disconnecting/disconnected) is reported as "not connected", not as a buffer RangeError',async ()=>{
+            ftms.write = jest.fn().mockResolvedValue(Buffer.from([]))
+
+            const result = await ftms.writeFtmsMessage(0x05, Buffer.from([0x05,0x9a,0x00]))
+
+            expect(result).toBe(0x04)   // OpCodeResut.OperationFailed
+            expect(ftms.logEvent).toHaveBeenCalledWith(expect.objectContaining({message:'fmts:write failed', opCode:0x05, reason:'not connected'}))
+        })
+
         test('a dedicated write timeout aborts the underlying write() call, and resolves to OperationFailed (0x04)',async ()=>{
             let capturedSignal: AbortSignal|undefined
             ftms.write = jest.fn().mockImplementation( (_uuid:string,_data:Buffer,options:any) => {

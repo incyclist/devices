@@ -35,7 +35,7 @@ export interface IncyclistInterface extends EventEmitter{
      * background work must stay suspended across a disconnect/reconnect until
      * [[resumeBackgroundActivity]] is called.
      */
-    pauseBackgroundActivity?():Promise<void>
+    pauseBackgroundActivity?(reason?:string):Promise<void>
 
     /**
      * Optional. Resumes the background work suspended by [[pauseBackgroundActivity]].
@@ -43,6 +43,6 @@ export interface IncyclistInterface extends EventEmitter{
      * Safe to call while the interface is disconnected - background work then resumes by itself
      * once the interface reconnects.
      */
-    resumeBackgroundActivity?():Promise<void>
+    resumeBackgroundActivity?(reason?:string):Promise<void>
 
 }

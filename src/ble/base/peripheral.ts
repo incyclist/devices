@@ -1,4 +1,4 @@
-import { sleep } from "../../utils/utils.js";
+import { runWithTimeout, sleep } from "../../utils/utils.js";
 import { BleCharacteristic, BleDeviceIdentifier, BlePeripheralAnnouncement, BleRawCharacteristic, BleRawPeripheral, BleService, BleWriteProps, IBleInterface, IBlePeripheral } from "../types.js";
 import { beautifyUUID, fullUUID, isSameServiceFamily, matches, uuid } from "../utils.js";
 import { BleInterface } from "./interface.js";
@@ -19,6 +19,11 @@ const SERVICE_COMPLETENESS_WHITELIST = ['MRK-R15']
 // is accepted as the device's real (empty) characteristic table.
 const POST_CONNECT_DISCOVERY_ATTEMPTS = 4
 const POST_CONNECT_DISCOVERY_BACKOFF_MS = 1000
+
+// Upper bound for each step of a disconnect (unsubscribing, closing the link). On a stalled BLE stack
+// (observed with WebBLE on Linux) these calls never settle, which would otherwise block the
+// disconnect - and with it every reconnect attempt - forever.
+const BLE_DISCONNECT_STEP_TIMEOUT = 3000
 
 export class BlePeripheral implements IBlePeripheral {
 
@@ -140,8 +145,26 @@ export class BlePeripheral implements IBlePeripheral {
 
         this.disconnecting = true
 
-        if (this.isConnected() || connectionLost) {            
-            await this.unsubscribeAll(connectionLost)
+        // `disconnecting` makes read()/write() return immediately. It must never stay set if one of the
+        // steps below fails or hangs, otherwise the peripheral is unusable until the app is restarted.
+        try {
+            return await this.doDisconnect(connectionLost)
+        }
+        finally {
+            this.disconnecting = false
+        }
+    }
+
+    protected async doDisconnect(connectionLost:boolean): Promise<boolean> {
+
+        if (this.isConnected() || connectionLost) {
+            // On a stalled BLE stack, stopNotifications never settles: don't wait for it forever
+            try {
+                await runWithTimeout(this.unsubscribeAll(connectionLost), BLE_DISCONNECT_STEP_TIMEOUT)
+            }
+            catch(err) {
+                this.logEvent({message:'peripheral unsubscribe timeout', timeoutMs:BLE_DISCONNECT_STEP_TIMEOUT, reason:err?.message})
+            }
         }
 
         Object.keys(this.characteristics).forEach( uuid=> { 
@@ -169,8 +192,12 @@ export class BlePeripheral implements IBlePeripheral {
                     }
                 }
     
-                await this.getPeripheral().disconnectAsync()
-                    .catch( ()=>{})
+                try {
+                    await runWithTimeout(this.getPeripheral().disconnectAsync(), BLE_DISCONNECT_STEP_TIMEOUT)
+                }
+                catch(err) {
+                    this.logEvent({message:'peripheral disconnect timeout', address:peripheral.address, timeoutMs:BLE_DISCONNECT_STEP_TIMEOUT, reason:err?.message})
+                }
 
             }
     
@@ -183,8 +210,7 @@ export class BlePeripheral implements IBlePeripheral {
 
 
         this.connected = false;
-        this.disconnecting = false
-        this.logEvent({message:'peripheral disconnect completed',address:peripheral.address})
+        this.logEvent({message:'peripheral disconnect completed',address:peripheral?.address})
 
         return !this.connected
     }
