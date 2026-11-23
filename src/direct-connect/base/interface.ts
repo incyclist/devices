@@ -15,6 +15,9 @@ import { WAHOO_ADVANCED_FTMS } from "../../ble/wahoo/consts.js";
 const DC_TYPE = 'wahoo-fitness-tnp'
 const DC_PORT = 36866
 const DC_EXPIRATION_TIMEOUT = 10*1000*60 // 10min
+const DEFAULT_PAUSE_REASON = 'app-background'
+// how long waitForPeripheral() browses on its own while the background activity is paused
+const TEMPORARY_DISCOVERY_TIMEOUT = 30*1000
 
 
 interface Announcement {
@@ -61,6 +64,10 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
      * must stay suspended across a reconnect until it is resumed.
      */
     protected backgroundPaused: boolean = false;
+    // Why the background activity is paused: several independent callers can request a pause (e.g. app in
+    // background, ride in progress). Discovery resumes only once all of them have released their pause.
+    protected pauseReasons: Set<string> = new Set()
+    protected pausedSince?: number
     
 
     static getInstance(props:InterfaceProps={}): DirectConnectInterface {
@@ -272,8 +279,9 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
      * Skipped while background activity is paused, so that a connect() or reconnect during that
      * period does not silently restart discovery.
      */
-    protected startServiceDiscovery(reconnect?:boolean):void {
-        if (this.backgroundPaused)
+    protected startServiceDiscovery(reconnect?:boolean, force?:boolean):void {
+        // force: temporary discovery requested by waitForPeripheral(), which must run despite the pause
+        if (this.backgroundPaused && !force)
             return
 
         if (!reconnect)
@@ -290,34 +298,41 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         } )
     }
 
-    async pauseBackgroundActivity():Promise<void> {
-        if (this.backgroundPaused)
+    async pauseBackgroundActivity(reason:string=DEFAULT_PAUSE_REASON):Promise<void> {
+        if (this.pauseReasons.has(reason))
             return
 
+        this.pauseReasons.add(reason)
+        const alreadyPaused = this.backgroundPaused
         // Set first: some bindings' disconnect() can throw (e.g. desktop's, which tears down a
         // UDP multicast socket) and the desired state should hold regardless - the worst case of
         // treating a failed release as 'paused' is that discovery stays suspended a bit longer
         // than intended, which is far preferable to it silently continuing unnoticed.
         this.backgroundPaused = true
-        this.logEvent({message:'pausing background activity'})
+        this.logEvent({message:'pausing background activity', reason, reasons:Array.from(this.pauseReasons).join(','), interface:'wifi'})
 
-        try {
-            // Releases the mDNS browsers. On mobile this also releases the wifi multicast lock
-            // they hold, which otherwise disables the wifi chip's multicast filtering for the
-            // whole process lifetime.
-            this.getBinding()?.mdns?.disconnect()
-        }
-        catch(err:any) {
-            this.logError(err, 'pauseBackgroundActivity')
-        }
-    }
-
-    async resumeBackgroundActivity():Promise<void> {
-        if (!this.backgroundPaused)
+        // the browsers are already released by the first pause
+        if (alreadyPaused)
             return
 
+        this.pausedSince = Date.now()
+        this.releaseDiscovery('pauseBackgroundActivity')
+    }
+
+    async resumeBackgroundActivity(reason:string=DEFAULT_PAUSE_REASON):Promise<void> {
+        if (!this.pauseReasons.delete(reason))
+            return
+
+        const reasons = Array.from(this.pauseReasons).join(',')
+        if (this.pauseReasons.size>0) {
+            this.logEvent({message:'resuming background activity skipped', reason, reasons, interface:'wifi'})
+            return
+        }
+
         this.backgroundPaused = false
-        this.logEvent({message:'resuming background activity'})
+        const pausedMs = this.pausedSince ? Date.now()-this.pausedSince : 0
+        delete this.pausedSince
+        this.logEvent({message:'resuming background activity', reason, reasons, pausedMs, interface:'wifi'})
 
         // If not connected, discovery is started by connect() once the interface comes back.
         if (!this.isConnected())
@@ -332,6 +347,18 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
             // a binding failure here is reported, not retried, and self-heals on the next
             // connect()/reconnect once the binding recovers.
             this.logError(err, 'resumeBackgroundActivity')
+        }
+    }
+
+    protected releaseDiscovery(context:string):void {
+        try {
+            // Releases the mDNS browsers. On mobile this also releases the wifi multicast lock
+            // they hold, which otherwise disables the wifi chip's multicast filtering for the
+            // whole process lifetime.
+            this.getBinding()?.mdns?.disconnect()
+        }
+        catch(err:any) {
+            this.logError(err, context)
         }
     }
 
@@ -439,20 +466,51 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         const peripheral =  this.createPeripheralFromSettings(settings)
         if (peripheral) return Promise.resolve(peripheral)
 
-        return new Promise ( (done)=>{
+        return new Promise ( (done,reject)=>{
+
+            // While the discovery is paused nobody would ever announce the device: browse on our own for a
+            // while, which must not wait forever either
+            const temporary = this.backgroundPaused
+            const tsStart = Date.now()
+            let timer:ReturnType<typeof setTimeout>|undefined
+
+            const finish = ()=> {
+                this.off('device', onDevice)
+                if (timer) clearTimeout(timer)
+                if (temporary && this.backgroundPaused)
+                    this.releaseDiscovery('waitForPeripheral')
+            }
 
             const onDevice = (device:BleDeviceSettings)=>{
 
                 if (device.name===settings.name) {
                     const peripheral =  this.createPeripheralFromSettings(settings)
                     if (peripheral) {
-                        this.off('device', onDevice)
+                        finish()
+                        if (temporary)
+                            this.logEvent({message:'temporary discovery for peripheral', interface:'wifi', device:settings.name, waitedMs:Date.now()-tsStart, found:true})
                         done(peripheral)
                     }
                 }                        
             }
 
             this.on('device', onDevice)
+
+            if (temporary) {
+                timer = setTimeout( ()=>{
+                    finish()
+                    this.logEvent({message:'temporary discovery for peripheral', interface:'wifi', device:settings.name, waitedMs:Date.now()-tsStart, found:false})
+                    reject(new Error('peripheral not found'))
+                }, TEMPORARY_DISCOVERY_TIMEOUT)
+
+                try {
+                    this.getBinding()?.mdns?.connect()
+                    this.startServiceDiscovery(false,true)
+                }
+                catch(err:any) {
+                    this.logError(err, 'waitForPeripheral')
+                }
+            }
         })
             
 
@@ -616,16 +674,23 @@ export default class DirectConnectInterface   extends EventEmitter implements IB
         }
     }
 
+    // Announcements are only refreshed by mDNS. While the discovery is paused (e.g. during a ride) nothing can
+    // refresh them, and a reconnect of a device in use needs its announcement (address): they do not expire
+    // for as long as the discovery is paused
+    protected isAnnouncementValid(a:Announcement):boolean {
+        return this.backgroundPaused || a.ts>Date.now()-DC_EXPIRATION_TIMEOUT
+    }
+
     protected findByNameAndAddress(name:string,address:string) {
-        return this.services.find( a=> a.service.name===name && a.service.address===address && a.ts>Date.now()-DC_EXPIRATION_TIMEOUT )
+        return this.services.find( a=> a.service.name===name && a.service.address===address && this.isAnnouncementValid(a) )
     }
 
     protected findAllByName(name:string) {
-        return this.services.filter( a=> a.service.name===name && a.ts>Date.now()-DC_EXPIRATION_TIMEOUT )
+        return this.services.filter( a=> a.service.name===name && this.isAnnouncementValid(a) )
     }
 
     protected getAll() {
-        return this.services.filter( a=> a.ts>Date.now()-DC_EXPIRATION_TIMEOUT )
+        return this.services.filter( a=> this.isAnnouncementValid(a) )
     }
 
     /**

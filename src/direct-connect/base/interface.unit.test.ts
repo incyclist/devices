@@ -148,6 +148,131 @@ describe('DirectConnectInterface', () => {
     })
     describe('stopScan', () => {})
 
+    describe('background activity (pause reasons)', () => {
+        let i:any
+
+        beforeEach(() => {
+            jest.resetAllMocks()
+            DirectConnectInterface.prototype.autoConnect = jest.fn()
+            i = new DirectConnectInterface({binding:mock})
+            i.connected = true
+            i.logEvent = jest.fn()
+            mdns.find = jest.fn()
+            mdns.connect = jest.fn()
+            mdns.disconnect = jest.fn()
+        })
+        afterEach(() => {
+            i.removeAllListeners()
+        })
+
+        test('the discovery stays paused until every reason has been released', async () => {
+            await i.pauseBackgroundActivity('app-background')
+            await i.pauseBackgroundActivity('ride')
+            expect(mdns.disconnect).toHaveBeenCalledTimes(1)
+
+            await i.resumeBackgroundActivity('app-background')
+            expect(i.backgroundPaused).toBe(true)
+            expect(mdns.connect).not.toHaveBeenCalled()
+
+            await i.resumeBackgroundActivity('ride')
+            expect(i.backgroundPaused).toBe(false)
+            expect(mdns.connect).toHaveBeenCalledTimes(1)
+            expect(mdns.find).toHaveBeenCalled()
+        })
+
+        test('without a reason the pause is attributed to the app going to the background', async () => {
+            await i.pauseBackgroundActivity()
+            await i.pauseBackgroundActivity('ride')
+            await i.resumeBackgroundActivity('ride')
+            expect(i.backgroundPaused).toBe(true)
+
+            await i.resumeBackgroundActivity()
+            expect(i.backgroundPaused).toBe(false)
+        })
+
+        test('pausing twice for the same reason, or resuming a reason that is not set, does nothing', async () => {
+            await i.resumeBackgroundActivity('ride')
+            expect(mdns.connect).not.toHaveBeenCalled()
+
+            await i.pauseBackgroundActivity('ride')
+            await i.pauseBackgroundActivity('ride')
+            expect(mdns.disconnect).toHaveBeenCalledTimes(1)
+        })
+
+        test('the log carries the reason, all reasons and the interface', async () => {
+            await i.pauseBackgroundActivity('ride')
+            expect(i.logEvent).toHaveBeenCalledWith(O({message:'pausing background activity', reason:'ride', reasons:'ride', interface:'wifi'}))
+        })
+
+        describe('announcement expiry', () => {
+            const old = () => Date.now() - 11*60*1000
+            const add = () => i.services.push({ts:old(), source:'mdns', service:{name:'Wahoo', address:'1.2.3.4', port:1, serviceUUIDs:['1818']}})
+
+            test('announcements expire after 10 minutes while the discovery is running', () => {
+                add()
+                expect(i.getAll()).toHaveLength(0)
+                expect(i.findAllByName('Wahoo')).toHaveLength(0)
+                expect(i.findByNameAndAddress('Wahoo','1.2.3.4')).toBeUndefined()
+            })
+
+            test('announcements do not expire while the discovery is paused: nothing could refresh them', async () => {
+                add()
+                await i.pauseBackgroundActivity('ride')
+                expect(i.getAll()).toHaveLength(1)
+                expect(i.findAllByName('Wahoo')).toHaveLength(1)
+                expect(i.findByNameAndAddress('Wahoo','1.2.3.4')).toBeDefined()
+            })
+        })
+
+        describe('waitForPeripheral', () => {
+            const settings:any = {interface:'wifi', name:'Wahoo', protocol:'wahoo', address:'1.2.3.4'}
+
+            beforeEach(() => {
+                jest.useFakeTimers()
+                i.createPeripheralFromSettings = jest.fn().mockReturnValue(undefined)
+            })
+            afterEach(() => { jest.useRealTimers() })
+
+            test('resolves immediately if the peripheral is already announced, without browsing', async () => {
+                i.createPeripheralFromSettings = jest.fn().mockReturnValue({id:'p'})
+                await i.pauseBackgroundActivity('ride')
+                mdns.connect.mockClear()
+
+                await expect(i.waitForPeripheral(settings)).resolves.toEqual({id:'p'})
+                expect(mdns.connect).not.toHaveBeenCalled()
+            })
+
+            test('while paused: browses on its own, and releases the browsers when the device was found', async () => {
+                await i.pauseBackgroundActivity('ride')
+                mdns.connect.mockClear()
+                mdns.disconnect.mockClear()
+
+                const promise = i.waitForPeripheral(settings)
+                expect(mdns.connect).toHaveBeenCalledTimes(1)
+                expect(mdns.find).toHaveBeenCalled()
+
+                i.createPeripheralFromSettings = jest.fn().mockReturnValue({id:'p'})
+                i.emit('device', {name:'Wahoo'})
+
+                await expect(promise).resolves.toEqual({id:'p'})
+                expect(mdns.disconnect).toHaveBeenCalledTimes(1)
+            })
+
+            test('while paused: does not wait forever', async () => {
+                await i.pauseBackgroundActivity('ride')
+                mdns.disconnect.mockClear()
+                const promise = i.waitForPeripheral(settings)
+                const assertion = expect(promise).rejects.toThrow('peripheral not found')
+
+                await jest.advanceTimersByTimeAsync(30000)
+
+                await assertion
+                expect(mdns.disconnect).toHaveBeenCalledTimes(1)
+                expect(i.listenerCount('device')).toBe(0)
+            })
+        })
+    })
+
     describe('waitForPeripheral', () => {})
 
     describe('addService / discovery cache identity heuristic (FIXES_BACKLOG #14)', () => {
