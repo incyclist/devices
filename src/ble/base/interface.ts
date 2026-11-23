@@ -608,7 +608,8 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
 
         // scan should always run unless explicitly stopped
         if (this.discoverTask.getState().result !== 'stopped' ) {
-            this.startPeripheralScan(true, force)
+            // not awaited: this restarts the scan loop, awaiting it would chain the promises of all iterations
+            this.startPeripheralScan(true, force).catch( err=> this.logError(err,'discover') )
         }
 
     }
