@@ -74,6 +74,64 @@ class MockRawPeripheral extends EventEmitter {
 
 describe('BlePeripheral', () => {
 
+    // On a stalled BLE stack (observed: WebBLE on Linux) unsubscribe/disconnect never settle. disconnect()
+    // used to hang forever and leave `disconnecting` set, which made every later write() return an empty
+    // buffer, so the device could never recover.
+    describe('disconnect on a stalled BLE stack', () => {
+
+        const setup = () => {
+            const raw = new MockRawPeripheral()
+            const announcement: any = { peripheral: raw, serviceUUIDs: [] }
+            const p: any = new BlePeripheral(announcement)
+            p.connected = true
+            p.logEvent = () => {}
+            p.ble = { unregisterConnected: vi.fn() }
+
+            const c = new MockChar(CP)
+            // stopNotifications never answers
+            c.unsubscribe = () => {}
+            p.characteristics = { [beautifyUUID(CP)]: c }
+            p.subscribed = [{ uuid: beautifyUUID(CP), callback: () => {} }]
+
+            return { p, raw }
+        }
+
+        beforeEach(() => { vi.useFakeTimers() })
+        afterEach(() => { vi.useRealTimers() })
+
+        test('does not wait forever for unsubscribe, and always resets the disconnecting flag', async () => {
+            const { p } = setup()
+
+            const promise = p.disconnect()
+            await vi.advanceTimersByTimeAsync(10000)
+
+            await expect(promise).resolves.toBe(true)
+            expect(p.disconnecting).toBe(false)
+            expect(p.isConnected()).toBe(false)
+        })
+
+        test('does not wait forever for disconnectAsync', async () => {
+            const { p, raw } = setup()
+            p.subscribed = []
+            raw.disconnectAsync = () => new Promise<void>(() => {})
+
+            const promise = p.disconnect()
+            await vi.advanceTimersByTimeAsync(10000)
+
+            await expect(promise).resolves.toBe(true)
+            expect(p.disconnecting).toBe(false)
+        })
+
+        test('resets the disconnecting flag when a step throws', async () => {
+            const { p } = setup()
+            p.subscribed = []
+            p.ble.unregisterConnected = () => { throw new Error('boom') }
+
+            await expect(p.disconnect()).rejects.toThrow('boom')
+            expect(p.disconnecting).toBe(false)
+        })
+    })
+
     describe('write (FIXES_BACKLOG #25)', () => {
 
         const setup = () => {

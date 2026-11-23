@@ -541,6 +541,114 @@ describe('BleInterface', () => {
     describe('createPeripheral', () => {})
     describe('createPeripheralFromSettings', () => {})
     describe('createDeviceSetting', () => {})
+    describe('background activity (pause reasons)', () => {
+        let i:any
+
+        beforeEach( ()=>{
+            i = BleInterface.getInstance({logger: logger as EventLogger})
+            i.pauseReasons = new Set()
+            i.backgroundPaused = false
+            i.services = []
+            i.connectedPeripherals = []
+            i.stopPeripheralScan = jest.fn().mockResolvedValue(undefined)
+            i.startPeripheralScan = jest.fn().mockResolvedValue(undefined)
+            i.logEvent = jest.fn()
+        })
+
+        test('the scan stays paused until every reason has been released', async () => {
+            await i.pauseBackgroundActivity('app-background')
+            await i.pauseBackgroundActivity('ride')
+            expect(i.stopPeripheralScan).toHaveBeenCalledTimes(1)
+
+            await i.resumeBackgroundActivity('app-background')
+            expect(i.backgroundPaused).toBe(true)
+            expect(i.startPeripheralScan).not.toHaveBeenCalled()
+
+            await i.resumeBackgroundActivity('ride')
+            expect(i.backgroundPaused).toBe(false)
+            expect(i.startPeripheralScan).toHaveBeenCalledTimes(1)
+        })
+
+        test('without a reason the pause is attributed to the app going to the background', async () => {
+            await i.pauseBackgroundActivity()
+            await i.pauseBackgroundActivity('ride')
+            await i.resumeBackgroundActivity('ride')
+            expect(i.backgroundPaused).toBe(true)
+
+            await i.resumeBackgroundActivity()
+            expect(i.backgroundPaused).toBe(false)
+        })
+
+        test('pausing twice for the same reason, or resuming a reason that is not set, does nothing', async () => {
+            await i.resumeBackgroundActivity('ride')
+            expect(i.startPeripheralScan).not.toHaveBeenCalled()
+
+            await i.pauseBackgroundActivity('ride')
+            await i.pauseBackgroundActivity('ride')
+            expect(i.stopPeripheralScan).toHaveBeenCalledTimes(1)
+        })
+
+        describe('announcement expiry', () => {
+            const old = Date.now() - 11*60*1000
+            const announcement = (id:string) => ({ts:old, service:{name:'Volt', peripheral:{id,address:'a'+id}}})
+
+            test('announcements expire after 10 minutes while the scan is running', () => {
+                i.services = [announcement('1')]
+                i.connectedPeripherals = [{id:'1', peripheral:{}}]
+                expect(i.getAll()).toHaveLength(0)
+            })
+
+            test('announcements of connected peripherals do not expire while the scan is paused', async () => {
+                i.services = [announcement('1'), announcement('2')]
+                i.connectedPeripherals = [{id:'1', peripheral:{}}]
+                await i.pauseBackgroundActivity('ride')
+
+                expect(i.getAll().map( a=>a.service.peripheral.id)).toEqual(['1'])
+            })
+        })
+
+        describe('waitForPeripheral', () => {
+            const settings = {interface:'ble', protocol:'fm', name:'Volt', address:'a1'}
+
+            beforeEach( ()=>{
+                jest.useFakeTimers()
+                i.createPeripheralFromSettings = jest.fn().mockReturnValue(undefined)
+            })
+            afterEach( ()=>{ jest.useRealTimers(); i.removeAllListeners('device') })
+
+            test('resolves immediately if the peripheral is already announced', async () => {
+                i.createPeripheralFromSettings = jest.fn().mockReturnValue({id:'p'})
+                await expect(i.waitForPeripheral(settings)).resolves.toEqual({id:'p'})
+                expect(i.startPeripheralScan).not.toHaveBeenCalled()
+            })
+
+            test('while paused: runs a temporary scan, and stops it when the device was found', async () => {
+                await i.pauseBackgroundActivity('ride')
+                i.stopPeripheralScan.mockClear()
+
+                const promise = i.waitForPeripheral(settings)
+                expect(i.startPeripheralScan).toHaveBeenCalledWith(false,true)
+
+                i.createPeripheralFromSettings = jest.fn().mockReturnValue({id:'p'})
+                i.emit('device', settings)
+
+                await expect(promise).resolves.toEqual({id:'p'})
+                expect(i.stopPeripheralScan).toHaveBeenCalledTimes(1)
+            })
+
+            test('while paused: does not wait forever', async () => {
+                await i.pauseBackgroundActivity('ride')
+                const promise = i.waitForPeripheral(settings)
+                const assertion = expect(promise).rejects.toThrow('peripheral not found')
+
+                await jest.advanceTimersByTimeAsync(30000)
+
+                await assertion
+                expect(i.listenerCount('device')).toBe(0)
+            })
+        })
+    })
+
     describe('waitForPeripheral', () => {})
 
     // Real Bkool SmartPro/Pro2/Pro3 devices only ever advertise standard CP (1818) + Device
