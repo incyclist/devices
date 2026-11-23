@@ -930,11 +930,14 @@ export class BleZwiftPlaySensor extends TBleSensor {
 
     // Click v2 uses the Ride keypad format, but its +/- buttons should behave like the Click v1 +/-
     // (right "+" reports r-shift-up, left "-" reports l-shift-up)
+    // The right side also works on its own (it does not need to be unlocked in Zwift), then B shifts down.
     protected getKeyName(rideKeyName:string):string {
+        this.getDeviceType() // resolves the type from the manufacturer data, in case a key arrives first
         if (!this.isClickV2())
             return rideKeyName
         if (rideKeyName==='r-shift-up') return 'up'
         if (rideKeyName==='l-shift-up') return 'down'
+        if (rideKeyName==='b' && this.deviceType==='click-v2-right') return 'down'
         return rideKeyName
     }
 

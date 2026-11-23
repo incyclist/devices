@@ -549,11 +549,11 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
             peripheral.address = peripheral.id || peripheral.name;
 
         // Zwift Ride and Zwift Click v2 only advertise FC82, not the Play service (00000001-19ca-...)
-        const isZwiftFC82Controller = service.name==='Zwift Ride' || service.name==='Zwift Click'
+        const isZwiftFC82Controller = service.name==='Zwift Ride' || service.name?.startsWith('Zwift Click')
         if (isZwiftFC82Controller && service.serviceUUIDs.some(  uuid=> matches(uuid,'FC82'))) {
             const protocol = 'zwift-play'
-            const {id,name,address} = getPeripheralInfo(peripheral)
-            return {interface:BleInterface.INTERFACE_NAME, protocol, id,name,address}
+            const {id,address} = getPeripheralInfo(peripheral)
+            return {interface:BleInterface.INTERFACE_NAME, protocol, id,name:service.name,address}
         }
 
         const protocol = this.getAdapterFactory().getProtocol(service.serviceUUIDs)
@@ -798,7 +798,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     protected buildAnnouncement(peripheral:BleRawPeripheral):BlePeripheralAnnouncement {
         return {
             advertisement:peripheral.advertisement,
-            name:peripheral.advertisement.localName,
+            name:getAnnouncedName(peripheral),
             manufacturerData:peripheral.advertisement?.manufacturerData ? Buffer.from(peripheral.advertisement.manufacturerData) : undefined,
             serviceUUIDs:peripheral.advertisement.serviceUuids??[],
             serviceData:peripheral.advertisement.serviceData,
@@ -1003,15 +1003,8 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         const found = service.serviceUUIDs.map(parseUUID)
         const expected = this.expectedServices.map(parseUUID)
 
-        if (service.name.startsWith('Zwift')) {
-            // Both Click v2 pucks advertise as "Zwift Click". The left one also reports the right one's
-            // buttons, so only the left one is used (devices are matched by name, so the first one found would win)
-            if (isZwiftClickV2Right(service.manufacturerData)) {
-                this.logEvent({message:'Zwift Click v2 right side ignored', address:service.peripheral?.address})
-                return false
-            }
+        if (service.name.startsWith('Zwift'))
             return true
-        }
 
         const supported = found.filter( uuid => expected.includes(uuid) )??[]
 
@@ -1254,6 +1247,15 @@ export class BleInterfaceFactory extends InterfaceFactory{
     }
 }
 
-// Zwift manufacturer data: company id 0x094A (little endian) followed by the device type, 0x0A = Click v2 right side
-const isZwiftClickV2Right = (manufacturerData?:Buffer):boolean =>
-    manufacturerData?.length>=3 && manufacturerData[0]===0x4a && manufacturerData[1]===0x09 && manufacturerData[2]===0x0a
+// Both Zwift Click v2 sides advertise as "Zwift Click". Announcements are matched by name, so the side is added
+// to the name, otherwise only the first side found would be listed.
+// Manufacturer data: company id 0x094A (little endian), then the device type: 0x0A = right side, 0x0B = left side
+const getAnnouncedName = (peripheral:BleRawPeripheral):string => {
+    const name = peripheral.advertisement?.localName
+    const data = peripheral.advertisement?.manufacturerData
+    if (!data || data.length<3 || data[0]!==0x4a || data[1]!==0x09)
+        return name
+    if (data[2]===0x0a) return `${name} (right)`
+    if (data[2]===0x0b) return `${name} (left)`
+    return name
+}

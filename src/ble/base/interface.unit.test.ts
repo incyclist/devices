@@ -549,17 +549,38 @@ describe('BleInterface', () => {
             (BleInterface as any)._instance = undefined
         })
 
-        test('Zwift Click v2: only the left side is used, it also reports the right side buttons', () => {
-            i.expectedServices = []
-            const announce = (type:number) => ({name:'Zwift Click', serviceUUIDs:['fc82'], manufacturerData:Buffer.from([0x4a,0x09,type,0x41,0xdb]), peripheral:{address:'a'}})
-            expect(i.isSupportedPeripheral(announce(0x0a))).toBe(false)
-            expect(i.isSupportedPeripheral(announce(0x0b))).toBe(true)
-        })
-
-        test.each(['Zwift Ride','Zwift Click'])('%s advertising only FC82 is a zwift-play controller', (name) => {
+        test.each(['Zwift Ride','Zwift Click (left)','Zwift Click (right)'])('%s advertising only FC82 is a zwift-play controller', (name) => {
             const peripheral = {id:'c1', address:'c1', name}
             const settings = i.createDeviceSetting({name, serviceUUIDs:['fc82'], peripheral})
             expect(settings).toMatchObject({interface:'ble', protocol:'zwift-play', name})
+        })
+    })
+
+    describe('isSupportedPeripheral', () => {
+        let i
+        beforeEach(() => {
+            i = BleInterface.getInstance({logger: logger as EventLogger})
+            i.expectedServices = []
+        })
+        afterEach(() => {
+            (BleInterface as any)._instance = undefined
+        })
+
+        const clickV2 = (type:number) => ({id:'c'+type, address:'c'+type, advertisement:{localName:'Zwift Click', serviceUuids:['fc82'], manufacturerData:Buffer.from([0x4a,0x09,type,0x41,0xdb])}})
+
+        test('Zwift Click v2: both sides are supported and announced under their own name', () => {
+            const right = i.buildAnnouncement(clickV2(0x0a))
+            const left = i.buildAnnouncement(clickV2(0x0b))
+
+            expect(right.name).toBe('Zwift Click (right)')
+            expect(left.name).toBe('Zwift Click (left)')
+            expect(i.isSupportedPeripheral(right)).toBe(true)
+            expect(i.isSupportedPeripheral(left)).toBe(true)
+        })
+
+        test('other Zwift controllers keep their advertised name', () => {
+            expect(i.buildAnnouncement(clickV2(0x09)).name).toBe('Zwift Click')
+            expect(i.buildAnnouncement({id:'r', address:'r', advertisement:{localName:'Zwift Ride', serviceUuids:['fc82']}}).name).toBe('Zwift Ride')
         })
     })
     describe('background activity (pause reasons)', () => {
