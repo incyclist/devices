@@ -54,6 +54,7 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
     protected logDisabled: boolean
     protected internalEvents: EventEmitter
     protected services: Announcement[] = []
+    protected pendingWaits: Array<{address?:string, name?:string, cancel:()=>void}> = []
     protected incompleteServices: BlePeripheralAnnouncement[] = []
     protected unsupported: BlePeripheralAnnouncement[] = []
     protected expectedServices: string[] = ['180d','1818','1826','6e40fec1']
@@ -508,9 +509,21 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
             const finish = ()=> {
                 this.off('device', onDevice)
                 if (timer) clearTimeout(timer)
+                this.pendingWaits = this.pendingWaits.filter( w=> w!==pending)
                 if (temporary || !wasDiscovering)
                     this.stopPeripheralScan().catch( ()=>{} )
             }
+
+            // a cancelled start must not stay behind this wait until its own timeout
+            const pending = {
+                address: settings.address,
+                name: settings.name,
+                cancel: ()=>{
+                    finish()
+                    reject(new Error('peripheral wait cancelled'))
+                }
+            }
+            this.pendingWaits.push(pending)
 
             const onDevice = (device:BleDeviceSettings)=>{
                 if (device.address===settings.address) {
@@ -540,6 +553,16 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         })
     }
 
+
+    /**
+     * Rejects the still pending waitForPeripheral() of a device, if there is one, so that a start that is being
+     * cancelled does not have to wait for the end of the wait
+     */
+    cancelWait(settings:BleDeviceSettings):void {
+        this.pendingWaits
+            .filter( w=> settings.address!==undefined ? w.address===settings.address : w.name===settings.name)
+            .forEach( w=> w.cancel())
+    }
 
     createDeviceSetting(service:BlePeripheralAnnouncement):BleDeviceSettings {
         const {peripheral} = service
