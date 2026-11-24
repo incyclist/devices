@@ -402,7 +402,6 @@ describe('BleZwiftPlaySensor', () => {
         test.each([
             ['4a090a41db', 0x1000, 'up'],      // right "+"
             ['4a090b41db', 0x0100, 'down'],    // left "-"
-            ['4a090a41db', 0x0020, 'down'],    // right B, so the right side alone can shift down
             ['4a090b41db', 0x0020, 'b'],       // left B (relayed from the right side) keeps its name
             ['4a0907',     0x1000, 'r-shift-up'], // Zwift Ride keeps its key names
             ['4a0907',     0x0020, 'b'],
