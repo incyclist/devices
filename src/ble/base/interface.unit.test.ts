@@ -646,6 +646,43 @@ describe('BleInterface', () => {
                 await assertion
                 expect(i.listenerCount('device')).toBe(0)
             })
+
+            test('cancelWait() rejects the pending wait of that device at once', async () => {
+                const promise = i.waitForPeripheral(settings)
+                const assertion = expect(promise).rejects.toThrow('peripheral wait cancelled')
+
+                i.cancelWait(settings)
+
+                await assertion
+                expect(i.listenerCount('device')).toBe(0)
+            })
+
+            test('cancelWait() leaves the wait of another device alone', async () => {
+                const other = {...settings, name:'Other', address:'a2'}
+                const promise = i.waitForPeripheral(other)
+                let settled = false
+                promise.then( ()=>{settled=true}, ()=>{settled=true})
+
+                i.cancelWait(settings)
+                await jest.advanceTimersByTimeAsync(0)
+
+                expect(settled).toBe(false)
+                i.cancelWait(other)
+                await expect(promise).rejects.toThrow('peripheral wait cancelled')
+            })
+
+            test('cancelWait() without a pending wait does nothing', () => {
+                expect( ()=> i.cancelWait(settings)).not.toThrow()
+            })
+
+            test('a wait that has finished can no longer be cancelled', async () => {
+                const promise = i.waitForPeripheral(settings)
+                i.createPeripheralFromSettings = jest.fn().mockReturnValue({id:'p'})
+                i.emit('device', settings)
+                await expect(promise).resolves.toEqual({id:'p'})
+
+                expect( ()=> i.cancelWait(settings)).not.toThrow()
+            })
         })
     })
 
