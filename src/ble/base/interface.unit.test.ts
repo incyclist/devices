@@ -540,7 +540,43 @@ describe('BleInterface', () => {
 
     describe('createPeripheral', () => {})
     describe('createPeripheralFromSettings', () => {})
-    describe('createDeviceSetting', () => {})
+    describe('createDeviceSetting', () => {
+        let i
+        beforeEach(() => {
+            i = BleInterface.getInstance({logger: logger as EventLogger})
+        })
+        afterEach(() => {
+            (BleInterface as any)._instance = undefined
+        })
+
+        test.each(['Zwift Ride','Zwift Click'])('%s advertising only FC82 is a zwift-play controller', (name) => {
+            const peripheral = {id:'c1', address:'c1', name}
+            const settings = i.createDeviceSetting({name, serviceUUIDs:['fc82'], peripheral})
+            expect(settings).toMatchObject({interface:'ble', protocol:'zwift-play', name})
+        })
+    })
+
+    describe('isSupportedPeripheral', () => {
+        let i
+        beforeEach(() => {
+            i = BleInterface.getInstance({logger: logger as EventLogger})
+            i.expectedServices = []
+        })
+        afterEach(() => {
+            (BleInterface as any)._instance = undefined
+        })
+
+        const clickV2 = (type:number) => ({id:'c'+type, address:'c'+type, advertisement:{localName:'Zwift Click', serviceUuids:['fc82'], manufacturerData:Buffer.from([0x4a,0x09,type,0x41,0xdb])}})
+
+        test('Zwift Click v2: only the left side is used, it also reports the right side buttons', () => {
+            expect(i.isSupportedPeripheral(i.buildAnnouncement(clickV2(0x0a)))).toBe(false)
+            expect(i.isSupportedPeripheral(i.buildAnnouncement(clickV2(0x0b)))).toBe(true)
+        })
+
+        test('other Zwift controllers are supported', () => {
+            expect(i.isSupportedPeripheral(i.buildAnnouncement(clickV2(0x09)))).toBe(true)
+        })
+    })
     describe('background activity (pause reasons)', () => {
         let i:any
 

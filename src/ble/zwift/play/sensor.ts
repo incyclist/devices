@@ -22,7 +22,18 @@ type BleZwiftPlaySensorProps =
 }    
 
 
-type DeviceType = 'left' | 'right' | 'click' | 'hub' | 'ride-left' | 'ride-right'
+type DeviceType = 'left' | 'right' | 'click' | 'hub' | 'ride-left' | 'ride-right' | 'click-v2-left' | 'click-v2-right'
+
+// device type byte in the Zwift manufacturer data (company id 0x094A)
+const ZWIFT_DEVICE_TYPES: Record<number, DeviceType> = {
+    0x02: 'right',
+    0x03: 'left',
+    0x07: 'ride-right',
+    0x08: 'ride-left',
+    0x09: 'click',
+    0x0A: 'click-v2-right',
+    0x0B: 'click-v2-left',
+}
 
 type PendingMeasurement = {
     type: number
@@ -196,26 +207,7 @@ export class BleZwiftPlaySensor extends TBleSensor {
         else if (this.peripheral?.getManufacturerData) {
             const manufacturerData = this.getManufacturerData()
 
-            if (manufacturerData?.startsWith('4a09')) {
-                const typeVal = Number('0x'+manufacturerData.substring(2,4))
-                
-                if (typeVal===9) {
-                    this.deviceType = 'click'
-                    this.encrypted = false
-                }
-                else if (typeVal===2) { 
-                    this.deviceType = 'right'
-                }
-                else if (typeVal===3) { 
-                    this.deviceType = 'left'
-                }
-                else if (typeVal===7) { 
-                    this.deviceType = 'ride-right'
-                }
-                else if (typeVal===8) { 
-                    this.deviceType = 'ride-left'
-                }
-            }
+            this.setDeviceTypeFromManufacturerData(manufacturerData)
             
         }
         
@@ -661,7 +653,7 @@ export class BleZwiftPlaySensor extends TBleSensor {
             // Detect releases
             this.rideKeyPadStates.forEach((state, bit) => {
                 if (!currentPresses.has(bit) && state.pressed) {
-                    const keyName = buttonNames.get(bit)
+                    const keyName = this.getKeyName(buttonNames.get(bit))
                     const duration = Date.now() - state.timestamp
                     this.logEvent({message:'key pressed',key: keyName, name,address, duration, deviceType:this.deviceType})
                     this.emit('key-pressed', {key: keyName, duration, deviceType: this.deviceType})
@@ -865,25 +857,7 @@ export class BleZwiftPlaySensor extends TBleSensor {
             else if (this.peripheral?.getManufacturerData) {
                 manufacturerData = this.getManufacturerData()
 
-                if (manufacturerData?.startsWith('4a09')) {
-                    const typeVal = Number('0x'+manufacturerData.substring(2,4))
-                    if (typeVal===9) {
-                        this.deviceType = 'click'
-                        this.encrypted = false
-                    }
-                    else if (typeVal===2) { 
-                        this.deviceType = 'right'
-                    }
-                    else if (typeVal===3) { 
-                        this.deviceType = 'left'
-                    }
-                    else if (typeVal===7) { 
-                        this.deviceType = 'ride-right'
-                    }
-                    else if (typeVal===8) { 
-                        this.deviceType = 'ride-left'
-                    }
-                }
+                this.setDeviceTypeFromManufacturerData(manufacturerData)
                 
             }
             
@@ -903,6 +877,10 @@ export class BleZwiftPlaySensor extends TBleSensor {
 
             if (this.isFM) {
                 message = Buffer.concat( [ Buffer.from('RideOn'), Buffer.from( [0x02, 0x01]) ] ) 
+            }
+            else if (this.isClickV2()) {
+                // Click v2 expects the 8 byte start command (same as BikeControl)
+                message = Buffer.concat( [ Buffer.from('RideOn'), Buffer.from( [0x02, 0x03]) ] )
             }
             else if (this.encrypted) {
                 const { publicKey, privateKey } = this.createKeyPair()
@@ -935,6 +913,34 @@ export class BleZwiftPlaySensor extends TBleSensor {
 
     reset(): void {
         // 
+    }
+
+    protected setDeviceTypeFromManufacturerData(manufacturerData:string|undefined) {
+        if (!manufacturerData?.startsWith('4a09'))
+            return
+
+        const deviceType = ZWIFT_DEVICE_TYPES[Number('0x'+manufacturerData.substring(4,6))]
+        if (!deviceType)
+            return
+
+        this.deviceType = deviceType
+        if (deviceType==='click')
+            this.encrypted = false
+    }
+
+    // Click v2 uses the Ride keypad format, but its +/- buttons should behave like the Click v1 +/-
+    // (right "+" reports r-shift-up, left "-" reports l-shift-up)
+    protected getKeyName(rideKeyName:string):string {
+        this.getDeviceType() // resolves the type from the manufacturer data, in case a key arrives first
+        if (!this.isClickV2())
+            return rideKeyName
+        if (rideKeyName==='r-shift-up') return 'up'
+        if (rideKeyName==='l-shift-up') return 'down'
+        return rideKeyName
+    }
+
+    protected isClickV2():boolean {
+        return this.deviceType==='click-v2-left' || this.deviceType==='click-v2-right'
     }
 
     getManufacturerData() : string {

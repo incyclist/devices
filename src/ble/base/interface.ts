@@ -571,7 +571,9 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         if (peripheral.address===undefined || peripheral.address==='')
             peripheral.address = peripheral.id || peripheral.name;
 
-        if (service.name==='Zwift Ride' && service.serviceUUIDs.some(  uuid=> matches(uuid,'FC82'))) {
+        // Zwift Ride and Zwift Click v2 only advertise FC82, not the Play service (00000001-19ca-...)
+        const isZwiftFC82Controller = service.name==='Zwift Ride' || service.name==='Zwift Click'
+        if (isZwiftFC82Controller && service.serviceUUIDs.some(  uuid=> matches(uuid,'FC82'))) {
             const protocol = 'zwift-play'
             const {id,name,address} = getPeripheralInfo(peripheral)
             return {interface:BleInterface.INTERFACE_NAME, protocol, id,name,address}
@@ -1024,8 +1026,15 @@ export class BleInterface   extends EventEmitter implements IBleInterface<BlePer
         const found = service.serviceUUIDs.map(parseUUID)
         const expected = this.expectedServices.map(parseUUID)
 
-        if (service.name.startsWith('Zwift'))
+        if (service.name.startsWith('Zwift')) {
+            // Both Click v2 pucks advertise as "Zwift Click". The left one also reports the right one's
+            // buttons, so only the left one is used (devices are matched by name, so the first one found would win)
+            if (isZwiftClickV2Right(service.manufacturerData)) {
+                this.logEvent({message:'Zwift Click v2 right side ignored', address:service.peripheral?.address})
+                return false
+            }
             return true
+        }
 
         const supported = found.filter( uuid => expected.includes(uuid) )??[]
 
@@ -1267,3 +1276,7 @@ export class BleInterfaceFactory extends InterfaceFactory{
         return this.iface
     }
 }
+
+// Zwift manufacturer data: company id 0x094A (little endian) followed by the device type, 0x0A = Click v2 right side
+const isZwiftClickV2Right = (manufacturerData?:Buffer):boolean =>
+    manufacturerData?.length>=3 && manufacturerData[0]===0x4a && manufacturerData[1]===0x09 && manufacturerData[2]===0x0a
