@@ -442,6 +442,37 @@ describe('BleFitnessMachineDevice',()=>{
 
         })
 
+        test('recognises Heart Rate Service from discovered GATT UUIDs', async () => {
+            // Bluefin TOUR 5.0: FTMS bitmap does not advertise HR,
+            // but the peripheral exposes a separate 0x180D service.
+            const features = Buffer.from('8000000004000000', 'hex');
+            setupMock(ftms, features);
+
+            const peripheral = ftms.getPeripheral();
+            const previous = peripheral.getDiscoveredServices;
+            peripheral.getDiscoveredServices = vi.fn()
+                .mockReturnValue(['180D', '1826']);
+
+            try {
+                const result = await ftms.getFitnessMachineFeatures();
+
+                expect(result).toMatchObject({
+                    fitnessMachine: 128,
+                    targetSettings: 4,
+                    heartrate: true,
+                    cadence: false,
+                    power: false,
+                    setResistance: true
+                });
+            }
+            finally {
+                if (previous === undefined)
+                    delete peripheral.getDiscoveredServices;
+                else
+                    peripheral.getDiscoveredServices = previous;
+            }
+        })
+
         test('no data',async ()=>{
             setupMock(ftms,undefined)
             const res = await ftms.getFitnessMachineFeatures()
