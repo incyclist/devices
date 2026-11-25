@@ -431,6 +431,7 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceP
                 return info.data;
             }
             catch(err) {
+                this.started = false
                 try { await this.reset() } catch (e) { this.logEvent( {message:'Error', error:e.message})}
 
                 throw( new Error(`could not start device, reason:${err.message}`));
@@ -439,6 +440,7 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceP
 
         }, 5, 1000 )
         .then ( (data: IncyclistBikeData)     => {
+            this.started = true
             this.startUpdatePull();
             return true;
         })        
@@ -475,6 +477,7 @@ export default class KettlerRacerAdapter   extends SerialIncyclistDevice<DeviceP
     stop(): Promise<boolean> {
 
         this.logEvent({message:'stop request'});        
+        this.started = false
         
         return new Promise( async (resolve,reject) => {
             try {

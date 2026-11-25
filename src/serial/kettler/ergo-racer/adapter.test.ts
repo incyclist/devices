@@ -92,7 +92,51 @@ describe( 'ErgoRacerAdapter', () => {
             const available = await ad.check()
             expect(available).toBeTruthy()
         })
-    
+
+        describe('started flag',()=>{
+            const stubDevice = (adapter) => {
+                adapter.waitForOpened = vi.fn().mockResolvedValue(true)
+                adapter.check = vi.fn().mockResolvedValue(true)
+                adapter.startTraining = vi.fn().mockResolvedValue('ACK')
+                adapter.setPower = vi.fn().mockResolvedValue({})
+                adapter.update = vi.fn().mockResolvedValue({})
+                adapter.startUpdatePull = vi.fn()
+                adapter.waitForClosed = vi.fn().mockResolvedValue(true)
+            }
+
+            test('is not started before start()',()=>{
+                expect(ad.isStarted()).toBe(false)
+            })
+
+            test('is started once start() succeeded',async ()=>{
+                stubDevice(ad)
+
+                const started = await ad.start()
+
+                expect(started).toBe(true)
+                expect(ad.isStarted()).toBe(true)
+            })
+
+            test('is not started any more after stop()',async ()=>{
+                stubDevice(ad)
+                await ad.start()
+
+                await ad.stop()
+
+                expect(ad.isStarted()).toBe(false)
+            })
+
+            test('is not started if start() failed',async ()=>{
+                stubDevice(ad)
+                ad.update = vi.fn().mockRejectedValue(new Error('no response'))
+                ad.reset = vi.fn().mockResolvedValue(true)
+
+                await expect(ad.start()).rejects.toThrow('could not start device')
+
+                expect(ad.isStarted()).toBe(false)
+                expect(ad.startUpdatePull).not.toHaveBeenCalled()
+            })
+        })
     })
 
 
