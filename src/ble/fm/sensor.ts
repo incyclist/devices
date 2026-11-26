@@ -636,9 +636,16 @@ export default class BleFitnessMachineDevice extends TBleSensor {
         const buffer = data ? Buffer.from(data) : undefined
         try {
 
-            const services = this.peripheral?.services || []
-            let power = services.some( s => matches(s.uuid,'1818'))  // Cycling Power
-            let heartrate = services.some( s => matches(s.uuid,'180d'))  // Heart Rate
+            // Prefer discovered GATT services, while supporting BLE backends
+            // that populate only the raw peripheral service collection.
+            const discovered = this.peripheral?.getDiscoveredServices?.() ?? []
+            const rawServices = this.peripheral?.services ?? []
+            const services = [
+                ...discovered,
+                ...rawServices.map(s => typeof s === 'string' ? s : s.uuid)
+            ]
+            let power = services.some(s => matches(s, '1818'))  // Cycling Power
+            let heartrate = services.some(s => matches(s, '180d'))  // Heart Rate
             const dataLength = buffer?.length??0
 
             const fitnessMachine = dataLength>=4 ? buffer!.readUInt32LE(0) : 0
