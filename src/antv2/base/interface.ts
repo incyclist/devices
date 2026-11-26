@@ -213,7 +213,10 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         this.connectPromise = null;
         this.scanPromise = null
         this.connected = false;
-        return closed;          
+        // the channels belong to the device that was just closed: a stale entry would otherwise make the next
+        // session believe the channel is still in use
+        this.channelsInUse = []
+        return closed;
     }
     async terminate():Promise<void> {
         await this.disconnect()
@@ -472,24 +475,39 @@ export default class AntInterface   extends EventEmitter implements IncyclistInt
         try {
             const started =  await channel.startSensor(sensor)
             if (!started) {
-                this.logEvent( {message:'could not start sensor' })
+                this.logEvent( {message:'could not start sensor', channelNo:channel.getChannelNo(), profile:sensor.getProfile(), deviceID:sensor.getDeviceID() })
                 channel.off('data',onData)
+                await this.releaseChannel(sensor, channel)
+                return false
             }
 
             this.logEvent( {message:'sensor started', channelNo:sensor.getChannel()?.getChannelNo(), profile:sensor.getProfile(), deviceID:sensor.getDeviceID()})
-            return started
+            return true
 
-        } 
+        }
         catch(err) {
             this.logEvent( {message:'could not start sensor', error:err.message, stack:err.stack})
             channel.off('data',onData)
-            try {
-                await channel.stopSensor(sensor)                
-            }
-            catch{}
-            this.unblockChannel(channel);
+            await this.releaseChannel(sensor, channel)
             return false;
         }
+    }
+
+    // A channel whose sensor could not be started must be given back: it would stay allocated for the rest of the
+    // session, and a retry would be handed another channel for the same device, so that the stick has two channels
+    // for one device (channel collisions)
+    private async releaseChannel(sensor:ISensor, channel:Channel) {
+        try {
+            // a message that was never answered can still be parked in the channel and would block the stop
+            channel.flush?.()
+            await waitWithTimeout( channel.stopSensor(sensor), 2000, ()=>{
+                this.logEvent( {message:'stopping sensor timed out', channelNo:channel.getChannelNo(), deviceID:sensor.getDeviceID()})
+            })
+        }
+        catch {
+            // ignore: the channel is released in any case
+        }
+        this.unblockChannel(channel)
     }
 
     private blockChannel(channel: any,usage:ChannelUsage) {
