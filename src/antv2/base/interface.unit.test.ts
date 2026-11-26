@@ -228,7 +228,15 @@ describe('Ant Interface',()=>{
             expect(i.isConnected()).toBe(false)
 
         })
-        
+        test('channels that were in use are not carried over into the next session',async()=>{
+            const channel = { getChannelNo: jest.fn().mockReturnValue(1), stopAllSensors: jest.fn().mockResolvedValue(true) };
+            (i as any).channelsInUse = [{channel, usage:'sensor'}]
+
+            await i.disconnect()
+
+            expect((i as any).channelsInUse).toHaveLength(0)
+        })
+
     })
 
     describe('scan', ()=>{
@@ -520,6 +528,46 @@ describe('Ant Interface',()=>{
             const res = await i.startSensor( sensor, onDeviceData)
             expect(res).toBe(false)
 
+        })
+
+        test('start Sensor fails: the channel is stopped and given back',async()=>{
+            channel.startSensor= jest.fn().mockResolvedValue(false)
+            channel.flush = jest.fn()
+
+            const sensor = new FitnessEquipmentSensor(2606)
+            await i.startSensor( sensor, jest.fn())
+
+            expect(channel.flush).toHaveBeenCalled()
+            expect(channel.stopSensor).toHaveBeenCalledWith(sensor)
+            expect((i as any).channelsInUse).toHaveLength(0)
+        })
+
+        test('start Sensor fails: does not log that the sensor was started',async()=>{
+            channel.startSensor= jest.fn().mockResolvedValue(false)
+            const logEvent = jest.spyOn(i,'logEvent')
+
+            await i.startSensor( new FitnessEquipmentSensor(2606), jest.fn())
+
+            const messages = logEvent.mock.calls.map( c=>(c[0] as any).message)
+            expect(messages).toContain('could not start sensor')
+            expect(messages).not.toContain('sensor started')
+        })
+
+        test('start Sensor fails: a channel that can not be stopped is given back anyway',async()=>{
+            channel.startSensor= jest.fn().mockResolvedValue(false)
+            channel.stopSensor = jest.fn().mockRejectedValue(new Error('X'))
+
+            const res = await i.startSensor( new FitnessEquipmentSensor(2606), jest.fn())
+
+            expect(res).toBe(false)
+            expect((i as any).channelsInUse).toHaveLength(0)
+        })
+
+        test('start Sensor succeeds: the channel stays in use',async()=>{
+            await i.startSensor( new FitnessEquipmentSensor(2606), jest.fn())
+
+            expect(channel.stopSensor).not.toHaveBeenCalled()
+            expect((i as any).channelsInUse).toHaveLength(1)
         })
 
         test('start Sensor throws',async()=>{
