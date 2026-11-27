@@ -10,7 +10,6 @@ import { BleDeviceSettings,  IBlePeripheral } from '../../types.js';
 export class ZwiftPlayAdapter extends BleAdapter<BleDeviceData,BleZwiftPlaySensor>{  
     protected static INCYCLIST_PROFILE_NAME:LegacyProfile = 'Controller'
     protected static CAPABILITIES:IncyclistCapability[] = [ IncyclistCapability.AppControl ]
-    protected keyPressedHandler?: (event:any)=>void
 
     constructor( settings:BleDeviceSettings, props?:DeviceProperties) {
         super(settings,props);
@@ -27,35 +26,7 @@ export class ZwiftPlayAdapter extends BleAdapter<BleDeviceData,BleZwiftPlaySenso
 
 
     async startSensor():Promise<boolean> {    
-        try {
-            let connected = await super.startSensor()
-
-            if (connected) {
-               const sensor = this.getSensor()
-
-                // forward key-pressed events
-                if (this.keyPressedHandler) {
-                    sensor.off('key-pressed', this.keyPressedHandler)    
-                }
-                else {
-                    this.keyPressedHandler = this.onKeyPressed.bind(this)
-                }
-                sensor.on('key-pressed', this.keyPressedHandler)
-            }
-            return connected
-        }
-        catch ( err:any)  {
-            if (err.message==='wifi device wait cancelled') {
-                this.logEvent({message:err.message})
-                return false
-            }
-            this.logEvent({message:'error', fn:'startSensor', error:err.message, stack:err.stack})
-            return false
-        }
-    }
-
-    protected onKeyPressed(event:any) {
-        this.emit('key-pressed',this.getSettings(), event)                
+        return await this.startControllerSensor( ()=>super.startSensor() )
     }
 
     isEqual(settings: BleDeviceSettings): boolean {

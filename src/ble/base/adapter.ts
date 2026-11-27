@@ -385,6 +385,64 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         return this.startTask?.isRunning()
     }
 
+    /**
+     * A start that ends because the sensor was not found in time (start timeout, or the start was cancelled while
+     * waiting for the peripheral) is an expected outcome and not an error
+     */
+    protected isExpectedStartFailure(err:any):boolean {
+        const message = err?.message
+        return message==='peripheral wait cancelled' || message==='peripheral not found'
+    }
+
+    protected keyPressedHandler?: (event:any)=>void
+
+    /**
+     * Starts the sensor of a controller (a device that only sends data when a button is pressed) and forwards the 
+     * key-pressed events of the sensor
+     * 
+     * @param start  starts the sensor (the base implementation of startSensor())
+     */
+    protected async startControllerSensor(start:()=>Promise<boolean>):Promise<boolean> {
+        try {
+            const connected = await start()
+            if (connected)
+                this.forwardKeyPressed()
+            return connected
+        }
+        catch ( err:any)  {
+            if (this.isExpectedStartFailure(err))
+                this.logEvent({message:'start result: not found', reason:err.message, device:this.getName(), interface:this.getInterface()})
+            else
+                this.logEvent({message:'error', fn:'startSensor', error:err.message, stack:err.stack})
+            return false
+        }
+    }
+
+    protected forwardKeyPressed():void {
+        const sensor = this.getSensor() as any
+
+        if (this.keyPressedHandler) {
+            sensor.off('key-pressed', this.keyPressedHandler)    
+        }
+        else {
+            this.keyPressedHandler = this.onKeyPressed.bind(this)
+        }
+        sensor.on('key-pressed', this.keyPressedHandler)
+    }
+
+    protected onKeyPressed(event:any):void {
+        this.emit('key-pressed',this.getSettings(), event)                
+    }
+
+    protected logStartFailure(err:any):void {
+        const logProps = {device:this.getName(),interface:this.getInterface(), protocol:this.getProtocolName()}
+
+        if (this.isExpectedStartFailure(err))
+            this.logEvent({message: 'start result: not found', reason: err.message, ...logProps})
+        else
+            this.logEvent({message: 'start result: error', error: err.message, ...logProps})
+    }
+
     protected hasData() {
         return this.dataMsgCount>0
     }
@@ -541,7 +599,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             return true;
         }
         catch(err:any) {
-            this.logEvent({message: 'start result: error', error: err.message,device:this.getName(),interface:this.getInterface(), protocol:this.getProtocolName()})
+            this.logStartFailure(err)
             this.started = false;
             this.stopped = true;      
             const ble = this.getBle()
