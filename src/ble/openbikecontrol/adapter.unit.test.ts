@@ -16,6 +16,32 @@ describe('OpenBikeControlAdapter', () => {
         expect(adapter.isSame(new OpenBikeControlAdapter(settings({ address: '10.0.0.8' })))).toBe(false)
     })
 
+    describe('startSensor', () => {
+        const run = async (error: Error) => {
+            const adapter: any = new OpenBikeControlAdapter(settings({ interface: 'ble', address: 'aa:bb:cc:dd:ee:ff' }))
+            const base = Object.getPrototypeOf(OpenBikeControlAdapter.prototype)
+            const spy = jest.spyOn(base, 'startSensor').mockRejectedValue(error)
+            const logEvent = jest.spyOn(adapter, 'logEvent').mockImplementation(() => { })
+            const result = await adapter.startSensor()
+            spy.mockRestore()
+            return { result, logs: logEvent.mock.calls.map(c => c[0] as any) }
+        }
+
+        test.each(['peripheral wait cancelled', 'peripheral not found'])('%s is not logged as an error', async (message) => {
+            const { result, logs } = await run(new Error(message))
+            expect(result).toBe(false)
+            expect(logs).toHaveLength(1)
+            expect(logs[0]).toMatchObject({ message: 'start result: not found', reason: message })
+            expect(logs[0].error).toBeUndefined()
+        })
+
+        test('any other failure is still logged as an error', async () => {
+            const { result, logs } = await run(new Error('boom'))
+            expect(result).toBe(false)
+            expect(logs[0]).toMatchObject({ message: 'error', fn: 'startSensor', error: 'boom' })
+        })
+    })
+
     test('the name contains the end of the address', () => {
         expect(new OpenBikeControlAdapter(settings()).getName()).toBe('BikeControl 0007')
         expect(new OpenBikeControlAdapter(settings({ interface: 'ble', address: 'aa:bb:cc:dd:ee:ff' })).getName()).toBe('BikeControl EEFF')

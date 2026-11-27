@@ -45,8 +45,8 @@ export class OpenBikeControlAdapter extends BleAdapter<BleDeviceData,BleOpenBike
             return connected
         }
         catch ( err:any)  {
-            if (err.message==='wifi device wait cancelled') {
-                this.logEvent({message:err.message})
+            if (this.isExpectedStartFailure(err)) {
+                this.logEvent({message:'start result: not found', reason:err.message, device:this.getName(), interface:this.getInterface()})
                 return false
             }
 

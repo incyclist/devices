@@ -385,6 +385,15 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         return this.startTask?.isRunning()
     }
 
+    /**
+     * A start that ends because the sensor was not found in time (start timeout, or the start was cancelled while
+     * waiting for the peripheral) is an expected outcome and not an error
+     */
+    protected isExpectedStartFailure(err:any):boolean {
+        const message = err?.message
+        return message==='peripheral wait cancelled' || message==='peripheral not found'
+    }
+
     protected hasData() {
         return this.dataMsgCount>0
     }
@@ -541,7 +550,10 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             return true;
         }
         catch(err:any) {
-            this.logEvent({message: 'start result: error', error: err.message,device:this.getName(),interface:this.getInterface(), protocol:this.getProtocolName()})
+            if (this.isExpectedStartFailure(err))
+                this.logEvent({message: 'start result: not found', reason: err.message,device:this.getName(),interface:this.getInterface(), protocol:this.getProtocolName()})
+            else
+                this.logEvent({message: 'start result: error', error: err.message,device:this.getName(),interface:this.getInterface(), protocol:this.getProtocolName()})
             this.started = false;
             this.stopped = true;      
             const ble = this.getBle()
