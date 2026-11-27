@@ -394,6 +394,15 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
         return message==='peripheral wait cancelled' || message==='peripheral not found'
     }
 
+    protected logStartFailure(err:any):void {
+        const logProps = {device:this.getName(),interface:this.getInterface(), protocol:this.getProtocolName()}
+
+        if (this.isExpectedStartFailure(err))
+            this.logEvent({message: 'start result: not found', reason: err.message, ...logProps})
+        else
+            this.logEvent({message: 'start result: error', error: err.message, ...logProps})
+    }
+
     protected hasData() {
         return this.dataMsgCount>0
     }
@@ -550,10 +559,7 @@ export default class BleAdapter<TDeviceData extends BleDeviceData, TDevice exten
             return true;
         }
         catch(err:any) {
-            if (this.isExpectedStartFailure(err))
-                this.logEvent({message: 'start result: not found', reason: err.message,device:this.getName(),interface:this.getInterface(), protocol:this.getProtocolName()})
-            else
-                this.logEvent({message: 'start result: error', error: err.message,device:this.getName(),interface:this.getInterface(), protocol:this.getProtocolName()})
+            this.logStartFailure(err)
             this.started = false;
             this.stopped = true;      
             const ble = this.getBle()
