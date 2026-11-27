@@ -40,6 +40,29 @@ describe('OpenBikeControlAdapter', () => {
             expect(result).toBe(false)
             expect(logs[0]).toMatchObject({ message: 'error', fn: 'startSensor', error: 'boom' })
         })
+
+        test('forwards key-pressed events of the sensor, with a single handler even if started again', async () => {
+            const adapter: any = new OpenBikeControlAdapter(settings({ interface: 'ble', address: 'aa:bb:cc:dd:ee:ff' }))
+            const base = Object.getPrototypeOf(OpenBikeControlAdapter.prototype)
+            const spy = jest.spyOn(base, 'startSensor').mockResolvedValue(true)
+            const sensor = { on: jest.fn(), off: jest.fn() }
+            adapter.device = sensor
+            const emitted = jest.fn()
+            adapter.on('key-pressed', emitted)
+
+            expect(await adapter.startSensor()).toBe(true)
+            expect(await adapter.startSensor()).toBe(true)
+            spy.mockRestore()
+
+            const handler = sensor.on.mock.calls[0][1]
+            expect(sensor.on).toHaveBeenCalledTimes(2)
+            expect(sensor.on.mock.calls[1][1]).toBe(handler)
+            expect(sensor.off).toHaveBeenCalledTimes(1)
+            expect(sensor.off).toHaveBeenCalledWith('key-pressed', handler)
+
+            handler({ key: 'A' })
+            expect(emitted).toHaveBeenCalledWith(adapter.getSettings(), { key: 'A' })
+        })
     })
 
     test('the name contains the end of the address', () => {
