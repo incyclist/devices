@@ -7,6 +7,7 @@ import SerialAdapterFactory from './factories/adapter-factory.js';
 import DaumClassicAdapter from './daum/classic/adapter.js'
 import DaumPremiumAdapter from './daum/premium/adapter.js';
 import KettlerRacerAdapter  from './kettler/ergo-racer/adapter.js';
+import BkoolClassicAdapter from './bkool/classic/adapter.js';
 
 export {SerialIncyclistDevice} from './base/adapter.js'
 export { SerialInterfaceProps,SerialDeviceSettings,SerialScannerProps } from "./types.js";
@@ -17,11 +18,12 @@ export {DaumClassicProperties} from './daum/classic/types.js'
 SerialAdapterFactory.getInstance().registerAdapter( 'Daum Classic',DaumClassicAdapter)
 SerialAdapterFactory.getInstance().registerAdapter( 'Daum Premium',DaumPremiumAdapter)
 SerialAdapterFactory.getInstance().registerAdapter( 'Kettler Racer', KettlerRacerAdapter)
+SerialAdapterFactory.getInstance().registerAdapter( 'Bkool Classic', BkoolClassicAdapter)
 
 
 export {
     // Adapters
-    SerialAdapterFactory,DaumClassicAdapter, DaumPremiumAdapter,KettlerRacerAdapter,
+    SerialAdapterFactory,DaumClassicAdapter, DaumPremiumAdapter,KettlerRacerAdapter,BkoolClassicAdapter,
 
     SerialPortProvider,useSerialPortProvider, 
     SerialInterface
