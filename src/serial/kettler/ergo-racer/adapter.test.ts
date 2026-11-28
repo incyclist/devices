@@ -4,6 +4,7 @@ import {MockLogger} from '../../../../test/logger'
 import { KettlerRacerMock, KettlerRacerMockImpl, KettlerRacerSimulator } from './mock';
 import { SerialPortProvider } from '../..';
 import { MockBinding } from '@serialport/binding-mock';
+import { useFeatureToggle } from '../../../features';
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
@@ -119,14 +120,28 @@ describe( 'ErgoRacerAdapter', () => {
         })
 
         test('Racer S (Elex): check after handshake, RS when closing',async ()=>{
+            useFeatureToggle().add('KettlerRacerBluetooth')
+            try {
+                const simulator = KettlerRacerSimulator.createElex()
+                KettlerRacerMockImpl.getInstance().setSimulator('COM1',simulator)
+
+                expect(await ad.check()).toBeTruthy()
+                expect(ad._getComms().isElexDevice()).toBe(true)
+
+                await ad.close()
+                expect(simulator.resetCount).toBe(1)
+            }
+            finally {
+                useFeatureToggle().remove('KettlerRacerBluetooth')
+            }
+        })
+
+        test('Racer S (Elex): not detected without feature KettlerRacerBluetooth',async ()=>{
             const simulator = KettlerRacerSimulator.createElex()
             KettlerRacerMockImpl.getInstance().setSimulator('COM1',simulator)
 
-            expect(await ad.check()).toBeTruthy()
-            expect(ad._getComms().isElexDevice()).toBe(true)
-
-            await ad.close()
-            expect(simulator.resetCount).toBe(1)
+            expect(await ad.check()).toBeFalsy()
+            expect(ad._getComms().isElexDevice()).toBe(false)
         })
     
     })

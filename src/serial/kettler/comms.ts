@@ -5,6 +5,7 @@ import { EventEmitter } from "node:events";
 import { SerialInterface } from "../index.js";
 import { ReadlineParser } from '@serialport/parser-readline'
 import { ElexHandshakeResult, prepareConnection } from "./elex/handshake.js";
+import { useFeatureToggle } from "../../features/index.js";
 
 const DEFAULT_RCV_TIMEOUT = 1500;
 const DEFAULT_OPEN_TIMEOUT = 3000;
@@ -153,6 +154,21 @@ export default class KettlerSerialComms< T extends Command > extends EventEmitte
         return this.handshake
     }
 
+    /**
+     * The Elex handshake (Kettler Racer S via Bluetooth) is experimental and therefore only done
+     * if the feature toggle `KettlerRacerBluetooth` is enabled. Without it, ports are opened as before.
+     * It can additionally be disabled per instance with the setting `elexHandshake: false`.
+     */
+    protected isElexHandshakeEnabled(): boolean {
+        if (this.settings.elexHandshake===false)
+            return false
+        return this.getFeatureToggle().has('KettlerRacerBluetooth')
+    }
+
+    protected getFeatureToggle() {
+        return useFeatureToggle()
+    }
+
     onPortOpen() {
         this.logger.logEvent( {message:'port opened', port:this.getPort()});
         this.state = SerialCommsState.Connected;
@@ -243,7 +259,7 @@ export default class KettlerSerialComms< T extends Command > extends EventEmitte
                 const port = await this.serial.openPort(this.port)
                 
                 if (port) {
-                    if (this.settings.elexHandshake!==false) {
+                    if (this.isElexHandshakeEnabled()) {
                         // the handshake has its own timeouts
                         this.stopCurrentTimeoutCheck()
                         this.handshake = await prepareConnection(port, {logger:this.logger, timeouts:this.settings.handshakeTimeouts})

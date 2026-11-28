@@ -5,6 +5,7 @@ import { Command } from '../types'
 import { SerialPortProvider } from '../..'
 import { KettlerRacerMock, KettlerRacerMockImpl, KettlerRacerSimulator } from '../ergo-racer/mock'
 import { isValidIdentifier } from './handshake'
+import { useFeatureToggle } from '../../../features'
 
 if (process.env.DEBUG === undefined)
     console.log = jest.fn();
@@ -31,6 +32,14 @@ describe('Elex handshake', () => {
 
     describe('prepareConnection', () => {
         let comms: KettlerSerialComms<Command>
+
+        beforeAll(() => {
+            useFeatureToggle().add('KettlerRacerBluetooth')
+        })
+
+        afterAll(() => {
+            useFeatureToggle().remove('KettlerRacerBluetooth')
+        })
 
         beforeEach(() => {
             KettlerRacerMockImpl.reset()

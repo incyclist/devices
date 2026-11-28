@@ -1,5 +1,5 @@
 
-export type Feature = 'VirtualShifting'
+export type Feature = 'VirtualShifting' | 'KettlerRacerBluetooth'
 
 export class FeatureToggle {
 

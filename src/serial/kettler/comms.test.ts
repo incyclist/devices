@@ -4,6 +4,7 @@ import KettlerSerialComms from "./comms";
 import { SerialPortProvider } from ".."
 import { KettlerRacerMock, KettlerRacerMockImpl} from './ergo-racer/mock'
 import { Command } from "./types";
+import { useFeatureToggle } from "../../features";
 
 if ( process.env.DEBUG===undefined)
     console.log = jest.fn();
@@ -65,13 +66,28 @@ describe('KettlerSerialComms',()=>{
         })
     
         test('port can be opened',async ()=>{
-            // the mock port never answers: text probe and Elex handshake run into their (shortened) timeouts
-            const handshakeTimeouts = {flush:10, textProbe:50, frame:50, text:50}
-            comms = new KettlerSerialComms<Command>({interface:'serial',port:'COM1',logger:new EventLogger('KettlerTest'), settings:{handshakeTimeouts}})
+            comms = new KettlerSerialComms<Command>({interface:'serial',port:'COM1',logger:new EventLogger('KettlerTest')})
             const opened = await comms.open()
             expect(opened).toBeTruthy()
             expect(comms.isConnected()).toBeTruthy()
+            // feature toggle not enabled: no Elex handshake
+            expect(comms.getHandshakeResult()).toBeUndefined()
+        })
 
+        test('port can be opened with feature KettlerRacerBluetooth',async ()=>{
+            useFeatureToggle().add('KettlerRacerBluetooth')
+            try {
+                // the mock port never answers: text probe and Elex handshake run into their (shortened) timeouts
+                const handshakeTimeouts = {flush:10, textProbe:50, frame:50, text:50}
+                comms = new KettlerSerialComms<Command>({interface:'serial',port:'COM1',logger:new EventLogger('KettlerTest'), settings:{handshakeTimeouts}})
+                const opened = await comms.open()
+                expect(opened).toBeTruthy()
+                expect(comms.isConnected()).toBeTruthy()
+                expect(comms.getHandshakeResult()).toMatchObject({mode:'none'})
+            }
+            finally {
+                useFeatureToggle().remove('KettlerRacerBluetooth')
+            }
         })
 
         test('timeout',async ()=>{
