@@ -236,6 +236,16 @@ describe('BlePeripheral', () => {
             expect(raw.disconnectAsync).toHaveBeenCalledTimes(1)
         })
 
+        test('releaseLink falls back to the callback based disconnect if disconnectAsync is not supported', async () => {
+            const { p, raw } = setup()
+            ;(raw as any).disconnectAsync = undefined
+            const disconnect = vi.fn( (cb: () => void) => { cb(); return Promise.resolve() })
+            raw.disconnect = disconnect as any
+
+            await expect(p.releaseLink()).resolves.toBeUndefined()
+            expect(disconnect).toHaveBeenCalledTimes(1)
+        })
+
         test('releaseLink does not wait forever for a stalled stack', async () => {
             vi.useFakeTimers()
             try {

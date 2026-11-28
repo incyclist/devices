@@ -630,12 +630,12 @@ export class BlePeripheral implements IBlePeripheral {
         this.logEvent({message:'release link before reconnect', name, address})
 
         try {
-            if (!peripheral.disconnectAsync) {
-                peripheral.disconnectAsync = ():Promise<void>=> {
-                    return new Promise ( (done) => { this.getPeripheral().disconnect(()=> {done()} )})
-                }
-            }
-            await runWithTimeout(peripheral.disconnectAsync(), BLE_RELEASE_LINK_TIMEOUT)
+            // old versions of the app did not support disconnectAsync
+            const disconnected:Promise<void> = peripheral.disconnectAsync
+                ? peripheral.disconnectAsync()
+                : new Promise<void>( (done) => { void peripheral.disconnect( ()=> { done() } ) })
+
+            await runWithTimeout(disconnected, BLE_RELEASE_LINK_TIMEOUT)
         }
         catch {
             // ignore
