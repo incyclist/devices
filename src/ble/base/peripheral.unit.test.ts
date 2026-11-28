@@ -132,6 +132,137 @@ describe('BlePeripheral', () => {
         })
     })
 
+    describe('characteristics verification after a reconnect', () => {
+
+        const FTMS_DATA = '2AD2'
+        const DEVICE_NAME = '2A00'
+
+        class DiscoveryPeripheral extends MockRawPeripheral {
+            chars: string[] = []
+            async discoverSomeServicesAndCharacteristicsAsync(_s: string[], _c: string[]) {
+                return { services: this.discovered, characteristics: this.chars.map( uuid => new MockChar(uuid)) }
+            }
+        }
+
+        const setup = () => {
+            const raw = new DiscoveryPeripheral()
+            const announcement: any = { peripheral: raw, serviceUUIDs: [] }
+            const p: any = new BlePeripheral(announcement)
+            p.connected = true
+            p.logEvent = () => {}
+            p.ble = { unregisterConnected: vi.fn() }
+            return { p, raw }
+        }
+
+        test('reports nothing missing when the same characteristics are exposed again', async () => {
+            const { p, raw } = setup()
+            raw.chars = [FTMS_DATA, DEVICE_NAME]
+            await p.discoverAllCharacteristics()
+            await p.disconnect(true)
+            p.connected = true
+
+            const res = await p.verifyCharacteristics()
+
+            expect(res).toEqual({ missing: [], missingUsed: [] })
+        })
+
+        test('reports a characteristic that is no longer exposed, and whether it had been used', async () => {
+            const { p, raw } = setup()
+            raw.chars = [FTMS_DATA, DEVICE_NAME]
+            await p.discoverAllCharacteristics()
+            await p.read(FTMS_DATA)
+            await p.disconnect(true)
+            p.connected = true
+
+            raw.chars = [DEVICE_NAME]
+            const res = await p.verifyCharacteristics()
+
+            expect(res).toEqual({ missing: [beautifyUUID(FTMS_DATA)], missingUsed: [beautifyUUID(FTMS_DATA)] })
+        })
+
+        test('a missing characteristic that was never used is not reported as used', async () => {
+            const { p, raw } = setup()
+            raw.chars = [FTMS_DATA, DEVICE_NAME]
+            await p.discoverAllCharacteristics()
+            await p.read(FTMS_DATA)
+            await p.disconnect(true)
+            p.connected = true
+
+            raw.chars = [FTMS_DATA]
+            const res = await p.verifyCharacteristics()
+
+            expect(res).toEqual({ missing: [beautifyUUID(DEVICE_NAME)], missingUsed: [] })
+        })
+
+        test('subscribe and write mark a characteristic as used', async () => {
+            const { p, raw } = setup()
+            raw.chars = [FTMS_DATA, CP, DEVICE_NAME]
+            await p.discoverAllCharacteristics()
+            await p.subscribe(FTMS_DATA, () => {})
+            await p.write(CP, Buffer.from([0]), { withoutResponse: true })
+            await p.disconnect(true)
+            p.connected = true
+
+            raw.chars = [DEVICE_NAME]
+            const res = await p.verifyCharacteristics()
+
+            expect(res.missingUsed.sort()).toEqual([beautifyUUID(CP), beautifyUUID(FTMS_DATA)].sort())
+        })
+
+        test('runs a discovery first if none has completed on the new connection', async () => {
+            const { p, raw } = setup()
+            raw.chars = [FTMS_DATA]
+            await p.discoverAllCharacteristics()
+            await p.disconnect(true)
+            p.connected = true
+            raw.chars = []
+
+            const res = await p.verifyCharacteristics()
+
+            expect(res.missing).toEqual([beautifyUUID(FTMS_DATA)])
+        })
+
+        test('nothing is reported while not connected', async () => {
+            const { p } = setup()
+            p.connected = false
+            await expect(p.verifyCharacteristics()).resolves.toEqual({ missing: [], missingUsed: [] })
+        })
+
+        test('releaseLink sends a disconnect and ignores errors', async () => {
+            const { p, raw } = setup()
+            raw.disconnectAsync = vi.fn().mockRejectedValue(new Error('not connected'))
+
+            await expect(p.releaseLink()).resolves.toBeUndefined()
+            expect(raw.disconnectAsync).toHaveBeenCalledTimes(1)
+        })
+
+        test('releaseLink falls back to the callback based disconnect if disconnectAsync is not supported', async () => {
+            const { p, raw } = setup()
+            ;(raw as any).disconnectAsync = undefined
+            const disconnect = vi.fn( (cb: () => void) => { cb(); return Promise.resolve() })
+            raw.disconnect = disconnect as any
+
+            await expect(p.releaseLink()).resolves.toBeUndefined()
+            expect(disconnect).toHaveBeenCalledTimes(1)
+        })
+
+        test('releaseLink does not wait forever for a stalled stack', async () => {
+            vi.useFakeTimers()
+            try {
+                const { p, raw } = setup()
+                raw.disconnectAsync = () => new Promise<void>(() => {})
+
+                const promise = p.releaseLink()
+                await vi.advanceTimersByTimeAsync(5000)
+
+                await expect(promise).resolves.toBeUndefined()
+            }
+            finally {
+                vi.useRealTimers()
+            }
+        })
+    })
+
     describe('write (FIXES_BACKLOG #25)', () => {
 
         const setup = () => {

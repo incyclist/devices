@@ -25,6 +25,10 @@ const POST_CONNECT_DISCOVERY_BACKOFF_MS = 1000
 // disconnect - and with it every reconnect attempt - forever.
 const BLE_DISCONNECT_STEP_TIMEOUT = 3000
 
+// Upper bound for the disconnect that is sent before a reconnect. The link is usually already gone at
+// that point, so a long wait would only delay the reconnect.
+const BLE_RELEASE_LINK_TIMEOUT = 1500
+
 export class BlePeripheral implements IBlePeripheral {
 
     protected connected = false
@@ -51,6 +55,18 @@ export class BlePeripheral implements IBlePeripheral {
 
     protected discoverServicesPromise: Promise<string[]>|undefined
     protected discoverCharacteristicsPromise: Record<string,Promise<BleCharacteristic[]>|undefined> = {}
+
+    // Every characteristic this peripheral has ever exposed. `characteristics` is wiped on each
+    // disconnect, this set is not: it is the reference a reconnect is verified against
+    // (see verifyCharacteristics()). It only grows, so a broken first connect never blocks anything.
+    protected knownCharacteristics: Set<string> = new Set()
+
+    // Characteristics that were actually read, written or subscribed to. A reconnect that is missing
+    // one of these cannot work; a missing characteristic nobody used is only worth a log entry.
+    protected usedCharacteristics: Set<string> = new Set()
+
+    // true once a full characteristic discovery has completed on the current connection
+    protected characteristicsDiscovered: boolean = false
 
     // set on every successful connect(); cleared once characteristic discovery returns a non-empty
     // result, or once the post-connect retries are exhausted
@@ -174,6 +190,7 @@ export class BlePeripheral implements IBlePeripheral {
 
         // unregisterall characteristics
         this.characteristics = {}
+        this.characteristicsDiscovered = false
 
         // there should be no subscription left
         this.subscribed = []
@@ -369,7 +386,7 @@ export class BlePeripheral implements IBlePeripheral {
         this.logEvent({message:'discover services and characteristics',name,address, service:serviceUUID})
         const res = await this.getPeripheral().discoverSomeServicesAndCharacteristicsAsync([serviceUUID],[])
             .catch( ()=> ({services:[], characteristics:[]}))                
-        res.characteristics.forEach( c => this.characteristics[beautifyUUID(c.uuid)] = c)
+        res.characteristics.forEach( c => this.cacheCharacteristic(c))
 
         this.logEvent({message:'discover services and characteristics result',name,address, service:serviceUUID})
 
@@ -408,14 +425,16 @@ export class BlePeripheral implements IBlePeripheral {
                     c.off('data',onData)
                     c.on('data',onData)
                 }
+                this.markUsed(characteristicUUID)
                 return true
             }
 
             let c = await this.queryRawCharacteristic(characteristicUUID).catch( ()=>null)
             if (!c) {
-                this.logEvent({message:'peripheral subscribe failed', characteristic:beautifyUUID(characteristicUUID), reason:'not found'}) 
+                this.logEvent({message:'peripheral subscribe failed', characteristic:beautifyUUID(characteristicUUID), reason:'not found'})
                 return false
             }
+            this.markUsed(characteristicUUID)
 
             return new Promise( (resolve,reject) => {
 
@@ -564,6 +583,65 @@ export class BlePeripheral implements IBlePeripheral {
         }
     }
 
+    protected cacheCharacteristic(c:BleRawCharacteristic):void {
+        const uuid = beautifyUUID(c.uuid)
+        this.characteristics[uuid] = c
+        this.knownCharacteristics.add(uuid)
+    }
+
+    protected markUsed(characteristicUUID:string):void {
+        this.usedCharacteristics.add(beautifyUUID(characteristicUUID))
+    }
+
+    /**
+     * Compares the characteristics the peripheral exposes on the current connection with all
+     * characteristics it has exposed before. Used after a reconnect: a device is expected to deliver
+     * exactly what it delivered before the link was lost.
+     *
+     * - `missing`: characteristics seen before but not exposed now
+     * - `missingUsed`: the subset of `missing` that was read, written or subscribed to before
+     */
+    async verifyCharacteristics():Promise<{missing:string[], missingUsed:string[]}> {
+        if (!this.connected)
+            return { missing:[], missingUsed:[] }
+
+        if (!this.characteristicsDiscovered) {
+            await this.discoverAllCharacteristics()
+        }
+
+        const present = new Set(Object.keys(this.characteristics))
+        const missing = Array.from(this.knownCharacteristics).filter( uuid => !present.has(uuid) )
+        const missingUsed = missing.filter( uuid => this.usedCharacteristics.has(uuid) )
+        return { missing, missingUsed }
+    }
+
+    /**
+     * Tells the BLE stack (and thereby the device) that the link is gone, before a reconnect is
+     * attempted. After a lost link the stack - or the device - may still consider the old connection
+     * open and then not expose all services/characteristics on the new one.
+     * Errors are ignored: on a link that is already gone the call is expected to fail.
+     */
+    async releaseLink():Promise<void> {
+        const peripheral = this.getPeripheral()
+        if (!peripheral)
+            return
+
+        const {name,address} = this.getInfo()
+        this.logEvent({message:'release link before reconnect', name, address})
+
+        try {
+            // old versions of the app did not support disconnectAsync
+            const disconnected:Promise<void> = peripheral.disconnectAsync
+                ? peripheral.disconnectAsync()
+                : new Promise<void>( (done) => { void peripheral.disconnect( ()=> { done() } ) })
+
+            await runWithTimeout(disconnected, BLE_RELEASE_LINK_TIMEOUT)
+        }
+        catch {
+            // ignore
+        }
+    }
+
     async discoverAllCharacteristics():Promise<string[]> {
         const attempts = this.awaitingPostConnectDiscovery ? POST_CONNECT_DISCOVERY_ATTEMPTS : 1
         return this.discoverAllCharacteristicsAttempt(1, attempts)
@@ -608,10 +686,11 @@ export class BlePeripheral implements IBlePeripheral {
             })
 
             res.characteristics.forEach(c => {
-                this.characteristics[beautifyUUID(c.uuid)] = c
+                this.cacheCharacteristic(c)
                 found.push(c.uuid)
                 uuids.push(beautifyUUID(c.uuid))
             });
+            this.characteristicsDiscovered = true
 
             this.logEvent({message:'discover all characteristics result',name,address,uuids:uuids.join('|')})
 
@@ -642,7 +721,7 @@ export class BlePeripheral implements IBlePeripheral {
             })
 
             res.characteristics.forEach(c => {
-                this.characteristics[beautifyUUID(c.uuid)] = c
+                this.cacheCharacteristic(c)
                 found.push(c.uuid)
             });
             return found
@@ -696,6 +775,7 @@ export class BlePeripheral implements IBlePeripheral {
             }
 
         }
+        this.markUsed(characteristicUUID)
 
         return new Promise( (resolve,reject) => {
             c.read( (err:Error|undefined, data:Buffer) => {
@@ -722,6 +802,7 @@ export class BlePeripheral implements IBlePeripheral {
                 return Promise.reject( new Error('characteristic not found: '+characteristicUUID))
             }
         }
+        this.markUsed(characteristicUUID)
 
         const signal = options?.signal
 
