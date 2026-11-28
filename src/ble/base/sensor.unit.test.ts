@@ -157,5 +157,142 @@ describe('TBleSensor', () => {
             expect(state.result).toBe(true)
             expect(sensor.getReconnectCount()).toBe(1)
         })
+
+        test('releases the old link before reconnecting after a lost connection', async () => {
+            peripheral.releaseLink = jest.fn().mockResolvedValue(undefined)
+
+            const state = track(sensor.reconnectSensor(true))
+            await jest.advanceTimersByTimeAsync(1000)
+
+            expect(state.result).toBe(true)
+            expect(peripheral.releaseLink).toHaveBeenCalledTimes(1)
+            expect(peripheral.releaseLink.mock.invocationCallOrder[0]).toBeLessThan(peripheral.connect.mock.invocationCallOrder[0])
+        })
+
+        test('a failing releaseLink does not prevent the reconnect', async () => {
+            peripheral.releaseLink = jest.fn().mockRejectedValue(new Error('not connected'))
+
+            const state = track(sensor.reconnectSensor(true))
+            await jest.advanceTimersByTimeAsync(1000)
+
+            expect(state.result).toBe(true)
+        })
+    })
+
+    describe('characteristics check on reconnect', () => {
+
+        const MISSING_USED = { missing: ['2AD2', '2A00'], missingUsed: ['2AD2'] }
+        const MISSING_UNUSED = { missing: ['2A00'], missingUsed: [] as string[] }
+        const COMPLETE = { missing: [] as string[], missingUsed: [] as string[] }
+
+        beforeEach(() => {
+            peripheral.releaseLink = jest.fn().mockResolvedValue(undefined)
+            peripheral.verifyCharacteristics = jest.fn().mockResolvedValue(COMPLETE)
+        })
+
+        test('succeeds immediately when nothing is missing', async () => {
+            const state = track(sensor.reconnectSensor())
+            await jest.advanceTimersByTimeAsync(600)
+
+            expect(state.result).toBe(true)
+            expect(peripheral.connect).toHaveBeenCalledTimes(1)
+        })
+
+        test('succeeds immediately, with a log entry, when only unused characteristics are missing', async () => {
+            peripheral.verifyCharacteristics.mockResolvedValue(MISSING_UNUSED)
+
+            const state = track(sensor.reconnectSensor())
+            await jest.advanceTimersByTimeAsync(600)
+
+            expect(state.result).toBe(true)
+            expect(peripheral.connect).toHaveBeenCalledTimes(1)
+            expect(logEvent).toHaveBeenCalledWith(expect.objectContaining({ message: 'reconnect: unused characteristics missing', missing: '2A00' }))
+        })
+
+        test('retries with a fresh connection while used characteristics are missing, and succeeds once they are back', async () => {
+            peripheral.verifyCharacteristics
+                .mockResolvedValueOnce(MISSING_USED)
+                .mockResolvedValueOnce(MISSING_USED)
+                .mockResolvedValue(COMPLETE)
+            const onRecovered = jest.fn()
+            sensor.on('connctionRecovered', onRecovered)
+
+            const state = track(sensor.reconnectSensor())
+            await jest.advanceTimersByTimeAsync(500 + 1000 + 1000 + 500)
+
+            expect(state.result).toBe(true)
+            expect(peripheral.connect).toHaveBeenCalledTimes(3)
+            // each failed attempt tears down the link, so the next one performs a fresh discovery
+            expect(peripheral.disconnect).toHaveBeenCalledTimes(2)
+            expect(logEvent).toHaveBeenCalledWith(expect.objectContaining({ message: 'reconnect: used characteristics missing', missingUsed: '2AD2', attempt: 1 }))
+            expect(onRecovered).toHaveBeenCalledTimes(1)
+        })
+
+        test('gives up after the characteristics timeout and reports the reconnect as failed', async () => {
+            peripheral.verifyCharacteristics.mockResolvedValue(MISSING_USED)
+            sensor.reconnectCharacteristicsTimeout = 30000
+            const onFailed = jest.fn()
+            const onRecovered = jest.fn()
+            sensor.on('connctionRecoveryFailed', onFailed)
+            sensor.on('connctionRecovered', onRecovered)
+
+            const state = track(sensor.reconnectSensor())
+
+            await jest.advanceTimersByTimeAsync(29000)
+            expect(state.done).toBe(false)
+
+            await jest.advanceTimersByTimeAsync(3000)
+            expect(state.done).toBe(true)
+            expect(state.result).toBe(false)
+            expect(onFailed).toHaveBeenCalledTimes(1)
+            expect(onRecovered).not.toHaveBeenCalled()
+            expect(logEvent).toHaveBeenCalledWith(expect.objectContaining({ message: 'reconnect sensor failed', reason: 'used characteristics missing' }))
+            expect(sensor.isReconnectBusy()).toBe(false)
+        })
+
+        test('the timeout only applies to missing characteristics: a failing connect keeps retrying', async () => {
+            peripheral.connect.mockResolvedValue(false)
+            sensor.reconnectCharacteristicsTimeout = 3000
+
+            const state = track(sensor.reconnectSensor())
+            await jest.advanceTimersByTimeAsync(20000)
+
+            expect(state.done).toBe(false)
+            await sensor.stopSensor()
+            await jest.advanceTimersByTimeAsync(2000)
+        })
+
+        test('a stale "incomplete" state of an earlier attempt does not cap a later failing connect', async () => {
+            sensor.reconnectCharacteristicsTimeout = 3000
+            peripheral.verifyCharacteristics.mockResolvedValueOnce(MISSING_USED)
+            peripheral.connect
+                .mockResolvedValueOnce(true)
+                .mockResolvedValue(false)
+
+            const state = track(sensor.reconnectSensor())
+            await jest.advanceTimersByTimeAsync(15000)
+
+            expect(state.done).toBe(false)
+            await sensor.stopSensor()
+            await jest.advanceTimersByTimeAsync(2000)
+        })
+
+        test('a peripheral without a characteristics check is not affected', async () => {
+            delete peripheral.verifyCharacteristics
+
+            const state = track(sensor.reconnectSensor())
+            await jest.advanceTimersByTimeAsync(600)
+
+            expect(state.result).toBe(true)
+        })
+
+        test('a throwing characteristics check does not block the reconnect', async () => {
+            peripheral.verifyCharacteristics.mockRejectedValue(new Error('boom'))
+
+            const state = track(sensor.reconnectSensor())
+            await jest.advanceTimersByTimeAsync(600)
+
+            expect(state.result).toBe(true)
+        })
     })
 })

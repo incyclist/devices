@@ -11,6 +11,9 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
     static readonly protocol: BleProtocol
     // upper bound for a single reconnect attempt (connect + discovery + subscribe)
     static readonly RECONNECT_ATTEMPT_TIMEOUT = 20000
+    // how long a reconnect keeps retrying while characteristics that were in use before the link was lost
+    // are not (yet) exposed by the device
+    static readonly RECONNECT_CHARACTERISTICS_TIMEOUT = 30000
 
     protected logger: EventLogger
     protected stopRequested: boolean = false
@@ -19,6 +22,10 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
     protected connectPromise: Promise<boolean>|undefined
     protected reconnectAttemptTimeout: number = TBleSensor.RECONNECT_ATTEMPT_TIMEOUT
     protected reconnectCount: number = 0
+    protected reconnectCharacteristicsTimeout: number = TBleSensor.RECONNECT_CHARACTERISTICS_TIMEOUT
+    protected reconnectStartedAt: number = 0
+    protected reconnectAttempts: number = 0
+    protected reconnectIncomplete: boolean = false
     protected onDataHandler
 
     logEvent(event:any, ...args:any) {
@@ -213,14 +220,25 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
         }
 
 
+        this.reconnectStartedAt = Date.now()
+        this.reconnectAttempts = 0
+
         // TODO: remove these hard coded sleeps to event based logic
         // -------------------------------------------------
         await sleep(500)
+
+        if (connectionLost) {
+            // make sure that the BLE stack (and the device) do not consider the old connection still open
+            await this.releaseLink()
+        }
 
         success = await this.reconnectUntilDone(name,address)
 
         if (connectionLost && success) {
             this.emit('connctionRecovered')
+        }
+        if (connectionLost && !success && this.reconnectIncomplete) {
+            this.emit('connctionRecoveryFailed')
         }
 
 
@@ -235,6 +253,14 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
         if (success || this.stopRequested)
             return success
 
+        // The device keeps reconnecting but does not expose characteristics that were in use before.
+        // Retrying can help (the device/stack may need a moment), but not forever.
+        if (this.reconnectIncomplete && Date.now()-this.reconnectStartedAt >= this.reconnectCharacteristicsTimeout) {
+            this.logEvent({message:'reconnect sensor failed', name,address, reason:'used characteristics missing',
+                attempts:this.reconnectAttempts, duration:Date.now()-this.reconnectStartedAt})
+            return false
+        }
+
         await sleep(1000)
         if (this.stopRequested)
             return false
@@ -244,10 +270,18 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
     }
 
     protected async reconnectAttempt(name:string, address:string):Promise<boolean> {
+        this.reconnectIncomplete = false
+        this.reconnectAttempts++
         try {
             // connect and GATT discovery are not bounded by the BLE bindings, a stalled discovery
             // would otherwise block the reconnect forever
-            return await runWithTimeout(this.connectAndSubscribe(), this.reconnectAttemptTimeout)
+            const success = await runWithTimeout(this.connectAndSubscribe(), this.reconnectAttemptTimeout)
+
+            if (!success && this.reconnectIncomplete) {
+                // tear down the link, so that the next attempt performs a fresh connect and discovery
+                await this.abortIncompleteReconnectAttempt()
+            }
+            return success
         }
         catch (err) {
             if (err?.message==='Timeout') {
@@ -263,7 +297,66 @@ export class TBleSensor extends EventEmitter implements IBleSensor {
             return false
 
         const subscribed = await this.subscribe()
-        return subscribed && this.isConnected()
+        if (!subscribed || !this.isConnected())
+            return false
+
+        return await this.checkCharacteristicsRestored()
+    }
+
+    /**
+     * After a reconnect the device is expected to expose the same characteristics as before the link was lost.
+     * - something missing that was never used: log only, the reconnect is accepted
+     * - something missing that was used (read/write/subscribe): the attempt fails and is retried
+     *   (until RECONNECT_CHARACTERISTICS_TIMEOUT, see reconnectUntilDone())
+     */
+    protected async checkCharacteristicsRestored():Promise<boolean> {
+        if (!this.peripheral?.verifyCharacteristics)
+            return true
+
+        let result:{missing:string[], missingUsed:string[]}
+        try {
+            result = await this.peripheral.verifyCharacteristics()
+        }
+        catch (err) {
+            this.logEvent({message:'reconnect: characteristics check failed', reason:err?.message})
+            return true
+        }
+
+        if (!result || result.missing.length===0)
+            return true
+
+        const {name,address} = this.peripheral.getInfo()??{}
+        const details = {name, address, attempt:this.reconnectAttempts, duration:Date.now()-this.reconnectStartedAt,
+            missing:result.missing.join('|'), missingUsed:result.missingUsed.join('|')}
+
+        if (result.missingUsed.length===0) {
+            this.logEvent({message:'reconnect: unused characteristics missing', ...details})
+            return true
+        }
+
+        this.reconnectIncomplete = true
+        this.logEvent({message:'reconnect: used characteristics missing', ...details})
+        return false
+    }
+
+    protected async abortIncompleteReconnectAttempt():Promise<void> {
+        delete this.connectPromise
+        this.onDisconnect()
+        try {
+            await runWithTimeout(this.peripheral.disconnect(), this.reconnectAttemptTimeout)
+        }
+        catch {
+            // ignore - the next attempt will try to connect again
+        }
+    }
+
+    protected async releaseLink():Promise<void> {
+        try {
+            await this.peripheral?.releaseLink?.()
+        }
+        catch {
+            // ignore
+        }
     }
 
     protected async abortReconnectAttempt(name:string, address:string):Promise<void> {

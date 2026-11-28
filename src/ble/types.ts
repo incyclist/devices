@@ -264,6 +264,15 @@ export interface IBlePeripheral {
 
     getInterface():IBleInterface<any>
 
+    /**
+     * After a reconnect: which characteristics that the peripheral exposed before are missing now,
+     * and which of those had been read/written/subscribed to (`missingUsed`)
+     */
+    verifyCharacteristics?():Promise<{missing:string[], missingUsed:string[]}>
+
+    /** tells the BLE stack that the link is gone, before a reconnect is attempted. Never rejects */
+    releaseLink?():Promise<void>
+
 }
 
 export interface IBleSensor extends EventEmitter  {
